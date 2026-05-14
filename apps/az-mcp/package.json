@@ -1,0 +1,26 @@
+{
+  "name": "az-mcp",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node --env-file=.env dist/index.js",
+    "lint": "eslint . --max-warnings 0",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@hrms/azure-devops": "*",
+    "@modelcontextprotocol/sdk": "1.11.0",
+    "zod": "3.24.1"
+  },
+  "devDependencies": {
+    "@hrms/eslint-config": "*",
+    "@hrms/typescript-config": "*",
+    "@types/node": "^25.7.0",
+    "typescript": "^5.7.3",
+    "vitest": "^3.2.0"
+  }
+}

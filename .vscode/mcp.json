@@ -1,0 +1,9 @@
+{
+  "servers": {
+    "azure-workitems": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["--env-file=apps/az-mcp/.env", "apps/az-mcp/dist/index.js"]
+    }
+  }
+}
