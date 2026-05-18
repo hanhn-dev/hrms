@@ -32,6 +32,37 @@ export interface WorkItemSummary {
   readonly url: string;
 }
 
+export interface WorkItemRequestEntry {
+  readonly index: number;
+  readonly rawValue: string;
+  readonly normalizedValue: string;
+  readonly parsedId: number | null;
+}
+
+export interface MultiWorkItemRequest {
+  readonly rawIds: string;
+  readonly entries: readonly WorkItemRequestEntry[];
+  readonly validUniqueIds: readonly number[];
+}
+
+export type WorkItemBatchResultStatus = 'found' | 'invalid' | 'not_found' | 'inaccessible';
+
+export interface WorkItemBatchResultEntry {
+  readonly index: number;
+  readonly input: string;
+  readonly id: number | null;
+  readonly status: WorkItemBatchResultStatus;
+  readonly workItem: WorkItem | null;
+  readonly message: string | null;
+}
+
+export interface WorkItemBatchResult {
+  readonly requestedCount: number;
+  readonly successCount: number;
+  readonly issueCount: number;
+  readonly results: readonly WorkItemBatchResultEntry[];
+}
+
 export interface AzureDevOpsConfig {
   readonly orgUrl: string;
   readonly project: string;

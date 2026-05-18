@@ -10,12 +10,13 @@ vi.mock('@hrms/azure-devops', () => ({
     };
   }),
   getWorkItem: vi.fn(),
+  getWorkItemsByIds: vi.fn(),
   listWorkItems: vi.fn(),
   queryWorkItems: vi.fn(),
 }));
 
-import { getWorkItem } from '@hrms/azure-devops';
-import type { AzureDevOpsConfig, WorkItem } from '@hrms/azure-devops';
+import { getWorkItem, getWorkItemsByIds } from '@hrms/azure-devops';
+import type { AzureDevOpsConfig, WorkItem, WorkItemBatchResult } from '@hrms/azure-devops';
 import { createServer } from '../server.js';
 
 const config: AzureDevOpsConfig = {
@@ -48,6 +49,30 @@ const mockWorkItem: WorkItem = {
   areaPath: 'Project',
   parentId: null,
   url: 'https://dev.azure.com/example/_workitems/edit/135898',
+};
+
+const mockBatchResult: WorkItemBatchResult = {
+  requestedCount: 2,
+  successCount: 2,
+  issueCount: 0,
+  results: [
+    {
+      index: 0,
+      input: '135898',
+      id: 135898,
+      status: 'found',
+      workItem: mockWorkItem,
+      message: null,
+    },
+    {
+      index: 1,
+      input: '135899',
+      id: 135899,
+      status: 'found',
+      workItem: { ...mockWorkItem, id: 135899, title: 'Second work item' },
+      message: null,
+    },
+  ],
 };
 
 async function connectClientAndServer() {
@@ -93,6 +118,30 @@ describe('createServer', () => {
     }
   });
 
+  it('registers get_work_items with an ids string input schema', async () => {
+    const session = await connectClientAndServer();
+
+    try {
+      const tools = await session.client.listTools();
+      const singleTool = tools.tools.find(({ name }) => name === 'get_work_item');
+      const multiTool = tools.tools.find(({ name }) => name === 'get_work_items');
+
+      expect(singleTool).toBeDefined();
+      expect(multiTool?.inputSchema).toMatchObject({
+        type: 'object',
+        properties: {
+          ids: {
+            type: 'string',
+            minLength: 1,
+          },
+        },
+        required: ['ids'],
+      });
+    } finally {
+      await session.close();
+    }
+  });
+
   it('passes the id argument through to getWorkItem', async () => {
     vi.mocked(getWorkItem).mockResolvedValue(mockWorkItem);
     const session = await connectClientAndServer();
@@ -107,6 +156,25 @@ describe('createServer', () => {
       expect(getWorkItem).toHaveBeenCalledWith(expect.anything(), 135898);
       expect(result.isError).toBeFalsy();
       expect(JSON.parse(content[0]!.text)).toMatchObject({ id: 135898 });
+    } finally {
+      await session.close();
+    }
+  });
+
+  it('passes the ids argument through to getWorkItemsByIds', async () => {
+    vi.mocked(getWorkItemsByIds).mockResolvedValue(mockBatchResult);
+    const session = await connectClientAndServer();
+
+    try {
+      const result = await session.client.callTool({
+        name: 'get_work_items',
+        arguments: { ids: '135898, 135899' },
+      });
+      const content = result.content as Array<{ type: 'text'; text: string }>;
+
+      expect(getWorkItemsByIds).toHaveBeenCalledWith(expect.anything(), '135898, 135899');
+      expect(result.isError).toBeFalsy();
+      expect(JSON.parse(content[0]!.text)).toMatchObject({ successCount: 2 });
     } finally {
       await session.close();
     }

@@ -4,6 +4,8 @@ import type { AzureDevOpsConfig, WorkItemAttachment } from './types.js';
 
 type AttachmentMetadata = Pick<WorkItemAttachment, 'contentType' | 'size'>;
 
+export type WorkItemLookupIssueStatus = 'not_found' | 'inaccessible';
+
 export class AzureDevOpsClient {
   readonly config: AzureDevOpsConfig;
   private _witApi: IWorkItemTrackingApi | null = null;
@@ -93,6 +95,20 @@ function normalizeSize(value: string | null): number | null {
 
   const parsedValue = Number.parseInt(value, 10);
   return Number.isFinite(parsedValue) && parsedValue >= 0 ? parsedValue : null;
+}
+
+export function getAzureDevOpsErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+export function classifyWorkItemLookupError(error: unknown): WorkItemLookupIssueStatus {
+  const normalizedMessage = getAzureDevOpsErrorMessage(error).toLowerCase();
+
+  if (/(access denied|forbidden|permission|not authorized|unauthorized|\b401\b|\b403\b)/.test(normalizedMessage)) {
+    return 'inaccessible';
+  }
+
+  return 'not_found';
 }
 
 function parseAttachmentReference(url: string): { id: string; fileName: string | null } | null {

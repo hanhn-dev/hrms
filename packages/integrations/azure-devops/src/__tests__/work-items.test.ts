@@ -1,8 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { WorkItemExpand } from 'azure-devops-node-api/interfaces/WorkItemTrackingInterfaces.js';
+import {
+  WorkItemErrorPolicy,
+  WorkItemExpand,
+} from 'azure-devops-node-api/interfaces/WorkItemTrackingInterfaces.js';
 import type { AzureDevOpsClient } from '../client.js';
 import type { AzureDevOpsConfig, ListWorkItemsFilter } from '../types.js';
-import { getWorkItem, listWorkItems, queryWorkItems } from '../work-items.js';
+import { getWorkItem, getWorkItemsByIds, listWorkItems, parseWorkItemIdsInput, queryWorkItems } from '../work-items.js';
 
 const mockConfig: AzureDevOpsConfig = {
   orgUrl: 'https://dev.azure.com/myorg',
@@ -12,6 +15,7 @@ const mockConfig: AzureDevOpsConfig = {
 
 const mockWitApi = {
   getWorkItem: vi.fn(),
+  getWorkItemsBatch: vi.fn(),
   queryByWiql: vi.fn(),
   getWorkItems: vi.fn(),
 };
@@ -262,6 +266,119 @@ describe('getWorkItem', () => {
     const result = await getWorkItem(mockClient, 1234);
 
     expect(result.attachments[0]?.id).toBe('attachment-guid');
+  });
+});
+
+describe('parseWorkItemIdsInput', () => {
+  it('trims whitespace and deduplicates valid transport IDs', () => {
+    const result = parseWorkItemIdsInput('1, 2,2, 3');
+
+    expect(result.entries.map((entry) => entry.normalizedValue)).toEqual(['1', '2', '2', '3']);
+    expect(result.entries.map((entry) => entry.parsedId)).toEqual([1, 2, 2, 3]);
+    expect(result.validUniqueIds).toEqual([1, 2, 3]);
+  });
+
+  it('throws for empty input', () => {
+    expect(() => parseWorkItemIdsInput('   ')).toThrow('Provide at least one work item ID');
+  });
+
+  it('throws when the request exceeds the 25 ID limit', () => {
+    const tooManyIds = Array.from({ length: 26 }, (_, index) => String(index + 1)).join(',');
+
+    expect(() => parseWorkItemIdsInput(tooManyIds)).toThrow(
+      'A maximum of 25 work item IDs is supported per request',
+    );
+  });
+});
+
+describe('getWorkItemsByIds', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(mockClient.getAttachmentMetadata).mockResolvedValue({
+      contentType: 'image/png',
+      size: 2048,
+    });
+  });
+
+  it('returns ordered work items from one Azure DevOps batch request', async () => {
+    mockWitApi.getWorkItemsBatch.mockResolvedValue([
+      { ...rawWorkItem, id: 4, fields: { ...rawWorkItem.fields, 'System.Title': 'Story 4' } },
+      { ...rawWorkItem, id: 2, fields: { ...rawWorkItem.fields, 'System.Title': 'Story 2' } },
+      { ...rawWorkItem, id: 1, fields: { ...rawWorkItem.fields, 'System.Title': 'Story 1' } },
+      { ...rawWorkItem, id: 3, fields: { ...rawWorkItem.fields, 'System.Title': 'Story 3' } },
+    ]);
+
+    const result = await getWorkItemsByIds(mockClient, '1,2, 3,4');
+
+    expect(mockWitApi.getWorkItemsBatch).toHaveBeenCalledWith({
+      ids: [1, 2, 3, 4],
+      $expand: WorkItemExpand.Relations,
+      errorPolicy: WorkItemErrorPolicy.Omit,
+    });
+    expect(mockWitApi.getWorkItem).not.toHaveBeenCalled();
+    expect(result.successCount).toBe(4);
+    expect(result.issueCount).toBe(0);
+    expect(result.results.map((entry) => entry.workItem?.id ?? entry.id)).toEqual([1, 2, 3, 4]);
+  });
+
+  it('fetches duplicate IDs once but returns them in the original order', async () => {
+    mockWitApi.getWorkItemsBatch.mockResolvedValue([
+      { ...rawWorkItem, id: 2, fields: { ...rawWorkItem.fields, 'System.Title': 'Story 2' } },
+      { ...rawWorkItem, id: 1, fields: { ...rawWorkItem.fields, 'System.Title': 'Story 1' } },
+    ]);
+
+    const result = await getWorkItemsByIds(mockClient, '2,1,2');
+    const passedIds = (mockWitApi.getWorkItemsBatch.mock.calls[0]?.[0] as { ids: number[] }).ids;
+
+    expect(passedIds).toEqual([2, 1]);
+    expect(result.results.map((entry) => entry.workItem?.id ?? entry.id)).toEqual([2, 1, 2]);
+  });
+
+  it('returns invalid entries without calling Azure when there are no usable IDs', async () => {
+    const result = await getWorkItemsByIds(mockClient, 'abc, ');
+
+    expect(mockWitApi.getWorkItemsBatch).not.toHaveBeenCalled();
+    expect(result.successCount).toBe(0);
+    expect(result.issueCount).toBe(2);
+    expect(result.results.map((entry) => entry.status)).toEqual(['invalid', 'invalid']);
+    expect(result.results[1]?.message).toContain('<empty>');
+  });
+
+  it('classifies omitted IDs as not_found and inaccessible while preserving valid results', async () => {
+    mockWitApi.getWorkItemsBatch.mockResolvedValue([
+      { ...rawWorkItem, id: 1, fields: { ...rawWorkItem.fields, 'System.Title': 'Story 1' } },
+      { ...rawWorkItem, id: 3, fields: { ...rawWorkItem.fields, 'System.Title': 'Story 3' } },
+    ]);
+    mockWitApi.getWorkItem
+      .mockRejectedValueOnce(new Error('TF401232: Work item 9999 does not exist'))
+      .mockRejectedValueOnce(new Error('Access denied to work item 7'));
+
+    const result = await getWorkItemsByIds(mockClient, '1,9999,7,3');
+
+    expect(mockWitApi.getWorkItem).toHaveBeenCalledTimes(2);
+    expect(result.results.map((entry) => entry.status)).toEqual(['found', 'not_found', 'inaccessible', 'found']);
+    expect(result.results[1]?.message).toBe('Work item 9999 not found');
+    expect(result.results[2]?.message).toBe('Work item 7 is inaccessible with current credentials');
+  });
+
+  it('supports 25 valid IDs in a single batch request', async () => {
+    const ids = Array.from({ length: 25 }, (_, index) => index + 1);
+    mockWitApi.getWorkItemsBatch.mockResolvedValue(
+      ids.map((id) => ({
+        ...rawWorkItem,
+        id,
+        fields: { ...rawWorkItem.fields, 'System.Title': `Story ${id}` },
+        relations: undefined,
+      })),
+    );
+
+    const result = await getWorkItemsByIds(mockClient, ids.join(','));
+    const passedIds = (mockWitApi.getWorkItemsBatch.mock.calls[0]?.[0] as { ids: number[] }).ids;
+
+    expect(passedIds).toEqual(ids);
+    expect(result.successCount).toBe(25);
+    expect(result.issueCount).toBe(0);
+    expect(mockWitApi.getWorkItem).not.toHaveBeenCalled();
   });
 });
 

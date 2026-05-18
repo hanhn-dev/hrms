@@ -3,6 +3,7 @@ import { AzureDevOpsClient, getWorkItem, listWorkItems, queryWorkItems } from '@
 import type { AzureDevOpsConfig } from '@hrms/azure-devops';
 import { z } from 'zod';
 import { createWorkItemImageResourceHandler } from './resources/work-item-image-resource.js';
+import { createGetWorkItemsHandler } from './tools/get-work-items.js';
 
 type TextContent = { type: 'text'; text: string };
 type ToolResult = { content: TextContent[]; isError?: boolean };
@@ -27,6 +28,7 @@ function registerTool(
 export function createServer(config: AzureDevOpsConfig): McpServer {
   const client = new AzureDevOpsClient(config);
   const readWorkItemImageResource = createWorkItemImageResourceHandler(client);
+  const getWorkItemsHandler = createGetWorkItemsHandler(client);
 
   const server = new McpServer({
     name: 'azure-workitems-mcp',
@@ -48,6 +50,14 @@ export function createServer(config: AzureDevOpsConfig): McpServer {
         return { content: [{ type: 'text', text: message }], isError: true };
       }
     },
+  );
+
+  registerTool(
+    server,
+    'get_work_items',
+    'Retrieve multiple Azure DevOps work items from a comma-separated list of IDs while preserving input order and reporting per-item issues.',
+    { ids: z.string().min(1) },
+    async ({ ids }) => getWorkItemsHandler({ ids: ids as string }),
   );
 
   registerTool(

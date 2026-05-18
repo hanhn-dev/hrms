@@ -1,15 +1,25 @@
 import {
+  WorkItemErrorPolicy,
   WorkItemExpand,
   type WorkItem as AzureWorkItem,
   type WorkItemRelation,
 } from 'azure-devops-node-api/interfaces/WorkItemTrackingInterfaces.js';
-import type { AzureDevOpsClient } from './client.js';
+import {
+  classifyWorkItemLookupError,
+  getAzureDevOpsErrorMessage,
+  type AzureDevOpsClient,
+} from './client.js';
 import { htmlToMarkdown } from './html-to-text.js';
 import type {
   AzureDevOpsConfig,
   ListWorkItemsFilter,
+  MultiWorkItemRequest,
   WorkItem,
   WorkItemAttachment,
+  WorkItemBatchResult,
+  WorkItemBatchResultEntry,
+  WorkItemBatchResultStatus,
+  WorkItemRequestEntry,
   WorkItemSummary,
 } from './types.js';
 
@@ -27,9 +37,32 @@ const WORK_ITEM_FIELDS = [
 ] as const;
 
 const IMAGE_ATTACHMENT_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.svg'] as const;
+const MAX_WORK_ITEM_BATCH_SIZE = 25;
+const POSITIVE_INTEGER_PATTERN = /^[1-9]\d*$/;
 
 function escapeWiqlString(value: string): string {
   return value.replace(/'/g, "''");
+}
+
+function parsePositiveInteger(value: string): number | null {
+  if (!POSITIVE_INTEGER_PATTERN.test(value)) {
+    return null;
+  }
+
+  const parsedValue = Number.parseInt(value, 10);
+  return Number.isSafeInteger(parsedValue) ? parsedValue : null;
+}
+
+function buildInvalidWorkItemIdMessage(value: string): string {
+  return `Invalid work item ID: ${value.length > 0 ? value : '<empty>'}`;
+}
+
+function buildLookupIssueMessage(id: number, status: Exclude<WorkItemBatchResultStatus, 'found' | 'invalid'>): string {
+  if (status === 'inaccessible') {
+    return `Work item ${id} is inaccessible with current credentials`;
+  }
+
+  return `Work item ${id} not found`;
 }
 
 function getAttachmentName(url: string, attributes: Record<string, unknown> | undefined): string {
@@ -196,14 +229,174 @@ function mapSummary(raw: AzureWorkItem, orgUrl: string): WorkItemSummary {
   };
 }
 
+export function parseWorkItemIdsInput(rawIds: string): MultiWorkItemRequest {
+  if (rawIds.trim().length === 0) {
+    throw new Error('Provide at least one work item ID');
+  }
+
+  const rawEntries = rawIds.split(',');
+  if (rawEntries.length > MAX_WORK_ITEM_BATCH_SIZE) {
+    throw new Error(`A maximum of ${MAX_WORK_ITEM_BATCH_SIZE} work item IDs is supported per request`);
+  }
+
+  const entries: WorkItemRequestEntry[] = rawEntries.map((rawValue, index) => {
+    const normalizedValue = rawValue.trim();
+
+    return {
+      index,
+      rawValue,
+      normalizedValue,
+      parsedId: parsePositiveInteger(normalizedValue),
+    };
+  });
+
+  const validUniqueIds = Array.from(
+    new Set(entries.flatMap((entry) => (entry.parsedId === null ? [] : [entry.parsedId]))),
+  );
+
+  return {
+    rawIds,
+    entries,
+    validUniqueIds,
+  };
+}
+
+async function fetchWorkItemsBatch(client: AzureDevOpsClient, ids: readonly number[]): Promise<Map<number, WorkItem>> {
+  const witApi = await client.getWorkItemTrackingApi();
+
+  let rawItems: AzureWorkItem[];
+  try {
+    // Azure DevOps rejects batch requests that combine `fields` with `$expand`.
+    // Requesting relations alone still returns the field payload needed for mapping.
+    rawItems = await witApi.getWorkItemsBatch({
+      ids: [...ids],
+      $expand: WorkItemExpand.Relations,
+      errorPolicy: WorkItemErrorPolicy.Omit,
+    });
+  } catch (error) {
+    throw new Error(`Azure DevOps API error: ${getAzureDevOpsErrorMessage(error)}`);
+  }
+
+  const mappedItems = await Promise.all(
+    (rawItems ?? [])
+      .filter((item): item is AzureWorkItem => item !== null && item !== undefined && typeof item.id === 'number')
+      .map(async (rawItem) => mapWorkItem(client, rawItem, client.config.orgUrl)),
+  );
+
+  return new Map(mappedItems.map((item) => [item.id, item]));
+}
+
+async function resolveOmittedWorkItem(
+  client: AzureDevOpsClient,
+  id: number,
+): Promise<{ status: Exclude<WorkItemBatchResultStatus, 'invalid'>; workItem: WorkItem | null; message: string | null }> {
+  const witApi = await client.getWorkItemTrackingApi();
+
+  try {
+    const rawItem = await witApi.getWorkItem(id, [...WORK_ITEM_FIELDS], undefined, WorkItemExpand.Relations);
+
+    if (rawItem === null || rawItem === undefined) {
+      return {
+        status: 'not_found',
+        workItem: null,
+        message: buildLookupIssueMessage(id, 'not_found'),
+      };
+    }
+
+    return {
+      status: 'found',
+      workItem: await mapWorkItem(client, rawItem, client.config.orgUrl),
+      message: null,
+    };
+  } catch (error) {
+    const status = classifyWorkItemLookupError(error);
+    return {
+      status,
+      workItem: null,
+      message: buildLookupIssueMessage(id, status),
+    };
+  }
+}
+
+export async function getWorkItemsByIds(client: AzureDevOpsClient, rawIds: string): Promise<WorkItemBatchResult> {
+  const request = parseWorkItemIdsInput(rawIds);
+
+  let foundItemsById = new Map<number, WorkItem>();
+  if (request.validUniqueIds.length > 0) {
+    foundItemsById = await fetchWorkItemsBatch(client, request.validUniqueIds);
+  }
+
+  const omittedIds = request.validUniqueIds.filter((id) => !foundItemsById.has(id));
+  const resolvedOmissions = new Map<
+    number,
+    { status: Exclude<WorkItemBatchResultStatus, 'invalid'>; workItem: WorkItem | null; message: string | null }
+  >();
+
+  if (omittedIds.length > 0) {
+    const resolvedEntries = await Promise.all(
+      omittedIds.map(async (id) => ({ id, resolution: await resolveOmittedWorkItem(client, id) })),
+    );
+
+    for (const { id, resolution } of resolvedEntries) {
+      resolvedOmissions.set(id, resolution);
+      if (resolution.status === 'found' && resolution.workItem !== null) {
+        foundItemsById.set(id, resolution.workItem);
+      }
+    }
+  }
+
+  const results: WorkItemBatchResultEntry[] = request.entries.map((entry) => {
+    if (entry.parsedId === null) {
+      return {
+        index: entry.index,
+        input: entry.normalizedValue,
+        id: null,
+        status: 'invalid',
+        workItem: null,
+        message: buildInvalidWorkItemIdMessage(entry.normalizedValue),
+      };
+    }
+
+    const foundItem = foundItemsById.get(entry.parsedId);
+    if (foundItem !== undefined) {
+      return {
+        index: entry.index,
+        input: entry.normalizedValue,
+        id: entry.parsedId,
+        status: 'found',
+        workItem: foundItem,
+        message: null,
+      };
+    }
+
+    const omission = resolvedOmissions.get(entry.parsedId);
+    return {
+      index: entry.index,
+      input: entry.normalizedValue,
+      id: entry.parsedId,
+      status: omission?.status ?? 'not_found',
+      workItem: omission?.workItem ?? null,
+      message: omission?.message ?? buildLookupIssueMessage(entry.parsedId, 'not_found'),
+    };
+  });
+
+  const successCount = results.filter((entry) => entry.status === 'found').length;
+
+  return {
+    requestedCount: results.length,
+    successCount,
+    issueCount: results.length - successCount,
+    results,
+  };
+}
+
 export async function getWorkItem(client: AzureDevOpsClient, id: number): Promise<WorkItem> {
   const witApi = await client.getWorkItemTrackingApi();
   let raw: AzureWorkItem | null;
   try {
     raw = await witApi.getWorkItem(id, [...WORK_ITEM_FIELDS], undefined, WorkItemExpand.Relations);
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`Azure DevOps API error: ${message}`);
+    throw new Error(`Azure DevOps API error: ${getAzureDevOpsErrorMessage(error)}`);
   }
   if (raw === null || raw === undefined) {
     throw new Error(`Work item ${id} not found`);
