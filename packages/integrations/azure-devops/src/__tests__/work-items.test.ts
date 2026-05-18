@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { WorkItemExpand } from 'azure-devops-node-api/interfaces/WorkItemTrackingInterfaces.js';
 import type { AzureDevOpsClient } from '../client.js';
 import type { AzureDevOpsConfig, ListWorkItemsFilter } from '../types.js';
 import { getWorkItem, listWorkItems, queryWorkItems } from '../work-items.js';
@@ -18,6 +19,7 @@ const mockWitApi = {
 const mockClient = {
   config: mockConfig,
   getWorkItemTrackingApi: vi.fn().mockResolvedValue(mockWitApi),
+  getAttachmentMetadata: vi.fn(),
 } as unknown as AzureDevOpsClient;
 
 const rawWorkItem = {
@@ -34,12 +36,32 @@ const rawWorkItem = {
     'System.AreaPath': 'MyProject',
     'System.Parent': 1100,
   },
+  relations: [
+    {
+      rel: 'AttachedFile',
+      url: 'https://dev.azure.com/myorg/_apis/wit/attachments/image-1?fileName=mockup.png',
+      attributes: { name: 'mockup.png', comment: 'Annotated flow' },
+    },
+    {
+      rel: 'AttachedFile',
+      url: 'https://dev.azure.com/myorg/_apis/wit/attachments/doc-1?fileName=notes.pdf',
+      attributes: { name: 'notes.pdf' },
+    },
+    {
+      rel: 'System.LinkTypes.Hierarchy-Reverse',
+      url: 'https://dev.azure.com/myorg/_apis/wit/workItems/1100',
+    },
+  ],
 };
 
 describe('getWorkItem', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockWitApi.getWorkItem.mockResolvedValue(rawWorkItem);
+    vi.mocked(mockClient.getAttachmentMetadata).mockResolvedValue({
+      contentType: 'image/png',
+      size: 2048,
+    });
   });
 
   it('returns mapped WorkItem with Markdown description', async () => {
@@ -52,6 +74,38 @@ describe('getWorkItem', () => {
     expect(result.assignedTo).toBe('Jane Smith');
     expect(result.parentId).toBe(1100);
     expect(result.url).toBe('https://dev.azure.com/myorg/_workitems/edit/1234');
+  });
+
+  it('requests relation expansion and maps attached files with image flags', async () => {
+    const result = await getWorkItem(mockClient, 1234);
+
+    expect(mockWitApi.getWorkItem).toHaveBeenCalledWith(
+      1234,
+      expect.any(Array),
+      undefined,
+      WorkItemExpand.Relations,
+    );
+    expect(result.attachments).toEqual([
+      {
+        id: 'image-1',
+        name: 'mockup.png',
+        url: 'https://dev.azure.com/myorg/_apis/wit/attachments/image-1?fileName=mockup.png',
+        comment: 'Annotated flow',
+        contentType: 'image/png',
+        size: 2048,
+        isImage: true,
+      },
+      {
+        id: 'doc-1',
+        name: 'notes.pdf',
+        url: 'https://dev.azure.com/myorg/_apis/wit/attachments/doc-1?fileName=notes.pdf',
+        comment: null,
+        contentType: 'image/png',
+        size: 2048,
+        isImage: false,
+      },
+    ]);
+    expect(mockClient.getAttachmentMetadata).toHaveBeenCalledTimes(2);
   });
 
   it('converts Acceptance Criteria HTML to Markdown bullets', async () => {
@@ -117,6 +171,97 @@ describe('getWorkItem', () => {
     expect(result.areaPath).toBe('');
     expect(result.type).toBe('');
     expect(result.state).toBe('');
+  });
+
+  it('returns empty attachments when the work item has no attached files', async () => {
+    mockWitApi.getWorkItem.mockResolvedValue({
+      ...rawWorkItem,
+      relations: undefined,
+    });
+
+    const result = await getWorkItem(mockClient, 1234);
+
+    expect(result.attachments).toEqual([]);
+    expect(mockClient.getAttachmentMetadata).not.toHaveBeenCalled();
+  });
+
+  it('uses the fileName query parameter when attachment name metadata is missing', async () => {
+    mockWitApi.getWorkItem.mockResolvedValue({
+      ...rawWorkItem,
+      relations: [
+        {
+          rel: 'AttachedFile',
+          url: 'https://dev.azure.com/myorg/_apis/wit/attachments/7f80f78f-5d2c-4a44-b8f0-6bc2087f9e31?fileName=diagram%20v2.png',
+          attributes: { comment: 'Latest screen flow' },
+        },
+      ],
+    });
+
+    const result = await getWorkItem(mockClient, 1234);
+
+    expect(result.attachments).toEqual([
+      {
+        id: '7f80f78f-5d2c-4a44-b8f0-6bc2087f9e31',
+        name: 'diagram v2.png',
+        url: 'https://dev.azure.com/myorg/_apis/wit/attachments/7f80f78f-5d2c-4a44-b8f0-6bc2087f9e31?fileName=diagram%20v2.png',
+        comment: 'Latest screen flow',
+        contentType: 'image/png',
+        size: 2048,
+        isImage: true,
+      },
+    ]);
+  });
+
+  it('prefers Azure-provided attachment content metadata when relation attributes include it', async () => {
+    mockWitApi.getWorkItem.mockResolvedValue({
+      ...rawWorkItem,
+      relations: [
+        {
+          rel: 'AttachedFile',
+          url: 'https://dev.azure.com/myorg/_apis/wit/attachments/doc-2?fileName=brief.pdf',
+          attributes: {
+            name: 'brief.pdf',
+            contentType: 'application/pdf',
+            resourceSize: '4096',
+          },
+        },
+      ],
+    });
+
+    const result = await getWorkItem(mockClient, 1234);
+
+    expect(result.attachments).toEqual([
+      {
+        id: 'doc-2',
+        name: 'brief.pdf',
+        url: 'https://dev.azure.com/myorg/_apis/wit/attachments/doc-2?fileName=brief.pdf',
+        comment: null,
+        contentType: 'application/pdf',
+        size: 4096,
+        isImage: false,
+      },
+    ]);
+    expect(mockClient.getAttachmentMetadata).not.toHaveBeenCalled();
+  });
+
+  it('uses Azure-provided attachment IDs when relation attributes include them', async () => {
+    mockWitApi.getWorkItem.mockResolvedValue({
+      ...rawWorkItem,
+      relations: [
+        {
+          rel: 'AttachedFile',
+          url: 'https://dev.azure.com/myorg/_apis/wit/attachments/generated-id?fileName=wireframe.png',
+          attributes: {
+            id: 'attachment-guid',
+            name: 'wireframe.png',
+          },
+        },
+      ],
+    });
+
+    const result = await getWorkItem(mockClient, 1234);
+
+    expect(result.attachments[0]?.id).toBe('attachment-guid');
   });
 });
 

@@ -20,6 +20,7 @@ The full representation of an Azure DevOps work item, returned by `get_work_item
 | `state`             | `string`                | `System.State`                                  | e.g., `"Active"`, `"New"`, `"Closed"`          |
 | `description`       | `string`                | `System.Description`                            | Converted from HTML to Markdown                |
 | `acceptanceCriteria`| `string`                | `Microsoft.VSTS.Common.AcceptanceCriteria`      | Converted from HTML to Markdown; `""` if unset |
+| `attachments`       | `WorkItemAttachment[]`  | `relations[]` where `rel === "AttachedFile"`  | Attachment metadata with IDs, size, MIME, and `isImage` hint |
 | `tags`              | `string[]`              | `System.Tags`                                   | Split from semicolon-separated string          |
 | `assignedTo`        | `string \| null`        | `System.AssignedTo` (display name)              | `null` if unassigned                           |
 | `iterationPath`     | `string`                | `System.IterationPath`                          | e.g., `"MyProject\\Sprint 1"`                 |
@@ -36,12 +37,41 @@ export interface WorkItem {
   readonly state: string;
   readonly description: string;
   readonly acceptanceCriteria: string;
+  readonly attachments: readonly WorkItemAttachment[];
   readonly tags: readonly string[];
   readonly assignedTo: string | null;
   readonly iterationPath: string;
   readonly areaPath: string;
   readonly parentId: number | null;
   readonly url: string;
+}
+```
+
+---
+
+### WorkItemAttachment
+
+Attachment metadata returned for a full work item fetch.
+
+| Field     | TypeScript Type   | Source                         | Notes                                   |
+|-----------|-------------------|--------------------------------|-----------------------------------------|
+| `id`      | `string`          | `relation.attributes.id` or URL path | Stable attachment identifier for resource URIs |
+| `name`    | `string`          | `relation.attributes.name`     | Falls back to the relation URL basename |
+| `url`     | `string`          | `relation.url`                 | Azure DevOps attachment API URL         |
+| `comment` | `string \| null`  | `relation.attributes.comment`  | `null` when unset                       |
+| `contentType` | `string \| null` | Attachment response headers or relation attributes | Best-effort MIME type when Azure provides it |
+| `size`    | `number \| null`  | Attachment response headers or relation attributes | Best-effort byte size when Azure provides it |
+| `isImage` | `boolean`         | Derived from file extension    | True for common image formats           |
+
+```typescript
+export interface WorkItemAttachment {
+  readonly id: string;
+  readonly name: string;
+  readonly url: string;
+  readonly comment: string | null;
+  readonly contentType: string | null;
+  readonly size: number | null;
+  readonly isImage: boolean;
 }
 ```
 
@@ -130,6 +160,7 @@ Work item `state` is managed entirely by Azure DevOps and is read-only in v1. No
 | `orgUrl` must be a valid URL | Enforced by Zod `.url()` during config loading |
 | `token` and `project` must be non-empty | Enforced by Zod `.min(1)` during config loading |
 | HTML fields sanitised before return | `htmlToMarkdown()` is applied to `description` and `acceptanceCriteria` before constructing `WorkItem` |
+| Attachment relations included on full fetch | `getWorkItem()` requests `WorkItemExpand.Relations` so attached files are available to AI agents |
 
 ---
 
@@ -147,6 +178,7 @@ function mapWorkItem(raw: AzureDevOpsWorkItem, orgUrl: string): WorkItem {
     state:               f["System.State"] ?? "",
     description:         htmlToMarkdown(f["System.Description"]),
     acceptanceCriteria:  htmlToMarkdown(f["Microsoft.VSTS.Common.AcceptanceCriteria"]),
+    attachments:         mapAttachments(raw),
     tags:                tagsRaw ? tagsRaw.split(";").map(t => t.trim()) : [],
     assignedTo:          (f["System.AssignedTo"] as { displayName?: string } | null)?.displayName ?? null,
     iterationPath:       f["System.IterationPath"] ?? "",

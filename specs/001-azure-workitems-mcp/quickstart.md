@@ -7,7 +7,7 @@
 
 ## Prerequisites
 
-- Node.js ≥ 18
+- Node.js 20.19+ or 22.12+
 - npm ≥ 10
 - An Azure DevOps organization with at least one project
 - A Personal Access Token (PAT) with **Work Items (Read)** scope

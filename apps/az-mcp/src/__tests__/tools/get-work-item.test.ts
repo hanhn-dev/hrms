@@ -19,6 +19,17 @@ const mockWorkItem: WorkItem = {
   state: 'Active',
   description: 'Description text',
   acceptanceCriteria: '-   AC 1\n-   AC 2',
+  attachments: [
+    {
+      id: 'img-1',
+      name: 'mockup.png',
+      url: 'https://dev.azure.com/myorg/attachment.png',
+      comment: null,
+      contentType: 'image/png',
+      size: 2048,
+      isImage: true,
+    },
+  ],
   tags: ['auth', 'ux'],
   assignedTo: 'Jane Smith',
   iterationPath: 'MyProject\\Sprint 1',

@@ -12,7 +12,7 @@ This document defines the complete interface contract for the Azure Work Items M
 
 ### `get_work_item`
 
-Retrieves the full details of a single Azure DevOps work item by ID, with HTML fields converted to Markdown.
+Retrieves the full details of a single Azure DevOps work item by ID, with HTML fields converted to Markdown and attachment metadata included for AI agents.
 
 **Input schema**
 
@@ -30,6 +30,17 @@ Retrieves the full details of a single Azure DevOps work item by ID, with HTML f
   "state": "Active",
   "description": "## Background\n\nUsers occasionally forget their password...",
   "acceptanceCriteria": "- [ ] Reset link sent within 30 seconds\n- [ ] Link expires after 24 hours\n- [ ] Works from mobile and desktop",
+  "attachments": [
+    {
+      "id": "9c4270d1-1df0-4a60-8866-8510f597de0b",
+      "name": "reset-flow.png",
+      "url": "https://dev.azure.com/myorg/_apis/wit/attachments/...",
+      "comment": "Current user journey",
+      "contentType": "image/png",
+      "size": 48321,
+      "isImage": true
+    }
+  ],
   "tags": ["auth", "ux"],
   "assignedTo": "Jane Smith",
   "iterationPath": "MyProject\\Sprint 3",
@@ -149,6 +160,28 @@ Exposes individual work items as named MCP resources. MCP clients that support r
 ```
 
 **Resource list**: The server exposes a static resource template (not a dynamic list) since work item discovery is done via tools (`list_work_items`/`query_work_items`).
+
+### `azdo://workitem/{id}/images/{attachmentId}`
+
+Exposes image attachments from a work item as binary MCP resources. Clients that support blob resources can attach the actual image bytes to conversation context instead of only receiving a URL.
+
+**URI template**: `azdo://workitem/{id}/images/{attachmentId}` where `{id}` is a positive integer and `{attachmentId}` matches `attachments[].id` from `get_work_item`.
+
+**Content** — returned as a blob resource:
+```typescript
+{
+  uri: "azdo://workitem/1234/images/9c4270d1-1df0-4a60-8866-8510f597de0b",
+  mimeType: "image/png",
+  blob: "<base64 image bytes>",
+}
+```
+
+**Error responses**
+
+| Scenario | Error message pattern |
+|----------|------------------------|
+| Attachment not found on work item | `"Attachment {attachmentId} not found on work item {id}"` |
+| Attachment is not an image | `"Attachment {attachmentId} on work item {id} is not an image"` |
 
 ---
 

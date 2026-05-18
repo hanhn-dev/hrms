@@ -9,11 +9,11 @@ Build a read-only MCP (Model Context Protocol) server that exposes Azure DevOps 
 
 ## Technical Context
 
-**Language/Version**: TypeScript 5.x, strict mode, Node.js ≥ 18  
+**Language/Version**: TypeScript 6.x, strict mode, Node.js 20.19+ or 22.12+  
 **Primary Dependencies**: `@modelcontextprotocol/sdk`, `azure-devops-node-api`, `turndown`, `zod`  
 **Storage**: None — stateless; all data fetched live from Azure DevOps REST API  
 **Testing**: Vitest (unit + integration); no Playwright needed (no UI surface)  
-**Target Platform**: Node.js ≥ 18; spawned as a child process by MCP clients (VS Code Copilot Agent, Claude Desktop, Cursor)  
+**Target Platform**: Node.js 20.19+ or 22.12+ for local development and test runs; spawned as a child process by MCP clients (VS Code Copilot Agent, Claude Desktop, Cursor)  
 **Project Type**: MCP Server application (`apps/az-mcp`) + integration library (`packages/integrations/azure-devops`)  
 **Performance Goals**: Single work item ≤ 3 s; batch of 200 items ≤ 10 s  
 **Constraints**: Read-only v1; no secrets in code; PAT via env vars validated with Zod at startup; HTML converted to Markdown before AI delivery  

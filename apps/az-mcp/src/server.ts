@@ -2,6 +2,7 @@ import { McpServer, ResourceTemplate } from '@modelcontextprotocol/sdk/server/mc
 import { AzureDevOpsClient, getWorkItem, listWorkItems, queryWorkItems } from '@hrms/azure-devops';
 import type { AzureDevOpsConfig } from '@hrms/azure-devops';
 import { z } from 'zod';
+import { createWorkItemImageResourceHandler } from './resources/work-item-image-resource.js';
 
 type TextContent = { type: 'text'; text: string };
 type ToolResult = { content: TextContent[]; isError?: boolean };
@@ -25,6 +26,7 @@ function registerTool(
 
 export function createServer(config: AzureDevOpsConfig): McpServer {
   const client = new AzureDevOpsClient(config);
+  const readWorkItemImageResource = createWorkItemImageResourceHandler(client);
 
   const server = new McpServer({
     name: 'azure-workitems-mcp',
@@ -34,7 +36,7 @@ export function createServer(config: AzureDevOpsConfig): McpServer {
   registerTool(
     server,
     'get_work_item',
-    'Retrieve a single Azure DevOps work item by ID. Description and Acceptance Criteria are returned as Markdown.',
+    'Retrieve a single Azure DevOps work item by ID. Description and Acceptance Criteria are returned as Markdown, with attachment metadata and image flags.',
     { id: z.number().int().positive() },
     async ({ id }) => {
       const numId = id as number;
@@ -111,6 +113,16 @@ export function createServer(config: AzureDevOpsConfig): McpServer {
         contents: [{ uri: uri.href, mimeType: 'application/json', text: JSON.stringify(item) }],
       };
     },
+  );
+
+  server.resource(
+    'work-item-image',
+    new ResourceTemplate('azdo://workitem/{id}/images/{attachmentId}', { list: undefined }),
+    {
+      description: 'Image attachment for an Azure DevOps work item as binary content.',
+      mimeType: 'application/octet-stream',
+    },
+    readWorkItemImageResource,
   );
 
   return server;

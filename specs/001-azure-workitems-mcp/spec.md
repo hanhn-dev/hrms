@@ -42,7 +42,7 @@ An AI agent lists work items from a given Azure DevOps project or sprint iterati
 
 ### User Story 3 - Expose Work Items as MCP Resources (Priority: P3)
 
-Individual work items are exposed as named MCP resources so that AI agents using resource-aware MCP clients can reference them by URI (e.g., `azdo://workitem/1234`) and attach them directly to conversation context.
+Individual work items are exposed as named MCP resources so that AI agents using resource-aware MCP clients can reference them by URI (e.g., `azdo://workitem/1234`) and attach them directly to conversation context. Image attachments are also exposed as binary resources (`azdo://workitem/{id}/images/{attachmentId}`) so agents can consume screenshots and mockups directly.
 
 **Why this priority**: Resource exposure enables richer MCP client integrations (e.g., attaching a work item as a file to a chat context), but is a progressive enhancement over the core tool-based access.
 
@@ -79,7 +79,7 @@ Individual work items are exposed as named MCP resources so that AI agents using
 
 ### Key Entities
 
-- **Work Item**: ID, Title, Type (Bug/User Story/Task/Epic), State (Active/Closed/New), Description (plain text), Acceptance Criteria (plain text), Tags, Assigned To, Iteration Path, Area Path, Parent ID.
+- **Work Item**: ID, Title, Type (Bug/User Story/Task/Epic), State (Active/Closed/New), Description (plain text), Acceptance Criteria (plain text), attachment metadata, Tags, Assigned To, Iteration Path, Area Path, Parent ID.
 - **Work Item Summary**: Lightweight representation (ID, Title, Type, State) used in list/query results.
 - **Project**: Azure DevOps organization URL + project name, used to scope queries.
 - **Query**: A WIQL expression or structured filter (project + type + state + iteration) that selects a set of work items.
@@ -101,6 +101,6 @@ Individual work items are exposed as named MCP resources so that AI agents using
 - Azure DevOps (cloud, `dev.azure.com`) is the target platform. Azure DevOps Server (on-premises) is out of scope for v1.
 - Only reading work item data is in scope unless clarified otherwise (FR-008).
 - The Acceptance Criteria field in Azure DevOps is stored in the `Microsoft.VSTS.Common.AcceptanceCriteria` field; custom field names are out of scope for v1.
-- Work item attachments (files, images) are out of scope; only text fields are returned.
+- Full work item responses include attachment metadata from Azure DevOps, including an `isImage` hint for common image formats.
 - The server will be a standalone Node.js (or compatible runtime) process — no specific existing codebase to integrate with.
 - Pagination will use Azure DevOps API defaults (max 200 items per page) for the initial version.

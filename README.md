@@ -14,6 +14,11 @@ npx create-turbo@latest -e with-npm
 
 This Turborepo uses [npm](https://www.npmjs.com/) as a packages manager. It includes the following packages/apps:
 
+## Prerequisites
+
+- Node.js 20.19 or newer, or 22.12 or newer
+- npm 10 or newer
+
 ### Apps and Packages
 
 - `docs`: a [Next.js](https://nextjs.org/) app
