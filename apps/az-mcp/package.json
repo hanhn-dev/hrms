@@ -7,6 +7,7 @@
   "scripts": {
     "build": "tsc",
     "start": "node --env-file=.env dist/index.js",
+    "inspect": "npx @modelcontextprotocol/inspector node --env-file=.env dist/index.js",
     "lint": "eslint . --max-warnings 0",
     "test": "vitest run",
     "test:watch": "vitest"

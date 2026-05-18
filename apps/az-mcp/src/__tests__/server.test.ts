@@ -10,13 +10,14 @@ vi.mock('@hrms/azure-devops', () => ({
     };
   }),
   getWorkItem: vi.fn(),
+  getWorkItemPullRequests: vi.fn(),
   getWorkItemsByIds: vi.fn(),
   listWorkItems: vi.fn(),
   queryWorkItems: vi.fn(),
 }));
 
-import { getWorkItem, getWorkItemsByIds } from '@hrms/azure-devops';
-import type { AzureDevOpsConfig, WorkItem, WorkItemBatchResult } from '@hrms/azure-devops';
+import { getWorkItem, getWorkItemPullRequests, getWorkItemsByIds } from '@hrms/azure-devops';
+import type { AzureDevOpsConfig, PullRequestLookupResponse, WorkItem, WorkItemBatchResult } from '@hrms/azure-devops';
 import { createServer } from '../server.js';
 
 const config: AzureDevOpsConfig = {
@@ -71,6 +72,41 @@ const mockBatchResult: WorkItemBatchResult = {
       status: 'found',
       workItem: { ...mockWorkItem, id: 135899, title: 'Second work item' },
       message: null,
+    },
+  ],
+};
+
+const mockPullRequestLookupResponse: PullRequestLookupResponse = {
+  stage: 'complete',
+  requestedCount: 1,
+  candidateTotal: 1,
+  matchingTotal: 1,
+  issues: [],
+  cherryPick: {
+    commitHashes: ['merge-501'],
+    command: 'git cherry-pick -m 1 merge-501',
+    skippedPullRequestIds: [],
+  },
+  facets: null,
+  questions: null,
+  results: [
+    {
+      repositoryId: 'repo-a',
+      pullRequestId: 501,
+      title: 'PR 501',
+      author: 'Alice',
+      status: 'completed',
+      targetBranch: 'refs/heads/main',
+      mergedDate: '2026-05-16T11:20:00Z',
+      url: 'https://dev.azure.com/example/project/_git/repo-a/pullrequest/501',
+      hashes: {
+        mergeCommit: 'merge-501',
+        sourceCommit: 'source-501',
+        targetCommit: 'target-501',
+      },
+      relatedWorkItemIds: [101, 202],
+      requestedWorkItemIds: [101],
+      childWorkItemIds: [202],
     },
   ],
 };
@@ -142,6 +178,46 @@ describe('createServer', () => {
     }
   });
 
+  it('registers get_work_item_pull_requests with staged refinement inputs', async () => {
+    const session = await connectClientAndServer();
+
+    try {
+      const tools = await session.client.listTools();
+      const tool = tools.tools.find(({ name }) => name === 'get_work_item_pull_requests');
+
+      expect(tool?.inputSchema).toMatchObject({
+        type: 'object',
+        properties: {
+          ids: {
+            type: 'string',
+            minLength: 1,
+          },
+          authors: {
+            type: 'array',
+          },
+          targetBranches: {
+            type: 'array',
+          },
+          statuses: {
+            type: 'array',
+          },
+          sortBy: {
+            type: 'string',
+          },
+          sortDirection: {
+            type: 'string',
+          },
+          confirmUnfiltered: {
+            type: 'boolean',
+          },
+        },
+        required: ['ids'],
+      });
+    } finally {
+      await session.close();
+    }
+  });
+
   it('passes the id argument through to getWorkItem', async () => {
     vi.mocked(getWorkItem).mockResolvedValue(mockWorkItem);
     const session = await connectClientAndServer();
@@ -175,6 +251,41 @@ describe('createServer', () => {
       expect(getWorkItemsByIds).toHaveBeenCalledWith(expect.anything(), '135898, 135899');
       expect(result.isError).toBeFalsy();
       expect(JSON.parse(content[0]!.text)).toMatchObject({ successCount: 2 });
+    } finally {
+      await session.close();
+    }
+  });
+
+  it('passes staged lookup arguments through to getWorkItemPullRequests', async () => {
+    vi.mocked(getWorkItemPullRequests).mockResolvedValue(mockPullRequestLookupResponse);
+    const session = await connectClientAndServer();
+
+    try {
+      const result = await session.client.callTool({
+        name: 'get_work_item_pull_requests',
+        arguments: {
+          ids: '101,202',
+          authors: ['Alice'],
+          targetBranches: ['refs/heads/main'],
+          statuses: ['completed'],
+          sortBy: 'mergedDate',
+          sortDirection: 'desc',
+          confirmUnfiltered: true,
+        },
+      });
+      const content = result.content as Array<{ type: 'text'; text: string }>;
+
+      expect(getWorkItemPullRequests).toHaveBeenCalledWith(expect.anything(), {
+        ids: '101,202',
+        authors: ['Alice'],
+        targetBranches: ['refs/heads/main'],
+        statuses: ['completed'],
+        sortBy: 'mergedDate',
+        sortDirection: 'desc',
+        confirmUnfiltered: true,
+      });
+      expect(result.isError).toBeFalsy();
+      expect(JSON.parse(content[0]!.text)).toMatchObject({ candidateTotal: 1 });
     } finally {
       await session.close();
     }

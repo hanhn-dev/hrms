@@ -3,6 +3,7 @@ import { AzureDevOpsClient, getWorkItem, listWorkItems, queryWorkItems } from '@
 import type { AzureDevOpsConfig } from '@hrms/azure-devops';
 import { z } from 'zod';
 import { createWorkItemImageResourceHandler } from './resources/work-item-image-resource.js';
+import { createGetWorkItemPullRequestsHandler } from './tools/get-work-item-pull-requests.js';
 import { createGetWorkItemsHandler } from './tools/get-work-items.js';
 
 type TextContent = { type: 'text'; text: string };
@@ -28,12 +29,17 @@ function registerTool(
 export function createServer(config: AzureDevOpsConfig): McpServer {
   const client = new AzureDevOpsClient(config);
   const readWorkItemImageResource = createWorkItemImageResourceHandler(client);
-  const getWorkItemsHandler = createGetWorkItemsHandler(client);
 
   const server = new McpServer({
     name: 'azure-workitems-mcp',
     version: '1.0.0',
   });
+
+  const getWorkItemPullRequestsHandler = createGetWorkItemPullRequestsHandler(client, {
+    elicitInput: (params) =>
+      server.server.elicitInput(params as Parameters<typeof server.server.elicitInput>[0]),
+  });
+  const getWorkItemsHandler = createGetWorkItemsHandler(client);
 
   registerTool(
     server,
@@ -58,6 +64,31 @@ export function createServer(config: AzureDevOpsConfig): McpServer {
     'Retrieve multiple Azure DevOps work items from a comma-separated list of IDs while preserving input order and reporting per-item issues.',
     { ids: z.string().min(1) },
     async ({ ids }) => getWorkItemsHandler({ ids: ids as string }),
+  );
+
+  registerTool(
+    server,
+    'get_work_item_pull_requests',
+    'Retrieve pull requests linked to Azure DevOps work items and their immediate child Tasks or Issues, then return refinement prompts or the final hash-focused summary.',
+    {
+      ids: z.string().min(1),
+      authors: z.array(z.string().min(1)).optional(),
+      targetBranches: z.array(z.string().min(1)).optional(),
+      statuses: z.array(z.string().min(1)).optional(),
+      sortBy: z.enum(['mergedDate', 'pullRequestId']).optional(),
+      sortDirection: z.enum(['asc', 'desc']).optional(),
+      confirmUnfiltered: z.boolean().optional(),
+    },
+    async ({ ids, authors, targetBranches, statuses, sortBy, sortDirection, confirmUnfiltered }) =>
+      getWorkItemPullRequestsHandler({
+        ids: ids as string,
+        authors: authors as string[] | undefined,
+        targetBranches: targetBranches as string[] | undefined,
+        statuses: statuses as string[] | undefined,
+        sortBy: sortBy as 'mergedDate' | 'pullRequestId' | undefined,
+        sortDirection: sortDirection as 'asc' | 'desc' | undefined,
+        confirmUnfiltered: confirmUnfiltered as boolean | undefined,
+      }),
   );
 
   registerTool(
