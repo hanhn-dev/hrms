@@ -1,4 +1,5 @@
 import * as azdev from 'azure-devops-node-api';
+import type { IGitApi } from 'azure-devops-node-api/GitApi.js';
 import type { IWorkItemTrackingApi } from 'azure-devops-node-api/WorkItemTrackingApi.js';
 import type { AzureDevOpsConfig, WorkItemAttachment } from './types.js';
 
@@ -8,6 +9,7 @@ export type WorkItemLookupIssueStatus = 'not_found' | 'inaccessible';
 
 export class AzureDevOpsClient {
   readonly config: AzureDevOpsConfig;
+  private _gitApi: IGitApi | null = null;
   private _witApi: IWorkItemTrackingApi | null = null;
   private _connection: azdev.WebApi;
 
@@ -22,6 +24,14 @@ export class AzureDevOpsClient {
       this._witApi = await this._connection.getWorkItemTrackingApi();
     }
     return this._witApi;
+  }
+
+  async getGitApi(): Promise<IGitApi> {
+    if (this._gitApi === null) {
+      this._gitApi = await this._connection.getGitApi();
+    }
+
+    return this._gitApi;
   }
 
   async getAttachmentMetadata(url: string): Promise<AttachmentMetadata> {
@@ -105,6 +115,16 @@ export function classifyWorkItemLookupError(error: unknown): WorkItemLookupIssue
   const normalizedMessage = getAzureDevOpsErrorMessage(error).toLowerCase();
 
   if (/(access denied|forbidden|permission|not authorized|unauthorized|\b401\b|\b403\b)/.test(normalizedMessage)) {
+    return 'inaccessible';
+  }
+
+  return 'not_found';
+}
+
+export function classifyPullRequestLookupError(error: unknown): WorkItemLookupIssueStatus {
+  const normalizedMessage = getAzureDevOpsErrorMessage(error).toLowerCase();
+
+  if (/(access denied|forbidden|permission|not authorized|unauthorized|repository does not exist|\b401\b|\b403\b)/.test(normalizedMessage)) {
     return 'inaccessible';
   }
 

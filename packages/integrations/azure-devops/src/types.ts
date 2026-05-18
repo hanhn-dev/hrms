@@ -76,3 +76,90 @@ export interface ListWorkItemsFilter {
   readonly iteration?: string | null;
   readonly top?: number;
 }
+
+export type PullRequestSortField = 'mergedDate' | 'pullRequestId';
+export type PullRequestSortDirection = 'asc' | 'desc';
+export type PullRequestLookupStage = 'needs_refinement' | 'complete';
+export type PullRequestLookupIssueStatus = 'invalid' | 'not_found' | 'inaccessible';
+export type PullRequestLinkSource = 'requested' | 'child';
+
+export interface WorkItemPullRequestLookupRequest {
+  readonly ids: string;
+  readonly authors?: readonly string[];
+  readonly targetBranches?: readonly string[];
+  readonly statuses?: readonly string[];
+  readonly sortBy?: PullRequestSortField;
+  readonly sortDirection?: PullRequestSortDirection;
+  readonly confirmUnfiltered?: boolean;
+}
+
+export interface PullRequestArtifactReference {
+  readonly projectId: string;
+  readonly repositoryId: string;
+  readonly pullRequestId: number;
+  readonly linkedWorkItemId: number;
+  readonly requestedAncestorId: number;
+  readonly linkSource: PullRequestLinkSource;
+}
+
+export interface PullRequestHashes {
+  readonly mergeCommit: string | null;
+  readonly sourceCommit: string | null;
+  readonly targetCommit: string | null;
+}
+
+export interface PullRequestCandidate {
+  readonly repositoryId: string;
+  readonly pullRequestId: number;
+  readonly title: string;
+  readonly author: string | null;
+  readonly status: string;
+  readonly targetBranch: string;
+  readonly mergedDate: string | null;
+  readonly url: string;
+  readonly hashes: PullRequestHashes;
+  readonly relatedWorkItemIds: readonly number[];
+  readonly requestedWorkItemIds: readonly number[];
+  readonly childWorkItemIds: readonly number[];
+}
+
+export interface PullRequestFilterFacets {
+  readonly authors: readonly string[];
+  readonly targetBranches: readonly string[];
+  readonly statuses: readonly string[];
+  readonly sortFields: readonly PullRequestSortField[];
+  readonly totalPullRequests: number;
+}
+
+export interface PullRequestLookupIssue {
+  readonly workItemId: number | null;
+  readonly input: string;
+  readonly status: PullRequestLookupIssueStatus;
+  readonly message: string;
+}
+
+export interface PullRequestCherryPickPlan {
+  readonly commitHashes: readonly string[];
+  readonly command: string | null;
+  readonly skippedPullRequestIds: readonly number[];
+}
+
+export interface RefinementQuestion {
+  readonly key: 'authors' | 'targetBranches' | 'statuses' | 'sortBy';
+  readonly prompt: string;
+  readonly options: readonly string[];
+  readonly allowSkip: boolean;
+  readonly multiSelect: boolean;
+}
+
+export interface PullRequestLookupResponse {
+  readonly stage: PullRequestLookupStage;
+  readonly requestedCount: number;
+  readonly candidateTotal: number;
+  readonly matchingTotal: number;
+  readonly issues: readonly PullRequestLookupIssue[];
+  readonly cherryPick: PullRequestCherryPickPlan | null;
+  readonly facets: PullRequestFilterFacets | null;
+  readonly questions: readonly RefinementQuestion[] | null;
+  readonly results: readonly PullRequestCandidate[] | null;
+}
