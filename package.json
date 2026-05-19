@@ -11,6 +11,7 @@
     "dev": "turbo run dev",
     "lint": "turbo run lint",
     "inspect:az": "npx @modelcontextprotocol/inspector node --env-file=./apps/az-mcp/.env ./apps/az-mcp/dist/index.js",
+    "inspect:db": "npm run build --workspace=packages/integrations/database-inspector && npm run build --workspace=apps/db-mcp && npx @modelcontextprotocol/inspector node --env-file=./apps/db-mcp/.env ./apps/db-mcp/dist/index.js",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
     "postinstall": "patch-package && node scripts/fix-next-postcss.mjs && npm dedupe --ignore-scripts"
   },

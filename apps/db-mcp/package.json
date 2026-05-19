@@ -1,0 +1,28 @@
+{
+  "name": "db-mcp",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node --env-file=.env dist/index.js",
+    "inspect": "npx @modelcontextprotocol/inspector node --env-file=.env dist/index.js",
+    "lint": "eslint . --max-warnings 0",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@hrms/database-inspector": "*",
+    "@modelcontextprotocol/sdk": "1.29.0",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@hrms/eslint-config": "*",
+    "@hrms/typescript-config": "*",
+    "@types/node": "^25.8.0",
+    "@vitest/coverage-v8": "4.1.6",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.6"
+  }
+}

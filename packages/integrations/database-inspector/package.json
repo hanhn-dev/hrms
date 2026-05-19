@@ -1,0 +1,35 @@
+{
+  "name": "@hrms/database-inspector",
+  "version": "0.0.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./src/index.ts",
+  "scripts": {
+    "build": "tsc",
+    "lint": "eslint . --max-warnings 0",
+    "test": "vitest run",
+    "test:integration:postgres": "vitest run src/__tests__/postgres.integration.test.ts",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "mssql": "12.5.0",
+    "mysql2": "3.22.3",
+    "oracledb": "6.10.0",
+    "pg": "8.20.0",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@hrms/eslint-config": "*",
+    "@hrms/typescript-config": "*",
+    "@types/node": "^25.8.0",
+    "@vitest/coverage-v8": "4.1.6",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.6"
+  }
+}
