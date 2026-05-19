@@ -17,9 +17,9 @@ An AI agent or developer uses the MCP server to retrieve a specific Azure DevOps
 
 **Acceptance Scenarios**:
 
-1. **Given** a valid work item ID and configured Azure DevOps credentials, **When** the AI agent calls `get_work_item(id)`, **Then** the server returns the work item's Title, Description, Acceptance Criteria, State, Type, and Assigned To fields.
+1. **Given** a valid work item ID and configured Azure DevOps credentials, **When** the AI agent calls `az_get_work_item(id)`, **Then** the server returns the work item's Title, Description, Acceptance Criteria, State, Type, and Assigned To fields.
 2. **Given** a work item with HTML-formatted Description or Acceptance Criteria, **When** the content is returned, **Then** the HTML is converted to clean plain text (or Markdown) suitable for use in an AI prompt.
-3. **Given** an invalid or non-existent work item ID, **When** the AI agent calls `get_work_item(id)`, **Then** the server returns a clear error message indicating the work item was not found.
+3. **Given** an invalid or non-existent work item ID, **When** the AI agent calls `az_get_work_item(id)`, **Then** the server returns a clear error message indicating the work item was not found.
 
 ---
 
@@ -33,8 +33,8 @@ An AI agent lists work items from a given Azure DevOps project or sprint iterati
 
 **Acceptance Scenarios**:
 
-1. **Given** a project name and optional iteration path, **When** the AI agent calls `list_work_items(project, iteration)`, **Then** the server returns a list of matching work items with ID, Title, Type, and State.
-2. **Given** a WIQL (Work Item Query Language) string, **When** the AI agent calls `query_work_items(wiql)`, **Then** the server executes the query and returns the matching work item summaries.
+1. **Given** a project name and optional iteration path, **When** the AI agent calls `az_list_work_items(project, iteration)`, **Then** the server returns a list of matching work items with ID, Title, Type, and State.
+2. **Given** a WIQL (Work Item Query Language) string, **When** the AI agent calls `az_query_work_items(wiql)`, **Then** the server executes the query and returns the matching work item summaries.
 3. **Given** a query that returns no results, **When** the agent calls list or query, **Then** the server returns an empty list with no error.
 4. **Given** a query returning more than 200 items, **When** the agent calls list or query, **Then** the server paginates results and indicates that more items are available.
 
@@ -51,7 +51,7 @@ Individual work items are exposed as named MCP resources so that AI agents using
 **Acceptance Scenarios**:
 
 1. **Given** an MCP client that supports resources, **When** it requests the resource list, **Then** recently accessed or pinned work items appear as browsable resources.
-2. **Given** a resource URI `azdo://workitem/{id}`, **When** the client reads the resource, **Then** it receives the work item content in a format consistent with `get_work_item`.
+2. **Given** a resource URI `azdo://workitem/{id}`, **When** the client reads the resource, **Then** it receives the work item content in a format consistent with `az_get_work_item`.
 
 ---
 
@@ -66,9 +66,9 @@ Individual work items are exposed as named MCP resources so that AI agents using
 
 ### Functional Requirements
 
-- **FR-001**: The MCP server MUST expose a `get_work_item` tool that retrieves a single work item by ID, returning Title, Description, Acceptance Criteria, State, Type, Tags, Assigned To, and Iteration Path.
-- **FR-002**: The MCP server MUST expose a `list_work_items` tool that lists work items for a given Azure DevOps project, with optional filtering by type, state, and iteration.
-- **FR-003**: The MCP server MUST expose a `query_work_items` tool that executes a WIQL query string and returns matching work item summaries.
+- **FR-001**: The MCP server MUST expose an `az_get_work_item` tool that retrieves a single work item by ID, returning Title, Description, Acceptance Criteria, State, Type, Tags, Assigned To, and Iteration Path.
+- **FR-002**: The MCP server MUST expose an `az_list_work_items` tool that lists work items for a given Azure DevOps project, with optional filtering by type, state, and iteration.
+- **FR-003**: The MCP server MUST expose an `az_query_work_items` tool that executes a WIQL query string and returns matching work item summaries.
 - **FR-004**: HTML content in Description and Acceptance Criteria fields MUST be converted to clean plain text or Markdown before being returned to the AI agent.
 - **FR-005**: The server MUST authenticate with Azure DevOps using a Personal Access Token (PAT) supplied via the `AZURE_DEVOPS_TOKEN` environment variable. The PAT is passed to `azure-devops-node-api`'s `getPersonalAccessTokenHandler`. No secrets may be hardcoded.
 - **FR-006**: The MCP server MUST expose work items as MCP resources accessible by URI (`azdo://workitem/{id}`).

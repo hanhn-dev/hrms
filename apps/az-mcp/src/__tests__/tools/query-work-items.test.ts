@@ -23,7 +23,7 @@ const mockSummaries: WorkItemSummary[] = [
 
 const VALID_WIQL = "SELECT [System.Id] FROM WorkItems WHERE [System.State] = 'Active'";
 
-describe('query_work_items tool handler', () => {
+describe('az_query_work_items tool handler', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(queryWorkItems).mockResolvedValue(mockSummaries);

@@ -10,7 +10,7 @@ This document defines the complete interface contract for the Azure Work Items M
 
 ## Tools
 
-### `get_work_item`
+### `az_get_work_item`
 
 Retrieves the full details of a single Azure DevOps work item by ID, with HTML fields converted to Markdown and attachment metadata included for AI agents.
 
@@ -65,7 +65,7 @@ Retrieves the full details of a single Azure DevOps work item by ID, with HTML f
 
 ---
 
-### `list_work_items`
+### `az_list_work_items`
 
 Lists work items from a project with optional filters. Returns lightweight summaries.
 
@@ -103,7 +103,7 @@ Returns `[]` when no items match (not an error).
 
 ---
 
-### `query_work_items`
+### `az_query_work_items`
 
 Executes an arbitrary WIQL (Work Item Query Language) query and returns work item summaries.
 
@@ -123,7 +123,7 @@ WHERE [System.TeamProject] = 'MyProject'
 ORDER BY [System.ChangedDate] DESC
 ```
 
-**Output** — same shape as `list_work_items`: `WorkItemSummary[]` as JSON in `content[0].text`.
+**Output** — same shape as `az_list_work_items`: `WorkItemSummary[]` as JSON in `content[0].text`.
 
 **Error responses**
 
@@ -149,7 +149,7 @@ Exposes individual work items as named MCP resources. MCP clients that support r
 
 **URI template**: `azdo://workitem/{id}` where `{id}` is a positive integer.
 
-**Content** — same JSON payload as `get_work_item`, returned as:
+**Content** — same JSON payload as `az_get_work_item`, returned as:
 ```typescript
 {
   uri: "azdo://workitem/1234",
@@ -159,13 +159,13 @@ Exposes individual work items as named MCP resources. MCP clients that support r
 }
 ```
 
-**Resource list**: The server exposes a static resource template (not a dynamic list) since work item discovery is done via tools (`list_work_items`/`query_work_items`).
+**Resource list**: The server exposes a static resource template (not a dynamic list) since work item discovery is done via tools (`az_list_work_items`/`az_query_work_items`).
 
 ### `azdo://workitem/{id}/images/{attachmentId}`
 
 Exposes image attachments from a work item as binary MCP resources. Clients that support blob resources can attach the actual image bytes to conversation context instead of only receiving a URL.
 
-**URI template**: `azdo://workitem/{id}/images/{attachmentId}` where `{id}` is a positive integer and `{attachmentId}` matches `attachments[].id` from `get_work_item`.
+**URI template**: `azdo://workitem/{id}/images/{attachmentId}` where `{id}` is a positive integer and `{attachmentId}` matches `attachments[].id` from `az_get_work_item`.
 
 **Content** — returned as a blob resource:
 ```typescript

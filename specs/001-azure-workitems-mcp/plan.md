@@ -5,7 +5,7 @@
 
 ## Summary
 
-Build a read-only MCP (Model Context Protocol) server that exposes Azure DevOps work items to AI agents via `stdio` transport. The server wraps `azure-devops-node-api` in a typed `@hrms/azure-devops` integration package and serves three MCP tools (`get_work_item`, `list_work_items`, `query_work_items`) plus an `azdo://workitem/{id}` resource. HTML fields (Description, Acceptance Criteria) are converted to Markdown via `turndown` before delivery to agents.
+Build a read-only MCP (Model Context Protocol) server that exposes Azure DevOps work items to AI agents via `stdio` transport. The server wraps `azure-devops-node-api` in a typed `@hrms/azure-devops` integration package and serves three MCP tools (`az_get_work_item`, `az_list_work_items`, `az_query_work_items`) plus an `azdo://workitem/{id}` resource. HTML fields (Description, Acceptance Criteria) are converted to Markdown via `turndown` before delivery to agents.
 
 ## Technical Context
 

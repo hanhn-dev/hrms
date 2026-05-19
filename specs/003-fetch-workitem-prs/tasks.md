@@ -53,20 +53,20 @@ description: "Task list for Work Item Pull Request Hash Collection"
 
 **Goal**: Discover a deduplicated set of pull requests across requested work items and their immediate child Tasks or Issues.
 
-**Independent Test**: Call `get_work_item_pull_requests` with multiple valid work item IDs and verify the response contains one combined candidate set with no duplicate PRs, includes PRs linked through eligible child work items, and preserves work-item traceability.
+**Independent Test**: Call `az_get_work_item_pull_requests` with multiple valid work item IDs and verify the response contains one combined candidate set with no duplicate PRs, includes PRs linked through eligible child work items, and preserves work-item traceability.
 
 ### Tests for User Story 1 ⚠️ Write FIRST - must FAIL before implementation
 
 - [X] T009 [P] [US1] Add failing discovery tests for requested work items, immediate child Task or Issue traversal, pull-request artifact parsing, deduplication, and work-item issue reporting in `packages/integrations/azure-devops/src/__tests__/pull-requests.test.ts`
 - [X] T010 [P] [US1] Add failing MCP discovery-response tests for candidate totals and issue serialization in `apps/az-mcp/src/__tests__/tools/get-work-item-pull-requests.test.ts`
-- [X] T011 [P] [US1] Extend MCP registration coverage for `get_work_item_pull_requests` input schema in `apps/az-mcp/src/__tests__/server.test.ts`
+- [X] T011 [P] [US1] Extend MCP registration coverage for `az_get_work_item_pull_requests` input schema in `apps/az-mcp/src/__tests__/server.test.ts`
 
 ### Implementation for User Story 1
 
 - [X] T012 [US1] Implement pull-request artifact parsing and immediate eligible-child traversal in `packages/integrations/azure-devops/src/pull-requests.ts`
 - [X] T013 [US1] Implement repository-scoped pull-request hydration, deduplication, and related-work-item traceability assembly in `packages/integrations/azure-devops/src/pull-requests.ts`
 - [X] T014 [US1] Implement the discovery-stage MCP handler that returns candidate totals and work-item issues in `apps/az-mcp/src/tools/get-work-item-pull-requests.ts`
-- [X] T015 [US1] Register the `get_work_item_pull_requests` MCP tool and staged input schema in `apps/az-mcp/src/server.ts`
+- [X] T015 [US1] Register the `az_get_work_item_pull_requests` MCP tool and staged input schema in `apps/az-mcp/src/server.ts`
 
 **Checkpoint**: User Story 1 is independently functional. The tool can discover PR candidates across requested and child work items and return a deduplicated candidate set with traceability.
 
@@ -76,7 +76,7 @@ description: "Task list for Work Item Pull Request Hash Collection"
 
 **Goal**: Return a staged response that asks which authors, target branches, statuses, and sort options the user wants before the final hash list is returned.
 
-**Independent Test**: Call `get_work_item_pull_requests` without refinement inputs and verify the response returns `stage = needs_refinement`, the total discovered PR count, available authors, target branches, statuses, and the follow-up questions the agent should ask the user.
+**Independent Test**: Call `az_get_work_item_pull_requests` without refinement inputs and verify the response returns `stage = needs_refinement`, the total discovered PR count, available authors, target branches, statuses, and the follow-up questions the agent should ask the user.
 
 ### Tests for User Story 2 ⚠️ Write FIRST - must FAIL before implementation
 

@@ -52,19 +52,19 @@ description: "Task list for Multiple Work Item Retrieval"
 
 **Goal**: Let callers retrieve several known work items in one request with the same detail as single-item retrieval while preserving request order and good performance.
 
-**Independent Test**: Call `get_work_items` with `1,2, 3,4` and verify all four work items are returned in that order with the same detail fields provided by `get_work_item`, and the integration layer performs one Azure DevOps batch fetch for the valid IDs.
+**Independent Test**: Call `az_get_work_items` with `1,2, 3,4` and verify all four work items are returned in that order with the same detail fields provided by `az_get_work_item`, and the integration layer performs one Azure DevOps batch fetch for the valid IDs.
 
 ### Tests for User Story 1 ⚠️ Write FIRST — must FAIL before implementation
 
 - [X] T008 [P] [US1] Extend `packages/integrations/azure-devops/src/__tests__/work-items.test.ts` with failing tests for comma-separated parsing, whitespace tolerance, preserved input order, duplicate-ID transport deduplication, and one `getWorkItems` batch call for successful multi-ID retrieval
 - [X] T009 [P] [US1] Add failing successful-retrieval and single-item-compatibility tests in `apps/az-mcp/src/__tests__/tools/get-work-items.test.ts`
-- [X] T010 [P] [US1] Extend `apps/az-mcp/src/__tests__/server.test.ts` with a failing test that registers `get_work_items` with a non-empty string `ids` schema while leaving `get_work_item` unchanged
+- [X] T010 [P] [US1] Extend `apps/az-mcp/src/__tests__/server.test.ts` with a failing test that registers `az_get_work_items` with a non-empty string `ids` schema while keeping `az_get_work_item` as the canonical single-item tool
 
 ### Implementation for User Story 1
 
 - [X] T011 [US1] Implement happy-path batch retrieval and ordered success-result reconstruction in `packages/integrations/azure-devops/src/work-items.ts`
 - [X] T012 [US1] Implement `createGetWorkItemsHandler` to parse `ids`, call the integration batch helper, and serialize `WorkItemBatchResult` in `apps/az-mcp/src/tools/get-work-items.ts`
-- [X] T013 [US1] Register the new `get_work_items` MCP tool with its `ids` string schema in `apps/az-mcp/src/server.ts`
+- [X] T013 [US1] Register the new `az_get_work_items` MCP tool with its `ids` string schema in `apps/az-mcp/src/server.ts`
 
 **Checkpoint**: User Story 1 is independently functional. Callers can retrieve multiple valid work items in one request, in the same order supplied, without regressing the existing single-item tool.
 
@@ -74,7 +74,7 @@ description: "Task list for Multiple Work Item Retrieval"
 
 **Goal**: Return partial successes and item-specific issues when a request mixes valid, invalid, missing, or inaccessible work item IDs.
 
-**Independent Test**: Call `get_work_items` with `1,9999,abc,3` and verify valid work items are still returned, invalid tokens are flagged, missing IDs are identified, inaccessible IDs are reported separately, and the whole request does not fail because of one bad entry.
+**Independent Test**: Call `az_get_work_items` with `1,9999,abc,3` and verify valid work items are still returned, invalid tokens are flagged, missing IDs are identified, inaccessible IDs are reported separately, and the whole request does not fail because of one bad entry.
 
 ### Tests for User Story 2 ⚠️ Write FIRST — must FAIL before implementation
 
@@ -95,7 +95,7 @@ description: "Task list for Multiple Work Item Retrieval"
 
 **Purpose**: Final verification, documentation alignment, and performance smoke validation across the completed feature.
 
-- [X] T019 Update the usage and response examples in `specs/002-fetch-multiple-work-items/quickstart.md` to match the implemented `get_work_items` payload and validation behavior
+- [X] T019 Update the usage and response examples in `specs/002-fetch-multiple-work-items/quickstart.md` to match the implemented `az_get_work_items` payload and validation behavior
 - [X] T020 Run focused regression tests for `packages/integrations/azure-devops/src/__tests__/work-items.test.ts` and `apps/az-mcp/src/__tests__/tools/get-work-items.test.ts` using the commands documented in `specs/002-fetch-multiple-work-items/quickstart.md`
 - [X] T021 Run `npm run test --workspace=apps/az-mcp -- server`, `npm run build --workspace=packages/integrations/azure-devops`, and `npm run build --workspace=apps/az-mcp` to validate MCP registration and TypeScript build health for `apps/az-mcp/src/server.ts`
 - [X] T022 Execute the 25-ID performance smoke scenario from `specs/002-fetch-multiple-work-items/quickstart.md` and record any batching or attachment-metadata tuning notes in `specs/002-fetch-multiple-work-items/quickstart.md`
@@ -162,7 +162,7 @@ T015 apps/az-mcp/src/__tests__/tools/get-work-items.test.ts
 1. Complete Phase 1: Setup.
 2. Complete Phase 2: Foundational prerequisites.
 3. Complete Phase 3: User Story 1.
-4. Validate the `get_work_items` happy path with ordered multi-item results and one batch Azure fetch.
+4. Validate the `az_get_work_items` happy path with ordered multi-item results and one batch Azure fetch.
 
 ### Incremental Delivery
 
@@ -182,4 +182,4 @@ T015 apps/az-mcp/src/__tests__/tools/get-work-items.test.ts
 
 - Performance is a first-class concern in this task set: valid IDs are parsed and deduplicated locally, then fetched via one Azure DevOps batch call for the common path.
 - Follow-up calls are reserved for omitted IDs only, so mixed-result classification does not reintroduce per-ID full-fetch latency for successful requests.
-- All tasks use the existing `get_work_item` tool as a regression boundary; the new work must not break current callers.
+- All tasks use the existing `az_get_work_item` tool as a regression boundary; the new work must not break current callers.

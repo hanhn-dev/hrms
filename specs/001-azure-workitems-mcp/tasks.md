@@ -55,24 +55,24 @@ description: "Task list for Azure Work Items MCP Server"
 
 ## Phase 3: User Story 1 — Retrieve Work Item Details (Priority: P1) 🎯 MVP
 
-**Goal**: An AI agent calls `get_work_item(id)` and receives a fully structured `WorkItem` with HTML Description and Acceptance Criteria converted to clean Markdown.
+**Goal**: An AI agent calls `az_get_work_item(id)` and receives a fully structured `WorkItem` with HTML Description and Acceptance Criteria converted to clean Markdown.
 
-**Independent Test**: Call `get_work_item` with a valid ID and verify the response contains Title, Description (Markdown), Acceptance Criteria (Markdown), State, Type, AssignedTo, IterationPath. Call with an invalid ID and verify a `"Work item {id} not found"` error message.
+**Independent Test**: Call `az_get_work_item` with a valid ID and verify the response contains Title, Description (Markdown), Acceptance Criteria (Markdown), State, Type, AssignedTo, IterationPath. Call with an invalid ID and verify a `"Work item {id} not found"` error message.
 
 ### Tests for User Story 1 ⚠️ Write FIRST — must FAIL before implementation
 
 - [X] T013 [P] [US1] Write failing tests for `htmlToMarkdown()` in `packages/integrations/azure-devops/src/__tests__/html-to-text.test.ts`: (a) converts `<p>` and `<ul>` HTML to Markdown, (b) returns `""` for `null`, (c) returns `""` for `undefined`, (d) returns plain text unchanged
 - [X] T014 [P] [US1] Write failing tests for `loadConfig()` in `packages/integrations/azure-devops/src/__tests__/config.test.ts`: (a) returns valid config when all env vars are set, (b) throws `ZodError` when `AZURE_DEVOPS_TOKEN` is missing, (c) throws `ZodError` when `AZURE_DEVOPS_ORG_URL` is not a valid URL
 - [X] T015 [P] [US1] Write failing tests for `getWorkItem()` in `packages/integrations/azure-devops/src/__tests__/work-items.test.ts`: mock `AzureDevOpsClient`; (a) happy path — returns mapped `WorkItem` with Markdown fields, (b) API returns `null` — rejects with `"Work item {id} not found"`, (c) API throws — rejects with `"Azure DevOps API error: ..."`
-- [X] T016 [P] [US1] Write failing tests for `get_work_item` tool handler in `apps/az-mcp/src/__tests__/tools/get-work-item.test.ts`: mock `@hrms/azure-devops`; (a) valid ID returns `content[0].text` with serialised `WorkItem`, (b) non-existent ID returns MCP error with `"Work item {id} not found"`, (c) invalid (negative) ID rejected by Zod schema
+- [X] T016 [P] [US1] Write failing tests for `az_get_work_item` tool handler in `apps/az-mcp/src/__tests__/tools/get-work-item.test.ts`: mock `@hrms/azure-devops`; (a) valid ID returns `content[0].text` with serialised `WorkItem`, (b) non-existent ID returns MCP error with `"Work item {id} not found"`, (c) invalid (negative) ID rejected by Zod schema
 
 ### Implementation for User Story 1
 
 - [X] T017 [US1] Implement `htmlToMarkdown(html: string | null | undefined): string` using `turndown` in `packages/integrations/azure-devops/src/html-to-text.ts`: guard for null/undefined → return `""`; configure TurndownService with `headingStyle: "atx"` and `bulletListMarker: "-"`
 - [X] T018 [US1] Implement `loadConfig(): AzureDevOpsConfig` in `packages/integrations/azure-devops/src/config.ts`: Zod schema `{ orgUrl: z.string().url(), project: z.string().min(1), token: z.string().min(1) }` parsing `process.env`; map `AZURE_DEVOPS_ORG_URL`, `AZURE_DEVOPS_PROJECT`, `AZURE_DEVOPS_TOKEN`; never log token
 - [X] T019 [US1] Implement `getWorkItem(client: AzureDevOpsClient, id: number): Promise<WorkItem>` and `mapWorkItem()` helper in `packages/integrations/azure-devops/src/work-items.ts`: fetch with all required field names per data-model.md; apply `htmlToMarkdown` to description and acceptanceCriteria; split tags on `";"`, trim; construct browser `url` from orgUrl + id
-- [X] T020 [US1] Implement `get_work_item` tool handler in `apps/az-mcp/src/tools/get-work-item.ts`: Zod input `{ id: z.number().int().positive() }`; call `getWorkItem`; return `{ content: [{ type: "text", text: JSON.stringify(workItem) }] }`; map errors to MCP `isError: true` responses with patterns from contracts/mcp-tools.md
-- [X] T021 [US1] Implement `createServer(config: AzureDevOpsConfig): Server` in `apps/az-mcp/src/server.ts`: construct `new Server({ name: "azure-workitems-mcp", version: "1.0.0" }, { capabilities: { tools: {} } })`; register `get_work_item` tool by calling the handler from T020
+- [X] T020 [US1] Implement `az_get_work_item` tool handler in `apps/az-mcp/src/tools/get-work-item.ts`: Zod input `{ id: z.number().int().positive() }`; call `getWorkItem`; return `{ content: [{ type: "text", text: JSON.stringify(workItem) }] }`; map errors to MCP `isError: true` responses with patterns from contracts/mcp-tools.md
+- [X] T021 [US1] Implement `createServer(config: AzureDevOpsConfig): Server` in `apps/az-mcp/src/server.ts`: construct `new Server({ name: "azure-workitems-mcp", version: "1.0.0" }, { capabilities: { tools: {} } })`; register `az_get_work_item` tool by calling the handler from T020
 - [X] T022 [US1] Implement entry point in `apps/az-mcp/src/index.ts`: `loadConfig()` → `createServer(config)` → `new StdioServerTransport()` → `server.connect(transport)`; wrap in `main()` async function; catch startup errors and write to `process.stderr` (never `stdout`, which is reserved for MCP protocol)
 
 **Checkpoint**: `npm run build --workspace=apps/az-mcp` succeeds; US1 tests pass; `node apps/az-mcp/dist/index.js` starts and accepts MCP `initialize` over stdio; all T013–T016 tests green
@@ -81,24 +81,24 @@ description: "Task list for Azure Work Items MCP Server"
 
 ## Phase 4: User Story 2 — Query and List Work Items (Priority: P2)
 
-**Goal**: An AI agent discovers work items by calling `list_work_items` (filtered) or `query_work_items` (raw WIQL), receiving `WorkItemSummary[]` for batch context-building and planning.
+**Goal**: An AI agent discovers work items by calling `az_list_work_items` (filtered) or `az_query_work_items` (raw WIQL), receiving `WorkItemSummary[]` for batch context-building and planning.
 
-**Independent Test**: Call `list_work_items` with a known project + iteration and verify the returned summaries match the Azure DevOps portal. Call `query_work_items` with a WIQL query and verify results. Call both with a filter that returns zero items and verify an empty array (not an error).
+**Independent Test**: Call `az_list_work_items` with a known project + iteration and verify the returned summaries match the Azure DevOps portal. Call `az_query_work_items` with a WIQL query and verify results. Call both with a filter that returns zero items and verify an empty array (not an error).
 
 ### Tests for User Story 2 ⚠️ Write FIRST — must FAIL before implementation
 
 - [X] T023 [P] [US2] Extend `packages/integrations/azure-devops/src/__tests__/work-items.test.ts` with failing tests for `listWorkItems()` and `queryWorkItems()`: mock `AzureDevOpsClient`; (a) list with all filters builds correct WIQL, (b) list with no filters uses only project condition, (c) `top` is clipped to 200, (d) empty result returns `[]`, (e) `queryWorkItems` executes provided WIQL and maps summaries, (f) invalid WIQL propagates `"WIQL query error: ..."` message
-- [X] T024 [P] [US2] Write failing tests for `list_work_items` handler in `apps/az-mcp/src/__tests__/tools/list-work-items.test.ts`: (a) with all optional params returns serialised `WorkItemSummary[]`, (b) with no params defaults project to config, (c) empty result returns `"[]"`, (d) `top` > 200 is rejected by Zod schema
-- [X] T025 [P] [US2] Write failing tests for `query_work_items` handler in `apps/az-mcp/src/__tests__/tools/query-work-items.test.ts`: (a) valid WIQL returns serialised summaries, (b) empty WIQL string is rejected by Zod, (c) WIQL error propagates as MCP `isError: true` response
+- [X] T024 [P] [US2] Write failing tests for `az_list_work_items` handler in `apps/az-mcp/src/__tests__/tools/list-work-items.test.ts`: (a) with all optional params returns serialised `WorkItemSummary[]`, (b) with no params defaults project to config, (c) empty result returns `"[]"`, (d) `top` > 200 is rejected by Zod schema
+- [X] T025 [P] [US2] Write failing tests for `az_query_work_items` handler in `apps/az-mcp/src/__tests__/tools/query-work-items.test.ts`: (a) valid WIQL returns serialised summaries, (b) empty WIQL string is rejected by Zod, (c) WIQL error propagates as MCP `isError: true` response
 
 ### Implementation for User Story 2
 
 - [X] T026 [US2] Add `listWorkItems(client, filter, config)` and `queryWorkItems(client, wiql, top)` to `packages/integrations/azure-devops/src/work-items.ts`: `listWorkItems` builds WIQL using parameterized field comparisons (quote-escape project/type/state/iteration values); `top` clamped to `[1, 200]`; both call `witApi.queryByWiql` then batch-fetch summaries; return `WorkItemSummary[]`
-- [X] T027 [US2] Implement `list_work_items` tool handler in `apps/az-mcp/src/tools/list-work-items.ts`: Zod schema `{ project: z.string().min(1).optional(), type: z.string().min(1).optional(), state: z.string().min(1).optional(), iteration: z.string().min(1).optional(), top: z.number().int().min(1).max(200).default(50).optional() }`; delegate to `listWorkItems()`; return `content[0].text` as JSON array
-- [X] T028 [US2] Implement `query_work_items` tool handler in `apps/az-mcp/src/tools/query-work-items.ts`: Zod schema `{ wiql: z.string().min(1), top: z.number().int().min(1).max(200).default(50).optional() }`; delegate to `queryWorkItems()`; return serialised `WorkItemSummary[]`
-- [X] T029 [US2] Register `list_work_items` and `query_work_items` tools in `apps/az-mcp/src/server.ts` by importing and wiring the handlers from T027 and T028
+- [X] T027 [US2] Implement `az_list_work_items` tool handler in `apps/az-mcp/src/tools/list-work-items.ts`: Zod schema `{ project: z.string().min(1).optional(), type: z.string().min(1).optional(), state: z.string().min(1).optional(), iteration: z.string().min(1).optional(), top: z.number().int().min(1).max(200).default(50).optional() }`; delegate to `listWorkItems()`; return `content[0].text` as JSON array
+- [X] T028 [US2] Implement `az_query_work_items` tool handler in `apps/az-mcp/src/tools/query-work-items.ts`: Zod schema `{ wiql: z.string().min(1), top: z.number().int().min(1).max(200).default(50).optional() }`; delegate to `queryWorkItems()`; return serialised `WorkItemSummary[]`
+- [X] T029 [US2] Register `az_list_work_items` and `az_query_work_items` tools in `apps/az-mcp/src/server.ts` by importing and wiring the handlers from T027 and T028
 
-**Checkpoint**: US2 tests pass; `list_work_items` and `query_work_items` tools appear in MCP `tools/list` response; empty-result scenario returns `[]` without error
+**Checkpoint**: US2 tests pass; `az_list_work_items` and `az_query_work_items` tools appear in MCP `tools/list` response; empty-result scenario returns `[]` without error
 
 ---
 
@@ -106,7 +106,7 @@ description: "Task list for Azure Work Items MCP Server"
 
 **Goal**: Resource-aware MCP clients (Claude Desktop, etc.) can reference a work item by URI (`azdo://workitem/{id}`) and attach it directly to conversation context without calling a tool.
 
-**Independent Test**: List MCP resources and verify the `azdo://workitem/*` template is declared. Read `azdo://workitem/1234` and verify the response has `mimeType: "application/json"`, `name: "Work Item #1234: ..."`, and `text` content identical in shape to `get_work_item`.
+**Independent Test**: List MCP resources and verify the `azdo://workitem/*` template is declared. Read `azdo://workitem/1234` and verify the response has `mimeType: "application/json"`, `name: "Work Item #1234: ..."`, and `text` content identical in shape to `az_get_work_item`.
 
 ### Tests for User Story 3 ⚠️ Write FIRST — must FAIL before implementation
 
@@ -117,7 +117,7 @@ description: "Task list for Azure Work Items MCP Server"
 - [X] T031 [US3] Implement resource read handler in `apps/az-mcp/src/resources/work-item-resource.ts`: export `createWorkItemResource(client)` returning a handler for URIs matching `azdo://workitem/{id}`; parse `id` from URI; call `getWorkItem`; return `{ uri, name: "Work Item #${id}: ${title}", mimeType: "application/json", text: JSON.stringify(workItem) }`
 - [X] T032 [US3] Register resource template and read handler in `apps/az-mcp/src/server.ts`: add `resources: { subscribe: false, listChanged: false }` to server capabilities; register URI template `azdo://workitem/{id}` and the read handler from T031
 
-**Checkpoint**: US3 tests pass; MCP `resources/list` returns the `azdo://workitem/{id}` template; resource read returns content consistent with `get_work_item` output
+**Checkpoint**: US3 tests pass; MCP `resources/list` returns the `azdo://workitem/{id}` template; resource read returns content consistent with `az_get_work_item` output
 
 ---
 
@@ -129,7 +129,7 @@ description: "Task list for Azure Work Items MCP Server"
 - [X] T034 [P] Create `.vscode/mcp.json` for VS Code Copilot Agent MCP server configuration per quickstart.md §4: `type: "stdio"`, `command: "node"`, `args: ["apps/az-mcp/dist/index.js"]`, env vars forwarded via `${env:...}` syntax
 - [X] T035 [P] Update root `turbo.json` to include `build` and `test` tasks for `apps/az-mcp` and `packages/integrations/azure-devops` in the pipeline dependency graph
 - [X] T036 Run full test suite from repo root (`npm test`); verify unit test coverage for `@hrms/azure-devops` is ≥ 80%; fix any failing tests before marking complete
-- [X] T037 [P] Validate end-to-end quickstart: follow `specs/001-azure-workitems-mcp/quickstart.md` steps 1–4; confirm VS Code Copilot Agent connects and `get_work_item` returns a real work item with Markdown content
+- [X] T037 [P] Validate end-to-end quickstart: follow `specs/001-azure-workitems-mcp/quickstart.md` steps 1–4; confirm VS Code Copilot Agent connects and `az_get_work_item` returns a real work item with Markdown content
 
 **Checkpoint**: All 37 tasks complete; all tests green; coverage ≥ 80%; VS Code MCP client connects and returns work item data
 

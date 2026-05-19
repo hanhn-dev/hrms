@@ -70,7 +70,7 @@ const mockNeedsRefinementResponse: PullRequestLookupResponse = {
 	results: null,
 };
 
-describe('get_work_item_pull_requests tool handler', () => {
+describe('az_get_work_item_pull_requests tool handler', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 	});

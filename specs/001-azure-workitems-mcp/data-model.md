@@ -10,7 +10,7 @@
 
 ### WorkItem
 
-The full representation of an Azure DevOps work item, returned by `get_work_item` and the `azdo://workitem/{id}` resource.
+The full representation of an Azure DevOps work item, returned by `az_get_work_item` and the `azdo://workitem/{id}` resource.
 
 | Field                | TypeScript Type         | Azure DevOps Field                              | Notes                                          |
 |---------------------|-------------------------|-------------------------------------------------|------------------------------------------------|
@@ -123,7 +123,7 @@ export interface AzureDevOpsConfig {
 
 ### ListWorkItemsFilter
 
-Input filter for the `list_work_items` tool.
+Input filter for the `az_list_work_items` tool.
 
 | Field       | TypeScript Type    | Required | Notes                                        |
 |-------------|-------------------|----------|----------------------------------------------|

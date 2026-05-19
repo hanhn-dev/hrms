@@ -38,7 +38,7 @@ const mockWorkItem: WorkItem = {
   url: 'https://dev.azure.com/myorg/_workitems/edit/1234',
 };
 
-describe('get_work_item tool handler', () => {
+describe('az_get_work_item tool handler', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });

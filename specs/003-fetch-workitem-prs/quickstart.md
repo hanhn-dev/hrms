@@ -102,6 +102,6 @@ Recorded implementation validation on 2026-05-18:
 
 ## 7. MCP integration notes
 
-- The new tool should be registered as `get_work_item_pull_requests`.
+- The new tool should be registered as `az_get_work_item_pull_requests`.
 - The first-stage response is intentionally not the final hash list; it exists so the agent can ask the user which authors, target branches, statuses, and sort field to apply.
 - The final response must always show the total number of PRs returned after filtering, and it should preserve the total candidate count discovered before filtering.

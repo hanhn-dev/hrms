@@ -8,7 +8,7 @@ This document defines the MCP contract for the new pull-request lookup flow. The
 
 ## Tools
 
-### `get_work_item_pull_requests`
+### `az_get_work_item_pull_requests`
 
 Retrieves pull requests linked to one or more Azure DevOps work items and their descendants, then either asks for refinement inputs or returns the final PR hash summary plus a ready-to-run cherry-pick command for merge commits.
 

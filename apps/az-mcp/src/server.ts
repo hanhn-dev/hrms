@@ -43,7 +43,7 @@ export function createServer(config: AzureDevOpsConfig): McpServer {
 
   registerTool(
     server,
-    'get_work_item',
+    'az_get_work_item',
     'Retrieve a single Azure DevOps work item by ID. Description and Acceptance Criteria are returned as Markdown, with attachment metadata and image flags.',
     { id: z.number().int().positive() },
     async ({ id }) => {
@@ -60,7 +60,7 @@ export function createServer(config: AzureDevOpsConfig): McpServer {
 
   registerTool(
     server,
-    'get_work_items',
+    'az_get_work_items',
     'Retrieve multiple Azure DevOps work items from a comma-separated list of IDs while preserving input order and reporting per-item issues.',
     { ids: z.string().min(1) },
     async ({ ids }) => getWorkItemsHandler({ ids: ids as string }),
@@ -68,7 +68,7 @@ export function createServer(config: AzureDevOpsConfig): McpServer {
 
   registerTool(
     server,
-    'get_work_item_pull_requests',
+    'az_get_work_item_pull_requests',
     'Retrieve pull requests linked to Azure DevOps work items and their immediate child Tasks or Issues, then return refinement prompts or the final hash-focused summary.',
     {
       ids: z.string().min(1),
@@ -93,7 +93,7 @@ export function createServer(config: AzureDevOpsConfig): McpServer {
 
   registerTool(
     server,
-    'list_work_items',
+    'az_list_work_items',
     'List Azure DevOps work items with optional filters (project, type, state, iteration, top).',
     {
       project: z.string().min(1).optional(),
@@ -122,7 +122,7 @@ export function createServer(config: AzureDevOpsConfig): McpServer {
 
   registerTool(
     server,
-    'query_work_items',
+    'az_query_work_items',
     'Execute a WIQL query and return matching work item summaries.',
     {
       wiql: z.string().min(1),

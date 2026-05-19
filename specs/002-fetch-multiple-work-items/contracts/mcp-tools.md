@@ -8,7 +8,7 @@ This document defines the MCP contract changes required to add multi-item retrie
 
 ## Tools
 
-### `get_work_item`
+### `az_get_work_item`
 
 Existing single-item tool retained for backward compatibility.
 
@@ -24,11 +24,11 @@ Returns the existing `WorkItem` JSON payload serialized into `content[0].text`.
 
 **Compatibility note**
 
-- This tool remains unchanged so existing MCP clients and prompts continue to work.
+- This tool remains the canonical single-item retrieval path for current MCP clients and prompts.
 
 ---
 
-### `get_work_items`
+### `az_get_work_items`
 
 New multi-item retrieval tool for comma-separated IDs.
 

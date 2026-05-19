@@ -26,7 +26,7 @@ const server = new Server(
 );
 
 // Register a tool
-server.tool("get_work_item", { id: z.number() }, async ({ id }) => ({
+server.tool("az_get_work_item", { id: z.number() }, async ({ id }) => ({
   content: [{ type: "text", text: JSON.stringify(workItem) }]
 }));
 

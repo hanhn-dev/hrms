@@ -132,12 +132,12 @@ describe('createServer', () => {
     vi.clearAllMocks();
   });
 
-  it('registers get_work_item with an id input schema', async () => {
+  it('registers az_get_work_item with an id input schema', async () => {
     const session = await connectClientAndServer();
 
     try {
       const tools = await session.client.listTools();
-      const tool = tools.tools.find(({ name }) => name === 'get_work_item');
+      const tool = tools.tools.find(({ name }) => name === 'az_get_work_item');
 
       expect(tool?.inputSchema).toMatchObject({
         type: 'object',
@@ -154,13 +154,13 @@ describe('createServer', () => {
     }
   });
 
-  it('registers get_work_items with an ids string input schema', async () => {
+  it('registers az_get_work_items with an ids string input schema', async () => {
     const session = await connectClientAndServer();
 
     try {
       const tools = await session.client.listTools();
-      const singleTool = tools.tools.find(({ name }) => name === 'get_work_item');
-      const multiTool = tools.tools.find(({ name }) => name === 'get_work_items');
+      const singleTool = tools.tools.find(({ name }) => name === 'az_get_work_item');
+      const multiTool = tools.tools.find(({ name }) => name === 'az_get_work_items');
 
       expect(singleTool).toBeDefined();
       expect(multiTool?.inputSchema).toMatchObject({
@@ -178,12 +178,12 @@ describe('createServer', () => {
     }
   });
 
-  it('registers get_work_item_pull_requests with staged refinement inputs', async () => {
+  it('registers az_get_work_item_pull_requests with staged refinement inputs', async () => {
     const session = await connectClientAndServer();
 
     try {
       const tools = await session.client.listTools();
-      const tool = tools.tools.find(({ name }) => name === 'get_work_item_pull_requests');
+      const tool = tools.tools.find(({ name }) => name === 'az_get_work_item_pull_requests');
 
       expect(tool?.inputSchema).toMatchObject({
         type: 'object',
@@ -218,13 +218,34 @@ describe('createServer', () => {
     }
   });
 
+  it('lists the Azure DevOps MCP catalog with az_ names', async () => {
+    const session = await connectClientAndServer();
+
+    try {
+      const tools = await session.client.listTools();
+      const toolNames = tools.tools.map(({ name }) => name);
+
+      expect(toolNames).toEqual(
+        expect.arrayContaining([
+          'az_get_work_item',
+          'az_get_work_items',
+          'az_get_work_item_pull_requests',
+          'az_list_work_items',
+          'az_query_work_items',
+        ]),
+      );
+    } finally {
+      await session.close();
+    }
+  });
+
   it('passes the id argument through to getWorkItem', async () => {
     vi.mocked(getWorkItem).mockResolvedValue(mockWorkItem);
     const session = await connectClientAndServer();
 
     try {
       const result = await session.client.callTool({
-        name: 'get_work_item',
+        name: 'az_get_work_item',
         arguments: { id: 135898 },
       });
       const content = result.content as Array<{ type: 'text'; text: string }>;
@@ -243,7 +264,7 @@ describe('createServer', () => {
 
     try {
       const result = await session.client.callTool({
-        name: 'get_work_items',
+        name: 'az_get_work_items',
         arguments: { ids: '135898, 135899' },
       });
       const content = result.content as Array<{ type: 'text'; text: string }>;
@@ -262,7 +283,7 @@ describe('createServer', () => {
 
     try {
       const result = await session.client.callTool({
-        name: 'get_work_item_pull_requests',
+        name: 'az_get_work_item_pull_requests',
         arguments: {
           ids: '101,202',
           authors: ['Alice'],

@@ -99,6 +99,6 @@ Tuning notes from the live probe:
 
 ## 7. MCP integration notes
 
-- Keep `get_work_item` unchanged for existing callers.
-- Use `get_work_items` for comma-separated ID retrieval.
+- Use `az_get_work_item` for canonical single-item retrieval.
+- Use `az_get_work_items` for comma-separated ID retrieval.
 - Resource URIs remain unchanged because this feature only extends tool-based retrieval.

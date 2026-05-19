@@ -43,7 +43,7 @@ const mockBatchResult: WorkItemBatchResult = {
   ],
 };
 
-describe('get_work_items tool handler', () => {
+describe('az_get_work_items tool handler', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });

@@ -34,7 +34,7 @@ const mockSummaries: WorkItemSummary[] = [
   },
 ];
 
-describe('list_work_items tool handler', () => {
+describe('az_list_work_items tool handler', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(listWorkItems).mockResolvedValue(mockSummaries);
