@@ -5,8 +5,8 @@
 
 ## Prerequisites
 
-- Node.js 22.12+ when using the validated SQLite workflow because the current implementation uses `node:sqlite`
-- Node.js 20.19+ or 22.12+ for config parsing and future network-engine support
+- Node.js 22.18+ for local build workflows that run `tsdown`
+- The bundled `apps/db-mcp/dist/index.js` artifact remains compatible with Node.js 22.12+ for the validated SQLite runtime workflow and with Node.js 20.19+ or 22.12+ for config parsing and future network-engine support
 - npm 10+
 - Access to a supported relational database with inspection permissions
 - Additional DDL permissions if you want to create tables, alter tables, or add relationships
@@ -60,12 +60,13 @@ DB_MCP_SQLITE_PATH=./fixtures/sample.sqlite
 | `DB_MCP_TRUST_SERVER_CERTIFICATE` | No | SQL Server compatibility option |
 | `DB_MCP_SQLITE_PATH` | Conditional | SQLite file path when using `sqlite` |
 
-## 3. Build the shared package and MCP app
+## 3. Build the MCP app
 
 ```bash
-npm run build --workspace=packages/integrations/database-inspector
 npm run build --workspace=apps/db-mcp
 ```
+
+The bundled app build resolves the shared database-inspector workspace code into `apps/db-mcp/dist/index.js` while leaving runtime-sensitive database drivers external.
 
 ## 4. Connect the MCP server in VS Code
 

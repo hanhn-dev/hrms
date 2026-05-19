@@ -14,12 +14,13 @@
 From the repo root:
 
 ```bash
-npm run build --workspace=packages/integrations/database-inspector
 npm run build --workspace=apps/db-mcp
 npm run test --workspace=packages/integrations/database-inspector
 npm run test:integration:postgres --workspace=packages/integrations/database-inspector
 npm run test --workspace=apps/db-mcp
 ```
+
+`npm run build --workspace=apps/db-mcp` bundles the app entrypoint to `apps/db-mcp/dist/index.js` and resolves the shared `@hrms/database-inspector` workspace code without requiring a separate package prebuild for app runtime.
 
 To run the live Postgres adapter check, set `DB_MCP_POSTGRES_TEST_CONNECTION_STRING` to a writable test database before invoking `test:integration:postgres`. The test creates and drops an isolated schema automatically.
 
@@ -33,6 +34,8 @@ npm run inspect
 ## Environment
 
 Copy `apps/db-mcp/.env.example` to `.env` and provide the `DB_MCP_*` variables for your target database.
+
+Use Node.js 22.18+ for local build workflows that run `tsdown`. The bundled runtime artifact remains `dist/index.js`.
 
 For SQLite on Node 22.12+:
 

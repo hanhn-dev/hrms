@@ -7,7 +7,8 @@
 
 ## Prerequisites
 
-- Node.js 20.19+ or 22.12+
+- Node.js 22.18+ for local build workflows that run `tsdown`
+- The bundled `apps/az-mcp/dist/index.js` artifact remains compatible with Node.js 20.19+ or 22.12+ at runtime
 - npm ≥ 10
 - An Azure DevOps organization with at least one project
 - A Personal Access Token (PAT) with **Work Items (Read)** scope
@@ -49,6 +50,8 @@ AZURE_DEVOPS_TOKEN=your-personal-access-token
 ```bash
 npm run build --workspace=apps/az-mcp
 ```
+
+This bundles the MCP app entrypoint to `apps/az-mcp/dist/index.js`.
 
 ---
 

@@ -1,18 +1,15 @@
 <!--
 SYNC IMPACT REPORT
 ==================
-Version change: N/A (template) → 1.0.0 (initial ratification)
-Modified principles: None (initial creation from template)
-Added sections:
-  - Core Principles (5 principles: TypeScript-First, Functional Programming,
-    Test-First, UX Consistency, Performance by Design)
+Version change: 1.0.0 → 1.1.0
+Modified sections:
   - Technology Stack & Quality Gates
   - Development Workflow
-  - Governance
+Added guidance:
+  - MCP app bundling policy using tsdown
+  - Build-host Node.js minimum for bundling workflows
 Templates updated:
-  - .specify/templates/plan-template.md ✅ Constitution Check gates reflect new principles
-  - .specify/templates/spec-template.md ✅ Aligned (no structural changes required)
-  - .specify/templates/tasks-template.md ✅ Aligned (no structural changes required)
+  - None
 Deferred TODOs: None
 -->
 
@@ -110,10 +107,11 @@ post-launch optimisations:
 
 ## Technology Stack & Quality Gates
 
-**Monorepo tooling**: Turborepo + npm workspaces (Node ≥ 18, npm ≥ 10).
+**Monorepo tooling**: Turborepo + npm workspaces (Node ≥ 22.18 for local and CI build hosts, npm ≥ 10).
 **Framework**: Next.js (App Router) for all `apps/`.
 **Language**: TypeScript 5.x (strict mode).
 **Styling**: CSS Modules or Tailwind CSS (project-wide choice MUST be consistent).
+**Build tooling**: MCP server apps that ship repository-owned runtime artifacts MUST bundle through `tsdown` using app-local configuration unless a planned migration explicitly approves a different bundler.
 **Testing**: Vitest for unit/integration; Playwright for E2E.
 **Linting**: ESLint via `@hrms/eslint-config`; Prettier for formatting.
 **CI gates** (all MUST pass before merge):
@@ -134,6 +132,10 @@ post-launch optimisations:
 - **Dependency updates**: Third-party dependencies MUST be pinned to exact
   versions in `package.json`. Range operators (`^`, `~`) are permitted only in
   `devDependencies`.
+- **Bundling changes**: Any MCP app bundling change MUST update the app package
+  build script, the maintained runtime artifact path, root workflow scripts,
+  focused validation coverage, and maintainer-facing guidance in the same
+  feature.
 - **Breaking changes**: Any change to a shared package's public API MUST
   increment the package's major version and MUST include a migration note in
   the PR description.
@@ -159,4 +161,4 @@ applies to every contributor and every line of code merged into the repository.
   `.specify/templates/plan-template.md`.
 - Runtime development guidance is maintained in `.github/copilot-instructions.md`.
 
-**Version**: 1.0.0 | **Ratified**: 2026-05-14 | **Last Amended**: 2026-05-14
+**Version**: 1.1.0 | **Ratified**: 2026-05-14 | **Last Amended**: 2026-05-19

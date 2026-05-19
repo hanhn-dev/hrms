@@ -5,7 +5,7 @@
   "type": "module",
   "main": "./dist/index.js",
   "scripts": {
-    "build": "tsc",
+    "build": "tsdown",
     "start": "node --env-file=.env dist/index.js",
     "inspect": "npx @modelcontextprotocol/inspector node --env-file=.env dist/index.js",
     "lint": "eslint . --max-warnings 0",
@@ -20,7 +20,7 @@
   "devDependencies": {
     "@hrms/eslint-config": "*",
     "@hrms/typescript-config": "*",
-    "@types/node": "^25.8.0",
+    "@types/node": "^25.9.0",
     "@vitest/coverage-v8": "4.1.6",
     "typescript": "^6.0.3",
     "vitest": "^4.1.6"
