@@ -1,5 +1,5 @@
 import { McpServer, ResourceTemplate } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { AzureDevOpsClient, getWorkItem, listWorkItems, queryWorkItems } from '@hrms/azure-devops';
+import { AzureDevOpsClient, getWorkItem, getWorkItemHierarchyContext, listWorkItems, queryWorkItems } from '@hrms/azure-devops';
 import type { AzureDevOpsConfig } from '@hrms/azure-devops';
 import { z } from 'zod';
 import { createWorkItemImageResourceHandler } from './resources/work-item-image-resource.js';
@@ -51,6 +51,23 @@ export function createServer(config: AzureDevOpsConfig): McpServer {
       try {
         const item = await getWorkItem(client, numId);
         return { content: [{ type: 'text', text: JSON.stringify(item) }] };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        return { content: [{ type: 'text', text: message }], isError: true };
+      }
+    },
+  );
+
+  registerTool(
+    server,
+    'az_get_work_item_hierarchy_context',
+    'Retrieve a work item and all its descendants, aggregating Description, Acceptance Criteria, and image attachment metadata for the full hierarchy into a single AI-ready JSON payload. Omission notices are included for any descendants that could not be read.',
+    { id: z.number().int().positive() },
+    async ({ id }) => {
+      const numId = id as number;
+      try {
+        const response = await getWorkItemHierarchyContext(client, numId);
+        return { content: [{ type: 'text', text: JSON.stringify(response) }] };
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         return { content: [{ type: 'text', text: message }], isError: true };

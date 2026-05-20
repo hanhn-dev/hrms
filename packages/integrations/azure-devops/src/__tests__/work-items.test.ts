@@ -5,7 +5,7 @@ import {
 } from 'azure-devops-node-api/interfaces/WorkItemTrackingInterfaces.js';
 import type { AzureDevOpsClient } from '../client.js';
 import type { AzureDevOpsConfig, ListWorkItemsFilter } from '../types.js';
-import { getWorkItem, getWorkItemsByIds, listWorkItems, parseWorkItemIdsInput, queryWorkItems } from '../work-items.js';
+import { getWorkItem, getWorkItemHierarchyContext, getWorkItemsByIds, listWorkItems, parseWorkItemIdsInput, queryWorkItems } from '../work-items.js';
 
 const mockConfig: AzureDevOpsConfig = {
   orgUrl: 'https://dev.azure.com/myorg',
@@ -511,5 +511,272 @@ describe('queryWorkItems', () => {
     expect(result[0]!.title).toBe('');
     expect(result[0]!.type).toBe('');
     expect(result[0]!.state).toBe('');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getWorkItemHierarchyContext
+// ---------------------------------------------------------------------------
+
+function buildHierarchyRawItem(
+  id: number,
+  opts: {
+    childIds?: number[];
+    description?: string | null;
+    acceptanceCriteria?: string | null;
+    imageAttachments?: Array<{ id: string; name: string }>;
+  } = {},
+) {
+  const childRelations = (opts.childIds ?? []).map((childId) => ({
+    rel: 'System.LinkTypes.Hierarchy-Forward',
+    url: `https://dev.azure.com/myorg/_apis/wit/workItems/${childId}`,
+  }));
+
+  const attachmentRelations = (opts.imageAttachments ?? []).map((att) => ({
+    rel: 'AttachedFile',
+    url: `https://dev.azure.com/myorg/_apis/wit/attachments/${att.id}?fileName=${att.name}`,
+    attributes: {
+      name: att.name,
+      id: att.id,
+      contentType: 'image/png',
+      size: 1024,
+    },
+  }));
+
+  return {
+    id,
+    fields: {
+      'System.Title': `Work Item ${id}`,
+      'System.Description': opts.description !== undefined ? opts.description : `<p>Description for ${id}</p>`,
+      'Microsoft.VSTS.Common.AcceptanceCriteria':
+        opts.acceptanceCriteria !== undefined ? opts.acceptanceCriteria : `<p>AC for ${id}</p>`,
+      'System.State': 'Active',
+      'System.WorkItemType': 'User Story',
+      'System.Tags': '',
+      'System.AssignedTo': null,
+      'System.IterationPath': 'Project',
+      'System.AreaPath': 'Project',
+      'System.Parent': null,
+    },
+    relations: [...childRelations, ...attachmentRelations],
+  };
+}
+
+describe('getWorkItemHierarchyContext', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(mockClient.getAttachmentMetadata).mockResolvedValue({
+      contentType: 'image/png',
+      size: 1024,
+    });
+  });
+
+  // T004: root with no children
+  it('returns one entry with correct shape and no omissions when root has no children', async () => {
+    const root = buildHierarchyRawItem(100);
+    mockWitApi.getWorkItemsBatch.mockResolvedValue([root]);
+
+    const result = await getWorkItemHierarchyContext(mockClient, 100);
+
+    expect(result.rootWorkItemId).toBe(100);
+    expect(result.includedWorkItemCount).toBe(1);
+    expect(result.omittedCount).toBe(0);
+    expect(result.omissions).toEqual([]);
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0]).toMatchObject({
+      workItemId: 100,
+      depth: 0,
+      relationToRoot: 'root',
+      parentId: null,
+      title: 'Work Item 100',
+      type: 'User Story',
+      state: 'Active',
+    });
+  });
+
+  // T005: two-level hierarchy (root → child)
+  it('returns root at depth 0 and child at depth 1 with correct parentId', async () => {
+    const root = buildHierarchyRawItem(100, { childIds: [101] });
+    const child = buildHierarchyRawItem(101);
+
+    mockWitApi.getWorkItemsBatch.mockImplementation(async ({ ids }: { ids: number[] }) => {
+      const map = new Map([
+        [100, root],
+        [101, child],
+      ]);
+      return ids.map((id) => map.get(id)).filter(Boolean);
+    });
+
+    const result = await getWorkItemHierarchyContext(mockClient, 100);
+
+    expect(result.includedWorkItemCount).toBe(2);
+    expect(result.items[0]).toMatchObject({ workItemId: 100, depth: 0, relationToRoot: 'root', parentId: null });
+    expect(result.items[1]).toMatchObject({ workItemId: 101, depth: 1, relationToRoot: 'descendant', parentId: 100 });
+  });
+
+  // T006: multi-level hierarchy (root → child → grandchild)
+  it('includes grandchild at depth 2 in a three-level hierarchy', async () => {
+    const root = buildHierarchyRawItem(100, { childIds: [101] });
+    const child = buildHierarchyRawItem(101, { childIds: [102] });
+    const grandchild = buildHierarchyRawItem(102);
+
+    mockWitApi.getWorkItemsBatch.mockImplementation(async ({ ids }: { ids: number[] }) => {
+      const map = new Map([
+        [100, root],
+        [101, child],
+        [102, grandchild],
+      ]);
+      return ids.map((id) => map.get(id)).filter(Boolean);
+    });
+
+    const result = await getWorkItemHierarchyContext(mockClient, 100);
+
+    expect(result.includedWorkItemCount).toBe(3);
+    const grandchildEntry = result.items.find((e) => e.workItemId === 102);
+    expect(grandchildEntry).toMatchObject({ workItemId: 102, depth: 2, relationToRoot: 'descendant', parentId: 101 });
+  });
+
+  // T007: same descendant reached via two paths appears exactly once
+  it('deduplicates a descendant that is linked from multiple parents', async () => {
+    const root = buildHierarchyRawItem(100, { childIds: [101, 102] });
+    const childA = buildHierarchyRawItem(101, { childIds: [103] });
+    const childB = buildHierarchyRawItem(102, { childIds: [103] });
+    const shared = buildHierarchyRawItem(103);
+
+    mockWitApi.getWorkItemsBatch.mockImplementation(async ({ ids }: { ids: number[] }) => {
+      const map = new Map([
+        [100, root],
+        [101, childA],
+        [102, childB],
+        [103, shared],
+      ]);
+      return ids.map((id) => map.get(id)).filter(Boolean);
+    });
+
+    const result = await getWorkItemHierarchyContext(mockClient, 100);
+
+    const sharedEntries = result.items.filter((e) => e.workItemId === 103);
+    expect(sharedEntries).toHaveLength(1);
+  });
+
+  // T008: missing fields set the missing flags to true
+  it('sets missing flags to true when description, AC, and image attachments are absent', async () => {
+    const root = buildHierarchyRawItem(100, {
+      description: null,
+      acceptanceCriteria: null,
+    });
+    mockWitApi.getWorkItemsBatch.mockResolvedValue([root]);
+
+    const result = await getWorkItemHierarchyContext(mockClient, 100);
+
+    expect(result.items[0]!.missing).toEqual({
+      description: true,
+      acceptanceCriteria: true,
+      imageAttachments: true,
+    });
+    expect(result.items[0]!.description).toBeNull();
+    expect(result.items[0]!.acceptanceCriteria).toBeNull();
+    expect(result.items[0]!.imageAttachments).toEqual([]);
+  });
+
+  // T014: image attachment carries correct workItemId-derived resourceUri
+  it('sets resourceUri with the source workItemId for each image attachment', async () => {
+    const root = buildHierarchyRawItem(100, {
+      imageAttachments: [{ id: 'img-abc', name: 'mockup.png' }],
+    });
+    mockWitApi.getWorkItemsBatch.mockResolvedValue([root]);
+
+    const result = await getWorkItemHierarchyContext(mockClient, 100);
+
+    expect(result.items[0]!.imageAttachments[0]).toMatchObject({
+      attachmentId: 'img-abc',
+      name: 'mockup.png',
+      resourceUri: 'azdo://workitem/100/images/img-abc',
+    });
+  });
+
+  // T015: present description + absent AC → correct missing flags
+  it('has missing.description false and missing.acceptanceCriteria true when only AC is absent', async () => {
+    const root = buildHierarchyRawItem(100, {
+      description: '<p>Some description</p>',
+      acceptanceCriteria: null,
+    });
+    mockWitApi.getWorkItemsBatch.mockResolvedValue([root]);
+
+    const result = await getWorkItemHierarchyContext(mockClient, 100);
+
+    expect(result.items[0]!.missing.description).toBe(false);
+    expect(result.items[0]!.missing.acceptanceCriteria).toBe(true);
+    expect(result.items[0]!.description).not.toBeNull();
+    expect(result.items[0]!.acceptanceCriteria).toBeNull();
+  });
+
+  // T016: no image attachments → missing.imageAttachments true, empty array
+  it('has missing.imageAttachments true and an empty array when work item has no images', async () => {
+    const root = buildHierarchyRawItem(100);
+    mockWitApi.getWorkItemsBatch.mockResolvedValue([root]);
+
+    const result = await getWorkItemHierarchyContext(mockClient, 100);
+
+    expect(result.items[0]!.missing.imageAttachments).toBe(true);
+    expect(result.items[0]!.imageAttachments).toEqual([]);
+  });
+
+  // T019: inaccessible descendant → omission with status 'inaccessible'
+  it('produces an omission with status inaccessible when a descendant is inaccessible', async () => {
+    const root = buildHierarchyRawItem(100, { childIds: [101] });
+
+    mockWitApi.getWorkItemsBatch.mockImplementation(async ({ ids }: { ids: number[] }) => {
+      // 101 is omitted (inaccessible) from the batch result
+      if (ids.includes(100)) return [root];
+      return [];
+    });
+
+    // Individual resolution for 101 classifies as inaccessible
+    mockWitApi.getWorkItem.mockResolvedValue(null);
+    mockWitApi.getWorkItem.mockRejectedValueOnce(new Error('Access denied'));
+
+    const result = await getWorkItemHierarchyContext(mockClient, 100);
+
+    expect(result.includedWorkItemCount).toBe(1);
+    expect(result.omittedCount).toBe(1);
+    expect(result.omissions).toHaveLength(1);
+    expect(result.omissions[0]).toMatchObject({
+      kind: 'work_item',
+      workItemId: 101,
+      attachmentId: null,
+      status: 'inaccessible',
+    });
+  });
+
+  // T020: not-found descendant → omission with status 'not_found'
+  it('produces an omission with status not_found when a descendant is missing', async () => {
+    const root = buildHierarchyRawItem(100, { childIds: [101] });
+
+    mockWitApi.getWorkItemsBatch.mockImplementation(async ({ ids }: { ids: number[] }) => {
+      if (ids.includes(100)) return [root];
+      return [];
+    });
+
+    // Individual resolution for 101: getWorkItem returns null → not_found
+    mockWitApi.getWorkItem.mockResolvedValueOnce(null);
+
+    const result = await getWorkItemHierarchyContext(mockClient, 100);
+
+    expect(result.omissions[0]).toMatchObject({
+      kind: 'work_item',
+      workItemId: 101,
+      status: 'not_found',
+    });
+  });
+
+  // T021: unreadable root → hard error, not partial response
+  it('throws a hard error when the root work item cannot be read', async () => {
+    // Root absent from batch
+    mockWitApi.getWorkItemsBatch.mockResolvedValue([]);
+    // Individual resolution also fails
+    mockWitApi.getWorkItem.mockRejectedValueOnce(new Error('Work item 200 not found'));
+
+    await expect(getWorkItemHierarchyContext(mockClient, 200)).rejects.toThrow('Work item 200 not found');
   });
 });

@@ -10,14 +10,15 @@ vi.mock('@hrms/azure-devops', () => ({
     };
   }),
   getWorkItem: vi.fn(),
+  getWorkItemHierarchyContext: vi.fn(),
   getWorkItemPullRequests: vi.fn(),
   getWorkItemsByIds: vi.fn(),
   listWorkItems: vi.fn(),
   queryWorkItems: vi.fn(),
 }));
 
-import { getWorkItem, getWorkItemPullRequests, getWorkItemsByIds } from '@hrms/azure-devops';
-import type { AzureDevOpsConfig, PullRequestLookupResponse, WorkItem, WorkItemBatchResult } from '@hrms/azure-devops';
+import { getWorkItem, getWorkItemHierarchyContext, getWorkItemPullRequests, getWorkItemsByIds } from '@hrms/azure-devops';
+import type { AzureDevOpsConfig, PullRequestLookupResponse, WorkItem, WorkItemBatchResult, WorkItemHierarchyContextResponse } from '@hrms/azure-devops';
 import { createServer } from '../server.js';
 
 const config: AzureDevOpsConfig = {
@@ -74,6 +75,29 @@ const mockBatchResult: WorkItemBatchResult = {
       message: null,
     },
   ],
+};
+
+const mockHierarchyContextResponse: WorkItemHierarchyContextResponse = {
+  rootWorkItemId: 135898,
+  includedWorkItemCount: 1,
+  omittedCount: 0,
+  items: [
+    {
+      workItemId: 135898,
+      depth: 0,
+      relationToRoot: 'root',
+      title: 'Sample work item',
+      type: 'User Story',
+      state: 'Active',
+      parentId: null,
+      url: 'https://dev.azure.com/example/_workitems/edit/135898',
+      description: 'Description text',
+      acceptanceCriteria: '- Done',
+      missing: { description: false, acceptanceCriteria: false, imageAttachments: true },
+      imageAttachments: [],
+    },
+  ],
+  omissions: [],
 };
 
 const mockPullRequestLookupResponse: PullRequestLookupResponse = {
@@ -228,6 +252,7 @@ describe('createServer', () => {
       expect(toolNames).toEqual(
         expect.arrayContaining([
           'az_get_work_item',
+          'az_get_work_item_hierarchy_context',
           'az_get_work_items',
           'az_get_work_item_pull_requests',
           'az_list_work_items',
@@ -327,6 +352,48 @@ describe('createServer', () => {
         mimeType: 'image/png',
         blob: Buffer.from('image-bytes').toString('base64'),
       });
+    } finally {
+      await session.close();
+    }
+  });
+
+  // T024: az_get_work_item_hierarchy_context is registered with correct schema
+  it('registers az_get_work_item_hierarchy_context with an id integer input schema', async () => {
+    const session = await connectClientAndServer();
+
+    try {
+      const tools = await session.client.listTools();
+      const tool = tools.tools.find(({ name }) => name === 'az_get_work_item_hierarchy_context');
+
+      expect(tool).toBeDefined();
+      expect(tool?.inputSchema).toMatchObject({
+        type: 'object',
+        properties: {
+          id: { type: 'integer' },
+        },
+        required: expect.arrayContaining(['id']),
+      });
+    } finally {
+      await session.close();
+    }
+  });
+
+  it('passes id argument through to getWorkItemHierarchyContext and returns serialised response', async () => {
+    vi.mocked(getWorkItemHierarchyContext).mockResolvedValue(mockHierarchyContextResponse);
+    const session = await connectClientAndServer();
+
+    try {
+      const result = await session.client.callTool({
+        name: 'az_get_work_item_hierarchy_context',
+        arguments: { id: 135898 },
+      });
+      const content = result.content as Array<{ type: 'text'; text: string }>;
+
+      expect(getWorkItemHierarchyContext).toHaveBeenCalledWith(expect.anything(), 135898);
+      expect(result.isError).toBeFalsy();
+      const parsed = JSON.parse(content[0]!.text) as WorkItemHierarchyContextResponse;
+      expect(parsed.rootWorkItemId).toBe(135898);
+      expect(parsed.items).toHaveLength(1);
     } finally {
       await session.close();
     }

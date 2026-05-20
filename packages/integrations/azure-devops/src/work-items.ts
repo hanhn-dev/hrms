@@ -12,6 +12,7 @@ import {
 import { htmlToMarkdown } from './html-to-text.js';
 import type {
   AzureDevOpsConfig,
+  ImageAttachmentContext,
   ListWorkItemsFilter,
   MultiWorkItemRequest,
   PullRequestLookupIssue,
@@ -20,6 +21,9 @@ import type {
   WorkItemBatchResult,
   WorkItemBatchResultEntry,
   WorkItemBatchResultStatus,
+  WorkItemHierarchyContextEntry,
+  WorkItemHierarchyContextOmission,
+  WorkItemHierarchyContextResponse,
   WorkItemRequestEntry,
   WorkItemSummary,
 } from './types.js';
@@ -572,4 +576,190 @@ export async function queryWorkItems(
   return (items ?? [])
     .filter((item): item is AzureWorkItem => item !== null && item !== undefined)
     .map((item) => mapSummary(item, client.config.orgUrl));
+}
+
+// ---------------------------------------------------------------------------
+// Hierarchy context aggregation
+// ---------------------------------------------------------------------------
+
+const HIERARCHY_FORWARD_REL = 'System.LinkTypes.Hierarchy-Forward';
+
+function getHierarchyChildIds(raw: AzureWorkItem): readonly number[] {
+  return (raw.relations ?? []).flatMap((relation) => {
+    if (
+      relation === null ||
+      relation === undefined ||
+      relation.rel !== HIERARCHY_FORWARD_REL ||
+      typeof relation.url !== 'string' ||
+      relation.url.length === 0
+    ) {
+      return [];
+    }
+
+    try {
+      const parsedUrl = new URL(relation.url);
+      const segments = parsedUrl.pathname.split('/').filter(Boolean);
+      const last = segments[segments.length - 1];
+      if (!last || !/^[1-9]\d*$/.test(last)) return [];
+      const id = Number.parseInt(last, 10);
+      return Number.isSafeInteger(id) ? [id] : [];
+    } catch {
+      const segments = relation.url.split('/').filter(Boolean);
+      const last = segments[segments.length - 1];
+      if (!last || !/^[1-9]\d*$/.test(last)) return [];
+      const id = Number.parseInt(last, 10);
+      return Number.isSafeInteger(id) ? [id] : [];
+    }
+  });
+}
+
+function mapImageAttachmentContext(workItemId: number, attachment: WorkItemAttachment): ImageAttachmentContext {
+  return {
+    attachmentId: attachment.id,
+    name: attachment.name,
+    resourceUri: `azdo://workitem/${workItemId}/images/${attachment.id}`,
+    comment: attachment.comment,
+    contentType: attachment.contentType,
+    size: attachment.size,
+  };
+}
+
+function mapWorkItemHierarchyContextEntry(
+  workItem: WorkItem,
+  depth: number,
+  relationToRoot: 'root' | 'descendant',
+  parentId: number | null,
+): WorkItemHierarchyContextEntry {
+  const imageAttachments = workItem.attachments
+    .filter((a) => a.isImage)
+    .map((a) => mapImageAttachmentContext(workItem.id, a));
+
+  return {
+    workItemId: workItem.id,
+    depth,
+    relationToRoot,
+    title: workItem.title,
+    type: workItem.type,
+    state: workItem.state,
+    parentId,
+    url: workItem.url,
+    description: workItem.description.length > 0 ? workItem.description : null,
+    acceptanceCriteria: workItem.acceptanceCriteria.length > 0 ? workItem.acceptanceCriteria : null,
+    missing: {
+      description: workItem.description.length === 0,
+      acceptanceCriteria: workItem.acceptanceCriteria.length === 0,
+      imageAttachments: !workItem.attachments.some((a) => a.isImage),
+    },
+    imageAttachments,
+  };
+}
+
+type HierarchyQueueEntry = {
+  readonly id: number;
+  readonly depth: number;
+  readonly parentWorkItemId: number;
+};
+
+async function collectHierarchyItems(
+  client: AzureDevOpsClient,
+  rootRaw: AzureWorkItem,
+): Promise<{
+  readonly items: ReadonlyArray<{ readonly raw: AzureWorkItem; readonly depth: number; readonly directParentId: number | null }>;
+  readonly omissions: readonly WorkItemHierarchyContextOmission[];
+}> {
+  const items: Array<{ raw: AzureWorkItem; depth: number; directParentId: number | null }> = [
+    { raw: rootRaw, depth: 0, directParentId: null },
+  ];
+  const omissions: WorkItemHierarchyContextOmission[] = [];
+  const visitedIds = new Set<number>([rootRaw.id!]);
+
+  let queue: HierarchyQueueEntry[] = getHierarchyChildIds(rootRaw).map((id) => ({
+    id,
+    depth: 1,
+    parentWorkItemId: rootRaw.id!,
+  }));
+
+  while (queue.length > 0) {
+    const pendingById = new Map<number, HierarchyQueueEntry>();
+    for (const entry of queue) {
+      if (!visitedIds.has(entry.id) && !pendingById.has(entry.id)) {
+        pendingById.set(entry.id, entry);
+        visitedIds.add(entry.id);
+      }
+    }
+    queue = [];
+
+    if (pendingById.size === 0) continue;
+
+    const idsToFetch = [...pendingById.keys()];
+    const fetched = await getRawWorkItemsWithRelations(client, idsToFetch);
+
+    for (const id of idsToFetch) {
+      const raw = fetched.get(id);
+      const entry = pendingById.get(id)!;
+
+      if (raw === undefined) {
+        const resolution = await resolveOmittedRawWorkItem(client, id);
+        if (resolution.status !== 'found' || resolution.rawWorkItem === null) {
+          const status = resolution.status === 'inaccessible' ? 'inaccessible' : 'not_found';
+          omissions.push({
+            kind: 'work_item',
+            workItemId: id,
+            attachmentId: null,
+            status,
+            message: resolution.message ?? buildLookupIssueMessage(id, status),
+          });
+        } else {
+          const resolvedRaw = resolution.rawWorkItem;
+          items.push({ raw: resolvedRaw, depth: entry.depth, directParentId: entry.parentWorkItemId });
+          for (const childId of getHierarchyChildIds(resolvedRaw)) {
+            if (!visitedIds.has(childId)) {
+              queue.push({ id: childId, depth: entry.depth + 1, parentWorkItemId: id });
+            }
+          }
+        }
+        continue;
+      }
+
+      items.push({ raw, depth: entry.depth, directParentId: entry.parentWorkItemId });
+      for (const childId of getHierarchyChildIds(raw)) {
+        if (!visitedIds.has(childId)) {
+          queue.push({ id: childId, depth: entry.depth + 1, parentWorkItemId: id });
+        }
+      }
+    }
+  }
+
+  return { items, omissions };
+}
+
+export async function getWorkItemHierarchyContext(
+  client: AzureDevOpsClient,
+  id: number,
+): Promise<WorkItemHierarchyContextResponse> {
+  const rootBatch = await getRawWorkItemsWithRelations(client, [id]);
+
+  if (!rootBatch.has(id)) {
+    const resolution = await resolveOmittedRawWorkItem(client, id);
+    throw new Error(resolution.message ?? buildLookupIssueMessage(id, 'not_found'));
+  }
+
+  const rootRaw = rootBatch.get(id)!;
+  const { items: hierarchyItems, omissions } = await collectHierarchyItems(client, rootRaw);
+
+  const entries = await Promise.all(
+    hierarchyItems.map(async ({ raw, depth, directParentId }) => {
+      const workItem = await mapWorkItem(client, raw, client.config.orgUrl);
+      const relationToRoot: 'root' | 'descendant' = depth === 0 ? 'root' : 'descendant';
+      return mapWorkItemHierarchyContextEntry(workItem, depth, relationToRoot, directParentId);
+    }),
+  );
+
+  return {
+    rootWorkItemId: id,
+    includedWorkItemCount: entries.length,
+    omittedCount: omissions.length,
+    items: entries,
+    omissions,
+  };
 }

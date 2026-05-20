@@ -163,3 +163,49 @@ export interface PullRequestLookupResponse {
   readonly questions: readonly RefinementQuestion[] | null;
   readonly results: readonly PullRequestCandidate[] | null;
 }
+
+export interface WorkItemContextMissingFields {
+  readonly description: boolean;
+  readonly acceptanceCriteria: boolean;
+  readonly imageAttachments: boolean;
+}
+
+export interface ImageAttachmentContext {
+  readonly attachmentId: string;
+  readonly name: string;
+  readonly resourceUri: string;
+  readonly comment: string | null;
+  readonly contentType: string | null;
+  readonly size: number | null;
+}
+
+export interface WorkItemHierarchyContextEntry {
+  readonly workItemId: number;
+  readonly depth: number;
+  readonly relationToRoot: 'root' | 'descendant';
+  readonly title: string;
+  readonly type: string;
+  readonly state: string;
+  readonly parentId: number | null;
+  readonly url: string;
+  readonly description: string | null;
+  readonly acceptanceCriteria: string | null;
+  readonly missing: WorkItemContextMissingFields;
+  readonly imageAttachments: readonly ImageAttachmentContext[];
+}
+
+export interface WorkItemHierarchyContextOmission {
+  readonly kind: 'work_item' | 'attachment';
+  readonly workItemId: number;
+  readonly attachmentId: string | null;
+  readonly status: 'not_found' | 'inaccessible' | 'metadata_unavailable';
+  readonly message: string;
+}
+
+export interface WorkItemHierarchyContextResponse {
+  readonly rootWorkItemId: number;
+  readonly includedWorkItemCount: number;
+  readonly omittedCount: number;
+  readonly items: readonly WorkItemHierarchyContextEntry[];
+  readonly omissions: readonly WorkItemHierarchyContextOmission[];
+}

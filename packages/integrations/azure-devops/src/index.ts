@@ -1,5 +1,6 @@
 export type {
 	AzureDevOpsConfig,
+	ImageAttachmentContext,
 	PullRequestArtifactReference,
 	PullRequestCandidate,
 	PullRequestFilterFacets,
@@ -13,6 +14,10 @@ export type {
 	RefinementQuestion,
 	MultiWorkItemRequest,
 	ListWorkItemsFilter,
+	WorkItemContextMissingFields,
+	WorkItemHierarchyContextEntry,
+	WorkItemHierarchyContextOmission,
+	WorkItemHierarchyContextResponse,
 	WorkItemPullRequestLookupRequest,
 	WorkItemBatchResult,
 	WorkItemBatchResultEntry,
@@ -31,4 +36,4 @@ export {
 export { loadConfig } from './config.js';
 export { htmlToMarkdown } from './html-to-text.js';
 export { getWorkItemPullRequests } from './pull-requests.js';
-export { getWorkItem, getWorkItemsByIds, listWorkItems, parseWorkItemIdsInput, queryWorkItems } from './work-items.js';
+export { getWorkItem, getWorkItemHierarchyContext, getWorkItemsByIds, listWorkItems, parseWorkItemIdsInput, queryWorkItems } from './work-items.js';
