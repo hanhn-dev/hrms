@@ -3,12 +3,22 @@ export type {
 	ImageAttachmentContext,
 	PullRequestArtifactReference,
 	PullRequestCandidate,
+	PullRequestChangePage,
+	PullRequestChangeType,
+	PullRequestChangedFile,
+	PullRequestCommitSummary,
+	PullRequestDetail,
+	PullRequestDetailRequest,
 	PullRequestFilterFacets,
 	PullRequestHashes,
+	PullRequestLineDiffBlock,
+	PullRequestLineDiffChangeType,
 	PullRequestLookupIssue,
 	PullRequestLookupIssueStatus,
 	PullRequestLookupResponse,
 	PullRequestLookupStage,
+	PullRequestReviewer,
+	PullRequestReviewerVote,
 	PullRequestSortDirection,
 	PullRequestSortField,
 	RefinementQuestion,
@@ -35,5 +45,11 @@ export {
 } from './client.js';
 export { loadConfig } from './config.js';
 export { htmlToMarkdown } from './html-to-text.js';
+export {
+	getOrganizationIdentity,
+	getPullRequestDetail,
+	parsePullRequestReference,
+} from './pull-request-detail.js';
+export type { ParsedPullRequestReference } from './pull-request-detail.js';
 export { getWorkItemPullRequests } from './pull-requests.js';
 export { getWorkItem, getWorkItemHierarchyContext, getWorkItemsByIds, listWorkItems, parseWorkItemIdsInput, queryWorkItems } from './work-items.js';

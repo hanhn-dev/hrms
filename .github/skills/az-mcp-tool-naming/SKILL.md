@@ -16,7 +16,7 @@ description: "Use when adding, renaming, or reviewing Azure DevOps MCP tools in 
 - Every public Azure DevOps MCP tool exposed by this repository uses the `az_` prefix.
 - Keep the remainder of the tool name in descriptive snake_case.
 - Treat the prefixed name as the canonical name in all user-facing references.
-- Current canonical examples are `az_get_work_item`, `az_get_work_items`, `az_get_work_item_pull_requests`, `az_list_work_items`, and `az_query_work_items`.
+- Current canonical examples are `az_get_work_item`, `az_get_work_items`, `az_get_pull_request`, `az_get_work_item_pull_requests`, `az_list_work_items`, and `az_query_work_items`.
 - `apps/az-mcp/src/server.ts` is the runtime source of truth for the public Azure DevOps MCP tool catalog.
 
 ## Surfaces To Check

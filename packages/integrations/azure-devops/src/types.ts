@@ -164,6 +164,88 @@ export interface PullRequestLookupResponse {
   readonly results: readonly PullRequestCandidate[] | null;
 }
 
+export type PullRequestChangeType = 'add' | 'edit' | 'delete' | 'rename' | 'other';
+export type PullRequestLineDiffChangeType = 'none' | 'add' | 'delete' | 'edit';
+export type PullRequestReviewerVote =
+  | 'approved'
+  | 'approved_with_suggestions'
+  | 'no_vote'
+  | 'waiting_for_author'
+  | 'rejected'
+  | 'unknown';
+
+export interface PullRequestDetailRequest {
+  readonly pullRequest: string | number;
+  readonly top?: number;
+  readonly skip?: number;
+}
+
+export interface PullRequestReviewer {
+  readonly displayName: string | null;
+  readonly vote: PullRequestReviewerVote;
+  readonly isRequired: boolean;
+}
+
+export interface PullRequestCommitSummary {
+  readonly commitId: string;
+  readonly comment: string | null;
+  readonly author: string | null;
+}
+
+export interface PullRequestLineDiffBlock {
+  readonly changeType: PullRequestLineDiffChangeType;
+  readonly originalLineNumberStart: number | null;
+  readonly originalLinesCount: number | null;
+  readonly modifiedLineNumberStart: number | null;
+  readonly modifiedLinesCount: number | null;
+}
+
+export interface PullRequestChangedFile {
+  readonly path: string;
+  readonly originalPath: string | null;
+  readonly changeType: PullRequestChangeType;
+  readonly isBinary: boolean;
+  readonly omission: string | null;
+  readonly truncation: {
+    readonly base: boolean;
+    readonly current: boolean;
+  } | null;
+  readonly baseContent: string | null;
+  readonly currentContent: string | null;
+  readonly lineDiffBlocks: readonly PullRequestLineDiffBlock[];
+}
+
+export interface PullRequestChangePage {
+  readonly totalCount: number;
+  readonly returnedCount: number;
+  readonly skip: number;
+  readonly top: number;
+  readonly hasMore: boolean;
+  readonly files: readonly PullRequestChangedFile[];
+}
+
+export interface PullRequestDetail {
+  readonly pullRequestId: number;
+  readonly title: string;
+  readonly description: string | null;
+  readonly status: string;
+  readonly author: string | null;
+  readonly createdDate: string | null;
+  readonly closedDate: string | null;
+  readonly sourceBranch: string;
+  readonly targetBranch: string;
+  readonly url: string;
+  readonly projectId: string;
+  readonly repositoryId: string;
+  readonly repositoryName: string | null;
+  readonly hashes: PullRequestHashes;
+  readonly reviewers: readonly PullRequestReviewer[];
+  readonly commits: readonly PullRequestCommitSummary[];
+  readonly workItemIds: readonly number[];
+  readonly iterationId: number;
+  readonly changes: PullRequestChangePage;
+}
+
 export interface WorkItemContextMissingFields {
   readonly description: boolean;
   readonly acceptanceCriteria: boolean;

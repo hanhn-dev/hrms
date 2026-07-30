@@ -1,8 +1,15 @@
 import { McpServer, ResourceTemplate } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { AzureDevOpsClient, getWorkItem, getWorkItemHierarchyContext, listWorkItems, queryWorkItems } from '@hrms/azure-devops';
+import {
+  AzureDevOpsClient,
+  getWorkItem,
+  getWorkItemHierarchyContext,
+  listWorkItems,
+  queryWorkItems,
+} from '@hrms/azure-devops';
 import type { AzureDevOpsConfig } from '@hrms/azure-devops';
 import { z } from 'zod';
 import { createWorkItemImageResourceHandler } from './resources/work-item-image-resource.js';
+import { createGetPullRequestHandler } from './tools/get-pull-request.js';
 import { createGetWorkItemPullRequestsHandler } from './tools/get-work-item-pull-requests.js';
 import { createGetWorkItemsHandler } from './tools/get-work-items.js';
 
@@ -40,6 +47,7 @@ export function createServer(config: AzureDevOpsConfig): McpServer {
       server.server.elicitInput(params as Parameters<typeof server.server.elicitInput>[0]),
   });
   const getWorkItemsHandler = createGetWorkItemsHandler(client);
+  const getPullRequestHandler = createGetPullRequestHandler(client);
 
   registerTool(
     server,
@@ -81,6 +89,23 @@ export function createServer(config: AzureDevOpsConfig): McpServer {
     'Retrieve multiple Azure DevOps work items from a comma-separated list of IDs while preserving input order and reporting per-item issues.',
     { ids: z.string().min(1) },
     async ({ ids }) => getWorkItemsHandler({ ids: ids as string }),
+  );
+
+  registerTool(
+    server,
+    'az_get_pull_request',
+    'Retrieve a single Azure DevOps pull request by numeric ID or HTTPS URL, including metadata and paginated review-ready file changes for code review.',
+    {
+      pullRequest: z.union([z.number().int().positive(), z.string().min(1)]),
+      top: z.number().int().min(1).max(100).optional(),
+      skip: z.number().int().min(0).optional(),
+    },
+    async ({ pullRequest, top, skip }) =>
+      getPullRequestHandler({
+        pullRequest: pullRequest as string | number,
+        top: top as number | undefined,
+        skip: skip as number | undefined,
+      }),
   );
 
   registerTool(

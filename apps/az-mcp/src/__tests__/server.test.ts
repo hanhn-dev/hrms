@@ -9,6 +9,7 @@ vi.mock('@hrms/azure-devops', () => ({
       getAttachmentContent: vi.fn().mockResolvedValue(Buffer.from('image-bytes')),
     };
   }),
+  getPullRequestDetail: vi.fn(),
   getWorkItem: vi.fn(),
   getWorkItemHierarchyContext: vi.fn(),
   getWorkItemPullRequests: vi.fn(),
@@ -17,8 +18,21 @@ vi.mock('@hrms/azure-devops', () => ({
   queryWorkItems: vi.fn(),
 }));
 
-import { getWorkItem, getWorkItemHierarchyContext, getWorkItemPullRequests, getWorkItemsByIds } from '@hrms/azure-devops';
-import type { AzureDevOpsConfig, PullRequestLookupResponse, WorkItem, WorkItemBatchResult, WorkItemHierarchyContextResponse } from '@hrms/azure-devops';
+import {
+  getPullRequestDetail,
+  getWorkItem,
+  getWorkItemHierarchyContext,
+  getWorkItemPullRequests,
+  getWorkItemsByIds,
+} from '@hrms/azure-devops';
+import type {
+  AzureDevOpsConfig,
+  PullRequestDetail,
+  PullRequestLookupResponse,
+  WorkItem,
+  WorkItemBatchResult,
+  WorkItemHierarchyContextResponse,
+} from '@hrms/azure-devops';
 import { createServer } from '../server.js';
 
 const config: AzureDevOpsConfig = {
@@ -133,6 +147,51 @@ const mockPullRequestLookupResponse: PullRequestLookupResponse = {
       childWorkItemIds: [202],
     },
   ],
+};
+
+const mockPullRequestDetail: PullRequestDetail = {
+  pullRequestId: 501,
+  title: 'Fix login',
+  description: 'Adds null checks',
+  status: 'active',
+  author: 'Alice',
+  createdDate: '2026-07-29T10:00:00.000Z',
+  closedDate: null,
+  sourceBranch: 'refs/heads/feature/login',
+  targetBranch: 'refs/heads/main',
+  url: 'https://dev.azure.com/example/Sample%20Project/_git/app/pullrequest/501',
+  projectId: 'Sample Project',
+  repositoryId: 'repo-guid',
+  repositoryName: 'app',
+  hashes: {
+    mergeCommit: null,
+    sourceCommit: 'source-501',
+    targetCommit: 'target-501',
+  },
+  reviewers: [{ displayName: 'Bob', vote: 'approved', isRequired: true }],
+  commits: [{ commitId: 'source-501', comment: 'Fix validation', author: 'Alice' }],
+  workItemIds: [135898],
+  iterationId: 2,
+  changes: {
+    totalCount: 1,
+    returnedCount: 1,
+    skip: 0,
+    top: 50,
+    hasMore: false,
+    files: [
+      {
+        path: '/src/login.ts',
+        originalPath: null,
+        changeType: 'edit',
+        isBinary: false,
+        omission: null,
+        truncation: null,
+        baseContent: 'old',
+        currentContent: 'new',
+        lineDiffBlocks: [],
+      },
+    ],
+  },
 };
 
 async function connectClientAndServer() {
@@ -254,6 +313,7 @@ describe('createServer', () => {
           'az_get_work_item',
           'az_get_work_item_hierarchy_context',
           'az_get_work_items',
+          'az_get_pull_request',
           'az_get_work_item_pull_requests',
           'az_list_work_items',
           'az_query_work_items',
@@ -297,6 +357,59 @@ describe('createServer', () => {
       expect(getWorkItemsByIds).toHaveBeenCalledWith(expect.anything(), '135898, 135899');
       expect(result.isError).toBeFalsy();
       expect(JSON.parse(content[0]!.text)).toMatchObject({ successCount: 2 });
+    } finally {
+      await session.close();
+    }
+  });
+
+  it('registers az_get_pull_request with pullRequest and optional paging inputs', async () => {
+    const session = await connectClientAndServer();
+
+    try {
+      const tools = await session.client.listTools();
+      const tool = tools.tools.find(({ name }) => name === 'az_get_pull_request');
+
+      expect(tool).toBeDefined();
+      expect(tool?.inputSchema).toMatchObject({
+        type: 'object',
+        properties: {
+          pullRequest: {},
+          top: {
+            type: 'integer',
+          },
+          skip: {
+            type: 'integer',
+          },
+        },
+        required: ['pullRequest'],
+      });
+    } finally {
+      await session.close();
+    }
+  });
+
+  it('passes pullRequest arguments through to getPullRequestDetail', async () => {
+    vi.mocked(getPullRequestDetail).mockResolvedValue(mockPullRequestDetail);
+    const session = await connectClientAndServer();
+
+    try {
+      const result = await session.client.callTool({
+        name: 'az_get_pull_request',
+        arguments: {
+          pullRequest: 'https://dev.azure.com/example/Sample%20Project/_git/app/pullrequest/501',
+          top: 10,
+          skip: 0,
+        },
+      });
+      const content = result.content as Array<{ type: 'text'; text: string }>;
+
+      expect(getPullRequestDetail).toHaveBeenCalledWith(expect.anything(), {
+        pullRequest: 'https://dev.azure.com/example/Sample%20Project/_git/app/pullrequest/501',
+        top: 10,
+        skip: 0,
+      });
+      expect(result.isError).toBeFalsy();
+      expect(JSON.parse(content[0]!.text)).toMatchObject({ pullRequestId: 501 });
     } finally {
       await session.close();
     }
