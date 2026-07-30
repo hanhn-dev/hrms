@@ -33,11 +33,10 @@
 
 Verify all of the following before proceeding:
 
-- [ ] **I. TypeScript-First** — All new files are `.ts`/`.tsx`; `strict: true` confirmed; no `any`; explicit return types on public functions.
-- [ ] **II. Functional Programming** — Business logic uses pure functions; no mutation of shared state; React components are function components only; side effects isolated to `useEffect`/server actions.
-- [ ] **III. Test-First** — Failing tests written and approved before implementation starts; unit ≥ 80 % coverage planned; integration tests cover all public routes/actions; E2E covers all P1 stories.
-- [ ] **IV. UX Consistency** — All UI sourced from `@hrms/ui` or a new `@hrms/ui` component proposed; design tokens used; WCAG 2.1 AA addressed; loading/empty/error states defined for every data-fetch surface.
-- [ ] **V. Performance by Design** — LCP ≤ 2.5 s, INP ≤ 200 ms, page JS ≤ 200 kB budgets documented; `next/image` used for all images; code-splitting plan noted for components > 50 kB.
+- [ ] **I. Code Quality** — All new files are `.ts`/`.tsx`; `strict: true` confirmed; no `any`; explicit return types on public functions; pure functions for business logic; no mutation of shared state; React function components only; side effects isolated to `useEffect`/server actions.
+- [ ] **II. Testing Standards** — Failing tests written and approved before implementation starts; unit ≥ 80 % coverage planned; integration tests cover all public routes/actions; E2E covers all P1 stories; contract tests for cross-package boundaries.
+- [ ] **III. User Experience Consistency** — All UI sourced from `@hrms/ui` or a new `@hrms/ui` component proposed; design tokens used; WCAG 2.1 AA addressed; loading/empty/error states defined for every data-fetch surface; actionable error messages; consistent navigation patterns.
+- [ ] **IV. Performance Requirements** — LCP ≤ 2.5 s, INP ≤ 200 ms, page JS ≤ 200 kB budgets documented; `next/image` used for all images; code-splitting plan noted for components > 50 kB; DB query plan reviewed for any table > 10 k rows.
 
 ## Project Structure
 

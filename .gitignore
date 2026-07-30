@@ -36,3 +36,5 @@ yarn-error.log*
 # Misc
 .DS_Store
 *.pem
+.memsearch/.index.pid
+.memsearch/memory/*.md

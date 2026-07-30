@@ -13,6 +13,10 @@
       "dependsOn": ["^build"],
       "inputs": ["$TURBO_DEFAULT$"]
     },
+    "test:e2e": {
+      "cache": false,
+      "dependsOn": ["build"]
+    },
     "dev": {
       "cache": false,
       "persistent": true

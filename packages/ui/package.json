@@ -4,7 +4,11 @@
   "private": true,
   "exports": {
     "./card": "./src/card.tsx",
-    "./code": "./src/code.tsx"
+    "./code": "./src/code.tsx",
+    "./editor-shell": "./src/editor-shell.tsx",
+    "./import-review": "./src/import-review.tsx",
+    "./property-panel": "./src/property-panel.tsx",
+    "./preview-frame": "./src/preview-frame.tsx"
   },
   "scripts": {
     "lint": "eslint . --max-warnings 0",
@@ -22,6 +26,7 @@
     "typescript": "6.0.3"
   },
   "dependencies": {
+    "antd": "6.4.3",
     "react": "^19.2.6"
   }
 }
