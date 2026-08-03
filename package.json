@@ -17,7 +17,6 @@
   },
   "devDependencies": {
     "@types/node": "^25.9.0",
-    "ajv": "^6.15.0",
     "patch-package": "^8.0.1",
     "postcss": "^8.5.14",
     "prettier": "^3.8.3",
@@ -25,7 +24,15 @@
     "turbo": "^2.9.14"
   },
   "overrides": {
-    "ajv": "^6.15.0",
+    "ajv-formats": {
+      "ajv": "^8.17.1"
+    },
+    "eslint": {
+      "ajv": "^6.15.0"
+    },
+    "@eslint/eslintrc": {
+      "ajv": "^6.15.0"
+    },
     "zod": "4.4.3",
     "next": {
       "postcss": "^8.5.14"
