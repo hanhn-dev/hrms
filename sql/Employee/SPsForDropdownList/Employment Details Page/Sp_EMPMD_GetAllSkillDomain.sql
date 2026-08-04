@@ -1,0 +1,1 @@
+EXEC Sp_EMPMD_GetAllSkillDomain 10

@@ -1,0 +1,1 @@
+EXEC USP_ASSET_IsAssetRegistered 3959

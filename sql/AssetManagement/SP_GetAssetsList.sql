@@ -1,0 +1,1 @@
+EXEC SP_GetAssetsList 10

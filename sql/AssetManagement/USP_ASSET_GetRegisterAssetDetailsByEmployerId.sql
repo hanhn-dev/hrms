@@ -1,0 +1,1 @@
+EXEC USP_ASSET_GetRegisterAssetDetailsByEmployerId 10

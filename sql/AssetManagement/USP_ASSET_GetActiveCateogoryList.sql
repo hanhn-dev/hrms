@@ -1,0 +1,2 @@
+
+EXEC USP_ASSET_GetActiveCateogoryList 10

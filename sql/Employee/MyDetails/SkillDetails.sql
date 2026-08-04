@@ -1,0 +1,6 @@
+
+-- GET --
+EXEC SP_BulkUpdateProfile_GetEmployeeDetailsForGivenFields N'1431', N'1833,1834,1837,1835'
+
+-- UPDATE --
+EXEC Usp_Mydetails_Enhanced_Process_Template N'1431', 2, N'[{"ID":1431,"Employment Number":"00002","Employee Name":"Abhishek Test 2 Neour","Skill Name":367,"Self Rating(0 to 10)":1,"Experience (Months)":"1","Last Used (YYYY)":2025,"Action":"Update","errorFields":[],"isValid":true},{"ID":1431,"Employment Number":"00002","Employee Name":"Abhishek Test 2 Neour","Skill Name":415,"Self Rating(0 to 10)":1,"Experience (Months)":"1","Last Used (YYYY)":2025,"Action":"Update","errorFields":[],"isValid":true},{"ID":1431,"Employment Number":"00002","Employee Name":"Abhishek Test 2 Neour","Skill Name":1018,"Self Rating(0 to 10)":8,"Experience (Months)":"11","Last Used (YYYY)":2022,"Action":"Update","errorFields":[],"isValid":true},{"ID":1431,"Employment Number":"00002","Employee Name":"Abhishek Test 2 Neour","Skill Name":1483,"Self Rating(0 to 10)":9,"Experience (Months)":"0","Last Used (YYYY)":2025,"Action":"Add","errorFields":[],"isValid":true}]', N'ID,Employee Name,Skill Name,Self Rating(0 to 10),Experience (Months),Last Used (YYYY),Employment Number'

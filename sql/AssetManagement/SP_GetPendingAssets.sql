@@ -1,0 +1,1 @@
+EXEC dbo.SP_GetPendingAssets 1430

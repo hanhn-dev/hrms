@@ -1,0 +1,13 @@
+-- -- Copy ValidationRule of BirthZipCode and apply for Current Zip code and Permanent Zipcode
+-- UPDATE TF1
+-- SET ValidationRule = TF2.ValidationRule
+-- FROM TEmployeeDetail_Fields AS TF1
+-- JOIN TEmployeeDetail_Fields AS TF2 ON TF2.DB_Column = 'BirthZipCode'
+-- WHERE TF1.DB_Column IN ('PostalZipCode', 'PermanentZipCode')
+
+-- -- SKill Level
+-- UPDATE TEmployeeDetail_Fields SET ValidationRule = '[{"rule":"range","params":{"min":0,"max":10},"errorMessage":"The Value must be in range of (0 - 10)."}]' WHERE FieldName = 'Self Rating(0 to 10)'
+-- -- YEARS --
+-- UPDATE TEmployeeDetail_Fields SET DisplayText = 'Experience (Years)', ValidationRule = '[{"rule":"numeric","errorMessage":"The value must be digit only."}]' WHERE FieldName = 'Years'
+-- -- MONTHS -- 
+-- UPDATE TEmployeeDetail_Fields SET DisplayText = 'Experience (Months)', ValidationRule = '[{"rule":"numeric","errorMessage":"The value must be digit only."}]' WHERE FieldName = 'Months'

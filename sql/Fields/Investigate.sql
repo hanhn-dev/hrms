@@ -1,0 +1,4 @@
+SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME LIKE '%Passport%'
+
+SELECT COUNT(EmployeeId) FROM TEmployeePassportDetails
+SELECT COUNT(DISTINCT EmployeeId) FROM TEmployeePassportDetails

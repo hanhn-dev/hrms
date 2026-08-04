@@ -1,0 +1,13 @@
+DECLARE 
+  @EmployerID INT = 10,
+  @EmployeeID INT = 1431; -- 00002
+
+SELECT TOP 100 * FROM TPersonalTitle
+SELECT TOP 100 * FROM TGender
+SELECT TOP 100 * FROM TMaritalStatus
+
+SELECT TOP 100 * FROM TTitle WHERE Employerid = @EmployerID
+
+
+-- SELECT TOP 100 * FROM TEmployeeDetail_Fields WHERE SectionID =1 AND EmployerID = 10
+-- SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME LIKE '%Ttitle%'

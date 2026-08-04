@@ -1,0 +1,1 @@
+EXEC USP_ASSET_GetAssetListByCategoryID 1401, 10

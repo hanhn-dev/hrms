@@ -1,0 +1,1 @@
+EXEC SP_GetEmployeeAssets 10, 1431

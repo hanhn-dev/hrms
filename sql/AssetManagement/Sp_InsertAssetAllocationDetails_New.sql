@@ -1,0 +1,1 @@
+EXEC Sp_InsertAssetAllocationDetails_New

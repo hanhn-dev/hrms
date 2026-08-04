@@ -1,0 +1,1 @@
+EXEC Sp_TnE_GetAllClaims 10

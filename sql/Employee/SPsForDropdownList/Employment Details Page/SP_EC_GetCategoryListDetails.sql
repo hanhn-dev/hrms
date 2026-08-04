@@ -1,0 +1,1 @@
+EXEC SP_EC_GetCategoryListDetails 10

@@ -1,0 +1,1 @@
+EXEC USP_INS_UPD_TCustomerSettings

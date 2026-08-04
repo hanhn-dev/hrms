@@ -1,0 +1,24 @@
+SELECT TOP 100 * FROM TMAssetsMaster WHERE EmployerId = 10
+SELECT TOP 100 * FROM TMAssetsMaster_History
+SELECT TOP 100 * FROM TRegisterAssets ORDER BY RegisterAssetId DESC 
+SELECT TOP 100 * FROM TRegisterAssets_History
+SELECT TOP 100 * FROM TEmployeeAssets
+SELECT TOP 100 * FROM TEmployeeAssets_History
+
+SELECT TOP 100 * FROM T_ASSET_FIELD_HISTORY
+SELECT TOP 100 * FROM T_REGISTERED_ASSET_FIELD_HISTORY
+
+EXEC sp_help 'TRegisterAssets'
+
+
+SELECT TOP 100 * FROM TErrorLog ORDER BY OccuredOn DESC
+
+-- DELETE TRegisterAssets WHERE RegisterAssetId IN (17366,
+-- 17365,
+-- 17364,
+-- 17363,
+-- 17362,
+-- 17361,
+-- 17360,
+-- 17359)
+

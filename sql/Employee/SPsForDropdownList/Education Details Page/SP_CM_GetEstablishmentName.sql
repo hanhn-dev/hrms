@@ -1,0 +1,1 @@
+EXEC SP_CM_GetEstablishmentName 10

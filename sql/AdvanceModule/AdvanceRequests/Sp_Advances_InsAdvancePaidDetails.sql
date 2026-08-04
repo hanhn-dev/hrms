@@ -1,0 +1,2 @@
+
+EXEC Sp_Advances_InsAdvancePaidDetails

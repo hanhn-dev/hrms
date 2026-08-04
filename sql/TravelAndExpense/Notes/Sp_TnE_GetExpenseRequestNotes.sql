@@ -1,0 +1,6 @@
+DECLARE @ExpenseId INT = 8274
+
+EXEC Sp_TnE_GetExpenseRequestNotes @ExpenseId
+
+SELECT TOP 100 * FROM TEXPENSE_COMMENT ORDER BY CreatedOn DESC
+

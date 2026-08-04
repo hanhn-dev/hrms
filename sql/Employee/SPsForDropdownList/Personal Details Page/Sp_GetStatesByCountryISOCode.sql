@@ -1,0 +1,1 @@
+EXEC Sp_GetStatesByCountryISOCode 'IN'

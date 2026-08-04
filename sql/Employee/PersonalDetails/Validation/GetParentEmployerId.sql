@@ -1,0 +1,1 @@
+SELECT [dbo].[GetParentEmployerId](10)

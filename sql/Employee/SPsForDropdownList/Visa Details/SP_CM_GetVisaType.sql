@@ -1,0 +1,1 @@
+EXEC SP_CM_GetVisaType 10

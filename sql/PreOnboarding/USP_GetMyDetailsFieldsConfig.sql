@@ -1,0 +1,1 @@
+EXEC USP_GetMyDetailsFieldsConfig 10

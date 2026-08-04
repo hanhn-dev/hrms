@@ -1,0 +1,1 @@
+EXEC SP_EMPMD_GetQualificationName 10

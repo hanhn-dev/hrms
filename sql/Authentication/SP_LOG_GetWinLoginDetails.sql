@@ -1,0 +1,1 @@
+EXEC SP_LOG_GetWinLoginDetails

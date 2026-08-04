@@ -1,0 +1,1 @@
+EXEC Sp_ApproveRejectMyDetailsReview 1431, 1431, 10, 'EmploymentTypeChange', 'APPROVED', 'Looks good'

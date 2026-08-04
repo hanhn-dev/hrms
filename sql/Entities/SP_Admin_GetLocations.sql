@@ -1,0 +1,1 @@
+EXECUTE SP_Admin_GetLocations 10
