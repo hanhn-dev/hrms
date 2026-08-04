@@ -35,8 +35,6 @@ npm run start --workspace=apps/db-mcp   # Run db-mcp directly after build
 | App | Framework | Port | Purpose |
 |-----|-----------|------|---------|
 | `apps/ui-editor` | Vite 8 + React 19 | 9000 | Primary product — local-first UI design editor |
-| `apps/web` | Next.js 16 (App Router) | 3000 | Main web app |
-| `apps/docs` | Next.js 16 (App Router) | 3001 | Documentation site |
 | `apps/az-mcp` | Node MCP server | stdio | Azure DevOps integration for AI tooling |
 | `apps/db-mcp` | Node MCP server | stdio | Database schema inspection/mutation for AI tooling |
 
@@ -84,5 +82,4 @@ Both follow the same pattern: environment config → `StdioServerTransport` → 
 - **`@hrms/ui` first**: Before creating any new UI component, check `packages/ui`. A net-new component is only allowed if `@hrms/ui` cannot satisfy the requirement, and the new component ships to `@hrms/ui` in the same PR.
 - **Caret dependency ranges**: All `dependencies` use `^` ranges, matching `devDependencies`.
 - **Zod at boundaries**: All external inputs — API responses, IndexedDB reads, file uploads, MCP tool arguments — are Zod-validated.
-- **Speckit workflow**: New features start with `/speckit-specify` (spec) → `/speckit-plan` (plan) → `/speckit-tasks` (tasks). Specs live under `specs/<###-feature-name>/`.
 - **postinstall**: `npm install` runs `patch-package`, `fix-next-postcss.mjs`, and `npm dedupe` automatically. Do not skip `postinstall` when troubleshooting Next.js PostCSS issues.

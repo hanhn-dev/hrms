@@ -1,0 +1,33 @@
+{
+  "name": "backstage",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --port 5001",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint --max-warnings 0"
+  },
+  "dependencies": {
+    "mermaid": "^11.16.0",
+    "next": "^16.3.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1"
+  },
+  "devDependencies": {
+    "@hrms/eslint-config": "*",
+    "@hrms/typescript-config": "*",
+    "@next/eslint-plugin-next": "^16.3.0",
+    "@tailwindcss/postcss": "^4.3.3",
+    "@tailwindcss/typography": "^0.5.20",
+    "@types/eslint": "^9.6.1",
+    "@types/node": "^26.1.2",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
+    "eslint": "^10.8.0",
+    "tailwindcss": "^4.3.3",
+    "typescript": "6.0.3"
+  }
+}

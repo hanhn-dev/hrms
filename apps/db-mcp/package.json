@@ -14,15 +14,15 @@
   },
   "dependencies": {
     "@hrms/database-inspector": "*",
-    "@modelcontextprotocol/sdk": "1.29.0",
+    "@modelcontextprotocol/sdk": "1.30.0",
     "zod": "4.4.3"
   },
   "devDependencies": {
     "@hrms/eslint-config": "*",
     "@hrms/typescript-config": "*",
-    "@types/node": "^25.9.0",
-    "@vitest/coverage-v8": "4.1.6",
+    "@types/node": "^26.1.2",
+    "@vitest/coverage-v8": "4.1.10",
     "typescript": "^6.0.3",
-    "vitest": "^4.1.6"
+    "vitest": "^4.1.10"
   }
 }

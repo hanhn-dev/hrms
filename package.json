@@ -13,15 +13,16 @@
     "inspect:az": "npm run build --workspace=apps/az-mcp && npx @modelcontextprotocol/inspector node --env-file=./apps/az-mcp/.env ./apps/az-mcp/dist/index.js",
     "inspect:db": "npm run build --workspace=apps/db-mcp && npx @modelcontextprotocol/inspector node --env-file=./apps/db-mcp/.env ./apps/db-mcp/dist/index.js",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
-    "postinstall": "patch-package && node scripts/fix-next-postcss.mjs && npm dedupe --ignore-scripts"
+    "postinstall": "patch-package && node scripts/fix-next-postcss.mjs && npm dedupe --ignore-scripts",
+    "backstage": "npm run dev --workspace=apps/backstage"
   },
   "devDependencies": {
-    "@types/node": "^25.9.0",
+    "@types/node": "^26.1.2",
     "patch-package": "^8.0.1",
-    "postcss": "^8.5.14",
-    "prettier": "^3.8.3",
-    "tsdown": "0.22.0",
-    "turbo": "^2.9.14"
+    "postcss": "^8.5.25",
+    "prettier": "^3.9.6",
+    "tsdown": "0.22.14",
+    "turbo": "^2.10.8"
   },
   "overrides": {
     "ajv-formats": {
@@ -38,7 +39,7 @@
       "postcss": "^8.5.14"
     }
   },
-  "packageManager": "npm@10.5.0",
+  "packageManager": "npm@12.0.2",
   "engines": {
     "node": ">=22.18.0"
   }
