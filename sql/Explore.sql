@@ -335,3 +335,7 @@ SELECT TOP 100 * FROM TEmployeeEmergencyContactDetails WHERE EmployeeId = 1431 O
 SELECT TOP 100 FieldType_JSON_SQL, FieldName, * FROM TEmployeeDetail_Fields WHERE SectionID = 14 AND EmployerId = 10
 SELECT TOP 100 * FROM TEmployeeInfo WHERE EmploymentNumber = '00067'
 sp_helptext SP_CM_GetTitle 
+
+sp_help TEmployeeInfo
+
+
