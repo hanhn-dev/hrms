@@ -152,12 +152,13 @@ SELECT
 -- (pass the same filters, appear in both #ScopeDirect and #ScopeIndirectCurrent)
 SELECT
     d.EmployeeId,
+    d.EmploymentNumber,
     CASE WHEN oh.RankLevel = 1 THEN 'Direct (Org)' END              AS DirectViaOrg,
     CASE WHEN fh.RankLevel = 1 THEN 'Direct (Functional)' END       AS DirectViaFunctional,
     CASE WHEN oh.RankLevel >= 2 THEN oh.RankLevel END               AS IndirectOrgRank,
     CASE WHEN fh.RankLevel >= 2 THEN fh.RankLevel END               AS IndirectFunctionalRank
 FROM (
-    SELECT DISTINCT E.EmployeeId
+    SELECT DISTINCT E.EmployeeId, EI.EmploymentNumber
     FROM #ScopeDirect S
     INNER JOIN TEmployee E WITH (NOLOCK) ON E.EmployeeId = S.EmployeeId
     INNER JOIN TEmployeeInfo EI WITH (NOLOCK) ON EI.EmployeeId = E.EmployeeId AND EI.EmployerID = E.EmployerId

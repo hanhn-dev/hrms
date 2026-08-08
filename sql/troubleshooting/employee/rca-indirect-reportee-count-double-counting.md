@@ -1,7 +1,7 @@
 # RCA: "Indirect Reportees" count is inflated by double-counted employees
 
 | | |
-|---|---|
+| --- | --- |
 | **Status** | Root cause confirmed and reproduced against live data. **No fix applied yet.** |
 | **Affected objects** | `Sp_CM_Mydetails_DirectIndirectReports.sql`, `Sp_CM_Mydetails_DirectIndirectReports_Count.sql` |
 | **Symptom** | "Indirect Reportees" count on My Details is higher than expected; the same employee can appear in both the Direct and Indirect report lists for the same manager. |
@@ -52,7 +52,7 @@ two classifications against each other.
 Manager **1431** (from a live support report of a wrong Indirect count):
 
 | Check | Result |
-|---|---|
+| --- | --- |
 | `Sp_CM_Mydetails_DirectIndirectReports_Count` → Direct | **97** (confirmed exact match against the UI) |
 | `Sp_CM_Mydetails_DirectIndirectReports_Count` → Indirect (current behavior) | **250** (confirmed exact match against the UI) |
 | Indirect, recomputed excluding anyone already Direct via the other tree | **225** |
@@ -97,6 +97,31 @@ ELSE IF @RankLevel = 1
 This has not been applied to either procedure. `@RankLevel = -2` (Direct+Indirect
 combined) is unaffected either way, since it already unions `RankLevel >= 1` from
 both trees into a single deduplicated set.
+
+## Addendum: a real cycle in `TEmployeeInfo.FunctionalManager`
+
+While building `find-direct-indirect-reportee-overlap.sql`, an unguarded
+recursive-CTE version of the hierarchy walk produced wildly inflated overlap
+counts (135 structural / 129 visible vs. the trusted 25 from
+`diagnose-indirect-reportee-count.sql`). The cause was **not** a filtering
+difference - it was a genuine two-person cycle in the live data: employees
+**13461** and **13464** each have the other set as `FunctionalManager`
+(confirmed on `HRM-CL-Prod`). A recursive CTE with no "already visited" guard
+walks a cycle like this repeatedly up to its recursion cap, fabricating many
+spurious deep "indirect" relationships.
+
+Both `Sp_CM_Mydetails_DirectIndirectReports[_Count]` and this folder's
+scripts avoid the problem the same way: the hierarchy walk is a `WHILE` loop
+that inserts each employee into a temp table exactly once (`NOT EXISTS`
+guard), so a cycle just causes the walk to stop naturally instead of growing
+unbounded. `find-direct-indirect-reportee-overlap.sql` was rewritten to use
+this same cycle-safe, single-manager walk instead of an unscoped ancestor
+closure.
+
+This cycle is a separate, real data-quality issue in its own right - worth
+knowing about for anyone writing a *new* recursive query against
+`TEmployeeInfo.FunctionalManager` without a visited-node guard, independent
+of the double-counting bug above.
 
 ## How to verify on another manager
 
