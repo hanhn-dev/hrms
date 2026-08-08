@@ -23,7 +23,11 @@ Scripts are organized by **feature module**, then by object type:
   SYNONYMS/         # Database synonyms
 ```
 
-Top-level modules: `Employee/`, `AdvanceModule/`, `TravelAndExpense/`, `Dashboard/`, `Menu/`, `Authentication/`, `Sections/`, `PreOnboarding/`, `Documents/`, `Notifications/`, `Security/`, `Entities/`, and more. Sub-feature operations are further nested (e.g., `TravelAndExpense/ExpenseRequests/Insert/`).
+Feature modules live under `features/`: `features/employee/`, `features/advance-module/`, `features/travel-and-expense/`, `features/dashboard/`, `features/menu/`, `features/authentication/`, `features/sections/`, `features/pre-onboarding/`, `features/documents/`, `features/notifications/`, `features/security/`, `features/entities/`, and more. Sub-feature operations are further nested (e.g., `features/travel-and-expense/expense-requests/insert/`).
+
+Utility folders (not deployed via `hrms-sql.sqlproj`, and not under `features/`):
+- `seeding/` — local/perf-test seed and cleanup scripts
+- `troubleshooting/` — ad-hoc PROD diagnostic scripts, organized by feature (`employee/`, `employer/`, `workflow/`, etc.). See `troubleshooting/README.md`.
 
 ## Naming conventions
 

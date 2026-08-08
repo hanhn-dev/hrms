@@ -72,7 +72,7 @@ SELECT TOP 100 * FROM TCLAIM_ASSIGNMENT WHERE EmployeeId IS NOT NULL
 
 SELECT TOP 100 * FROM TCustomerSettings WHERE EmployerId = 10
 
-SELECT TOP 100 ValidationRule, DisplayText FROM TEmployeeDetail_Fields WHERE SectionID = 7 AND EmployerID = 10
+SELECT TOP 100 FieldType_JSON_SQL, ValidationRule, DisplayText FROM TEmployeeDetail_Fields WHERE SectionID = 14 AND EmployerID = 10 AND FieldType_JSON_SQL IS NOT NULL
 -- UPDATE TCustomerSettings SET IsMultiplePayrollAllowed = 0 WHERE EmployerId = 10
 
 
@@ -332,10 +332,24 @@ EXEC SP_Mydetails_Enhanced_GetEmpPersonalHistoryDetails 26654
 
 
 SELECT TOP 100 * FROM TEmployeeEmergencyContactDetails WHERE EmployeeId = 1431 ORDER BY EmergencyContactID DESC 
-SELECT TOP 100 FieldType_JSON_SQL, FieldName, * FROM TEmployeeDetail_Fields WHERE SectionID = 14 AND EmployerId = 10
+SELECT TOP 100 FieldType_JSON_SQL, FieldName, * FROM TEmployeeDetail_Fields WHERE SectionID = 14 AND EmployerId = 10 AND FieldType_JSON_SQL IS NOT NULL
 SELECT TOP 100 * FROM TEmployeeInfo WHERE EmploymentNumber = '00067'
 sp_helptext SP_CM_GetTitle 
 
 sp_help TEmployeeInfo
 
 
+EXEC SP_AdminWM_GetHRMSModules 10
+
+select TOP 100 * from TEmployeeInfo WHERE EmploymentNumber = 'PT0000001'
+
+DECLARE @EmployerId INT = 10;
+DECLARE @Designation TABLE (ID INT, TITLE NVARCHAR(1000),TITLEDESC NVARCHAR(1000),ISACTIVE NVARCHAR(10),DESIGNATIONLEVEL NVARCHAR(1000))  INSERT INTO @Designation EXEC SP_CM_GetTitle @EmployerId ; SELECT ID, TITLE AS Value FROM @Designation;
+DECLARE @EmployeeRole TABLE (EmployeeRoleId INT, EmployeeRoleName NVARCHAR(1000), EmployeeRoleDesc NVARCHAR(1000), IsActive NVARCHAR(10), UpdatedBy INT, Updatedate datetime,CreatedBy INT, CreatedDate datetime, Employerid INT)  INSERT INTO @EmployeeRole EXEC SP_EMP_GetEmployeeRoleMaster @EmployerId ; SELECT EmployeeRoleId AS ID, EmployeeRoleName AS Value FROM @EmployeeRole;
+DECLARE @WorkLocation TABLE (LocationId INT,LocationName NVARCHAR(200),    CountryId INT,  Address1 NVARCHAR(200), Address2 NVARCHAR(200),ZipCode NVARCHAR(200),PhoneNumber NVARCHAR(200),Fax NVARCHAR(200),OtherPhoneNumber NVARCHAR(200),OtherFax NVARCHAR(200),IsActive NVARCHAR(10),UpdatedBy INT,Updatedate datetime,CreatedBy INT, CreatedDate datetime,Employerid INT, TimeZone NVARCHAR(200), CreatedDateUtcTime datetime,UpdatedateUtcTime datetime, TimeZoneId NVARCHAR(200),Country NVARCHAR(200))  INSERT INTO @WorkLocation EXEC SP_Create_AdminWM_GetLocationByEmployeeId  @EmployeeId,@EmployerId ; SELECT LocationId AS ID, LocationName AS Value FROM @WorkLocation ;
+DECLARE @WorkLocation TABLE (LocationId INT,LocationName NVARCHAR(200),    CountryId INT,  Address1 NVARCHAR(200), Address2 NVARCHAR(200),ZipCode NVARCHAR(200),PhoneNumber NVARCHAR(200),Fax NVARCHAR(200),OtherPhoneNumber NVARCHAR(200),OtherFax NVARCHAR(200),IsActive NVARCHAR(10),UpdatedBy INT,Updatedate datetime,CreatedBy INT, CreatedDate datetime,Employerid INT, TimeZone NVARCHAR(200), CreatedDateUtcTime datetime,UpdatedateUtcTime datetime, TimeZoneId NVARCHAR(200),Country NVARCHAR(200))  INSERT INTO @WorkLocation EXEC SP_Create_AdminWM_GetLocationByEmployeeId  @EmployeeId,@EmployerId ; SELECT LocationId AS ID, LocationName AS Value FROM @WorkLocation ;
+DECLARE @Calendar TABLE (CalendarId INT,CalendarName NVARCHAR(1000), CalendarDesc NVARCHAR(1000), IsActive NVARCHAR(10), UpdatedBy INT, Updatedate datetime,CreatedBy INT, CreatedDate datetime, Employerid INT, AllowHolidayOnWeeklyOff Varchar(10),IsHolidayPrecendenceOverWeeklyOff Varchar(10), IsHolidayPrecendenceOverWeeklyOffDisplayText varchar(1000)) INSERT INTO @Calendar EXEC SP_AdminMstr_GetCalendar @employerid ; SELECT CalendarId AS ID, CalendarName AS Value FROM @Calendar ;
+Declare @ShiftMasterdetails As Table(ID Int, Value Varchar(100), Filter Varchar(100))  Insert Into @ShiftMasterdetails Exec Sp_Creation_ShiftDetails @EmployerId  Select ID , Value , Filter from @ShiftMasterdetails
+DECLARE @Grade TABLE (GradeId INT,GradeName NVARCHAR(1000), GradeDesc NVARCHAR(1000),GradeBand NVARCHAR(1000),IsActive NVARCHAR(10), UpdatedBy INT, Updatedate datetime,CreatedBy INT, CreatedDate datetime, Employerid INT)  INSERT INTO @Grade EXEC SP_SEP_GetGradeDetails @EmployerId ; SELECT GradeId AS ID, GradeName AS Value FROM @Grade ;
+DECLARE @SkillCategory TABLE (ID INT,Category NVARCHAR(1000))INSERT INTO @SkillCategory EXEC SP_EC_GetCategoryListDetails @EmployerId ; SELECT ID, Category AS Value FROM @SkillCategory ;
+DECLARE @FunctionalManager TABLE (ID INT,EmployeeId INT,Name NVARCHAR(300),Title NVARCHAR(300), Employerid INT,EmployerName NVARCHAR(300),EmploymentNumber NVARCHAR(300), EmailId NVARCHAR(300),EmpName NVARCHAR(300))   INSERT INTO @FunctionalManager EXEC SP_Creation_Admin_GetAllEmployeeDetails @EmployerId,Null,@EmployeeId; SELECT ID, NAme AS Value FROM @FunctionalManager;

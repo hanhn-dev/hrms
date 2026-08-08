@@ -13,6 +13,8 @@ This project is about database system of HRMS Application, it contains most of t
 
 ## Project Structure
 
-- The root directory contains the features of the project organized by folders.
+- `features/` contains the features of the project organized by folders.
 - In each feature folder, there are some scripts or sub folders for sub features.
 - Most of `.sql` files are store procedures.
+- All folder names use **kebab-case** (e.g. `advance-module/`, `travel-and-expense/`). `.sql` file names stay as-is (often matching the stored procedure name), and SQL identifiers inside scripts still use PascalCase.
+- `troubleshooting/` holds ad-hoc PROD diagnostic scripts (not deployed via `hrms-sql.sqlproj`), organized by feature area.
