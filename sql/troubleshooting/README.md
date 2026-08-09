@@ -18,6 +18,7 @@ troubleshooting/
   leave-and-attendance/   # Leave balances, attendance anomalies
   menu/                   # Menu visibility, hierarchy, role/page mapping
   travel-and-expense/     # Claims, advances, expense requests
+  fields/                 # TEmployeeDetail_Fields dynamic dropdown query failures
 ```
 
 Add a new feature folder when a cluster of scripts does not fit the areas above.
