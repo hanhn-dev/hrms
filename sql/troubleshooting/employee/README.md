@@ -8,46 +8,18 @@ references point at `HRMS-DATABASE/HRMS/STOREPROCEDURE/` and
 `llm-wiki/domain/employee-lifecycle.md` for the broader employee lifecycle
 model.
 
+**Layout note:** unlike the flat-per-folder convention described in
+`troubleshooting/README.md`, this folder groups scripts one subfolder per
+issue — each subfolder is self-contained (its own README, scripts, and any
+RCA doc). Kept local to `employee/` since it's the only feature area so far
+with enough scripts per scenario to need it.
+
 ## Scenarios
 
 1. **"Indirect Reportees" count is inflated, or the same employee shows up in
    both the Direct and Indirect report lists.**
-   `Sp_CM_Mydetails_DirectIndirectReports.sql:111-114` and
-   `Sp_CM_Mydetails_DirectIndirectReports_Count.sql:92-95` walk two
-   *independent* hierarchies to answer "who reports to this employee":
-   - org-chart (`TORGChart.ReportsTo`)
-   - functional / dotted-line (`TEmployeeInfo.FunctionalManager`)
+   → [`indirect-reportee-count-double-counting/`](indirect-reportee-count-double-counting/README.md)
 
-   Each employee gets a `RankLevel` (distance from "self") in each tree
-   separately. The scope-building step then classifies:
-   - **Direct** (`@RankLevel=0`) = anyone at `RankLevel = 1` in *either* tree.
-   - **Indirect** (`@RankLevel=1`) = anyone at `RankLevel >= 2` in *either* tree.
-
-   Nothing excludes an employee from the Indirect bucket if they are already
-   Direct via the *other* tree. So in a matrix org — functional manager is
-   "self", but the org-chart manager is someone else two-plus levels up — that
-   employee is Direct via one tree and Indirect via the other, and gets
-   counted (and displayed) in **both** buckets. This inflates the Indirect
-   count and can duplicate the employee across both lists on My Details.
-
-   Confirmed live on `HRM-CL-Prod`: EmployeeId 29's `FunctionalManager` is 33
-   (Direct, functional rank 1), but its org-chart chain is `29 → 12 → 33`
-   (org rank 2, Indirect). Employee 29 lands in both buckets for manager 33.
-
-   → `diagnose-indirect-reportee-count.sql` (check one manager's counts),
-     then `find-direct-indirect-reportee-overlap.sql` (scan for every
-     manager/tenant affected). Full writeup, including a live reproduction
-     against manager EmployeeId 1431:
-     `rca-indirect-reportee-count-double-counting.md`.
-
-   **Not yet fixed.** The `ELSE IF @RankLevel = 1` branch in both procs needs
-   to exclude, from the Indirect set, anyone already present in the Direct set
-   built from the other hierarchy. No code change has been applied — these
-   scripts are for confirming/reproducing the issue before requesting one.
-
-## Scripts in this folder
-
-| Script | Type | Scenario(s) |
-|---|---|---|
-| `diagnose-indirect-reportee-count.sql` | read-only | 1 |
-| `find-direct-indirect-reportee-overlap.sql` | read-only | 1 |
+2. **Designation shows selected on the Employment Details tab, but Grade shows
+   blank — even though the Designation has a Grade mapped to it.**
+   → [`grade-designation-mismatch/`](grade-designation-mismatch/README.md)

@@ -17,8 +17,14 @@
 --           looks wrong, or the same person shows up in both the Direct and
 --           Indirect report lists on My Details.
 --
--- Inputs:   @EmployeeId (required) - the manager ("self") whose report counts
+-- Inputs:   @EmployeeId (required, unless @EmploymentNumber is set instead) -
+--                                    the manager ("self") whose report counts
 --                                    are being investigated. Set below.
+--           @EmploymentNumber      - set this instead of @EmployeeId if that's
+--                                    what you have on hand (e.g. from a
+--                                    support ticket or the UI); resolved to
+--                                    @EmployeeId automatically below. Leave
+--                                    NULL if you're setting @EmployeeId.
 --           @IsActive, @EmployerId - left NULL to match the default My Details
 --                                    tab view. Only change these if you know
 --                                    the UI is calling the SP with something
@@ -36,9 +42,15 @@
 --             The walk stops naturally when a level adds no new rows.
 -- =============================================================================
 
-DECLARE @EmployeeId INT = 1431;   -- <<< set to the manager's EmployeeId being investigated
+DECLARE @EmployeeId INT = 1431;                    -- <<< set this if you have the EmployeeId
+DECLARE @EmploymentNumber NVARCHAR(20) = NULL;      -- <<< or set this instead, e.g. 'E0001'
 DECLARE @IsActive CHAR(1) = NULL;
 DECLARE @EmployerId INT = NULL;
+
+IF @EmploymentNumber IS NOT NULL
+    SELECT @EmployeeId = EmployeeId
+    FROM TEmployeeInfo WITH (NOLOCK)
+    WHERE EmploymentNumber = @EmploymentNumber;
 
 IF (@IsActive = '') SET @IsActive = NULL;
 

@@ -43,7 +43,12 @@
 --           multi-manager scan, run this script once per manager rather
 --           than reintroducing an unscoped closure.
 --
--- Inputs:   @ManagerId  (required) - the manager's EmployeeId to investigate.
+-- Inputs:   @ManagerId  (required, unless @EmploymentNumber is set instead) -
+--                       the manager's EmployeeId to investigate.
+--           @EmploymentNumber (optional) - set this instead of @ManagerId if
+--                       that's what you have on hand; resolved to @ManagerId
+--                       automatically below. Leave NULL if you're setting
+--                       @ManagerId directly.
 --           @EmployerId (optional) - defaults to @ManagerId's own employer.
 --           @IsActive   (optional) - left NULL to match the default My
 --                       Details tab view.
@@ -55,9 +60,15 @@
 --           when a level adds no new rows, or at 20 levels as a safety cap.
 -- =============================================================================
 
-DECLARE @ManagerId  INT = 1431;    -- <<< REQUIRED: set to the manager's EmployeeId being investigated
+DECLARE @ManagerId  INT = 1431;                     -- <<< REQUIRED unless @EmploymentNumber is set
+DECLARE @EmploymentNumber NVARCHAR(20) = NULL;       -- <<< or set this instead, e.g. 'E0001'
 DECLARE @EmployerId INT = NULL;    -- <<< optional: leave NULL to use @ManagerId's own employer
 DECLARE @IsActive   CHAR(1) = NULL;
+
+IF @EmploymentNumber IS NOT NULL
+    SELECT @ManagerId = EmployeeId
+    FROM TEmployeeInfo WITH (NOLOCK)
+    WHERE EmploymentNumber = @EmploymentNumber;
 
 IF @ManagerId IS NULL
 BEGIN
