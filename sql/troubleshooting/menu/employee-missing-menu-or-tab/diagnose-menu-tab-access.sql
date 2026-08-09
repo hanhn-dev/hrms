@@ -4,8 +4,8 @@
 -- Purpose:  For one employee, replicates the actual runtime logic that
 --           decides which left-menu items and which tabs-within-a-page they
 --           see, and flags the most likely cause when an item is missing.
---           See troubleshooting/menu/README.md for the full scenario writeup
---           and the SP references below.
+--           See troubleshooting/menu/employee-missing-menu-or-tab/README.md
+--           for the full scenario writeup and the SP references below.
 --
 -- Root cause logic (confirmed against the actual stored procedures):
 --   - Left menu (sp_GetDynamicMenuItems.sql:57-122): an item shows if EITHER

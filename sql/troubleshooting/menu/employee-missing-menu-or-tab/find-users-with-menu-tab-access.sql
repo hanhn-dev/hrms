@@ -6,8 +6,9 @@
 --           as diagnose-menu-tab-access.sql but starting from the menu/tab
 --           side instead of the employee side. Use this to answer "who can
 --           see X today" rather than "what can this one employee see".
---           See troubleshooting/menu/README.md for the underlying SP logic
---           and the confirmed tenant-wide tab-master gap (scenario 1) - it
+--           See troubleshooting/menu/employee-missing-menu-or-tab/README.md
+--           for the underlying SP logic and the confirmed tenant-wide
+--           tab-master gap (scenario 1) - it
 --           applies here too: a tab can show up as "granted" below via
 --           TUserTabDetails yet still be blocked for that employee if their
 --           tenant has no matching TTabDetails master row.
