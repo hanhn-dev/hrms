@@ -28,6 +28,7 @@ a specific ticket (or the whole install) before requesting a code fix.
 
 | Script | Type | Purpose |
 |---|---|---|
+| `list-unprocessed-employees-by-upload.sql` | read-only | Quick listing of every Unprocessed employee/record for ONE `UploadID`, with section, batch, and reason text — no pattern classification. |
 | `diagnose-bulk-upload-unprocessed-records.sql` | read-only | Deep-dive ONE upload (by `UploadID`, or by `EmploymentNumber`/`WorkEmail` for a specific employee) and classify every Unprocessed record against the known patterns. |
 | `find-stuck-and-inconsistent-bulk-uploads.sql` | read-only | Fleet-wide scan across all uploads for stuck/empty/drifted results — use this to size the problem or find which tenant/upload to drill into. |
 | `rca-bulk-upload-unprocessed-records.md` | doc | Full write-up: all 8 patterns with file:line evidence and confirmed live-data scope. |
