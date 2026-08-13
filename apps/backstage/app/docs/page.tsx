@@ -19,17 +19,17 @@ export default function DocsPage(): React.JSX.Element {
   return (
     <div className="h-full overflow-y-auto">
       <div className="mx-auto max-w-4xl px-6 py-8">
-        <h1 className="text-2xl font-semibold">Docs</h1>
+        <h1 className="text-2xl font-semibold dark:text-white">Docs</h1>
         {groups.map(([category, docs]) => (
           <section className="mt-8" key={category}>
-            <h2 className="text-sm font-medium uppercase tracking-wide text-slate-500">
+            <h2 className="text-sm font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
               {category}
             </h2>
-            <ul className="mt-3 divide-y divide-slate-200 rounded-md border border-slate-200">
+            <ul className="mt-3 divide-y divide-slate-200 rounded-md border border-slate-200 dark:divide-slate-800 dark:border-slate-800">
               {docs.map((doc) => (
                 <li key={doc.slug}>
                   <Link
-                    className="block px-4 py-3 hover:bg-slate-50"
+                    className="block px-4 py-3 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-900"
                     href={`/docs/${doc.slug}`}
                   >
                     {doc.title}

@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";
+@custom-variant dark (&:where(.dark, .dark *));
 
 /* transform-origin must be 0 0 to match the zoom-toward-cursor math in
    mermaid-diagram.tsx; harmless outside fullscreen since the transform

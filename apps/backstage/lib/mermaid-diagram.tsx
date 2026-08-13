@@ -82,7 +82,7 @@ export function Mermaid({ chart }: { chart: string }): React.JSX.Element {
 
   if (error) {
     return (
-      <pre className="whitespace-pre-wrap rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+      <pre className="whitespace-pre-wrap rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-400">
         Failed to render diagram: {error}
       </pre>
     );
@@ -175,7 +175,12 @@ export function Mermaid({ chart }: { chart: string }): React.JSX.Element {
           )}
         </button>
       </div>
-      <div className="mermaid-diagram-body overflow-x-auto" onMouseDown={onMouseDown} onWheel={onWheel} ref={bodyRef}>
+      <div
+        className="mermaid-diagram-body overflow-x-auto rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-700"
+        onMouseDown={onMouseDown}
+        onWheel={onWheel}
+        ref={bodyRef}
+      >
         <div className="mermaid-diagram-content" ref={contentRef} />
       </div>
     </div>

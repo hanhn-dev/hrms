@@ -47,7 +47,7 @@ function SectionLinks({
   onNavigate?: () => void;
 }): React.JSX.Element {
   if (sections.length === 0) {
-    return <p className="mt-3 text-sm italic text-slate-500">No sections.</p>;
+    return <p className="mt-3 text-sm italic text-slate-500 dark:text-slate-400">No sections.</p>;
   }
 
   return (
@@ -60,8 +60,8 @@ function SectionLinks({
               className={
                 (section.depth === 3 ? "block pl-3 " : "block ") +
                 (isActive
-                  ? "font-medium text-slate-900"
-                  : "text-slate-600 hover:text-slate-900")
+                  ? "font-medium text-slate-900 dark:text-white"
+                  : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white")
               }
               aria-current={isActive ? "location" : undefined}
               href={`#${section.id}`}
@@ -89,7 +89,7 @@ export function TableOfContents({
     <>
       <nav
         className={
-          "hidden shrink-0 flex-col overflow-y-auto border-l border-slate-200 bg-slate-50 py-4 lg:flex " +
+          "hidden shrink-0 flex-col overflow-y-auto border-l border-slate-200 bg-slate-50 py-4 lg:flex dark:border-slate-800 dark:bg-slate-900 " +
           (collapsed ? "w-10 items-center px-2" : "w-64 px-4")
         }
       >
@@ -98,7 +98,7 @@ export function TableOfContents({
           aria-label={collapsed ? "Expand table of contents" : "Collapse table of contents"}
           aria-expanded={!collapsed}
           onClick={() => setCollapsed((prev) => !prev)}
-          className="text-slate-500 hover:text-slate-900"
+          className="text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -116,7 +116,7 @@ export function TableOfContents({
 
         {collapsed ? null : (
           <>
-            <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
+            <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
               On this page
             </p>
             <SectionLinks sections={sections} activeId={activeId} />
@@ -130,7 +130,7 @@ export function TableOfContents({
           aria-label="On this page"
           aria-expanded={open}
           onClick={() => setOpen((prev) => !prev)}
-          className="fixed bottom-6 right-6 z-50 flex h-12 w-12 items-center justify-center rounded-full bg-slate-900 text-white shadow-lg"
+          className="fixed bottom-6 right-6 z-50 flex h-12 w-12 items-center justify-center rounded-full bg-slate-900 text-white shadow-lg dark:bg-indigo-600"
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -149,8 +149,8 @@ export function TableOfContents({
         </button>
 
         {open ? (
-          <div className="fixed bottom-20 right-6 z-50 max-h-[60vh] w-64 overflow-y-auto rounded-lg border border-slate-200 bg-slate-50 px-4 py-4 shadow-xl">
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+          <div className="fixed bottom-20 right-6 z-50 max-h-[60vh] w-64 overflow-y-auto rounded-lg border border-slate-200 bg-slate-50 px-4 py-4 shadow-xl dark:border-slate-800 dark:bg-slate-900">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
               On this page
             </p>
             <SectionLinks

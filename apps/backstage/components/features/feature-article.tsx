@@ -14,7 +14,7 @@ export function FeatureArticle({ doc }: { doc: FeatureDoc }): React.JSX.Element 
 
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-1">
-      <article className="prose prose-slate max-w-none min-w-0 flex-1 overflow-y-auto px-8 py-8">
+      <article className="prose prose-slate dark:prose-invert max-w-none min-w-0 flex-1 overflow-y-auto px-8 py-8">
         <Link className="text-sm no-underline" href="/features">
           ← Features index
         </Link>

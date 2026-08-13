@@ -25,7 +25,7 @@ export default async function DocPage({
     return (
       <div className="h-full overflow-y-auto">
         <div className="mx-auto max-w-4xl px-6 py-8">
-          <pre className="whitespace-pre-wrap rounded-md border border-slate-200 bg-slate-50 p-4 text-sm text-slate-800">
+          <pre className="whitespace-pre-wrap rounded-md border border-slate-200 bg-slate-50 p-4 text-sm text-slate-800 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200">
             {doc.content}
           </pre>
         </div>
@@ -36,7 +36,7 @@ export default async function DocPage({
   return (
     <div className="h-full overflow-y-auto">
       <div className="mx-auto max-w-4xl px-6 py-8">
-        <article className="prose prose-slate max-w-none">
+        <article className="prose prose-slate dark:prose-invert max-w-none">
           <Markdown components={{ table: ScrollableTable }} remarkPlugins={[remarkGfm]}>
             {doc.content}
           </Markdown>

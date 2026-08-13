@@ -29,14 +29,14 @@ export default async function WikiPage({
   return (
     <div className="h-full overflow-y-auto">
       <div className="mx-auto max-w-4xl px-6 py-8">
-        <article className="prose prose-slate max-w-none">
+        <article className="prose prose-slate dark:prose-invert max-w-none">
           {slug.length > 0 && (
             <Link className="no-underline" href="/wiki">
               ← Wiki index
             </Link>
           )}
           {isEmpty && (
-            <p className="italic text-slate-500">This page has no content yet.</p>
+            <p className="italic text-slate-500 dark:text-slate-400">This page has no content yet.</p>
           )}
           <Markdown
             components={{

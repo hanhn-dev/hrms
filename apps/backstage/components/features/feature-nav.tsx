@@ -11,18 +11,21 @@ export function FeatureNav({
   const pathname = usePathname();
 
   return (
-    <nav className="flex w-64 shrink-0 flex-col overflow-y-auto border-r border-slate-200 bg-slate-50">
+    <nav className="flex w-64 shrink-0 flex-col overflow-y-auto border-r border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-900">
       <div className="px-4 py-4">
-        <Link className="text-sm font-semibold text-slate-900 no-underline" href="/features">
+        <Link
+          className="text-sm font-semibold text-slate-900 no-underline dark:text-white"
+          href="/features"
+        >
           Features
         </Link>
       </div>
       {docs.length === 0 ? (
-        <p className="px-4 py-2 text-sm italic text-slate-500">
+        <p className="px-4 py-2 text-sm italic text-slate-500 dark:text-slate-400">
           No feature guides generated yet.
         </p>
       ) : (
-        <ul className="flex-1 divide-y divide-slate-200">
+        <ul className="flex-1 divide-y divide-slate-200 dark:divide-slate-800">
           {docs.map((doc) => {
             const href = `/features/${doc.slug}`;
             const active = pathname === href;
@@ -31,8 +34,8 @@ export function FeatureNav({
                 <Link
                   className={
                     active
-                      ? "block bg-slate-900 px-4 py-2.5 text-sm font-medium text-white"
-                      : "block px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-100"
+                      ? "block bg-slate-900 px-4 py-2.5 text-sm font-medium text-white dark:bg-indigo-600"
+                      : "block px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
                   }
                   href={href}
                 >
