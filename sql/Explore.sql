@@ -39,7 +39,7 @@ EXEC Sp_CM_Mydetails_DirectIndirectReports_Count
     @RankLevel = -3,
     @IsActive = '',
     @EmployerId = 10
- 
+--  
 EXEC SP_MyDetails_GetEmployeeDetailsForGivenFields N'1431', N'1975,1977,1978,1979,1971,1972,1973,1980,114344'
 EXEC SP_MyDetails_GetEmployeeDetailsForGivenFields N'1431', N'1920,1923,1921,1922,1926,1924'
 
@@ -353,3 +353,9 @@ Declare @ShiftMasterdetails As Table(ID Int, Value Varchar(100), Filter Varchar(
 DECLARE @Grade TABLE (GradeId INT,GradeName NVARCHAR(1000), GradeDesc NVARCHAR(1000),GradeBand NVARCHAR(1000),IsActive NVARCHAR(10), UpdatedBy INT, Updatedate datetime,CreatedBy INT, CreatedDate datetime, Employerid INT)  INSERT INTO @Grade EXEC SP_SEP_GetGradeDetails @EmployerId ; SELECT GradeId AS ID, GradeName AS Value FROM @Grade ;
 DECLARE @SkillCategory TABLE (ID INT,Category NVARCHAR(1000))INSERT INTO @SkillCategory EXEC SP_EC_GetCategoryListDetails @EmployerId ; SELECT ID, Category AS Value FROM @SkillCategory ;
 DECLARE @FunctionalManager TABLE (ID INT,EmployeeId INT,Name NVARCHAR(300),Title NVARCHAR(300), Employerid INT,EmployerName NVARCHAR(300),EmploymentNumber NVARCHAR(300), EmailId NVARCHAR(300),EmpName NVARCHAR(300))   INSERT INTO @FunctionalManager EXEC SP_Creation_Admin_GetAllEmployeeDetails @EmployerId,Null,@EmployeeId; SELECT ID, NAme AS Value FROM @FunctionalManager;
+
+SELECT TOP 100 * FROM TEmployee WHERE EmployerId = 25
+
+EXEc USP_FreezeAttendance_GetEffectiveFreezeDate 10, 'E'
+
+SELECT TOP 100 IsAutoPresent, AutoPresentEffectiveDate, EmployeeId FROM TEmployeeInfo WHERE EmployeeId = 1431

@@ -22,32 +22,48 @@ owner-resolution chain (`:91-170`) and the side-effect chain (`:585-1206`),
 both carrying the same 21 values; other procedures may introduce more, so
 treat it as the approval engine's known set, not a closed universe.
 
-| RequestType | Domain | Pairs with cancellation / pullback |
-|---|---|---|
-| `LeaveRequest` | Leave | `LeaveCancellation`, `LeavePullback` |
-| `LeaveCancellation` | Leave | — |
-| `LeavePullback` | Leave | — |
-| `OptionalHolidayRequest` | Leave | `OptionalHolidayCancellation` |
-| `OptionalHolidayCancellation` | Leave | — |
-| `CompOffCreditRequest` | Leave (comp-off) | — |
-| `WorkFromHome` | Attendance | `WFHCancellation`, `WorkFromHomePullback` |
-| `WFHCancellation` | Attendance | — |
-| `WorkFromHomePullback` | Attendance | — |
-| `AttendanceRegularize` | Attendance | `ARCancellation` |
-| `ARCancellation` | Attendance | — |
-| `ResignationDetails` | Separation | `ResignationPullback` |
-| `ResignationActivity` | Separation | — |
-| `ResignationPullback` | Separation | — |
-| `TerminationActivity` | Separation | — |
-| `BusinessCard` | Employee services | — |
-| `SelfAssessment` | Confirmation (CMS) | — |
-| `ConfirmationAssessment` | Confirmation (CMS) | — |
-| `RecruitmentManagement` | Recruitment (RRS) | — |
-| `InterviewFeedback` | Recruitment (RRS) | — |
-| `InitiateHiring` | Recruitment (RRS) | — |
+`TRequestWorkflows.RequestTransid` is polymorphic — it holds the PK of a
+different "artifact" table depending on `RequestType`. Target table/column
+verified 2026-08-10 against the side-effect chain and each target table's own
+`CREATE TABLE` script (see `../domain/approval-workflow.md` for the ER diagram):
+
+| RequestType | Domain | Pairs with cancellation / pullback | Target table (via `RequestTransid`) | Target PK declared? |
+| --- | --- | --- | --- | --- |
+| `LeaveRequest` | Leave | `LeaveCancellation`, `LeavePullback` | `TLeaveRequest.TransId` | Yes |
+| `LeaveCancellation` | Leave | — | `TLeaveRequest.TransId` | Yes |
+| `LeavePullback` | Leave | — | `TLeaveRequest.TransId` | Yes |
+| `OptionalHolidayRequest` | Leave | `OptionalHolidayCancellation` | `TOptionalHolidayRequest.TransId` | Yes |
+| `OptionalHolidayCancellation` | Leave | — | `TOptionalHolidayRequest.TransId` | Yes |
+| `CompOffCreditRequest` | Leave (comp-off) | — | `TCompOffRequest.TransId` | Yes |
+| `WorkFromHome` | Attendance | `WFHCancellation`, `WorkFromHomePullback` | `TWorkFromHomeRequest.TransID` | **No** (IDENTITY only) |
+| `WFHCancellation` | Attendance | — | `TWorkFromHomeRequest.TransID` | **No** |
+| `WorkFromHomePullback` | Attendance | — | `TWorkFromHomeRequest.TransID` | **No** |
+| `AttendanceRegularize` | Attendance | `ARCancellation` | `TAttendanceRegularization.TransID` | Yes |
+| `ARCancellation` | Attendance | — | `TAttendanceRegularization.TransID` | Yes |
+| `ResignationDetails` | Separation | `ResignationPullback` | `TResignationDetails.ResignationDetailId` | Yes |
+| `ResignationActivity` | Separation | — | `TActivityDetails.ActivityDetailId` | Yes |
+| `ResignationPullback` | Separation | — | `TResignationDetails.ResignationDetailId` | Yes |
+| `TerminationActivity` | Separation | — | `TTerminationActivityDetails.ActivityDetailId` | **No** (IDENTITY only) |
+| `BusinessCard` | Employee services | — | `TBusinessCards.BusinessCardId` | Yes |
+| `SelfAssessment` | Confirmation (CMS) | — | `TPMSEmployeeSelfAppraisal.TransId` | **No** (IDENTITY only) |
+| `ConfirmationAssessment` | Confirmation (CMS) | — | `TCMSEmployeeConfirmation.Confirmationid` | **No** (IDENTITY only) |
+| `RecruitmentManagement` | Recruitment (RRS) | — | `TRRSDetails.RRSId` | Yes |
+| `InterviewFeedback` | Recruitment (RRS) | — | `TRRSCandidateInterview.Interviewid` | Yes |
+| `InitiateHiring` | Recruitment (RRS) | — | `TRRSCandidate.Candidateid` | Yes |
 
 (21 distinct values, confirmed with none missing / none new as of 2026-07-15;
-`SP_ApproveWorkFlowRequest.sql:91-170`, `:585-1206`.)
+`SP_ApproveWorkFlowRequest.sql:91-170`, `:585-1206`.) A 15th target-table
+family exists outside this procedure: admin config-change approvals
+(`SP_AddAdminChanges.sql:333-334`) also insert into `TRequestWorkflows` with
+`RequestTransid = TAdminChangesApprovals.ChangeRequestID`, approved by a
+separate procedure (`SP_ApproveAdminChangesRequest.sql`, not read in depth).
+
+> ⚠️ Four target tables have **no declared PRIMARY KEY** on the column
+> `RequestTransid` points to — `TWorkFromHomeRequest`, `TTerminationActivityDetails`,
+> `TPMSEmployeeSelfAppraisal`, `TCMSEmployeeConfirmation` rely on an
+> unconstrained `IDENTITY` column only. Combined with `TRequestWorkflows`
+> itself having no declared PK either, this whole polymorphic link is entirely
+> application-enforced, not schema-enforced.
 
 ## Routing-row state transitions
 

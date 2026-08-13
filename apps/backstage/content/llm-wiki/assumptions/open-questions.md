@@ -16,6 +16,14 @@ guesses. Resolve by inspecting runtime, the application tier, or asking the team
   (`/HRM/Login.aspx`, ELMAH), but the app is not in this repo.
 - Authentication mechanism: password hashing algorithm and session issuance are
   in the app tier, not the DB. The DB stores only policy + invalid-login audit.
+- Which stored procedure the HR-initiated (manual) "deactivate employee" UI
+  action calls. Three candidates exist in `HRMS/STOREPROCEDURE/`:
+  `SP_SEP_DeActivateEmployee` (actively maintained, confirmed called by the
+  scheduled `SP_SEP_AutoDeactivateEmployee.sql:192`), `SP_DeActivateEmployee`
+  (legacy, no confirmed caller), and `SP_SEP_DeActivateEmployeeWithAssets`
+  (misleadingly named — touches no asset table; no confirmed caller). Only the
+  scheduled auto-deactivate path is confirmed in SQL source — see
+  `../domain/employee-lifecycle.md` §6a.
 
 ## Encryption
 - The encryption provider/key management for `*_Encrypted VARBINARY(MAX)` columns
@@ -32,6 +40,49 @@ guesses. Resolve by inspecting runtime, the application tier, or asking the team
   (e.g. `TEmployee` → `TMaritalStatus`/`TPersonalTitle`). Most relationships
   appear to be by-convention (matching `*Id` columns) rather than enforced FKs.
   Confirm whether FKs exist at runtime or relationships are app-enforced.
+
+## Leave module — live vs. legacy/duplicate code paths
+- Two procedures both implement `SP_ApproveWorkFlowRequest`'s
+  `RequestType='LeaveRequest'` approval branch: `SP_ApproveWorkFlowRequest.sql`
+  (lump-sum ledger debit) and `SP_CM_ApproveWorkFlowRequest.sql` (per-day
+  ledger debit + attendance sync, `USE`/`CREATE OR ALTER` convention matching
+  other confirmed-current procs). Which one the application tier actually
+  calls is unconfirmed. Same ambiguity for leave-request creation: four
+  candidate procedures exist (`USP_LA_InsertLeaveRequestDetails.sql` and three
+  older siblings) with no confirmed caller distinguishing them. See
+  `../domain/leave-lifecycle.md` §2-3.
+- `SP_ApproveLeave.sql`, `SP_CreateLeaveApplication.sql`,
+  `SP_CancelLeaveApplication.sql`, `SP_AddLeavesRollOver.sql`, and
+  `SP_InsertLeaveRollOver.sql` operate on a different legacy schema
+  (`TEmployeeLeaveHistory`/`TEmployeeLeaves`) with no confirmed caller found —
+  presumed dead code, not verified as such from static SQL alone.
+- `TLeaveBalanceLedger.EffectiveDate`: multiple active procedures
+  (`USP_LA_InsertLeaveRequestDetails.sql:396`,
+  `SP_CM_ApproveWorkFlowRequest.sql:4235`,
+  `SP_AdminLM_TruncateLeave.sql:414,448`) insert this column, but it is absent
+  from `TABLES/TLeaveBalanceLedger.sql`. A migration script
+  (`DML/150467/02_Create_TLeaveBalanceLedger_150467.sql`) claims it as a *new*
+  column, contradicting procs that already write it — the `TABLES/` DDL export
+  may simply lag production schema. Unresolved from static files.
+- `SP_AdminLM_TruncateLeave.sql:403` comments the encash ledger row as
+  `TransactionType='E'`, but the code at `:424` inserts `'D'` (same as the
+  lapse row). Verified discrepancy between comment and code; intent (bug vs.
+  deliberate) unconfirmed.
+
+## Attendance module
+- `TAttendanceForPayroll` (persisted table, `TABLES/TAttendanceForPayroll.sql`)
+  has no confirmed writer. Every procedure that appears to reference it
+  (`USP_GetAttendanceForPayroll`, `SP_GetAttendaceReport_GUIBase`,
+  `USP_FNF_GetEmployee_Payable_Days`, ...) actually creates and operates on a
+  local temp table `#TAttendanceForPayroll`, not the real `dbo` table. No
+  `INSERT`/`UPDATE` against the real table was found in `STOREPROCEDURE/` —
+  population path (SSIS/ETL? legacy/unused?) unconfirmed. See
+  `../domain/attendance-lifecycle.md`.
+- `TGeoTaggingDetails`/`TGeoTaggingServiceUsage`/`TGeoTrackingConfig` appear
+  disconnected from the attendance-punch pipeline (`TAttendanceTransaction`)
+  despite the naming suggesting "geo-tagged attendance." No code path was
+  found linking them. Confirm whether this is intentional (two separate
+  features) or a broken/incomplete integration.
 
 ## Status-code inconsistency (defect candidate)
 - `TLeaveRequest.LeaveStatus` is used with **both** full words

@@ -2,12 +2,18 @@
 sources:
   - HRMS-DATABASE/HRMS/TABLES/TWorkflowManagement.sql
   - HRMS-DATABASE/HRMS/TABLES/TRequestWorkflows.sql
+  - HRMS-DATABASE/HRMS/TABLES/THrmsModules.sql
+  - HRMS-DATABASE/HRMS/TABLES/TModulePages.sql
+  - HRMS-DATABASE/HRMS/TABLES/TAdminChangesApprovals.sql
+  - HRMS-DATABASE/HRMS/TABLES/TAdminChangesApprovalDetails.sql
   - HRMS-DATABASE/HRMS/STOREPROCEDURE/SP_ApproveWorkFlowRequest.sql
   - HRMS-DATABASE/HRMS/STOREPROCEDURE/SP_RejectWorkFlowRequest.sql
   - HRMS-DATABASE/HRMS/STOREPROCEDURE/SP_AddNewLeaveTypeMaster.sql
   - HRMS-DATABASE/HRMS/STOREPROCEDURE/SP_CM_GetWorkflowTreeXmlDetailsByPageTitle.sql
+  - HRMS-DATABASE/HRMS/STOREPROCEDURE/SP_AddAdminChanges.sql
+  - HRMS-DATABASE/HRMS/STOREPROCEDURE/SP_CM_RequestReRoute.sql
 confidence: high
-last-analyzed: 2026-07-15
+last-analyzed: 2026-08-10
 ---
 
 # Approval Workflow (the cross-cutting engine)
@@ -28,7 +34,11 @@ config changes. Almost every other domain page funnels into this one.
   carrying `RequestType`, `RequestTransid` (the originating artifact's PK),
   `ManagerId` (this level's approver), `ApprovalLevel`, `ApproveStatus CHAR(1)`
   (`'P'` pending), `IsApprove BIT`, plus reassignment columns
-  (`TRequestWorkflows.sql:1-21`).
+  (`TRequestWorkflows.sql:1-21`). Reassignment is performed by
+  `SP_CM_RequestReRoute` (`:156-164`): it updates the single pending row for
+  `(RequestTransid, RequestType)`, moving `ManagerId` to the new approver while
+  recording the old one in `OldManagerId` and appending an audit string to
+  `ReassignReason`.
 
 ## How a request is dispatched
 
@@ -110,6 +120,48 @@ If found, the procedure builds an XML payload (`:103-538`) and calls
 `SP_AddAdminChanges` (`:541-543`) to record a pending change in
 `TAdminChangesApprovals`, instead of writing the master row. With no mapped
 workflow it writes `TLeaveTypeMaster` directly (`:546-638`).
+
+## Table relationships
+
+`TRequestWorkflows` is the hub, but it has **no declared PRIMARY KEY and no
+FOREIGN KEY at all** (`TRequestWorkflows.sql`) — every edge below, including
+its own link to `TWorkflowManagement.WorkflowId`, is application-enforced only.
+`RequestTransid` polymorphically points at 14 different "artifact" tables
+depending on `RequestType` (see `../reference/event-catalog.md` for the full
+mapping), plus a 15th family for admin config-changes:
+
+```mermaid
+erDiagram
+  THrmsModules ||--o{ TWorkflowManagement : "ModuleId (FK, TWorkflowManagement.sql:21)"
+  TWorkflowManagement ||--o{ TRequestWorkflows : "WorkflowId (no FK — TRequestWorkflows has no FK/PK at all)"
+  TRequestWorkflows }o--|| TLeaveRequest : "RequestTransid — LeaveRequest/LeaveCancellation/LeavePullback (polymorphic, no FK)"
+  TRequestWorkflows }o--|| TOptionalHolidayRequest : "RequestTransid — OptionalHolidayRequest/-Cancellation (polymorphic, no FK)"
+  TRequestWorkflows }o--|| TCompOffRequest : "RequestTransid — CompOffCreditRequest (polymorphic, no FK)"
+  TRequestWorkflows }o--|| TAttendanceRegularization : "RequestTransid — AttendanceRegularize/ARCancellation (polymorphic, no FK)"
+  TRequestWorkflows }o--|| TBusinessCards : "RequestTransid — BusinessCard (polymorphic, no FK)"
+  TRequestWorkflows }o--|| TResignationDetails : "RequestTransid — ResignationDetails/ResignationPullback (polymorphic, no FK)"
+  TRequestWorkflows }o--|| TActivityDetails : "RequestTransid — ResignationActivity (polymorphic, no FK)"
+  TRequestWorkflows }o--|| TTerminationActivityDetails : "RequestTransid — TerminationActivity (polymorphic; target has no PK either)"
+  TRequestWorkflows }o--|| TWorkFromHomeRequest : "RequestTransid — WorkFromHome/-Cancellation/-Pullback (polymorphic; target has no PK either)"
+  TRequestWorkflows }o--|| TPMSEmployeeSelfAppraisal : "RequestTransid — SelfAssessment (polymorphic; target has no PK either)"
+  TRequestWorkflows }o--|| TCMSEmployeeConfirmation : "RequestTransid — ConfirmationAssessment (polymorphic; target has no PK either)"
+  TRequestWorkflows }o--|| TRRSDetails : "RequestTransid — RecruitmentManagement (polymorphic, no FK)"
+  TRequestWorkflows }o--|| TRRSCandidateInterview : "RequestTransid — InterviewFeedback (polymorphic, no FK)"
+  TRequestWorkflows }o--|| TRRSCandidate : "RequestTransid — InitiateHiring (polymorphic, no FK)"
+  TRequestWorkflows }o--|| TAdminChangesApprovals : "RequestTransid — admin config-change types, approved by SP_ApproveAdminChangesRequest not this SP (polymorphic, no FK)"
+  TAdminChangesApprovals ||--o{ TAdminChangesApprovalDetails : "ChangeRequestID (FK, TAdminChangesApprovalDetails.sql:11)"
+```
+
+The only two **declared** FKs in this whole engine are
+`TWorkflowManagement.ModuleId → THrmsModules.ModuleId` and
+`TAdminChangesApprovalDetails.ChangeRequestID → TAdminChangesApprovals.ChangeRequestID`.
+Everything else — the workflow-to-routing-row link, and every artifact-table
+link — is a naming-convention/`RequestType`-gated relationship with zero
+schema enforcement. Four of the polymorphic targets
+(`TWorkFromHomeRequest`, `TTerminationActivityDetails`,
+`TPMSEmployeeSelfAppraisal`, `TCMSEmployeeConfirmation`) don't even have a
+declared PK on the column being pointed at — see `../reference/event-catalog.md`
+for the per-`RequestType` breakdown.
 
 ## Diagram
 
