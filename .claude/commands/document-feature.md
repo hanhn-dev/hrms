@@ -85,6 +85,15 @@ database, ending in a workflow diagram and a table-relationship diagram.
      → method (`file:line`) → stored procedure name. Note the call mechanism
      (raw ADO.NET vs Enterprise Library) only if it varies within the
      feature — otherwise it's not worth calling out.
+   - For each API endpoint found (controller actions in `HRMS.CoreAPI` or any
+     other Web API/MVC controller in scope, plus any AJAX/PageMethods/WebMethod
+     endpoints a WebForms page calls), record: HTTP verb, route (from
+     `[Route]`/`[HttpGet]`/`[HttpPost]` attributes or the conventional
+     controller/action path), and its parameters — name, type, and
+     required/optional — read from the action's method signature or bound
+     model class (`file:line`). If a feature has no API layer (pure WebForms
+     postback with no AJAX/Web API calls), note that explicitly rather than
+     leaving the section silently empty.
 
 3. **Find the DB footprint in TDG HRMS DB** (`d:\TDG HRMS DB`):
    - Locate the module folder(s) under `HRMS-DATABASE\` — use the stored
@@ -154,6 +163,11 @@ database, ending in a workflow diagram and a table-relationship diagram.
    ## Code → database call chain
    <table or list: entry point -> DAL/BLL method (file:line) -> stored procedure>
 
+   ## API endpoints
+   <table: HTTP verb, route, parameters (name, type, required/optional),
+   purpose, source (file:line). If the feature has no API layer, say so here
+   instead of omitting the section.>
+
    ## Stored procedures & tables involved
    <table: object, file path, one-line purpose, cross-reference to an
    llm-wiki page as a code-span path where one exists. If a callout resolves
@@ -188,8 +202,9 @@ Report, in this order:
    `HRMS-DATABASE\<Module>\` folder(s) were treated as in-scope, and any
    ambiguity noted instead of silently resolved.
 2. Entry points and the code → DB call chain found.
-3. Stored procedures and tables discovered.
-4. Which llm-wiki pages were reused/cited vs. where relationships were
+3. API endpoints found and their parameters (or that none exist).
+4. Stored procedures and tables discovered.
+5. Which llm-wiki pages were reused/cited vs. where relationships were
    derived directly from DDL.
-5. Anything landing in "Known gaps".
-6. The file path written, and a reminder that nothing was committed.
+6. Anything landing in "Known gaps".
+7. The file path written, and a reminder that nothing was committed.

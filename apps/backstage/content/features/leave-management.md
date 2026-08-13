@@ -141,6 +141,22 @@ flowchart TD
 | Pullback | `AttendanceLeave.aspx.cs:1440` | `LeaveBLL.UpdateLeavePullBack(EmpLeavePullback)` → `LeaveDAL.UpdateLeavePullBack` (`LeaveDAL.cs:83-97`) | `SP_LA_UpdateLeavePullBack` (`ConstantStoredProcedure.SP_LA_UPDATELEAVEPULLBACK`) |
 | Cancel | (leave cancellation action) | `LeaveDAL.LeavesARWFHCancellationRequest` (`LeaveDAL.cs:46-81`) | `SP_LA_LeaveCancellation` (`ConstantStoredProcedure.SP_LA_LEAVECANCELLATION`) |
 
+## API endpoints
+
+| Verb | Route | Parameters | Purpose | Source |
+|---|---|---|---|---|
+| `GET` | `notification/getPendingLeaveRequest` | `employeeId` — overridden server-side from the JWT (`req.EID`); any client-supplied value is ignored. `DisplayRequest` (query, string, optional) | Reads the pending "For Me" leave-approval queue backing the live React dashboard | `NotificationController.js:21-31` |
+| `POST` | `attendance/ApproveRejectRequest` | `combinedARData` (body, array, required); each item: `actionType` (`'Approve'`\|`'Reject'`, required), `RequestTransId` (int, required), `RequestType` (string, required — e.g. `'Leave'`), `RequestWorkflowTransId` (int, optional), `EmployeeId` (overridden server-side, not client-supplied), `Employerid` (int, required), `comments`/`RejectionReason` (string) | Bulk approve/reject one or more pending requests in a single call; Leave rows are disambiguated from AR/Overtime rows via `RequestType` | `AttendanceController.js:907-1125` |
+
+Apply (`CreateLeaveRequestObject`/`ApplyLeaveRequest`), pullback (`UpdateLeavePullBack`), plain
+cancellation (`LeavesARWFHCancellationRequest`), and the secondary single-record approve/reject
+popup (`LeaveRequestDetails.aspx.cs` → `WebCommon.ProcessApproveRejectRequest`) are all classic
+WebForms postbacks calling BLL/DAL server-side, not AJAX/API calls. Confirmed by grepping
+`AttendanceLeave.aspx.cs` and `LeaveRequestDetails.aspx.cs` for `[WebMethod]`/`PageMethods`: the
+only two `[WebMethod]`s in either file are an unrelated search-box typeahead helper and a
+read-only action-history fetch (`AttendanceLeave.aspx.cs:467`, `:476`) — neither is an
+apply/approve/reject/pullback action.
+
 ## Stored procedures & tables involved
 
 > ✅ **Resolves an open question in `llm-wiki/domain/leave-lifecycle.md` §3**: that page could

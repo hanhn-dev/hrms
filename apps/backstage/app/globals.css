@@ -1,2 +1,43 @@
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";
+
+/* transform-origin must be 0 0 to match the zoom-toward-cursor math in
+   mermaid-diagram.tsx; harmless outside fullscreen since the transform
+   stays at the identity there. */
+.mermaid-diagram-content {
+  transform-origin: 0 0;
+}
+
+/* Mermaid injects an inline max-width style on its <svg> for responsive
+   embedding; override it so the diagram scales up to fill the screen in
+   fullscreen instead of staying pinned at its original inline size. */
+.mermaid-diagram:fullscreen {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: white;
+}
+
+.mermaid-diagram:fullscreen .mermaid-diagram-body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  cursor: grab;
+  user-select: none;
+}
+
+.mermaid-diagram:fullscreen .mermaid-diagram-content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  padding: 2rem;
+}
+
+.mermaid-diagram:fullscreen .mermaid-diagram-content svg {
+  max-width: none !important;
+  width: 100% !important;
+  height: 100% !important;
+}
