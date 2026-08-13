@@ -17,27 +17,29 @@ export default function DocsPage(): React.JSX.Element {
   const groups = groupByCategory(getAllWikiDocs());
 
   return (
-    <div>
-      <h1 className="text-2xl font-semibold">Docs</h1>
-      {groups.map(([category, docs]) => (
-        <section className="mt-8" key={category}>
-          <h2 className="text-sm font-medium uppercase tracking-wide text-slate-500">
-            {category}
-          </h2>
-          <ul className="mt-3 divide-y divide-slate-200 rounded-md border border-slate-200">
-            {docs.map((doc) => (
-              <li key={doc.slug}>
-                <Link
-                  className="block px-4 py-3 hover:bg-slate-50"
-                  href={`/docs/${doc.slug}`}
-                >
-                  {doc.title}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ))}
+    <div className="h-full overflow-y-auto">
+      <div className="mx-auto max-w-4xl px-6 py-8">
+        <h1 className="text-2xl font-semibold">Docs</h1>
+        {groups.map(([category, docs]) => (
+          <section className="mt-8" key={category}>
+            <h2 className="text-sm font-medium uppercase tracking-wide text-slate-500">
+              {category}
+            </h2>
+            <ul className="mt-3 divide-y divide-slate-200 rounded-md border border-slate-200">
+              {docs.map((doc) => (
+                <li key={doc.slug}>
+                  <Link
+                    className="block px-4 py-3 hover:bg-slate-50"
+                    href={`/docs/${doc.slug}`}
+                  >
+                    {doc.title}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ))}
+      </div>
     </div>
   );
 }

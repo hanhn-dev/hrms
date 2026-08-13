@@ -14,9 +14,9 @@ export default function RootLayout({
 }): React.JSX.Element {
   return (
     <html lang="en">
-      <body className="min-h-screen bg-white text-slate-900 antialiased">
-        <header className="border-b border-slate-200">
-          <nav className="mx-auto flex max-w-4xl items-center gap-6 px-4 py-4">
+      <body className="flex h-screen flex-col bg-white text-slate-900 antialiased">
+        <header className="shrink-0 border-b border-slate-200">
+          <nav className="flex items-center gap-6 px-6 py-4">
             <Link className="font-semibold" href="/">
               Backstage
             </Link>
@@ -26,9 +26,12 @@ export default function RootLayout({
             <Link className="text-sm text-slate-600 hover:text-slate-900" href="/wiki">
               Wiki
             </Link>
+            <Link className="text-sm text-slate-600 hover:text-slate-900" href="/features">
+              Features
+            </Link>
           </nav>
         </header>
-        <main className="mx-auto max-w-4xl px-4 py-8">{children}</main>
+        <main className="min-h-0 flex-1 overflow-hidden">{children}</main>
       </body>
     </html>
   );

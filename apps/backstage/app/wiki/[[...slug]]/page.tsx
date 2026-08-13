@@ -27,34 +27,40 @@ export default async function WikiPage({
   const isEmpty = doc.content.trim().length === 0;
 
   return (
-    <article className="prose prose-slate max-w-none">
-      {slug.length > 0 && (
-        <Link className="no-underline" href="/wiki">
-          ← Wiki index
-        </Link>
-      )}
-      {isEmpty && <p className="italic text-slate-500">This page has no content yet.</p>}
-      <Markdown
-        components={{
-          a: ({ href, children }) => {
-            if (!href) return <>{children}</>;
-            const resolved = resolveWikiLink(href, slug);
-            if (resolved.startsWith("/")) {
-              return <Link href={resolved}>{children}</Link>;
-            }
-            return (
-              <a href={resolved} rel="noopener noreferrer" target="_blank">
-                {children}
-              </a>
-            );
-          },
-          table: ScrollableTable,
-          pre: MermaidAwarePre,
-        }}
-        remarkPlugins={[remarkGfm]}
-      >
-        {doc.content}
-      </Markdown>
-    </article>
+    <div className="h-full overflow-y-auto">
+      <div className="mx-auto max-w-4xl px-6 py-8">
+        <article className="prose prose-slate max-w-none">
+          {slug.length > 0 && (
+            <Link className="no-underline" href="/wiki">
+              ← Wiki index
+            </Link>
+          )}
+          {isEmpty && (
+            <p className="italic text-slate-500">This page has no content yet.</p>
+          )}
+          <Markdown
+            components={{
+              a: ({ href, children }) => {
+                if (!href) return <>{children}</>;
+                const resolved = resolveWikiLink(href, slug);
+                if (resolved.startsWith("/")) {
+                  return <Link href={resolved}>{children}</Link>;
+                }
+                return (
+                  <a href={resolved} rel="noopener noreferrer" target="_blank">
+                    {children}
+                  </a>
+                );
+              },
+              table: ScrollableTable,
+              pre: MermaidAwarePre,
+            }}
+            remarkPlugins={[remarkGfm]}
+          >
+            {doc.content}
+          </Markdown>
+        </article>
+      </div>
+    </div>
   );
 }
