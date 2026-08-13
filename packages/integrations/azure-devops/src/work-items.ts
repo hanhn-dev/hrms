@@ -31,6 +31,7 @@ import type {
 const WORK_ITEM_FIELDS = [
   'System.Title',
   'System.Description',
+  'Microsoft.VSTS.TCM.ReproSteps',
   'Microsoft.VSTS.Common.AcceptanceCriteria',
   'System.State',
   'System.WorkItemType',
@@ -221,7 +222,9 @@ async function mapWorkItem(client: AzureDevOpsClient, raw: AzureWorkItem, orgUrl
     title: (f['System.Title'] as string | undefined) ?? '',
     type: (f['System.WorkItemType'] as string | undefined) ?? '',
     state: (f['System.State'] as string | undefined) ?? '',
-    description: htmlToMarkdown(f['System.Description'] as string | null | undefined),
+    description:
+      htmlToMarkdown(f['System.Description'] as string | null | undefined) ||
+      htmlToMarkdown(f['Microsoft.VSTS.TCM.ReproSteps'] as string | null | undefined),
     acceptanceCriteria: htmlToMarkdown(
       f['Microsoft.VSTS.Common.AcceptanceCriteria'] as string | null | undefined,
     ),

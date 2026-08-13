@@ -80,6 +80,20 @@ describe('getWorkItem', () => {
     expect(result.url).toBe('https://dev.azure.com/myorg/_workitems/edit/1234');
   });
 
+  it('falls back to Repro Steps ("Item Description") when System.Description is empty, as on Bug work items', async () => {
+    mockWitApi.getWorkItem.mockResolvedValue({
+      ...rawWorkItem,
+      fields: {
+        ...rawWorkItem.fields,
+        'System.WorkItemType': 'Bug',
+        'System.Description': '',
+        'Microsoft.VSTS.TCM.ReproSteps': '<p>Steps to reproduce text</p>',
+      },
+    });
+    const result = await getWorkItem(mockClient, 1234);
+    expect(result.description).toBe('Steps to reproduce text');
+  });
+
   it('requests relation expansion and maps attached files with image flags', async () => {
     const result = await getWorkItem(mockClient, 1234);
 
