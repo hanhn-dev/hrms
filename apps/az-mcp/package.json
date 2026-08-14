@@ -6,7 +6,10 @@
   "main": "./dist/index.js",
   "scripts": {
     "build": "tsdown",
+    "build:standalone": "tsdown --config tsdown.standalone.config.ts",
+    "pack:standalone": "npm run build:standalone && npm pack ./standalone --pack-destination ./standalone",
     "start": "node --env-file=.env dist/index.js",
+    "start:standalone": "node --env-file=.env standalone/dist/index.js",
     "inspect": "npx @modelcontextprotocol/inspector node --env-file=.env dist/index.js",
     "lint": "eslint . --max-warnings 0",
     "test": "vitest run",

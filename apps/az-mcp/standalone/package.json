@@ -1,0 +1,25 @@
+{
+  "name": "az-mcp",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "Azure DevOps MCP server (standalone handoff package)",
+  "main": "./dist/index.js",
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "scripts": {
+    "start": "node --env-file=.env dist/index.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    ".env.example"
+  ],
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.30.0",
+    "azure-devops-node-api": "15.1.2",
+    "turndown": "7.2.4",
+    "zod": "4.4.3"
+  }
+}

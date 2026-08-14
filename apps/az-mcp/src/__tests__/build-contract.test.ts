@@ -5,7 +5,9 @@ import { describe, expect, it } from 'vitest';
 
 type PackageJson = {
   main?: string;
+  type?: string;
   scripts?: Record<string, string>;
+  dependencies?: Record<string, string>;
 };
 
 const packageJsonPath = fileURLToPath(new URL('../../package.json', import.meta.url));
@@ -46,5 +48,34 @@ describe('az-mcp bundle contract', () => {
 
     expect(rootPackageJson.scripts?.['inspect:az']).toContain('npm run build --workspace=apps/az-mcp');
     expect(rootPackageJson.scripts?.['inspect:az']).toContain('./apps/az-mcp/dist/index.js');
+  });
+
+  it('defines a standalone handoff build that inlines the workspace package', () => {
+    const packageJson = readJson(packageJsonPath);
+    const standalonePackageJsonPath = fileURLToPath(
+      new URL('../../standalone/package.json', import.meta.url),
+    );
+    const standaloneConfigPath = fileURLToPath(
+      new URL('../../tsdown.standalone.config.ts', import.meta.url),
+    );
+    const standalonePackageJson = readJson(standalonePackageJsonPath);
+    const standaloneConfigText = readFileSync(standaloneConfigPath, 'utf8');
+
+    expect(packageJson.scripts?.['build:standalone']).toContain('tsdown.standalone.config.ts');
+    expect(packageJson.scripts?.['pack:standalone']).toContain('npm pack ./standalone');
+    expect(existsSync(standaloneConfigPath)).toBe(true);
+    expect(standaloneConfigText).toContain('standalone/dist');
+    expect(standaloneConfigText).toContain('neverBundle: true');
+    expect(standaloneConfigText).toContain("alwaysBundle: ['@hrms/azure-devops']");
+    expect(standalonePackageJson.type).toBe('module');
+    expect(standalonePackageJson.main).toBe('./dist/index.js');
+    expect(standalonePackageJson.scripts?.start).toContain('dist/index.js');
+    expect(standalonePackageJson.dependencies).toEqual({
+      '@modelcontextprotocol/sdk': '1.30.0',
+      'azure-devops-node-api': '15.1.2',
+      turndown: '7.2.4',
+      zod: '4.4.3',
+    });
+    expect(standalonePackageJson.dependencies).not.toHaveProperty('@hrms/azure-devops');
   });
 });

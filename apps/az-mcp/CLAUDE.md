@@ -19,3 +19,5 @@ Before calling the rename done, confirm: every affected name begins with `az_`, 
 ## Build tooling
 
 Bundles via `tsdown` using the app-local `tsdown.config.ts`. The runtime artifact is always `dist/index.js` — `build`, `start`, and `inspect` scripts must all agree on that path. If you change build tooling here, also update: this app's `package.json` scripts, root `inspect:az`, any build-contract tests, and maintainer-facing docs describing the build/inspect flow. Keep runtime-sensitive dependencies external rather than bundled when bundling them would weaken reliability.
+
+To produce a handoff zip that does not require the monorepo, run `npm run build:standalone`. That uses `tsdown.standalone.config.ts` and writes `standalone/dist/index.js`, inlining `@hrms/azure-devops` while leaving public npm packages (`@modelcontextprotocol/sdk`, `azure-devops-node-api`, `turndown`, `zod`) as runtime dependencies. Recipients follow `standalone/README.md`. Do not copy `standalone/.env` or a PAT into the zip.

@@ -4,5 +4,5 @@
     "noEmit": true,
     "types": ["node"]
   },
-  "include": ["tsdown.config.ts"]
+  "include": ["tsdown.config.ts", "tsdown.standalone.config.ts"]
 }
