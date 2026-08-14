@@ -15,9 +15,13 @@ function stripFrontmatter(content: string): string {
   return content.replace(/^---\n[\s\S]*?\n---\n?/, "");
 }
 
+/** Title-case a wiki path segment: "approval-workflow" → "Approval Workflow". */
+export function prettifyWikiSegment(segment: string): string {
+  return segment.replace(/-/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
 function prettifySlug(slug: string[]): string {
-  const last = slug[slug.length - 1] ?? "index";
-  return last.replace(/-/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
+  return prettifyWikiSegment(slug[slug.length - 1] ?? "index");
 }
 
 function titleFromContent(content: string, slug: string[]): string {
@@ -52,6 +56,10 @@ export function getWikiPage(slug: string[]): LlmWikiPage {
   const raw = readFileSync(slugToFilePath(slug), "utf8");
   const content = stripFrontmatter(raw);
   return { slug, title: titleFromContent(content, slug), content };
+}
+
+export function getAllWikiPages(): LlmWikiPage[] {
+  return getAllWikiSlugs().map((slug) => getWikiPage(slug));
 }
 
 /**
