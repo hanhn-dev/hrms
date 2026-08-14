@@ -2,8 +2,8 @@ import Link from "next/link";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { notFound } from "next/navigation";
-import { getAllWikiSlugs, getWikiPage, resolveWikiLink } from "../../../lib/llm-wiki";
-import { MermaidAwarePre, ScrollableTable } from "../../../lib/markdown-components";
+import { getAllWikiSlugs, getWikiPage, resolveWikiLink } from "@/lib/llm-wiki";
+import { MermaidAwarePre, ScrollableTable } from "@/lib/markdown-components";
 
 export function generateStaticParams(): { slug: string[] }[] {
   return getAllWikiSlugs().map((slug) => ({ slug }));

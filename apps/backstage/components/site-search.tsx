@@ -10,7 +10,7 @@ import {
   useState,
   type KeyboardEvent,
 } from "react";
-import type { SearchHit } from "../lib/search-types";
+import type { SearchHit } from "@/lib/search-types";
 
 const DEBOUNCE_MS = 180;
 

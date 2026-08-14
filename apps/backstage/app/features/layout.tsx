@@ -1,6 +1,6 @@
-import { FeatureNav } from "../../components/features/feature-nav";
-import { ReadModeProvider } from "../../components/features/read-mode";
-import { getAllFeatureDocs } from "../../lib/features";
+import { FeatureNav } from "@/components/features/feature-nav";
+import { ReadModeProvider } from "@/components/features/read-mode";
+import { getAllFeatureDocs } from "@/lib/features";
 
 export default function FeaturesLayout({
   children,

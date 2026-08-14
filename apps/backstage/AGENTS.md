@@ -79,6 +79,20 @@ Backstage does **not** use `@hrms/ui`. Styling is Tailwind 4 + `@tailwindcss/typ
 - Dynamic route `params` is a `Promise` (Next 16) — `const { slug } = await params`.
 - `generateStaticParams` on every dynamic page (`[slug]`, `[...slug]`).
 - Keep mermaid zoom CSS in `app/globals.css` in sync with `lib/mermaid-diagram.tsx` (transform-origin `0 0`).
+- Import app modules with the `@/` alias (`tsconfig.json` `paths`: `@/*` → `./*`). Parent-relative `../` is banned (`no-restricted-imports`). Same-directory `./` is allowed (colocated siblings and CSS).
+
+```tsx
+// ❌ BAD — parent-relative
+import { getAllFeatureDocs } from "../../lib/features";
+
+// ✅ GOOD
+import { getAllFeatureDocs } from "@/lib/features";
+import { FeatureIndex } from "@/components/features/feature-index";
+
+// ✅ GOOD — same folder
+import { ReadModeToggle } from "./read-mode";
+import "./globals.css";
+```
 
 ```tsx
 // ❌ BAD — register a feature in a hardcoded list

@@ -1,8 +1,8 @@
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { notFound } from "next/navigation";
-import { getAllWikiDocs, getWikiDoc, getWikiDocSlugs } from "../../../lib/docs";
-import { ScrollableTable } from "../../../lib/markdown-components";
+import { getAllWikiDocs, getWikiDoc, getWikiDocSlugs } from "@/lib/docs";
+import { ScrollableTable } from "@/lib/markdown-components";
 
 export function generateStaticParams(): { slug: string }[] {
   return getWikiDocSlugs().map((slug) => ({ slug }));

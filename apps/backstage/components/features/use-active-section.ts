@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { FeatureSection } from "../../lib/features";
+import type { FeatureSection } from "@/lib/features";
 
 export function useActiveSectionId(sections: FeatureSection[]): string | null {
   const [activeId, setActiveId] = useState<string | null>(null);

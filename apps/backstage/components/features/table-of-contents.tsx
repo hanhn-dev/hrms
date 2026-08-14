@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { FeatureSection } from "../../lib/features";
+import type { FeatureSection } from "@/lib/features";
 import { useReadMode } from "./read-mode";
 import { useActiveSectionId } from "./use-active-section";
 

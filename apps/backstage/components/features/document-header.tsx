@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import type { FeatureDoc, FeatureSection } from "../../lib/features";
+import type { FeatureDoc, FeatureSection } from "@/lib/features";
 import { ReadModeToggle } from "./read-mode";
 import { activeSectionTitle, useActiveSectionId } from "./use-active-section";
 

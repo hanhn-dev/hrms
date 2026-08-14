@@ -6,7 +6,7 @@ import {
   groupFeaturesByMenu,
   type FeatureMenuGroup,
   type FeatureNavItem,
-} from "../../lib/feature-menu";
+} from "@/lib/feature-menu";
 
 function itemsInGroup(group: FeatureMenuGroup): FeatureNavItem[] {
   return group.subgroups.flatMap((subgroup) => subgroup.items);

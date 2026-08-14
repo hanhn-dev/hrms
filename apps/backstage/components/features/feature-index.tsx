@@ -5,7 +5,7 @@ import { useId, useMemo, useState } from "react";
 import {
   groupFeaturesByMenu,
   type FeatureNavItem,
-} from "../../lib/feature-menu";
+} from "@/lib/feature-menu";
 
 function SearchIcon(): React.JSX.Element {
   return (

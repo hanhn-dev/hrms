@@ -1,11 +1,11 @@
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import type { FeatureDoc } from "../../lib/features";
+import type { FeatureDoc } from "@/lib/features";
 import {
   MermaidAwarePre,
   ScrollableTable,
   createHeadingComponents,
-} from "../../lib/markdown-components";
+} from "@/lib/markdown-components";
 import { DocumentHeader } from "./document-header";
 import { ScrollableArticle } from "./scrollable-article";
 import { TableOfContents } from "./table-of-contents";

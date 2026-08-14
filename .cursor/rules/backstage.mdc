@@ -32,6 +32,7 @@ Write standard ```` ```mermaid ```` fences. `MermaidAwarePre` renders them; no a
 - Server Components by default; `"use client"` only for theme, nav, TOC, mermaid zoom.
 - `params` is a `Promise` — `await params`. `generateStaticParams` on every dynamic page.
 - Explicit `): React.JSX.Element`. Fresh `createSlugger()` per document (TOC ids must match heading ids).
+- Import with `@/` (`@/lib/features`, `@/components/...`). No parent-relative `../`. Same-directory `./` is allowed.
 
 ```yaml
 # ❌ BAD

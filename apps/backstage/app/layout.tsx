@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { SiteSearch } from "../components/site-search";
-import { ThemeToggle } from "../components/theme-toggle";
+import { SiteSearch } from "@/components/site-search";
+import { ThemeToggle } from "@/components/theme-toggle";
 import "./globals.css";
 
 export const metadata: Metadata = {

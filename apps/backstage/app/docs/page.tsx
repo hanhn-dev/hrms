@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getAllWikiDocs, type WikiDoc } from "../../lib/docs";
+import { getAllWikiDocs, type WikiDoc } from "@/lib/docs";
 
 function groupByCategory(docs: WikiDoc[]): [WikiDoc["category"], WikiDoc[]][] {
   const order: WikiDoc["category"][] = ["Guides", "Database Baselines"];
