@@ -21,7 +21,10 @@ export function FeatureNav({
   const groups = groupFeaturesByMenu(docs);
 
   return (
-    <nav className="flex w-72 shrink-0 flex-col overflow-y-auto border-r border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-900">
+    <nav
+      data-feature-nav=""
+      className="flex w-72 shrink-0 flex-col overflow-y-auto border-r border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-900"
+    >
       <div className="border-b border-slate-200 px-4 py-4 dark:border-slate-800">
         <Link
           className="text-sm font-semibold text-slate-900 no-underline dark:text-white"

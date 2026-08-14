@@ -1,4 +1,3 @@
-import Link from "next/link";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { FeatureDoc } from "../../lib/features";
@@ -7,6 +6,8 @@ import {
   ScrollableTable,
   createHeadingComponents,
 } from "../../lib/markdown-components";
+import { DocumentHeader } from "./document-header";
+import { ScrollableArticle } from "./scrollable-article";
 import { TableOfContents } from "./table-of-contents";
 
 export function FeatureArticle({ doc }: { doc: FeatureDoc }): React.JSX.Element {
@@ -14,47 +15,24 @@ export function FeatureArticle({ doc }: { doc: FeatureDoc }): React.JSX.Element 
 
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-1">
-      <article className="prose prose-slate dark:prose-invert max-w-none min-w-0 flex-1 overflow-y-auto px-8 py-8">
-        <p className="not-prose mt-0 mb-6 text-sm text-slate-600 dark:text-slate-400">
-          <Link
-            className="no-underline hover:text-slate-900 dark:hover:text-white"
-            href="/features"
-          >
-            ← Features
-          </Link>
-          <span className="mx-2 text-slate-300 dark:text-slate-600">/</span>
-          <span>{doc.menu}</span>
-          {doc.submenu ? (
-            <>
-              <span className="mx-2 text-slate-300 dark:text-slate-600">/</span>
-              <span>{doc.submenu}</span>
-            </>
-          ) : null}
-        </p>
-        <Markdown
-          components={{
-            table: ScrollableTable,
-            pre: MermaidAwarePre,
-            h1: ({ children }) => (
-              <h1 className="mt-0">
-                <span className="block">{children}</span>
-                {doc.lastAnalyzed ? (
-                  <time
-                    className="mt-1 block text-sm font-normal text-slate-500 dark:text-slate-400"
-                    dateTime={doc.lastAnalyzed}
-                  >
-                    Last analyzed: {doc.lastAnalyzed}
-                  </time>
-                ) : null}
-              </h1>
-            ),
-            ...headingComponents,
-          }}
-          remarkPlugins={[remarkGfm]}
+      <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+        <ScrollableArticle
+          header={<DocumentHeader doc={doc} />}
+          stickyHeader={<DocumentHeader doc={doc} compact />}
         >
-          {doc.content}
-        </Markdown>
-      </article>
+          <Markdown
+            components={{
+              table: ScrollableTable,
+              pre: MermaidAwarePre,
+              h1: () => null,
+              ...headingComponents,
+            }}
+            remarkPlugins={[remarkGfm]}
+          >
+            {doc.content}
+          </Markdown>
+        </ScrollableArticle>
+      </div>
       <TableOfContents sections={doc.sections} />
     </div>
   );

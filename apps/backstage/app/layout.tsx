@@ -12,6 +12,9 @@ export const metadata: Metadata = {
 // the stored preference, or falls back to the OS scheme when unset/"system".
 const THEME_INIT_SCRIPT = `(function(){try{var t=localStorage.getItem("theme");var d=t==="dark"||(t!=="light"&&window.matchMedia("(prefers-color-scheme: dark)").matches);document.documentElement.classList.toggle("dark",d);}catch(e){}})();`;
 
+// Hides Features chrome before paint when a previous visit left read mode on.
+const READ_MODE_INIT_SCRIPT = `(function(){try{var p=location.pathname;if(localStorage.getItem("backstage:read-mode")==="1"&&p.indexOf("/features/")===0&&p.length>"/features/".length){document.documentElement.setAttribute("data-read-mode","");} }catch(e){}})();`;
+
 export default function RootLayout({
   children,
 }: {
@@ -21,6 +24,7 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+        <script dangerouslySetInnerHTML={{ __html: READ_MODE_INIT_SCRIPT }} />
       </head>
       <body className="flex h-screen flex-col bg-white text-slate-900 antialiased dark:bg-slate-950 dark:text-slate-100">
         <header className="shrink-0 border-b border-slate-200 dark:border-slate-800">

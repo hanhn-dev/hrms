@@ -2,6 +2,20 @@
 @plugin "@tailwindcss/typography";
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* Feature-article read mode: hide site chrome before React hydrates
+   (see READ_MODE_INIT_SCRIPT in app/layout.tsx). */
+html[data-read-mode] body > header {
+  display: none;
+}
+
+html[data-read-mode] [data-feature-nav] {
+  display: none;
+}
+
+html[data-read-mode] [data-feature-toc] {
+  display: none;
+}
+
 /* transform-origin must be 0 0 to match the zoom-toward-cursor math in
    mermaid-diagram.tsx; harmless outside fullscreen since the transform
    stays at the identity there. */
