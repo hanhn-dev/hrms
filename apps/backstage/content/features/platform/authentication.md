@@ -1,6 +1,7 @@
 ---
 confidence: high
 last-analyzed: 2026-08-14
+menu: Platform
 ---
 
 # Authentication

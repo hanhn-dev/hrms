@@ -15,13 +15,21 @@ export function FeatureArticle({ doc }: { doc: FeatureDoc }): React.JSX.Element 
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-1">
       <article className="prose prose-slate dark:prose-invert max-w-none min-w-0 flex-1 overflow-y-auto px-8 py-8">
-        <p className="not-prose mt-0 mb-6">
+        <p className="not-prose mt-0 mb-6 text-sm text-slate-600 dark:text-slate-400">
           <Link
-            className="text-sm text-slate-600 no-underline hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
+            className="no-underline hover:text-slate-900 dark:hover:text-white"
             href="/features"
           >
-            ← Features index
+            ← Features
           </Link>
+          <span className="mx-2 text-slate-300 dark:text-slate-600">/</span>
+          <span>{doc.menu}</span>
+          {doc.submenu ? (
+            <>
+              <span className="mx-2 text-slate-300 dark:text-slate-600">/</span>
+              <span>{doc.submenu}</span>
+            </>
+          ) : null}
         </p>
         <Markdown
           components={{

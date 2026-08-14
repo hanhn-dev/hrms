@@ -6,9 +6,12 @@ export default function FeaturesLayout({
 }: {
   children: React.ReactNode;
 }): React.JSX.Element {
-  const docs = getAllFeatureDocs()
-    .map(({ slug, title }) => ({ slug, title }))
-    .sort((a, b) => a.title.localeCompare(b.title));
+  const docs = getAllFeatureDocs().map(({ slug, title, menu, submenu }) => ({
+    slug,
+    title,
+    menu,
+    submenu,
+  }));
 
   return (
     <div className="flex h-full min-h-0">

@@ -1,5 +1,6 @@
 import { readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
+import { PLATFORM_MENU } from "./feature-menu";
 import { createSlugger } from "./slugify";
 
 const FEATURES_DIR = path.join(process.cwd(), "content", "features");
@@ -16,21 +17,33 @@ export interface FeatureDoc {
   content: string;
   sections: FeatureSection[];
   lastAnalyzed?: string;
+  menu: string;
+  submenu?: string;
 }
 
 const FRONTMATTER_RE = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?/;
 
-function parseFeatureFile(raw: string): { content: string; lastAnalyzed?: string } {
-  const match = raw.match(FRONTMATTER_RE);
-  const body = (match ? raw.slice(match[0].length) : raw).replace(/\r\n/g, "\n");
-  const lastAnalyzed = match?.[1]
-    ?.match(/^last-analyzed:\s*(.+?)\s*$/m)?.[1]
-    ?.trim();
-  return { content: body, lastAnalyzed };
+function yamlScalar(block: string, key: string): string | undefined {
+  const raw = block.match(new RegExp(`^${key}:\\s*(.+?)\\s*$`, "m"))?.[1]?.trim();
+  if (!raw) return undefined;
+  return raw.replace(/^['"]|['"]$/g, "");
 }
 
-function stripFrontmatter(raw: string): string {
-  return parseFeatureFile(raw).content;
+function parseFeatureFile(raw: string): {
+  content: string;
+  lastAnalyzed?: string;
+  menu: string;
+  submenu?: string;
+} {
+  const match = raw.match(FRONTMATTER_RE);
+  const body = (match ? raw.slice(match[0].length) : raw).replace(/\r\n/g, "\n");
+  const block = match?.[1] ?? "";
+  return {
+    content: body,
+    lastAnalyzed: yamlScalar(block, "last-analyzed"),
+    menu: yamlScalar(block, "menu") ?? PLATFORM_MENU,
+    submenu: yamlScalar(block, "submenu"),
+  };
 }
 
 function titleFromContent(content: string, fallback: string): string {
@@ -63,22 +76,50 @@ function extractSections(content: string): FeatureSection[] {
   return sections;
 }
 
+function walk(dir: string, base: string[] = []): string[] {
+  let out: string[] = [];
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    if (entry.isDirectory()) {
+      out = out.concat(walk(path.join(dir, entry.name), [...base, entry.name]));
+    } else if (entry.name.endsWith(".md")) {
+      out.push([...base, entry.name.replace(/\.md$/, "")].join("/"));
+    }
+  }
+  return out;
+}
+
+function slugToFilePath(slug: string): string {
+  const parts = slug.split("/").filter(Boolean);
+  if (
+    parts.length === 0 ||
+    parts.some((part) => part === "." || part === "..")
+  ) {
+    throw new Error(`Invalid feature slug: ${slug}`);
+  }
+  const filePath = path.resolve(path.join(FEATURES_DIR, ...parts) + ".md");
+  const relative = path.relative(path.resolve(FEATURES_DIR), filePath);
+  if (relative.startsWith("..") || path.isAbsolute(relative)) {
+    throw new Error(`Invalid feature slug: ${slug}`);
+  }
+  return filePath;
+}
+
 export function getFeatureSlugs(): string[] {
-  return readdirSync(FEATURES_DIR)
-    .filter((file) => file.endsWith(".md"))
-    .map((file) => file.replace(/\.md$/, ""));
+  return walk(FEATURES_DIR);
 }
 
 export function getFeatureDoc(slug: string): FeatureDoc {
-  const raw = readFileSync(path.join(FEATURES_DIR, `${slug}.md`), "utf8");
-  const content = stripFrontmatter(raw);
-  const { lastAnalyzed } = parseFeatureFile(raw);
+  const raw = readFileSync(slugToFilePath(slug), "utf8");
+  const { content, lastAnalyzed, menu, submenu } = parseFeatureFile(raw);
+  const fallback = slug.split("/").pop() ?? slug;
   return {
     slug,
-    title: titleFromContent(content, slug),
+    title: titleFromContent(content, fallback),
     content,
     sections: extractSections(content),
     lastAnalyzed,
+    menu,
+    submenu,
   };
 }
 

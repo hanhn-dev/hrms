@@ -44,11 +44,12 @@ makes that chain visible, plus the two diagrams developers actually want
 (a workflow flowchart and a table ER diagram), and drop it where developers
 already browse docs.
 
-Output home: `apps/backstage/content/features/<slug>.md`, served at
-`/features/<slug>` by the Next.js app (`apps/backstage/lib/features.ts` +
-`apps/backstage/app/features/`). That app renders ```mermaid``` fences
-natively (see `lib/mermaid-diagram.tsx`) — write diagrams as standard mermaid
-code blocks, nothing app-specific needed.
+Output home: `apps/backstage/content/features/<menu-folder>/<slug>.md`, served at
+`/features/<menu-folder>/<slug>` by the Next.js app (`apps/backstage/lib/features.ts` +
+`apps/backstage/app/features/`). `<menu-folder>` is the kebab-case `menu` value
+(`Leave & Attendance` → `leave-and-attendance`; login/session use `platform`).
+That app renders ```mermaid``` fences natively (see `lib/mermaid-diagram.tsx`) —
+write diagrams as standard mermaid code blocks, nothing app-specific needed.
 
 ## Task
 
@@ -121,23 +122,35 @@ table-relationship diagram.
      `"TransId (no FK declared)"`, rather than inventing a relationship).
 
 5. **Write the guide** to
-   `apps/backstage/content/features/<kebab-case-slug>.md`. If a file already
-   exists for this slug, overwrite it but call out in your final report what
-   changed (procs/tables added or removed) versus the previous version.
+   `apps/backstage/content/features/<menu-folder>/<kebab-case-slug>.md`,
+   creating `<menu-folder>` if needed. Derive the folder from the `menu`
+   frontmatter value: lowercase, `&` → `and`, other non-alphanumerics → `-`
+   (`Leave & Attendance` → `leave-and-attendance`, `Admin Configuration` →
+   `admin-configuration`, `Platform` → `platform`). If a file already exists
+   for this slug (nested or a leftover flat `content/features/<slug>.md`),
+   overwrite the nested path and remove the flat leftover. Call out in your
+   final report what changed (procs/tables added or removed) versus the
+   previous version.
    Structure:
 
    ````markdown
    ---
    confidence: <low|medium|high>
    last-analyzed: <today's date, YYYY-MM-DD>
+   menu: <top-level HRMS sidebar name, e.g. Leave & Attendance>
+   submenu: <child item when the feature maps to one; omit otherwise>
    ---
 
    # <Feature Name>
 
-   <YAML stays at those two keys only. `last-analyzed` is parsed by the
-   Features article and shown under this H1 as `Last analyzed: YYYY-MM-DD`.
-   Do not put `sources:` (or any other keys) in frontmatter — an unstripped
-   `---` fence renders as a horizontal rule above the title.>
+   <YAML stays at `confidence`, `last-analyzed`, `menu`, and optional
+   `submenu`. `menu`/`submenu` must match the live HRMS left-nav
+   (`TDynamicMenuHierarchy` / `TMenuDetails`). Features that are not in the
+   sidebar (login, session, JWT) use `menu: Platform`. `last-analyzed` is
+   parsed by the Features article and shown under this H1 as
+   `Last analyzed: YYYY-MM-DD`. Do not put `sources:` (or any other keys) in
+   frontmatter — an unstripped `---` fence renders as a horizontal rule
+   above the title.>
 
    ## Overview
    <A business narrative for someone who has never seen this feature, written

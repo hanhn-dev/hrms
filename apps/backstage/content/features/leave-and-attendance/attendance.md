@@ -53,6 +53,8 @@ confidence: medium — the AR/WFH/approve/freeze call chains are verified end-to
   DAL-referenced procedure with no matching file in this DB repo) that need a product-side
   decision rather than a doc fix
 last-analyzed: 2026-08-13
+menu: Leave & Attendance
+submenu: L&A Dashboard
 ---
 
 # Attendance

@@ -12,7 +12,7 @@ Internal HRMS docs site (`apps/backstage`, port 5001). Next.js 16 App Router, no
 
 | Folder | Served at | Edit how |
 |---|---|---|
-| `content/features/*.md` | `/features/<slug>` | `/document-feature` (overwrite OK) |
+| `content/features/<menu-folder>/*.md` | `/features/<menu-folder>/<slug>` | `/document-feature` (overwrite OK) |
 | `content/llm-wiki/**` | `/wiki/<path>` | `/sync-llm-wiki` only — never hand-edit |
 | `content/wiki/*.md` | `/docs/<slug>` | Hand-authored; wiki-sync must not touch |
 
@@ -20,7 +20,7 @@ Adding a `.md` file is enough. Slugs come from `readdirSync` in `lib/docs.ts`, `
 
 ## Feature guide shape
 
-YAML may contain only `confidence` and `last-analyzed`. `last-analyzed` is parsed (CRLF-safe) and shown under the H1 as `Last analyzed: YYYY-MM-DD`. Put sources in a trailing `## Reference` section, not in frontmatter — leftover `---` renders as a horizontal rule.
+YAML may contain `confidence`, `last-analyzed`, `menu`, and optional `submenu`. `menu`/`submenu` match the HRMS left-nav; use `menu: Platform` when the feature is not in the sidebar. On disk, put the file in `content/features/<menu-folder>/` (`Leave & Attendance` → `leave-and-attendance`). `last-analyzed` is parsed (CRLF-safe) and shown under the H1 as `Last analyzed: YYYY-MM-DD`. Put sources in a trailing `## Reference` section, not in frontmatter — leftover `---` renders as a horizontal rule.
 
 Section order: Overview → Workflow (mermaid flowchart) → Entry points → call chain → API endpoints → procs/tables → Table relationships (mermaid `erDiagram`) → Known gaps → Reference.
 
@@ -30,7 +30,7 @@ Write standard ```` ```mermaid ```` fences. `MermaidAwarePre` renders them; no a
 
 - Tailwind 4 + `prose`; **not** `@hrms/ui`.
 - Server Components by default; `"use client"` only for theme, nav, TOC, mermaid zoom.
-- `params` is a `Promise` — `await params`. `generateStaticParams` on every `[slug]` page.
+- `params` is a `Promise` — `await params`. `generateStaticParams` on every dynamic page.
 - Explicit `): React.JSX.Element`. Fresh `createSlugger()` per document (TOC ids must match heading ids).
 
 ```yaml
@@ -41,5 +41,7 @@ sources:
 ---
 confidence: high
 last-analyzed: 2026-08-14
+menu: Leave & Attendance
+submenu: L&A Tasks
 ---
 ```

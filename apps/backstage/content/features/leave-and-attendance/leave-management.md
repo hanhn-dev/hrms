@@ -30,6 +30,8 @@ sources:
   - HRMS-DATABASE/HRMS/STOREPROCEDURE/SP_LA_LeaveCancellation.sql (TDG HRMS DB)
 confidence: high — app-side call chain verified end-to-end with file:line citations across both the legacy WebForms path and the live React/Node path; DB-side per-procedure lifecycle detail is inherited from llm-wiki, not re-verified line-by-line here
 last-analyzed: 2026-08-13
+menu: Leave & Attendance
+submenu: L&A Tasks
 ---
 
 # Leave Management

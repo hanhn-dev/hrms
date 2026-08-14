@@ -41,6 +41,7 @@ sources:
   - HRMS-DATABASE/HRMS/STOREPROCEDURE/SP_LA_GetEmployeeLeaveBalanceDetails.sql (TDG HRMS DB)
 confidence: high — app-side call chain verified end-to-end with file:line citations across both the legacy WebForms path and the live React/Node path; DB-side detail for exit/deactivation is inherited from llm-wiki, Separation-specific procedures (approver chain, FnF) freshly derived from SP source here
 last-analyzed: 2026-08-13
+menu: Separation
 ---
 
 # Separation

@@ -1,62 +1,65 @@
+import Link from "next/link";
+import { groupFeaturesByMenu } from "../../lib/feature-menu";
 import { getAllFeatureDocs } from "../../lib/features";
 
 export default function FeaturesPage(): React.JSX.Element {
-  const hasDocs = getAllFeatureDocs().length > 0;
+  const groups = groupFeaturesByMenu(
+    getAllFeatureDocs().map(({ slug, title, menu, submenu }) => ({
+      slug,
+      title,
+      menu,
+      submenu,
+    })),
+  );
 
   return (
-    <div className="flex h-full min-h-0 flex-1 items-center justify-center overflow-y-auto px-6 py-8">
-      <div className="max-w-lg text-center">
-        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400">
-          <svg
-            className="h-7 w-7"
-            fill="none"
-            stroke="currentColor"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={1.75}
-            viewBox="0 0 24 24"
-          >
-            <path d="M4 19.5V5.5A2.5 2.5 0 0 1 6.5 3H18a1 1 0 0 1 1 1v14.5" />
-            <path d="M6.5 17H19v3.5a.5.5 0 0 1-.5.5H6.5A2.5 2.5 0 0 1 4 18.5v0A2.5 2.5 0 0 1 6.5 17Z" />
-            <path d="M8 7h8M8 10.5h8" />
-          </svg>
-        </div>
-
-        <h1 className="mt-5 text-xl font-semibold text-slate-900 dark:text-white">
+    <div className="h-full min-h-0 flex-1 overflow-y-auto px-6 py-8">
+      <div className="mx-auto max-w-4xl">
+        <h1 className="text-2xl font-semibold text-slate-900 dark:text-white">
           Feature guides
         </h1>
-        <p className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-400">
+        <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600 dark:text-slate-400">
           Generated module/feature guides connecting SourceCode call chains to the
-          underlying HRMS-DATABASE tables and stored procedures. Produced by the{" "}
+          underlying HRMS-DATABASE tables and stored procedures. Grouped to match
+          the HRMS left-nav. Produced by the{" "}
           <code className="rounded bg-slate-100 px-1.5 py-0.5 text-[13px] text-slate-700 dark:bg-slate-800 dark:text-slate-300">
             /document-feature
           </code>{" "}
-          command — see the wiki for authoritative DB lifecycle docs.
+          command.
         </p>
 
-        <p className="mt-6 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400">
-          <svg
-            className="h-4 w-4 shrink-0"
-            fill="none"
-            stroke="currentColor"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            viewBox="0 0 24 24"
-          >
-            {hasDocs ? (
-              <path d="M13 5l7 7-7 7M5 12h14" />
-            ) : (
-              <>
-                <circle cx="12" cy="12" r="9" />
-                <path d="M12 8v5M12 16h.01" />
-              </>
-            )}
-          </svg>
-          {hasDocs
-            ? "Pick a feature from the list on the left to view its guide."
-            : "No feature guides generated yet."}
-        </p>
+        {groups.length === 0 ? (
+          <p className="mt-8 text-sm italic text-slate-500 dark:text-slate-400">
+            No feature guides generated yet.
+          </p>
+        ) : (
+          groups.map((group) => (
+            <section className="mt-8" key={group.menu}>
+              <h2 className="text-sm font-medium tracking-wide text-slate-500 uppercase dark:text-slate-400">
+                {group.menu}
+              </h2>
+              <ul className="mt-3 divide-y divide-slate-200 rounded-md border border-slate-200 dark:divide-slate-800 dark:border-slate-800">
+                {group.subgroups.flatMap((subgroup) => subgroup.items).map((doc) => (
+                  <li key={doc.slug}>
+                    <Link
+                      className="flex items-baseline justify-between gap-4 px-4 py-3 no-underline hover:bg-slate-50 dark:hover:bg-slate-900"
+                      href={`/features/${doc.slug}`}
+                    >
+                      <span className="text-sm font-medium text-slate-900 dark:text-slate-100">
+                        {doc.title}
+                      </span>
+                      {doc.submenu ? (
+                        <span className="shrink-0 text-xs text-slate-400 dark:text-slate-500">
+                          {doc.submenu}
+                        </span>
+                      ) : null}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ))
+        )}
       </div>
     </div>
   );
