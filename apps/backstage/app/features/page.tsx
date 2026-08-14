@@ -1,16 +1,13 @@
-import Link from "next/link";
-import { groupFeaturesByMenu } from "../../lib/feature-menu";
+import { FeatureIndex } from "../../components/features/feature-index";
 import { getAllFeatureDocs } from "../../lib/features";
 
 export default function FeaturesPage(): React.JSX.Element {
-  const groups = groupFeaturesByMenu(
-    getAllFeatureDocs().map(({ slug, title, menu, submenu }) => ({
-      slug,
-      title,
-      menu,
-      submenu,
-    })),
-  );
+  const docs = getAllFeatureDocs().map(({ slug, title, menu, submenu }) => ({
+    slug,
+    title,
+    menu,
+    submenu,
+  }));
 
   return (
     <div className="h-full min-h-0 flex-1 overflow-y-auto px-6 py-8">
@@ -28,38 +25,7 @@ export default function FeaturesPage(): React.JSX.Element {
           command.
         </p>
 
-        {groups.length === 0 ? (
-          <p className="mt-8 text-sm italic text-slate-500 dark:text-slate-400">
-            No feature guides generated yet.
-          </p>
-        ) : (
-          groups.map((group) => (
-            <section className="mt-8" key={group.menu}>
-              <h2 className="text-sm font-medium tracking-wide text-slate-500 uppercase dark:text-slate-400">
-                {group.menu}
-              </h2>
-              <ul className="mt-3 divide-y divide-slate-200 rounded-md border border-slate-200 dark:divide-slate-800 dark:border-slate-800">
-                {group.subgroups.flatMap((subgroup) => subgroup.items).map((doc) => (
-                  <li key={doc.slug}>
-                    <Link
-                      className="flex items-baseline justify-between gap-4 px-4 py-3 no-underline hover:bg-slate-50 dark:hover:bg-slate-900"
-                      href={`/features/${doc.slug}`}
-                    >
-                      <span className="text-sm font-medium text-slate-900 dark:text-slate-100">
-                        {doc.title}
-                      </span>
-                      {doc.submenu ? (
-                        <span className="shrink-0 text-xs text-slate-400 dark:text-slate-500">
-                          {doc.submenu}
-                        </span>
-                      ) : null}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          ))
-        )}
+        <FeatureIndex docs={docs} />
       </div>
     </div>
   );
