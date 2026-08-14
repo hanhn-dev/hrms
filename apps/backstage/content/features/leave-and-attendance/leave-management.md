@@ -107,6 +107,52 @@ flowchart TD
   ApproveCancel --> Ledger2
 ```
 
+## Request journey
+
+Time-ordered view of **one leave request** from the employee submitting it to the row and status it lands in. The flowchart above is the whole map; this is that request walking through it.
+
+```mermaid
+sequenceDiagram
+  autonumber
+  actor Employee
+  actor Manager
+  participant UI as Apply screen / For Me queue
+  participant App as App / API
+  participant SP as Stored procedure
+  participant DB as Database
+
+  Note over Employee,DB: Start - employee submits leave
+  Employee->>UI: Pick type, dates, reason
+  UI->>App: ValidateLeaveRequest then ApplyLeaves
+  App->>SP: USP_LA_ValidateLeaveRequest
+  SP->>DB: Read balance, freeze, rules
+  SP-->>App: Valid or blocked
+  alt blocked
+    App-->>UI: Validation messages
+    UI-->>Employee: Request never created
+  else valid
+    App->>SP: USP_LA_InsertLeaveRequestDetails
+    SP->>DB: Insert TLeaveRequest as Pending
+    alt no workflow mapped
+      SP->>DB: Auto-approve and debit tLeaveBalance plus ledger
+      Note over Employee,DB: End - Approved immediately
+    else workflow mapped
+      SP->>DB: Insert TRequestWorkflows pending row
+      Manager->>UI: Open For Me queue
+      UI->>App: GET notification/getPendingLeaveRequest
+      App->>SP: SP_LA_GetLeaveRequestDetails
+      SP-->>UI: Pending leave row
+      Manager->>UI: Approve or Reject
+      UI->>App: POST attendance/ApproveRejectRequest
+      App->>SP: SP_CM_ApproveWorkFlowRequest or SP_CM_RejectWorkFlowRequest
+      SP->>DB: Flip LeaveStatus, debit on approve
+      Note over Employee,DB: End - Approved and debited, or Rejected
+    end
+  end
+```
+
+Pullback and cancellation are separate requests. A still-pending pullback writes `LeaveStatus='Pullback'` via `SP_LA_UpdateLeavePullBack`. Cancelling an already-approved leave starts at `SP_LA_LeaveCancellation` and ends when the balance is credited (inline, or after a `LeaveCancellation` workflow).
+
 ## Entry points
 
 > ⚠️ **Live entry point, corrected**: per SourceCode's own

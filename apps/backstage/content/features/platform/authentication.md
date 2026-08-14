@@ -78,6 +78,60 @@ flowchart TD
 
 Passwords are **reversibly encrypted** (AES/Rijndael then Base64), not hashed — `SP_LOG_CheckUser` compares `PasswordStr = @Password`. Tenant is resolved from subdomain appSetting or `SP_LOG_GetCustomerNoViaEmail`. After a successful web login the activity logger writes `Sp_InsertActivityLog` (`ActivityDescription.WebLogin`); optional step-by-step rows go to `TLoginAuditTrail` when `EnableInsertLoginAuditTrail` is on.
 
+## Request journey
+
+The request that starts here is **signing in**. It ends either as a session plus JWT (dashboard), a forced password change, a concurrent-session gate, or a lockout. The wiki page `llm-wiki/architecture/auth-flow.md` has a reconstructed DB-only sequence; this one is the live app path.
+
+```mermaid
+sequenceDiagram
+  autonumber
+  actor User
+  participant UI as Login.aspx
+  participant App as App / Auth APIs
+  participant SP as Stored procedure
+  participant DB as Database
+
+  Note over User,DB: Start - user submits credentials
+  User->>UI: Open company HRMS URL
+  UI->>App: Resolve tenant, pick Web / Intranet / SSO
+  alt Web login
+    UI->>App: AES then Base64 password, CheckUser
+    App->>SP: SP_LOG_CheckUser
+    SP->>DB: Read TUsers, TEmployerDetails.FailedAttempts
+  else Intranet
+    UI->>App: LDAP bind (no stored procedure)
+    App->>SP: SP_LOG_GetWinLoginDetails
+    SP->>DB: Map WinLoginName to TUsers
+  else Azure AD SSO
+    UI->>App: OIDC challenge then ExternalSignInResponse
+    App->>SP: SP_LOG_CheckUser_ExternalLogin
+    SP->>DB: Map email to TUsers
+  end
+  alt invalid
+    App->>SP: SP_LOG_IsValidUserName then SP_LOG_UpdInvalidLoginAttemptCount
+    SP->>DB: Bump fail count, maybe IsUserIDLocked
+    Note over User,DB: End - login refused or account locked
+  else valid
+    App->>SP: SP_LOG_UserEmployee
+    SP->>DB: Load employee/admin profile
+    App->>DB: Session LoggedInUser
+    App->>App: Issue FedAuth cookie and JWT (TWEBAPI_AUTHORIZATION)
+    alt password expired
+      App-->>UI: Reset Password
+      Note over User,DB: End - signed in but forced to change password
+    else concurrent session restricted
+      App->>SP: SP_CheckUserLoggedInStatus
+      SP->>DB: TUserLoginInfo
+      Note over User,DB: End - already-logged-in gate
+    else ok
+      App-->>UI: DashBoard.aspx
+      Note over User,DB: End - session and JWT issued, menus can load
+    end
+  end
+```
+
+Mobile/API uses the same credential check via `POST /api/login` (`SP_LOG_CheckUser` or `SP_LOG_CheckUser_ExternalLogin`) and ends with an OAuth access token plus JWT, not `Login.aspx`.
+
 ## Entry points
 
 > SourceCode `docs/SystemModels/SystemModel-2/architecture/auth-flow.md` names `Login.aspx.cs` as the live shell for all three modes, then `HRMS.AuthWebAPI.Node` as the JWT mint. The physical page lives at site-root `Login.aspx`; under IIS the public URL is `/HRM/Login.aspx` (the path `llm-wiki` quotes from ELMAH). `LoginRoutes_V2.js` / `LoginRoutes_V3.js` exist on disk but are **not** mounted in CoreAPI `routeIndex.js`.

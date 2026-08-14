@@ -127,6 +127,49 @@ flowchart TD
   LeaveBLLCall --> LeaveSP["SP_LA_GetEmployeeLeaveBalanceDetails"]
 ```
 
+## Request journey
+
+Time-ordered view of **one resignation** from the employee recording it to the two later endings that are not the same event: approval of the request, then account deactivation on Last Working Date.
+
+```mermaid
+sequenceDiagram
+  autonumber
+  actor Employee
+  actor Approver
+  actor HR
+  participant UI as Resignation / Separation Tasks
+  participant App as App / API
+  participant SP as Stored procedure
+  participant DB as Database
+
+  Note over Employee,DB: Start - employee records resignation
+  Employee->>UI: Submit resignation (type, dates, last working date)
+  UI->>App: POST /separation/AddResignationDetails
+  App->>SP: SP_SEP_AddResignationDetails
+  SP->>DB: Insert TResignationDetails as Pending
+  Note over Employee,DB: Waiting - request exists, not yet decided
+
+  Approver->>UI: Approve or reject at this level
+  UI->>App: POST /separation/AddResignationDetailsForApprover
+  App->>SP: SP_SEP_AddResignationDetailsForApprover
+  SP->>DB: Upsert TResignationApproverDetails
+  alt not the final HR level
+    Note over Employee,DB: Still pending at the next level
+  else final HR level approves
+    SP->>DB: Lock/unlock by LWD, clearance, pending-action notify
+    Note over Employee,DB: End of the resignation request - Approved. Employee still works until LWD.
+  end
+
+  Note over HR,DB: Start of exit - Last Working Date reached (or HR runs it)
+  HR->>UI: Employee Deactivation
+  UI->>App: POST /separation/DeActivateEmployee
+  App->>SP: SP_SEP_DeActivateEmployee
+  SP->>DB: Validate open items then set TEmployee.IsActive
+  Note over HR,DB: End of exit - account deactivated, or blocked with pending items
+```
+
+Termination is a parallel start (`POST /termination/SaveUpdateTerminationDetails` → `USP_TerminationDetail_SaveUpdate` → `TTerminationDetail`) that also ends at the same deactivation procedure. FnF (`USP_FNF_Employee_SaveUpdate` → `TEmployeeFNFMaster`) is a third, separately started settlement request after the exit record is closed.
+
 ## Entry points
 
 > ⚠️ **Two live app-tier stacks, one dead versioned rewrite.** `ResignationDetails.aspx` is

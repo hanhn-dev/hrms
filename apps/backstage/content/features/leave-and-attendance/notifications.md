@@ -46,6 +46,49 @@ flowchart TD
   DeepLink["?NotificationId=RPI_…_ForMe"] --> Shell
 ```
 
+## Request journey
+
+This page does not create leave/AR/WFH rows — it is the inbox. The request that **starts** here is the manager's decision (or a reassign). Loading the queue is shown first so you can see where that decision is read from.
+
+```mermaid
+sequenceDiagram
+  autonumber
+  actor Manager
+  participant UI as Notifications SPA
+  participant App as Node CoreAPI
+  participant SP as Stored procedure
+  participant DB as Database
+
+  Note over Manager,DB: Start - manager opens Notifications
+  Manager->>UI: Leave and Attendance then Notifications
+  UI->>App: GET attendance/GetFreezeAttendanceListingOrgWise
+  App->>SP: USP_FreezeAttendance_GetDetails
+  SP-->>UI: Freeze dates (buttons may disable)
+  UI->>App: GET notification/GetDataCountForMeSection
+  App->>SP: USP_GetHomePagePEndingDetailsForMe_Count
+  SP->>DB: Count pending TRequestWorkflows by type
+  SP-->>UI: Accordion totals
+  UI->>App: Type-specific GET (e.g. getPendingLeaveRequest)
+  App->>SP: Per-type list (e.g. SP_LA_GetLeaveRequestDetails)
+  SP-->>UI: For Me grid rows
+
+  Note over Manager,DB: Start of the decision - manager ticks rows
+  Manager->>UI: Approve, Reject, or Reassign
+  alt Approve or Reject
+    UI->>App: POST attendance/ApproveRejectRequest
+    App->>SP: SP_CM_ApproveWorkFlowRequest or SP_CM_RejectWorkFlowRequest
+    SP->>DB: Advance TRequestWorkflows, flip LeaveStatus / requeststatus
+    Note over Manager,DB: End - request leaves this inbox
+  else Reassign
+    UI->>App: POST notification/ReassignRequest
+    App->>SP: SP_CM_RequestReRoute
+    SP->>DB: New ManagerId on the pending routing row
+    Note over Manager,DB: End - still pending, now in someone else's For Me
+  end
+```
+
+**By Me** is the initiator watching the same pending rows (`USP_LA_Notification_Request_Pending_ByMe_*`). It does not decide; those requests still end when an approver acts on For Me.
+
 ## Entry points
 
 > Live entry point, per `docs/SystemModels/SystemModel-2/domain/contexts/attendance-leave.md`: the manager queue is the React `Leave_Dashboard` SPA hosted by `AttendanceLeaveNotifications.aspx`, not the classic Telerik user controls under `HRM/Leaves/`. `AttendanceLeaveNotifications.aspx.cs` only stamps session identity into hidden fields and loads `leave_attendance_module*.js` from `HRM/Leave_Dashboard/BuildJS/`.

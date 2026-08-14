@@ -159,6 +159,70 @@ flowchart TD
 > documented in full in `llm-wiki/domain/attendance-lifecycle.md` — this diagram adds the
 > app/API entry points feeding into it, which that page (being DB-only) doesn't show.
 
+## Request journey
+
+Time-ordered views of the two kinds of "request" on this feature. A **punch** starts at a device, login, or self-punch and ends as a raw row, then a later DB job turns it into a day. An **AR / WFH request** starts when the employee submits a correction and ends when the manager decides (or when submit-time recalc already wrote the day).
+
+### Punch — device, login, or self-punch
+
+```mermaid
+sequenceDiagram
+  autonumber
+  actor Employee
+  participant Src as Device / portal / mobile
+  participant App as App / API
+  participant SP as Stored procedure
+  participant DB as Database
+
+  Note over Employee,DB: Start - a punch happens
+  alt biometric or vendor feed
+    Src->>App: POST api/Attendance/PushAttendanceData
+    App->>SP: SP_InsertAttendanceDataWithMachineID
+  else MS Teams status
+    Src->>App: POST attendance/PushAttendanceDataFromMSTeams
+    App->>SP: USP_Get_AttendanceDataFromMSTeams
+  else self-punch or portal login/logout
+    Employee->>Src: Punch or sign in/out
+    Src->>App: SaveAttendanceTransaction or AddUserManualAttendance
+    App->>SP: SP_InsertAttendanceDetails
+  end
+  SP->>DB: Insert TAttendanceTransaction (IsSync=0)
+  Note over Employee,DB: End of the app request - raw punch stored
+  DB->>SP: USP_RearrangeAttTranData then USP_UpdateAttendance
+  SP->>DB: Upsert TAttendance for that employee-day
+  Note over Employee,DB: End of the day record - TAttendance written by DB job
+```
+
+### Attendance Regularization (WFH is the same shape)
+
+```mermaid
+sequenceDiagram
+  autonumber
+  actor Employee
+  actor Manager
+  participant UI as Apply screen / For Me queue
+  participant App as App / API
+  participant SP as Stored procedure
+  participant DB as Database
+
+  Note over Employee,DB: Start - employee asks to correct a day
+  Employee->>UI: Submit AR (or WFH)
+  UI->>App: saveAttendanceRegularization (or ApplyWFHRequest)
+  App->>SP: SP_LA_AddAttendanceRegularisationDetails
+  Note over App,SP: WFH WebForms path uses SP_LA_AddWorkFromHomeRequestDetails. React WFHRequestForm uses USP_WFH_SaveRequest.
+  SP->>DB: Insert TAttendanceRegularization plus days
+  SP->>DB: Submit-time recalc into TAttendance / TDailyRegisterNew
+  SP->>DB: Insert TRequestWorkflows pending row
+  Manager->>UI: Open For Me queue
+  Manager->>UI: Approve or Reject
+  UI->>App: POST attendance/ApproveRejectRequest
+  App->>SP: SP_CM_ApproveWorkFlowRequest or SP_CM_RejectWorkFlowRequest
+  SP->>DB: Flip request status (AR approve does not re-recalc)
+  Note over Employee,DB: End - Approved or Rejected on the request row
+```
+
+HR freeze (`SP_AdminAM_InsFreezeAttendanceDet`) and recalculation (`sp_AddAttendanceRecalculation` → later `USP_Process_AttendanceRecalculationBatch`) are admin jobs, not employee requests — see Workflow.
+
 ## Entry points
 
 > ⚠️ **Dead pages, confirmed against `HRMS.Web.csproj`**: `HRM/Leaves/FreezeAttendance.aspx`,

@@ -65,6 +65,71 @@ flowchart TD
 
 Role codes written into the tree (and later into `TWorkflowDetails.WorkflowRole`) are: `F` Functional Authority, `R` Reporting Authority, `I` Initiator, `A` Activity Owner, `H` Hiring Manager, `C` Candidate, `D` Recruiter, `B` RecruitmentAdmin, `M` Business Unit Head, `PF` / `PR` previous-level Functional / Reporting Authority. Anything else becomes `U`. Mapping lives in `GenericWorkFlowDal.CheckWorkflowRole` (`GenericWorkFlowDAL.cs:282-296`) and the Node twin `Utils/workflow.js:405-437`.
 
+## Request journey
+
+Two different requests live on this feature. The **admin** request is saving a workflow definition (it ends on `TWorkflowManagement` / `TWorkflowDetails`). The **runtime** request is someone else's leave/resignation/etc. hitting that definition (it ends on `TRequestWorkflows`, then the module's own table when the last level approves).
+
+### Admin — save a workflow
+
+```mermaid
+sequenceDiagram
+  autonumber
+  actor Admin
+  participant UI as Add / Define Workflow
+  participant App as App / API
+  participant SP as Stored procedure
+  participant DB as Database
+
+  Note over Admin,DB: Start - admin designs a workflow
+  Admin->>UI: Create header (name, module, mapped page)
+  UI->>App: AddWorkflowDefinition
+  App->>SP: SP_AdminWM_AddDefinition
+  SP->>DB: Insert TWorkflowManagement
+  Admin->>UI: Draw the approval tree
+  UI->>App: POST /api/workflow/UpdateWorkFlow
+  App->>SP: SP_AdminWM_UpdDefinitionTreeDet then Add/Remove DefinitionDet
+  SP->>DB: WorkflowDefinitionTree XML plus TWorkflowDetails rows
+  Note over Admin,DB: End - definition is live for that page
+```
+
+### Runtime — a request on a mapped page
+
+```mermaid
+sequenceDiagram
+  autonumber
+  actor Initiator
+  actor Approver
+  participant Page as Mapped page (e.g. leave apply)
+  participant App as App / API
+  participant SP as Stored procedure
+  participant DB as Database
+
+  Note over Initiator,DB: Start - initiator submits on a mapped page
+  Initiator->>Page: Submit
+  Page->>App: CheckWorkFlowAvailable
+  App->>SP: SP_CM_GetWorkflowTreeXmlDetailsByPageTitle
+  SP-->>App: Tree or skip
+  alt no workflow or SkipWorkFlow
+    App->>SP: Module insert SP applies side effects inline
+    SP->>DB: Artifact table already final (no routing rows)
+    Note over Initiator,DB: End - never entered a queue
+  else workflow mapped
+    App->>SP: Module insert SP
+    SP->>DB: Artifact row plus TRequestWorkflows pending
+    Approver->>Page: For Me queue or email popup
+    Approver->>Page: Approve, Reject, or Reassign
+    Page->>App: ApproveRejectRequest / ApproveWorkFlowRequest / ReassignRequest
+    App->>SP: SP_CM_ApproveWorkFlowRequest, Reject, or RequestReRoute
+    alt last level
+      SP->>DB: Artifact status plus module side effects
+      Note over Initiator,DB: End - request finished
+    else more levels
+      SP->>DB: Next TRequestWorkflows row still Pending
+      Note over Initiator,DB: Waiting on the next approver
+    end
+  end
+```
+
 ## Entry points
 
 > ⚠️ **Live designer, corrected**: SourceCode `docs/SystemModels/SystemModel-2/domain/contexts/workflow-platform.md` documents the XML engine and the approve/reject popup, but does **not** name the admin pages. Menu item 27 ("Define Workflow") was redirected to the React host `DefineWorkFlowReact.aspx`. The sibling Telerik page `DefineWorkFlow.aspx` (and its `WorkflowOwnerDialog.aspx` picker) is still compiled, so a bookmark can still open it, but it is not the navigated path. The Customer Setting tab that also mounted `WorkflowManagement.js` is commented out; that component is live only via `WorkflowDashboard.aspx`.

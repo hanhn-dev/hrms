@@ -53,12 +53,28 @@ submenu: L&A Tasks
 
 `last-analyzed` is shown under the H1 as `Last analyzed: YYYY-MM-DD` (`feature-article.tsx`). Do **not** put `sources:` in YAML — an unstripped `---` fence renders as a horizontal rule above the title. Source inventory goes in a trailing `## Reference` section.
 
-Required section order: Overview → Workflow (mermaid flowchart) → Entry points → Code → database call chain → API endpoints → Stored procedures & tables → Table relationships (mermaid erDiagram) → Known gaps → Reference.
+Required section order: Overview → Workflow (mermaid flowchart) → Request journey (mermaid sequenceDiagram) → Entry points → Code → database call chain → API endpoints → Stored procedures & tables → Table relationships (mermaid erDiagram) → Known gaps → Reference.
 
 ````markdown
 ```mermaid
 flowchart TD
   UI --> DAL --> SP
+```
+
+```mermaid
+sequenceDiagram
+  autonumber
+  actor User
+  participant UI as Screen
+  participant App as App / API
+  participant SP as Stored procedure
+  participant DB as Database
+  Note over User,DB: Start - user submits
+  User->>UI: click
+  UI->>App: call
+  App->>SP: procedure
+  SP->>DB: write
+  Note over User,DB: End - terminal status
 ```
 ````
 

@@ -82,6 +82,46 @@ flowchart TD
   Wait --> DeactSP
 ```
 
+## Request journey
+
+Separation Tasks is a tab strip. Each tab is its own request. The sequence below is the **Record Resignation** tab — the one an employee or approver actually starts — from submit to the two endings (approved request, then deactivation). Other tabs are listed under it, not drawn.
+
+```mermaid
+sequenceDiagram
+  autonumber
+  actor Employee
+  actor Approver
+  actor HR
+  participant UI as Separation Tasks tabs
+  participant App as Node CoreAPI
+  participant SP as Stored procedure
+  participant DB as Database
+
+  Note over Employee,DB: Start - Record Resignation tab
+  Employee->>UI: Open Separation then Separation Tasks
+  UI->>App: GET /separation/GetResignationDetails
+  App->>SP: SP_SEP_GetResignationDetails
+  Employee->>UI: Submit type, reason, dates
+  UI->>App: POST /separation/AddResignationDetails
+  App->>SP: SP_SEP_AddResignationDetails
+  SP->>DB: Insert TResignationDetails as Pending
+  Note over Employee,DB: Waiting on the approver chain
+
+  Approver->>UI: Same tab, opened for that employee
+  UI->>App: POST /separation/AddResignationDetailsForApprover
+  App->>SP: SP_SEP_AddResignationDetailsForApprover
+  SP->>DB: TResignationApproverDetails
+  Note over Employee,DB: End of this request when the last level approves - still employed until LWD
+
+  HR->>UI: Employee Deactivation tab (after LWD)
+  UI->>App: POST /separation/DeActivateEmployee
+  App->>SP: SP_SEP_DeActivateEmployee
+  SP->>DB: TEmployee.IsActive = N (or blocked)
+  Note over HR,DB: End of exit
+```
+
+Other tabs start and end on their own writes: **Resignation Pullback** → `SP_SEP_ResignationPullback`; **Termination** → `USP_TerminationDetail_SaveUpdate` / `TTerminationDetail`; **Clearance** → `SP_SEP_GetEmployeeClearanceForm` / activity SPs; **Re-Assign Request** → `SP_CM_RequestReRoute`; **Exit Interview** → `SP_SEP_AddScheduleInterview` then `SP_SEP_InsertExitInterviewDetails`; **F&F** → `USP_FNF_Employee_SaveUpdate` / `TEmployeeFNFMaster`.
+
 ## Entry points
 
 > Live entry point, per `docs/SystemModels/SystemModel-2/domain/contexts/hr-core.md` and `Separation_React/routes.js`: **Separation Tasks** is `HRM/Separation/ResignationDetails.aspx` (menu 1166, renamed from "Separation Management" by PBI 79185). The page hosts the Telerik tab strip and mounts the React bundle into `#separationDashboardRoot`. Each tab click sets `sessionStorage.requestedPage` and clicks hidden button `#hiddenSeparationMgmBtn`, which `SeparationManagementRoutes` reads to pick a layout. `Separation_React/Termination.aspx` is **not** the live termination page — `APP_ROUTES` never registers it.

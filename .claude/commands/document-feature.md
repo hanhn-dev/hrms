@@ -1,5 +1,5 @@
 ---
-description: Explore a module/feature across SourceCode and TDG HRMS DB, and write a developer-facing guide (workflow + table-relationship mermaid diagrams) into apps/backstage/content/features/.
+description: Explore a module/feature across SourceCode and TDG HRMS DB, and write a developer-facing guide (workflow + request-journey + table-relationship mermaid diagrams) into apps/backstage/content/features/.
 argument-hint: <module or feature name>
 ---
 
@@ -39,9 +39,9 @@ often already done the compiled-build check and named the live one.
 Neither repo alone shows the **call chain that connects them** — which page
 calls which DAL method, which calls which stored procedure, which touches
 which tables. That's this command's job: produce one guide per feature that
-makes that chain visible, plus the two diagrams developers actually want
-(a workflow flowchart and a table ER diagram), and drop it where developers
-already browse docs.
+makes that chain visible, plus the three diagrams readers actually want
+(a workflow flowchart, a request journey from start to end, and a table ER
+diagram), and drop it where developers already browse docs.
 
 Output home: `apps/backstage/content/features/<menu-folder>/<slug>.md`, served at
 `/features/<menu-folder>/<slug>` by the Next.js app (`apps/backstage/lib/features.ts` +
@@ -54,7 +54,8 @@ write diagrams as standard mermaid code blocks, nothing app-specific needed.
 
 Given a module/feature name in `$ARGUMENTS`, explore both repos, and write a
 single developer-facing guide connecting the application code to the
-database, ending in a workflow diagram and a table-relationship diagram.
+database, with a workflow diagram, a request-journey diagram (where a
+request starts and where it ends), and a table-relationship diagram.
 
 ## Steps
 
@@ -161,6 +162,39 @@ database, ending in a workflow diagram and a table-relationship diagram.
    reader should get the shape of the flow while it's still fresh from the
    narrative, before drilling into entry points/call chains/procs.>
 
+   ## Request journey
+
+   ```mermaid
+   sequenceDiagram
+     autonumber
+     actor User
+     participant UI as Screen / SPA
+     participant App as App / API
+     participant SP as Stored procedure
+     participant DB as Database
+
+     Note over User,DB: Start - the user action that creates or decides the request
+     User->>UI: what they click or submit
+     UI->>App: page method or HTTP call
+     App->>SP: stored procedure
+     SP->>DB: table write or status flip
+     Note over User,DB: End - the terminal state the user can see
+   ```
+
+   <Time-ordered view of **one request** from the person who starts it to the
+   table/status where it lands. Workflow above is the whole map (every branch
+   on one canvas); Request journey is that request walking through it, so a reader
+   who just finished Overview can see start (the actor) and end (the table
+   write) without the call-chain table. Participants are always Actor → UI →
+   App/API → Stored procedure → Database. Use `Note over` for Start and End.
+   Use `alt`/`opt` for real branches already in the call chain (workflow vs
+   auto-approve, approve vs reject). Add a second request journey only when a
+   different actor starts a **different request type** — do not explode every
+   lookup GET into its own diagram. No `file:line` and no `<br/>` in the
+   diagram; those stay in the call-chain table. Every arrow must match that
+   table — never invent a hop. Note text must not contain a colon (mermaid
+   treats the first `:` as the delimiter).>
+
    ## Entry points
    <table: UI page / API endpoint -> purpose. If a callout about dead/live
    entry points applies (see step 2's SystemModel-2 guidance), place it
@@ -193,11 +227,13 @@ database, ending in a workflow diagram and a table-relationship diagram.
    back to any code path — list them, don't drop them silently>
    ````
 
-   Section order matters: lead with the plain-language Overview and the
-   Workflow diagram (the two things a reader needs to build a mental model),
-   *then* the entry points/call-chain/procedure reference tables, *then*
-   Known gaps last. Don't front-load accuracy-correction callouts before the
-   Overview — anchor each callout to the specific section it corrects.
+   Section order matters: lead with the plain-language Overview, the
+   Workflow diagram, and the Request journey diagram (the three things a reader
+   needs to build a mental model — what happens, the shape of the flow, and
+   where one request starts and ends), *then* the entry
+   points/call-chain/procedure reference tables, *then* Known gaps last.
+   Don't front-load accuracy-correction callouts before the Overview —
+   anchor each callout to the specific section it corrects.
 
 6. **Do not commit.** This only changes files in the `hrms` working tree —
    leave them for the user to review and commit.
