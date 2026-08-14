@@ -1,0 +1,45 @@
+---
+description: Conventions for the Backstage docs app (Next.js) and its markdown content.
+globs: apps/backstage/**
+alwaysApply: false
+---
+
+# Backstage
+
+Internal HRMS docs site (`apps/backstage`, port 5001). Next.js 16 App Router, no backend — markdown on disk is the product. Full layout is in `apps/backstage/AGENTS.md`.
+
+## Content trees
+
+| Folder | Served at | Edit how |
+|---|---|---|
+| `content/features/*.md` | `/features/<slug>` | `/document-feature` (overwrite OK) |
+| `content/llm-wiki/**` | `/wiki/<path>` | `/sync-llm-wiki` only — never hand-edit |
+| `content/wiki/*.md` | `/docs/<slug>` | Hand-authored; wiki-sync must not touch |
+
+Adding a `.md` file is enough. Slugs come from `readdirSync` in `lib/docs.ts`, `lib/llm-wiki.ts`, `lib/features.ts`. Do not hardcode route lists.
+
+## Feature guide shape
+
+YAML may contain only `confidence` and `last-analyzed`. `last-analyzed` is parsed (CRLF-safe) and shown top-right on the H1. Put sources in a trailing `## Reference` section, not in frontmatter — leftover `---` renders as a horizontal rule.
+
+Section order: Overview → Workflow (mermaid flowchart) → Entry points → call chain → API endpoints → procs/tables → Table relationships (mermaid `erDiagram`) → Known gaps → Reference.
+
+Write standard ```` ```mermaid ```` fences. `MermaidAwarePre` renders them; no app-specific syntax.
+
+## Code
+
+- Tailwind 4 + `prose`; **not** `@hrms/ui`.
+- Server Components by default; `"use client"` only for theme, nav, TOC, mermaid zoom.
+- `params` is a `Promise` — `await params`. `generateStaticParams` on every `[slug]` page.
+- Explicit `): React.JSX.Element`. Fresh `createSlugger()` per document (TOC ids must match heading ids).
+
+```yaml
+# ❌ BAD
+sources:
+  - lib/features.ts
+# ✅ GOOD
+---
+confidence: high
+last-analyzed: 2026-08-14
+---
+```

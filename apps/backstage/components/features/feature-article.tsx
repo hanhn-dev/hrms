@@ -15,13 +15,31 @@ export function FeatureArticle({ doc }: { doc: FeatureDoc }): React.JSX.Element 
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-1">
       <article className="prose prose-slate dark:prose-invert max-w-none min-w-0 flex-1 overflow-y-auto px-8 py-8">
-        <Link className="text-sm no-underline" href="/features">
-          ← Features index
-        </Link>
+        <p className="not-prose mt-0 mb-6">
+          <Link
+            className="text-sm text-slate-600 no-underline hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
+            href="/features"
+          >
+            ← Features index
+          </Link>
+        </p>
         <Markdown
           components={{
             table: ScrollableTable,
             pre: MermaidAwarePre,
+            h1: ({ children }) => (
+              <h1 className="mt-0 flex items-baseline justify-between gap-4">
+                <span>{children}</span>
+                {doc.lastAnalyzed ? (
+                  <time
+                    className="shrink-0 text-sm font-normal text-slate-500 dark:text-slate-400"
+                    dateTime={doc.lastAnalyzed}
+                  >
+                    {doc.lastAnalyzed}
+                  </time>
+                ) : null}
+              </h1>
+            ),
             ...headingComponents,
           }}
           remarkPlugins={[remarkGfm]}

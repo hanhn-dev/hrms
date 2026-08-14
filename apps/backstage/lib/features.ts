@@ -15,10 +15,22 @@ export interface FeatureDoc {
   title: string;
   content: string;
   sections: FeatureSection[];
+  lastAnalyzed?: string;
 }
 
-function stripFrontmatter(content: string): string {
-  return content.replace(/^---\n[\s\S]*?\n---\n?/, "");
+const FRONTMATTER_RE = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?/;
+
+function parseFeatureFile(raw: string): { content: string; lastAnalyzed?: string } {
+  const match = raw.match(FRONTMATTER_RE);
+  const body = (match ? raw.slice(match[0].length) : raw).replace(/\r\n/g, "\n");
+  const lastAnalyzed = match?.[1]
+    ?.match(/^last-analyzed:\s*(.+?)\s*$/m)?.[1]
+    ?.trim();
+  return { content: body, lastAnalyzed };
+}
+
+function stripFrontmatter(raw: string): string {
+  return parseFeatureFile(raw).content;
 }
 
 function titleFromContent(content: string, fallback: string): string {
@@ -60,11 +72,13 @@ export function getFeatureSlugs(): string[] {
 export function getFeatureDoc(slug: string): FeatureDoc {
   const raw = readFileSync(path.join(FEATURES_DIR, `${slug}.md`), "utf8");
   const content = stripFrontmatter(raw);
+  const { lastAnalyzed } = parseFeatureFile(raw);
   return {
     slug,
     title: titleFromContent(content, slug),
     content,
     sections: extractSections(content),
+    lastAnalyzed,
   };
 }
 
