@@ -28,14 +28,14 @@ export function FeatureArticle({ doc }: { doc: FeatureDoc }): React.JSX.Element 
             table: ScrollableTable,
             pre: MermaidAwarePre,
             h1: ({ children }) => (
-              <h1 className="mt-0 flex items-baseline justify-between gap-4">
-                <span>{children}</span>
+              <h1 className="mt-0">
+                <span className="block">{children}</span>
                 {doc.lastAnalyzed ? (
                   <time
-                    className="shrink-0 text-sm font-normal text-slate-500 dark:text-slate-400"
+                    className="mt-1 block text-sm font-normal text-slate-500 dark:text-slate-400"
                     dateTime={doc.lastAnalyzed}
                   >
-                    {doc.lastAnalyzed}
+                    Last analyzed: {doc.lastAnalyzed}
                   </time>
                 ) : null}
               </h1>

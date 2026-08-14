@@ -47,7 +47,7 @@ last-analyzed: 2026-08-14
 ---
 ```
 
-`last-analyzed` is shown top-right on the same line as the H1 (`feature-article.tsx`). Do **not** put `sources:` in YAML — an unstripped `---` fence renders as a horizontal rule above the title. Source inventory goes in a trailing `## Reference` section.
+`last-analyzed` is shown under the H1 as `Last analyzed: YYYY-MM-DD` (`feature-article.tsx`). Do **not** put `sources:` in YAML — an unstripped `---` fence renders as a horizontal rule above the title. Source inventory goes in a trailing `## Reference` section.
 
 Required section order: Overview → Workflow (mermaid flowchart) → Entry points → Code → database call chain → API endpoints → Stored procedures & tables → Table relationships (mermaid erDiagram) → Known gaps → Reference.
 

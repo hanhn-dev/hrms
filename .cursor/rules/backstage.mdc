@@ -20,7 +20,7 @@ Adding a `.md` file is enough. Slugs come from `readdirSync` in `lib/docs.ts`, `
 
 ## Feature guide shape
 
-YAML may contain only `confidence` and `last-analyzed`. `last-analyzed` is parsed (CRLF-safe) and shown top-right on the H1. Put sources in a trailing `## Reference` section, not in frontmatter — leftover `---` renders as a horizontal rule.
+YAML may contain only `confidence` and `last-analyzed`. `last-analyzed` is parsed (CRLF-safe) and shown under the H1 as `Last analyzed: YYYY-MM-DD`. Put sources in a trailing `## Reference` section, not in frontmatter — leftover `---` renders as a horizontal rule.
 
 Section order: Overview → Workflow (mermaid flowchart) → Entry points → call chain → API endpoints → procs/tables → Table relationships (mermaid `erDiagram`) → Known gaps → Reference.
 

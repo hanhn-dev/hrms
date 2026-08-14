@@ -135,7 +135,7 @@ table-relationship diagram.
    # <Feature Name>
 
    <YAML stays at those two keys only. `last-analyzed` is parsed by the
-   Features article and shown top-right on the same line as this H1.
+   Features article and shown under this H1 as `Last analyzed: YYYY-MM-DD`.
    Do not put `sources:` (or any other keys) in frontmatter — an unstripped
    `---` fence renders as a horizontal rule above the title.>
 
