@@ -62,7 +62,7 @@ describe('az-mcp bundle contract', () => {
     const standaloneConfigText = readFileSync(standaloneConfigPath, 'utf8');
 
     expect(packageJson.scripts?.['build:standalone']).toContain('tsdown.standalone.config.ts');
-    expect(packageJson.scripts?.['pack:standalone']).toContain('npm pack ./standalone');
+    expect(packageJson.scripts?.['pack:standalone']).toContain('scripts/pack-standalone.mjs');
     expect(existsSync(standaloneConfigPath)).toBe(true);
     expect(standaloneConfigText).toContain('standalone/dist');
     expect(standaloneConfigText).toContain('neverBundle: true');

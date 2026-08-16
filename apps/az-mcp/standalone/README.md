@@ -61,4 +61,4 @@ Then zip `apps/az-mcp/standalone/` (exclude `node_modules` and `.env`) or run:
 npm run pack:standalone --workspace=apps/az-mcp
 ```
 
-That writes `apps/az-mcp/standalone/az-mcp-0.0.1.tgz`. Recipients unpack it with `tar -xzf az-mcp-0.0.1.tgz` and work from the resulting `package/` folder.
+That writes `apps/az-mcp/standalone/az-mcp-0.0.1.zip`. Recipients unzip it and work from the resulting `az-mcp/` folder.
