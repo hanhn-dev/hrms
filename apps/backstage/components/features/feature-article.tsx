@@ -6,6 +6,7 @@ import {
   ScrollableTable,
   createHeadingComponents,
 } from "@/lib/markdown-components";
+import { HeadingCopyListener } from "@/components/heading-copy-listener";
 import { DocumentHeader } from "./document-header";
 import { ScrollableArticle } from "./scrollable-article";
 import { TableOfContents } from "./table-of-contents";
@@ -20,6 +21,7 @@ export function FeatureArticle({ doc }: { doc: FeatureDoc }): React.JSX.Element 
           header={<DocumentHeader doc={doc} />}
           stickyHeader={<DocumentHeader doc={doc} compact />}
         >
+          <HeadingCopyListener />
           <Markdown
             components={{
               table: ScrollableTable,

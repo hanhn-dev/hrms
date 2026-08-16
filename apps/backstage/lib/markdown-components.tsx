@@ -1,4 +1,5 @@
 import { isValidElement, type ReactNode } from "react";
+import { HeadingPermalink } from "@/components/heading-permalink";
 import { Mermaid } from "./mermaid-diagram";
 import { createSlugger } from "./slugify";
 
@@ -52,8 +53,22 @@ export function createHeadingComponents(): {
 } {
   const slugify = createSlugger();
 
+  function heading(
+    Tag: "h2" | "h3",
+    children: ReactNode,
+  ): React.JSX.Element {
+    const text = flattenToText(children);
+    const id = slugify(text);
+    return (
+      <Tag className="group" id={id}>
+        {children}
+        <HeadingPermalink id={id} label={text} />
+      </Tag>
+    );
+  }
+
   return {
-    h2: ({ children }) => <h2 id={slugify(flattenToText(children))}>{children}</h2>,
-    h3: ({ children }) => <h3 id={slugify(flattenToText(children))}>{children}</h3>,
+    h2: ({ children }) => heading("h2", children),
+    h3: ({ children }) => heading("h3", children),
   };
 }
