@@ -1,21 +1,51 @@
 "use client";
 
 import Link from "next/link";
-import type { FeatureDoc, FeatureSection } from "@/lib/features";
+import { useEffect, useState } from "react";
+import type { FeatureDoc, FeatureSection, FeatureVersion } from "@/lib/features";
 import { ReadModeToggle } from "./read-mode";
+import { VersionSelect } from "./version-select";
 import { activeSectionTitle, useActiveSectionId } from "./use-active-section";
 
 const NO_SECTIONS: FeatureSection[] = [];
 
+interface DocAuthState {
+  canEdit: boolean;
+  hasPending: boolean;
+  pendingHref?: string;
+}
+
 export function DocumentHeader({
   doc,
   compact = false,
+  versions = [],
 }: {
   doc: FeatureDoc;
   compact?: boolean;
+  versions?: FeatureVersion[];
 }): React.JSX.Element {
   const activeId = useActiveSectionId(compact ? doc.sections : NO_SECTIONS);
   const sectionTitle = compact ? activeSectionTitle(doc.sections, activeId) : null;
+  const [authState, setAuthState] = useState<DocAuthState>({
+    canEdit: false,
+    hasPending: false,
+  });
+
+  useEffect(() => {
+    if (compact || doc.isArchive) return;
+    let cancelled = false;
+    void fetch(`/api/features/doc-state?slug=${encodeURIComponent(doc.currentSlug)}`)
+      .then((response) => response.json() as Promise<DocAuthState>)
+      .then((next) => {
+        if (!cancelled) setAuthState(next);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [compact, doc.currentSlug, doc.isArchive]);
+
+  const { canEdit, hasPending, pendingHref } = authState;
 
   return (
     <div
@@ -84,6 +114,27 @@ export function DocumentHeader({
             </time>
           ) : null}
         </h1>
+        {compact ? null : (
+          <VersionSelect currentSlug={doc.slug} versions={versions} />
+        )}
+        {compact || doc.isArchive ? null : pendingHref ? (
+          <p className="mt-2 mb-0 text-sm text-slate-600 dark:text-slate-400">
+            <Link href={pendingHref}>A proposal is awaiting review</Link>
+          </p>
+        ) : hasPending ? (
+          <p className="mt-2 mb-0 text-sm text-slate-600 dark:text-slate-400">
+            A proposal is awaiting review
+          </p>
+        ) : canEdit ? (
+          <p className="mt-2 mb-0 text-sm">
+            <Link
+              className="text-slate-700 no-underline hover:text-slate-900 dark:text-slate-300 dark:hover:text-white"
+              href={`/features/edit/${doc.currentSlug}`}
+            >
+              Edit this guide
+            </Link>
+          </p>
+        ) : null}
       </div>
       <ReadModeToggle compact={compact} />
     </div>

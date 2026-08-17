@@ -35,7 +35,7 @@ npm run start --workspace=apps/db-mcp   # Run db-mcp directly after build
 | App | Framework | Port | Purpose |
 |-----|-----------|------|---------|
 | `apps/ui-editor` | Vite 8 + React 19 | 9000 | Primary product — local-first UI design editor |
-| `apps/backstage` | Next.js 16 + React 19 | 5001 | Internal docs site — markdown on disk, no backend |
+| `apps/backstage` | Next.js 16 + React 19 | 5001 | Internal docs site — markdown on disk, Entra proposals |
 | `apps/az-mcp` | Node MCP server | stdio | Azure DevOps integration for AI tooling |
 | `apps/db-mcp` | Node MCP server | stdio | Database schema inspection/mutation for AI tooling |
 

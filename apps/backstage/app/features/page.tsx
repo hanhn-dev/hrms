@@ -1,8 +1,8 @@
 import { FeatureIndex } from "@/components/features/feature-index";
-import { getAllFeatureDocs } from "@/lib/features";
+import { getCurrentFeatureDocs } from "@/lib/features";
 
 export default function FeaturesPage(): React.JSX.Element {
-  const docs = getAllFeatureDocs().map(({ slug, title, menu, submenu }) => ({
+  const docs = getCurrentFeatureDocs().map(({ slug, title, menu, submenu }) => ({
     slug,
     title,
     menu,

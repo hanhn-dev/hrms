@@ -38,3 +38,6 @@ yarn-error.log*
 *.pem
 .memsearch/.index.pid
 .memsearch/memory/*.md
+
+# Backstage in-app feature proposals (unpublished)
+apps/backstage/content/features/_proposals/

@@ -6,13 +6,15 @@ alwaysApply: false
 
 # Backstage
 
-Internal HRMS docs site (`apps/backstage`, port 5001). Next.js 16 App Router, no backend — markdown on disk is the product. Full layout is in `apps/backstage/AGENTS.md`.
+Internal HRMS docs site (`apps/backstage`, port 5001). Next.js 16 App Router. Published guides are markdown on disk; Entra auth and feature proposals use Next.js route handlers. Full layout is in `apps/backstage/AGENTS.md`.
 
 ## Content trees
 
 | Folder | Served at | Edit how |
 |---|---|---|
-| `content/features/<menu-folder>/*.md` | `/features/<menu-folder>/<slug>` | `/document-feature` (overwrite OK) |
+| `content/features/<menu-folder>/<slug>.md` | `/features/<menu-folder>/<slug>` | `/document-feature` (freeze previous date first) or Admin-approved in-app proposal |
+| `content/features/<menu-folder>/<slug>/YYYY-MM-DD.md` | `/features/<menu-folder>/<slug>/YYYY-MM-DD` | Immutable snapshot — do not edit |
+| `content/features/_proposals/` | Admin queue only | In-app Edit; gitignored |
 | `content/llm-wiki/**` | `/wiki/<path>` | `/sync-llm-wiki` only — never hand-edit |
 | `content/wiki/*.md` | `/docs/<slug>` | Hand-authored; wiki-sync must not touch |
 
@@ -29,7 +31,7 @@ Write standard ```` ```mermaid ```` fences. `MermaidAwarePre` renders them; no a
 ## Code
 
 - Tailwind 4 + `prose`; **not** `@hrms/ui`.
-- Server Components by default; `"use client"` only for theme, nav, TOC, mermaid zoom.
+- Server Components by default; `"use client"` only for theme, nav, TOC, mermaid zoom, version select, editor, and proposal review.
 - `params` is a `Promise` — `await params`. `generateStaticParams` on every dynamic page.
 - Explicit `): React.JSX.Element`. Fresh `createSlugger()` per document (TOC ids must match heading ids).
 - Import with `@/` (`@/lib/features`, `@/components/...`). No parent-relative `../`. Same-directory `./` is allowed.

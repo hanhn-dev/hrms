@@ -47,7 +47,11 @@ export function FeatureNav({
               <ul className="mt-1.5 ml-2 border-l border-slate-200 dark:border-slate-700">
                 {itemsInGroup(group).map((doc) => {
                   const href = `/features/${doc.slug}`;
-                  const active = pathname === href;
+                  const editHref = `/features/edit/${doc.slug}`;
+                  const active =
+                    pathname === href ||
+                    pathname.startsWith(`${href}/`) ||
+                    pathname === editHref;
                   return (
                     <li key={doc.slug}>
                       <Link

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { AuthStatus } from "@/components/auth/auth-status";
 import { SiteSearch } from "@/components/site-search";
 import { ThemeToggle } from "@/components/theme-toggle";
 import "./globals.css";
@@ -53,6 +54,7 @@ export default function RootLayout({
             </Link>
             <div className="ml-auto flex min-w-0 flex-1 items-center justify-end gap-3">
               <SiteSearch />
+              <AuthStatus />
               <ThemeToggle />
             </div>
           </nav>

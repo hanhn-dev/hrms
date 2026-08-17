@@ -127,11 +127,20 @@ table-relationship diagram.
    creating `<menu-folder>` if needed. Derive the folder from the `menu`
    frontmatter value: lowercase, `&` → `and`, other non-alphanumerics → `-`
    (`Leave & Attendance` → `leave-and-attendance`, `Admin Configuration` →
-   `admin-configuration`, `Platform` → `platform`). If a file already exists
-   for this slug (nested or a leftover flat `content/features/<slug>.md`),
-   overwrite the nested path and remove the flat leftover. Call out in your
-   final report what changed (procs/tables added or removed) versus the
-   previous version.
+   `admin-configuration`, `Platform` → `platform`).
+   Before writing:
+   - If `content/features/_proposals/*.json` has `"status": "pending"` and
+     `"slug"` equal to `<menu-folder>/<kebab-case-slug>`, **stop**. An in-app
+     proposal is awaiting Admin review; do not overwrite.
+   - If the current file exists, read its `last-analyzed`. When that date is
+     a valid `YYYY-MM-DD` **and is not today**, copy the file to
+     `content/features/<menu-folder>/<slug>/<last-analyzed>.md` unless that
+     archive already exists (leave existing archives immutable). Same-day
+     regen overwrites current only.
+   Then overwrite the nested current path (and remove a leftover flat
+   `content/features/<slug>.md` if present). Call out in your final report
+   the archive path written (if any) and what changed versus the previous
+   version.
    Structure:
 
    ````markdown

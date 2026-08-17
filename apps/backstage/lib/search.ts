@@ -1,5 +1,5 @@
 import { getAllWikiDocs } from "./docs";
-import { getAllFeatureDocs } from "./features";
+import { getCurrentFeatureDocs } from "./features";
 import { getAllWikiPages, prettifyWikiSegment } from "./llm-wiki";
 import type { SearchHit } from "./search-types";
 
@@ -52,7 +52,7 @@ function searchableBody(content: string): string {
 }
 
 function buildIndex(): SearchRecord[] {
-  const features = getAllFeatureDocs().map((doc) => ({
+  const features = getCurrentFeatureDocs().map((doc) => ({
     href: `/features/${doc.slug}`,
     crumbs: uniqueCrumbs(["Features", doc.menu, doc.submenu ?? "", doc.title]),
     title: doc.title,
@@ -83,6 +83,10 @@ function buildIndex(): SearchRecord[] {
 }
 
 let cachedIndex: SearchRecord[] | undefined;
+
+export function invalidateSearchIndex(): void {
+  cachedIndex = undefined;
+}
 
 function getSearchIndex(): SearchRecord[] {
   if (process.env.NODE_ENV === "production" && cachedIndex) {
