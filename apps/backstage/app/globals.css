@@ -23,6 +23,17 @@ html[data-read-mode] [data-feature-toc] {
   transform-origin: 0 0;
 }
 
+/* Mermaid fences render as custom divs, so prose does not space them the
+   way it spaces <pre>. Give each diagram block margin, and extra gap when
+   two diagrams sit back-to-back (e.g. consecutive sequenceDiagrams). */
+.mermaid-diagram {
+  margin-block: 1.5rem;
+}
+
+.mermaid-diagram + .mermaid-diagram {
+  margin-top: 2.5rem;
+}
+
 /* Mermaid injects an inline max-width style on its <svg> for responsive
    embedding; override it so the diagram scales up to fill the screen in
    fullscreen instead of staying pinned at its original inline size. */
@@ -30,6 +41,7 @@ html[data-read-mode] [data-feature-toc] {
   display: flex;
   align-items: center;
   justify-content: center;
+  margin: 0;
   background: white;
 }
 
