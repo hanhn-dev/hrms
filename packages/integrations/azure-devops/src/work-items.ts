@@ -28,20 +28,6 @@ import type {
   WorkItemSummary,
 } from './types.js';
 
-const WORK_ITEM_FIELDS = [
-  'System.Title',
-  'System.Description',
-  'Microsoft.VSTS.TCM.ReproSteps',
-  'Microsoft.VSTS.Common.AcceptanceCriteria',
-  'System.State',
-  'System.WorkItemType',
-  'System.Tags',
-  'System.AssignedTo',
-  'System.IterationPath',
-  'System.AreaPath',
-  'System.Parent',
-] as const;
-
 const IMAGE_ATTACHMENT_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.svg'] as const;
 const MAX_WORK_ITEM_BATCH_SIZE = 25;
 const POSITIVE_INTEGER_PATTERN = /^[1-9]\d*$/;
@@ -340,7 +326,9 @@ async function resolveOmittedRawWorkItem(client: AzureDevOpsClient, id: number):
   const witApi = await client.getWorkItemTrackingApi();
 
   try {
-    const rawItem = await witApi.getWorkItem(id, [...WORK_ITEM_FIELDS], undefined, WorkItemExpand.Relations);
+    // Azure DevOps rejects requests that combine `fields` with `$expand`.
+    // Expanding relations still returns the field payload needed for mapping.
+    const rawItem = await witApi.getWorkItem(id, undefined, undefined, WorkItemExpand.Relations);
 
     if (rawItem === null || rawItem === undefined) {
       return {
@@ -524,7 +512,9 @@ export async function getWorkItem(client: AzureDevOpsClient, id: number): Promis
   const witApi = await client.getWorkItemTrackingApi();
   let raw: AzureWorkItem | null;
   try {
-    raw = await witApi.getWorkItem(id, [...WORK_ITEM_FIELDS], undefined, WorkItemExpand.Relations);
+    // Azure DevOps rejects requests that combine `fields` with `$expand`.
+    // Expanding relations still returns the field payload needed for mapping.
+    raw = await witApi.getWorkItem(id, undefined, undefined, WorkItemExpand.Relations);
   } catch (error) {
     throw new Error(`Azure DevOps API error: ${getAzureDevOpsErrorMessage(error)}`);
   }
@@ -562,7 +552,7 @@ export async function queryWorkItems(
 
   let queryResult;
   try {
-    queryResult = await witApi.queryByWiql({ query: wiql });
+    queryResult = await witApi.queryByWiql({ query: wiql }, undefined, undefined, clampedTop);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     throw new Error(`WIQL query error: ${message}`);

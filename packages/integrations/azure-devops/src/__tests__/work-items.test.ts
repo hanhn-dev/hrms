@@ -99,7 +99,7 @@ describe('getWorkItem', () => {
 
     expect(mockWitApi.getWorkItem).toHaveBeenCalledWith(
       1234,
-      expect.any(Array),
+      undefined,
       undefined,
       WorkItemExpand.Relations,
     );
@@ -370,6 +370,8 @@ describe('getWorkItemsByIds', () => {
     const result = await getWorkItemsByIds(mockClient, '1,9999,7,3');
 
     expect(mockWitApi.getWorkItem).toHaveBeenCalledTimes(2);
+    expect(mockWitApi.getWorkItem).toHaveBeenCalledWith(9999, undefined, undefined, WorkItemExpand.Relations);
+    expect(mockWitApi.getWorkItem).toHaveBeenCalledWith(7, undefined, undefined, WorkItemExpand.Relations);
     expect(result.results.map((entry) => entry.status)).toEqual(['found', 'not_found', 'inaccessible', 'found']);
     expect(result.results[1]?.message).toBe('Work item 9999 not found');
     expect(result.results[2]?.message).toBe('Work item 7 is inaccessible with current credentials');
@@ -461,6 +463,7 @@ describe('listWorkItems', () => {
     });
     mockWitApi.getWorkItems.mockResolvedValue(rawSummaryItems);
     await listWorkItems(mockClient, { top: 999 }, mockConfig);
+    expect(mockWitApi.queryByWiql).toHaveBeenCalledWith(expect.any(Object), undefined, undefined, 200);
     const passedIds = mockWitApi.getWorkItems.mock.calls[0]?.[0] as number[];
     expect(passedIds.length).toBeLessThanOrEqual(200);
   });
@@ -487,7 +490,13 @@ describe('queryWorkItems', () => {
     const result = await queryWorkItems(mockClient, wiql, 50);
     expect(result).toHaveLength(1);
     expect(result[0]!.id).toBe(10);
-    expect(mockWitApi.queryByWiql).toHaveBeenCalledWith({ query: wiql });
+    expect(mockWitApi.queryByWiql).toHaveBeenCalledWith({ query: wiql }, undefined, undefined, 50);
+  });
+
+  it('passes top to queryByWiql so Azure limits the result set server-side', async () => {
+    const wiql = 'SELECT [System.Id] FROM WorkItems';
+    await queryWorkItems(mockClient, wiql, 25);
+    expect(mockWitApi.queryByWiql).toHaveBeenCalledWith({ query: wiql }, undefined, undefined, 25);
   });
 
   it('propagates WIQL errors with "WIQL query error:" prefix', async () => {
