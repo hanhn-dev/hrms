@@ -6,7 +6,7 @@ import { useReadMode } from "./read-mode";
 const SHOW_AFTER_PX = 240;
 
 const STUCK_HEADER_BASE =
-  "absolute inset-x-0 top-0 z-10 border-b border-slate-200 bg-white py-3 transition-[opacity,transform,box-shadow] duration-300 ease-out dark:border-slate-800 dark:bg-slate-950";
+  "absolute inset-x-0 top-0 z-20 border-b border-slate-200 bg-white py-3 transition-[opacity,transform,box-shadow] duration-300 ease-out dark:border-slate-800 dark:bg-slate-950";
 
 const STUCK_HEADER_VISIBLE =
   "pointer-events-auto translate-y-0 opacity-100 shadow-[0_4px_12px_-4px_rgba(15,23,42,0.18)] dark:shadow-[0_4px_12px_-4px_rgba(0,0,0,0.45)]";
@@ -85,7 +85,7 @@ export function ScrollableArticle({
       </div>
       <article
         ref={articleRef}
-        className="prose prose-slate dark:prose-invert max-w-none min-h-0 min-w-0 flex-1 overflow-y-auto"
+        className="prose prose-slate dark:prose-invert isolate max-w-none min-h-0 min-w-0 flex-1 overflow-y-auto"
       >
         <header
           ref={inFlowHeaderRef}
