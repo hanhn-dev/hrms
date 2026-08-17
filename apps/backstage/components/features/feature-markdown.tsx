@@ -1,6 +1,7 @@
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import {
+  HttpMethodTableCell,
   MermaidAwarePre,
   ScrollableTable,
   createHeadingComponents,
@@ -13,6 +14,7 @@ export function FeatureMarkdown({ content }: { content: string }): React.JSX.Ele
     <Markdown
       components={{
         table: ScrollableTable,
+        td: HttpMethodTableCell,
         pre: MermaidAwarePre,
         h1: () => null,
         ...headingComponents,
