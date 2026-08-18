@@ -357,5 +357,3 @@ DECLARE @FunctionalManager TABLE (ID INT,EmployeeId INT,Name NVARCHAR(300),Title
 SELECT TOP 100 * FROM TEmployee WHERE EmployerId = 25
 
 EXEc USP_FreezeAttendance_GetEffectiveFreezeDate 10, 'E'
-
-SELECT TOP 100 IsAutoPresent, AutoPresentEffectiveDate, EmployeeId FROM TEmployeeInfo WHERE EmployeeId = 1431
