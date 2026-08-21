@@ -16,6 +16,7 @@ import type {
   ListWorkItemsFilter,
   MultiWorkItemRequest,
   PullRequestLookupIssue,
+  SearchWorkItemsFilter,
   WorkItem,
   WorkItemAttachment,
   WorkItemBatchResult,
@@ -193,6 +194,9 @@ async function mapAttachments(client: AzureDevOpsClient, raw: AzureWorkItem): Pr
         contentType: attributeContentType ?? fetchedMetadata.contentType,
         size: attributeSize ?? fetchedMetadata.size,
         isImage: isImageAttachment(name),
+        resourceUri: isImageAttachment(name) && typeof raw.id === 'number'
+          ? `azdo://workitem/${raw.id}/images/${id}`
+          : null,
       };
     }),
   );
@@ -201,27 +205,93 @@ async function mapAttachments(client: AzureDevOpsClient, raw: AzureWorkItem): Pr
 async function mapWorkItem(client: AzureDevOpsClient, raw: AzureWorkItem, orgUrl: string): Promise<WorkItem> {
   const f = raw.fields ?? {};
   const tagsRaw = (f['System.Tags'] as string | undefined) ?? '';
-  const assignedTo = f['System.AssignedTo'] as { displayName?: string } | null | undefined;
-
-  return {
+  const attachments = await mapAttachments(client, raw);
+  const mapped: Omit<WorkItem, 'hints'> = {
     id: raw.id!,
     title: (f['System.Title'] as string | undefined) ?? '',
     type: (f['System.WorkItemType'] as string | undefined) ?? '',
     state: (f['System.State'] as string | undefined) ?? '',
-    description:
-      htmlToMarkdown(f['System.Description'] as string | null | undefined) ||
-      htmlToMarkdown(f['Microsoft.VSTS.TCM.ReproSteps'] as string | null | undefined),
+    description: htmlToMarkdown(f['System.Description'] as string | null | undefined),
+    reproSteps: htmlToMarkdown(f['Microsoft.VSTS.TCM.ReproSteps'] as string | null | undefined),
     acceptanceCriteria: htmlToMarkdown(
       f['Microsoft.VSTS.Common.AcceptanceCriteria'] as string | null | undefined,
     ),
-    attachments: await mapAttachments(client, raw),
+    attachments,
     tags: tagsRaw ? tagsRaw.split(';').map((t) => t.trim()).filter(Boolean) : [],
-    assignedTo: assignedTo?.displayName ?? null,
+    assignedTo: getIdentityDisplayName(f['System.AssignedTo']),
     iterationPath: (f['System.IterationPath'] as string | undefined) ?? '',
     areaPath: (f['System.AreaPath'] as string | undefined) ?? '',
     parentId: (f['System.Parent'] as number | null | undefined) ?? null,
+    priority: toFiniteNumber(f['Microsoft.VSTS.Common.Priority']),
+    severity: getOptionalString(f['Microsoft.VSTS.Common.Severity']),
+    createdDate: toIsoDate(f['System.CreatedDate']),
+    changedDate: toIsoDate(f['System.ChangedDate']),
+    createdBy: getIdentityDisplayName(f['System.CreatedBy']),
+    childIds: getRelatedWorkItemIds(raw, HIERARCHY_FORWARD_REL),
+    relatedWorkItemIds: getRelatedWorkItemIds(raw, RELATED_REL),
     url: `${orgUrl}/_workitems/edit/${raw.id}`,
   };
+
+  return {
+    ...mapped,
+    hints: buildWorkItemHints(mapped),
+  };
+}
+
+function getIdentityDisplayName(value: unknown): string | null {
+  if (value === null || value === undefined || typeof value !== 'object') {
+    return null;
+  }
+
+  const displayName = (value as { displayName?: unknown }).displayName;
+  return typeof displayName === 'string' && displayName.trim().length > 0 ? displayName.trim() : null;
+}
+
+function getOptionalString(value: unknown): string | null {
+  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null;
+}
+
+function toFiniteNumber(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === 'string' && value.trim().length > 0) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
+function toIsoDate(value: unknown): string | null {
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return value.toISOString();
+  }
+  if (typeof value === 'string' && value.trim().length > 0) {
+    return value.trim();
+  }
+  return null;
+}
+
+function buildWorkItemHints(item: Omit<WorkItem, 'hints'>): string[] {
+  const hints: string[] = [];
+
+  for (const attachment of item.attachments) {
+    if (attachment.isImage) {
+      hints.push(`Call az_get_work_item_image with id=${item.id} and attachmentId=${attachment.id}`);
+    }
+  }
+
+  if (item.childIds.length > 0) {
+    hints.push(`Call az_get_work_item_hierarchy_context with id=${item.id}`);
+  }
+
+  hints.push(`Call az_get_work_item_comments with id=${item.id} if discussion may add context`);
+
+  if (item.parentId !== null) {
+    hints.push(`Parent work item is ${item.parentId}`);
+  }
+
+  return hints;
 }
 
 async function fetchRawWorkItemsBatch(
@@ -271,11 +341,17 @@ export async function getRawWorkItemsWithRelations(
 
 function mapSummary(raw: AzureWorkItem, orgUrl: string): WorkItemSummary {
   const f = raw.fields ?? {};
+  const tagsRaw = (f['System.Tags'] as string | undefined) ?? '';
   return {
     id: raw.id!,
     title: (f['System.Title'] as string | undefined) ?? '',
     type: (f['System.WorkItemType'] as string | undefined) ?? '',
     state: (f['System.State'] as string | undefined) ?? '',
+    assignedTo: getIdentityDisplayName(f['System.AssignedTo']),
+    tags: tagsRaw ? tagsRaw.split(';').map((t) => t.trim()).filter(Boolean) : [],
+    changedDate: toIsoDate(f['System.ChangedDate']),
+    iterationPath: (f['System.IterationPath'] as string | undefined) ?? '',
+    parentId: (f['System.Parent'] as number | null | undefined) ?? null,
     url: `${orgUrl}/_workitems/edit/${raw.id}`,
   };
 }
@@ -542,6 +618,39 @@ export async function listWorkItems(
   return queryWorkItems(client, wiql, top);
 }
 
+export async function searchWorkItems(
+  client: AzureDevOpsClient,
+  filter: SearchWorkItemsFilter,
+  config: AzureDevOpsConfig,
+): Promise<WorkItemSummary[]> {
+  const project = filter.project ?? config.project;
+  const top = Math.min(Math.max(filter.top ?? 50, 1), 200);
+  const conditions: string[] = [`[System.TeamProject] = '${escapeWiqlString(project)}'`];
+
+  if (filter.titleContains) {
+    conditions.push(`[System.Title] CONTAINS '${escapeWiqlString(filter.titleContains)}'`);
+  }
+  if (filter.assignedTo) {
+    const assignedTo = filter.assignedTo.trim();
+    if (assignedTo === '@Me') {
+      conditions.push('[System.AssignedTo] = @Me');
+    } else {
+      conditions.push(`[System.AssignedTo] = '${escapeWiqlString(assignedTo)}'`);
+    }
+  }
+  if (filter.type) conditions.push(`[System.WorkItemType] = '${escapeWiqlString(filter.type)}'`);
+  if (filter.state) conditions.push(`[System.State] = '${escapeWiqlString(filter.state)}'`);
+  if (filter.iteration) {
+    conditions.push(`[System.IterationPath] UNDER '${escapeWiqlString(filter.iteration)}'`);
+  }
+  if (filter.changedSince) {
+    conditions.push(`[System.ChangedDate] >= '${escapeWiqlString(filter.changedSince)}'`);
+  }
+
+  const wiql = `SELECT [System.Id] FROM WorkItems WHERE ${conditions.join(' AND ')} ORDER BY [System.ChangedDate] DESC`;
+  return queryWorkItems(client, wiql, top);
+}
+
 export async function queryWorkItems(
   client: AzureDevOpsClient,
   wiql: string,
@@ -565,7 +674,16 @@ export async function queryWorkItems(
 
   if (ids.length === 0) return [];
 
-  const items = await witApi.getWorkItems(ids, ['System.Title', 'System.WorkItemType', 'System.State']);
+  const items = await witApi.getWorkItems(ids, [
+    'System.Title',
+    'System.WorkItemType',
+    'System.State',
+    'System.AssignedTo',
+    'System.Tags',
+    'System.ChangedDate',
+    'System.IterationPath',
+    'System.Parent',
+  ]);
   return (items ?? [])
     .filter((item): item is AzureWorkItem => item !== null && item !== undefined)
     .map((item) => mapSummary(item, client.config.orgUrl));
@@ -576,34 +694,44 @@ export async function queryWorkItems(
 // ---------------------------------------------------------------------------
 
 const HIERARCHY_FORWARD_REL = 'System.LinkTypes.Hierarchy-Forward';
+const RELATED_REL = 'System.LinkTypes.Related';
 
-function getHierarchyChildIds(raw: AzureWorkItem): readonly number[] {
+function parseWorkItemIdFromRelationUrl(url: string): number | null {
+  try {
+    const parsedUrl = new URL(url);
+    const segments = parsedUrl.pathname.split('/').filter(Boolean);
+    const last = segments[segments.length - 1];
+    if (!last || !/^[1-9]\d*$/.test(last)) return null;
+    const id = Number.parseInt(last, 10);
+    return Number.isSafeInteger(id) ? id : null;
+  } catch {
+    const segments = url.split('/').filter(Boolean);
+    const last = segments[segments.length - 1];
+    if (!last || !/^[1-9]\d*$/.test(last)) return null;
+    const id = Number.parseInt(last, 10);
+    return Number.isSafeInteger(id) ? id : null;
+  }
+}
+
+function getRelatedWorkItemIds(raw: AzureWorkItem, rel: string): readonly number[] {
   return (raw.relations ?? []).flatMap((relation) => {
     if (
       relation === null ||
       relation === undefined ||
-      relation.rel !== HIERARCHY_FORWARD_REL ||
+      relation.rel !== rel ||
       typeof relation.url !== 'string' ||
       relation.url.length === 0
     ) {
       return [];
     }
 
-    try {
-      const parsedUrl = new URL(relation.url);
-      const segments = parsedUrl.pathname.split('/').filter(Boolean);
-      const last = segments[segments.length - 1];
-      if (!last || !/^[1-9]\d*$/.test(last)) return [];
-      const id = Number.parseInt(last, 10);
-      return Number.isSafeInteger(id) ? [id] : [];
-    } catch {
-      const segments = relation.url.split('/').filter(Boolean);
-      const last = segments[segments.length - 1];
-      if (!last || !/^[1-9]\d*$/.test(last)) return [];
-      const id = Number.parseInt(last, 10);
-      return Number.isSafeInteger(id) ? [id] : [];
-    }
+    const id = parseWorkItemIdFromRelationUrl(relation.url);
+    return id === null ? [] : [id];
   });
+}
+
+function getHierarchyChildIds(raw: AzureWorkItem): readonly number[] {
+  return getRelatedWorkItemIds(raw, HIERARCHY_FORWARD_REL);
 }
 
 function mapImageAttachmentContext(workItemId: number, attachment: WorkItemAttachment): ImageAttachmentContext {
@@ -637,10 +765,12 @@ function mapWorkItemHierarchyContextEntry(
     parentId,
     url: workItem.url,
     description: workItem.description.length > 0 ? workItem.description : null,
+    reproSteps: workItem.reproSteps.length > 0 ? workItem.reproSteps : null,
     acceptanceCriteria: workItem.acceptanceCriteria.length > 0 ? workItem.acceptanceCriteria : null,
     missing: {
       description: workItem.description.length === 0,
       acceptanceCriteria: workItem.acceptanceCriteria.length === 0,
+      reproSteps: workItem.reproSteps.length === 0,
       imageAttachments: !workItem.attachments.some((a) => a.isImage),
     },
     imageAttachments,

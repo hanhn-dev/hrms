@@ -5,7 +5,7 @@ import {
 } from 'azure-devops-node-api/interfaces/WorkItemTrackingInterfaces.js';
 import type { AzureDevOpsClient } from '../client.js';
 import type { AzureDevOpsConfig, ListWorkItemsFilter } from '../types.js';
-import { getWorkItem, getWorkItemHierarchyContext, getWorkItemsByIds, listWorkItems, parseWorkItemIdsInput, queryWorkItems } from '../work-items.js';
+import { getWorkItem, getWorkItemHierarchyContext, getWorkItemsByIds, listWorkItems, parseWorkItemIdsInput, queryWorkItems, searchWorkItems } from '../work-items.js';
 
 const mockConfig: AzureDevOpsConfig = {
   orgUrl: 'https://dev.azure.com/myorg',
@@ -39,6 +39,12 @@ const rawWorkItem = {
     'System.IterationPath': 'MyProject\\Sprint 1',
     'System.AreaPath': 'MyProject',
     'System.Parent': 1100,
+    'Microsoft.VSTS.Common.Priority': 2,
+    'Microsoft.VSTS.Common.Severity': '2 - High',
+    'System.CreatedDate': '2026-01-02T03:04:05Z',
+    'System.ChangedDate': '2026-08-01T12:00:00Z',
+    'System.CreatedBy': { displayName: 'Pat Lee' },
+    'Microsoft.VSTS.TCM.ReproSteps': '',
   },
   relations: [
     {
@@ -54,6 +60,14 @@ const rawWorkItem = {
     {
       rel: 'System.LinkTypes.Hierarchy-Reverse',
       url: 'https://dev.azure.com/myorg/_apis/wit/workItems/1100',
+    },
+    {
+      rel: 'System.LinkTypes.Hierarchy-Forward',
+      url: 'https://dev.azure.com/myorg/_apis/wit/workItems/2001',
+    },
+    {
+      rel: 'System.LinkTypes.Related',
+      url: 'https://dev.azure.com/myorg/_apis/wit/workItems/3001',
     },
   ],
 };
@@ -78,9 +92,38 @@ describe('getWorkItem', () => {
     expect(result.assignedTo).toBe('Jane Smith');
     expect(result.parentId).toBe(1100);
     expect(result.url).toBe('https://dev.azure.com/myorg/_workitems/edit/1234');
+    expect(result.reproSteps).toBe('');
+    expect(result.priority).toBe(2);
+    expect(result.severity).toBe('2 - High');
+    expect(result.createdDate).toBe('2026-01-02T03:04:05Z');
+    expect(result.changedDate).toBe('2026-08-01T12:00:00Z');
+    expect(result.createdBy).toBe('Pat Lee');
+    expect(result.childIds).toEqual([2001]);
+    expect(result.relatedWorkItemIds).toEqual([3001]);
+    expect(result.hints).toEqual([
+      'Call az_get_work_item_image with id=1234 and attachmentId=image-1',
+      'Call az_get_work_item_hierarchy_context with id=1234',
+      'Call az_get_work_item_comments with id=1234 if discussion may add context',
+      'Parent work item is 1100',
+    ]);
   });
 
-  it('falls back to Repro Steps ("Item Description") when System.Description is empty, as on Bug work items', async () => {
+  it('keeps Description and Repro Steps as independent fields', async () => {
+    mockWitApi.getWorkItem.mockResolvedValue({
+      ...rawWorkItem,
+      fields: {
+        ...rawWorkItem.fields,
+        'System.WorkItemType': 'Bug',
+        'System.Description': '<p>Overview</p>',
+        'Microsoft.VSTS.TCM.ReproSteps': '<p>Steps to reproduce text</p>',
+      },
+    });
+    const result = await getWorkItem(mockClient, 1234);
+    expect(result.description).toBe('Overview');
+    expect(result.reproSteps).toBe('Steps to reproduce text');
+  });
+
+  it('returns empty description and populated reproSteps when only Repro Steps are set', async () => {
     mockWitApi.getWorkItem.mockResolvedValue({
       ...rawWorkItem,
       fields: {
@@ -91,7 +134,8 @@ describe('getWorkItem', () => {
       },
     });
     const result = await getWorkItem(mockClient, 1234);
-    expect(result.description).toBe('Steps to reproduce text');
+    expect(result.description).toBe('');
+    expect(result.reproSteps).toBe('Steps to reproduce text');
   });
 
   it('requests relation expansion and maps attached files with image flags', async () => {
@@ -112,6 +156,7 @@ describe('getWorkItem', () => {
         contentType: 'image/png',
         size: 2048,
         isImage: true,
+        resourceUri: 'azdo://workitem/1234/images/image-1',
       },
       {
         id: 'doc-1',
@@ -121,6 +166,7 @@ describe('getWorkItem', () => {
         contentType: 'image/png',
         size: 2048,
         isImage: false,
+        resourceUri: null,
       },
     ]);
     expect(mockClient.getAttachmentMetadata).toHaveBeenCalledTimes(2);
@@ -226,6 +272,7 @@ describe('getWorkItem', () => {
         contentType: 'image/png',
         size: 2048,
         isImage: true,
+        resourceUri: 'azdo://workitem/1234/images/7f80f78f-5d2c-4a44-b8f0-6bc2087f9e31',
       },
     ]);
   });
@@ -257,6 +304,7 @@ describe('getWorkItem', () => {
         contentType: 'application/pdf',
         size: 4096,
         isImage: false,
+        resourceUri: null,
       },
     ]);
     expect(mockClient.getAttachmentMetadata).not.toHaveBeenCalled();
@@ -406,6 +454,11 @@ describe('listWorkItems', () => {
         'System.Title': 'Story A',
         'System.WorkItemType': 'User Story',
         'System.State': 'Active',
+        'System.AssignedTo': { displayName: 'Jane Smith' },
+        'System.Tags': 'auth',
+        'System.ChangedDate': '2026-08-01T00:00:00Z',
+        'System.IterationPath': 'MyProject\\Sprint 1',
+        'System.Parent': 10,
       },
     },
     {
@@ -430,6 +483,11 @@ describe('listWorkItems', () => {
     expect(result).toHaveLength(2);
     expect(result[0]!.id).toBe(1);
     expect(result[0]!.title).toBe('Story A');
+    expect(result[0]!.assignedTo).toBe('Jane Smith');
+    expect(result[0]!.tags).toEqual(['auth']);
+    expect(result[0]!.changedDate).toBe('2026-08-01T00:00:00Z');
+    expect(result[0]!.iterationPath).toBe('MyProject\\Sprint 1');
+    expect(result[0]!.parentId).toBe(10);
   });
 
   it('includes all filter conditions in the WIQL query', async () => {
@@ -534,6 +592,48 @@ describe('queryWorkItems', () => {
     expect(result[0]!.title).toBe('');
     expect(result[0]!.type).toBe('');
     expect(result[0]!.state).toBe('');
+    expect(result[0]!.assignedTo).toBeNull();
+    expect(result[0]!.tags).toEqual([]);
+    expect(result[0]!.changedDate).toBeNull();
+    expect(result[0]!.iterationPath).toBe('');
+    expect(result[0]!.parentId).toBeNull();
+  });
+});
+
+describe('searchWorkItems', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockWitApi.queryByWiql.mockResolvedValue({ workItems: [{ id: 1 }] });
+    mockWitApi.getWorkItems.mockResolvedValue([
+      { id: 1, fields: { 'System.Title': 'Login bug', 'System.WorkItemType': 'Bug', 'System.State': 'Active' } },
+    ]);
+  });
+
+  it('builds WIQL with title CONTAINS, type, state, and changedSince', async () => {
+    await searchWorkItems(
+      mockClient,
+      { titleContains: "O'Reilly", type: 'Bug', state: 'Active', changedSince: '2026-08-01' },
+      mockConfig,
+    );
+    const calledWiql: string = (mockWitApi.queryByWiql.mock.calls[0]?.[0] as { query: string }).query;
+    expect(calledWiql).toContain("CONTAINS 'O''Reilly'");
+    expect(calledWiql).toContain("[System.WorkItemType] = 'Bug'");
+    expect(calledWiql).toContain("[System.State] = 'Active'");
+    expect(calledWiql).toContain("[System.ChangedDate] >= '2026-08-01'");
+    expect(calledWiql).toContain("[System.TeamProject] = 'MyProject'");
+  });
+
+  it('uses the @Me macro when assignedTo is @Me', async () => {
+    await searchWorkItems(mockClient, { assignedTo: '@Me' }, mockConfig);
+    const calledWiql: string = (mockWitApi.queryByWiql.mock.calls[0]?.[0] as { query: string }).query;
+    expect(calledWiql).toContain('[System.AssignedTo] = @Me');
+    expect(calledWiql).not.toContain("'@Me'");
+  });
+
+  it('quotes assignedTo display names', async () => {
+    await searchWorkItems(mockClient, { assignedTo: 'Jane Smith' }, mockConfig);
+    const calledWiql: string = (mockWitApi.queryByWiql.mock.calls[0]?.[0] as { query: string }).query;
+    expect(calledWiql).toContain("[System.AssignedTo] = 'Jane Smith'");
   });
 });
 
@@ -695,6 +795,7 @@ describe('getWorkItemHierarchyContext', () => {
     expect(result.items[0]!.missing).toEqual({
       description: true,
       acceptanceCriteria: true,
+      reproSteps: true,
       imageAttachments: true,
     });
     expect(result.items[0]!.description).toBeNull();

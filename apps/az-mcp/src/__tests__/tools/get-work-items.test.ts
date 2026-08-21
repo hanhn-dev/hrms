@@ -24,6 +24,15 @@ const mockWorkItem: WorkItem = {
   iterationPath: 'MyProject\\Sprint 1',
   areaPath: 'MyProject',
   parentId: null,
+  reproSteps: '',
+  priority: null,
+  severity: null,
+  createdDate: null,
+  changedDate: null,
+  createdBy: null,
+  childIds: [],
+  relatedWorkItemIds: [],
+  hints: [],
   url: 'https://dev.azure.com/myorg/_workitems/edit/1234',
 };
 

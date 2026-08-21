@@ -8,6 +8,7 @@ export function createGetPullRequestHandler(client: AzureDevOpsClient) {
         pullRequest: args.pullRequest,
         top: args.top,
         skip: args.skip,
+        includeContents: args.includeContents,
       });
       return {
         content: [{ type: 'text', text: JSON.stringify(detail) }],

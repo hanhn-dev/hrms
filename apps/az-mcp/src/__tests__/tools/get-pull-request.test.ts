@@ -48,8 +48,9 @@ const mockDetail: PullRequestDetail = {
         isBinary: false,
         omission: null,
         truncation: null,
-        baseContent: 'export function login() {}',
-        currentContent: 'export function login(user: string) {}',
+        unifiedDiff: '--- a/src/login.ts\n+++ b/src/login.ts\n@@ -1 +1 @@\n-old\n+new',
+        baseContent: null,
+        currentContent: null,
         lineDiffBlocks: [],
       },
     ],
@@ -67,7 +68,12 @@ describe('az_get_pull_request tool handler', () => {
     const result = await handler({ pullRequest: 501 });
 
     expect(result.isError).toBeFalsy();
-    expect(getPullRequestDetail).toHaveBeenCalledWith(mockClient, { pullRequest: 501, top: undefined, skip: undefined });
+    expect(getPullRequestDetail).toHaveBeenCalledWith(mockClient, {
+      pullRequest: 501,
+      top: undefined,
+      skip: undefined,
+      includeContents: undefined,
+    });
     const parsed = JSON.parse(result.content[0]!.text) as PullRequestDetail;
     expect(parsed.pullRequestId).toBe(501);
     expect(parsed.changes.files[0]?.path).toBe('/src/login.ts');
@@ -84,6 +90,20 @@ describe('az_get_pull_request tool handler', () => {
       pullRequest: url,
       top: 10,
       skip: 5,
+      includeContents: undefined,
+    });
+  });
+
+  it('passes includeContents through to getPullRequestDetail', async () => {
+    vi.mocked(getPullRequestDetail).mockResolvedValue(mockDetail);
+    const handler = createGetPullRequestHandler(mockClient);
+    await handler({ pullRequest: 501, includeContents: true });
+
+    expect(getPullRequestDetail).toHaveBeenCalledWith(mockClient, {
+      pullRequest: 501,
+      top: undefined,
+      skip: undefined,
+      includeContents: true,
     });
   });
 

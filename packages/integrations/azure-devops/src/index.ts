@@ -24,6 +24,9 @@ export type {
 	RefinementQuestion,
 	MultiWorkItemRequest,
 	ListWorkItemsFilter,
+	SearchWorkItemsFilter,
+	WorkItemComment,
+	WorkItemCommentsResponse,
 	WorkItemContextMissingFields,
 	WorkItemHierarchyContextEntry,
 	WorkItemHierarchyContextOmission,
@@ -36,6 +39,10 @@ export type {
 	WorkItemAttachment,
 	WorkItemRequestEntry,
 	WorkItemSummary,
+	PullRequestThread,
+	PullRequestThreadComment,
+	PullRequestThreadsRequest,
+	PullRequestThreadsResponse,
 } from './types.js';
 export {
 	AzureDevOpsClient,
@@ -49,7 +56,10 @@ export {
 	getOrganizationIdentity,
 	getPullRequestDetail,
 	parsePullRequestReference,
+	resolvePullRequest,
 } from './pull-request-detail.js';
 export type { ParsedPullRequestReference } from './pull-request-detail.js';
 export { getWorkItemPullRequests } from './pull-requests.js';
-export { getWorkItem, getWorkItemHierarchyContext, getWorkItemsByIds, listWorkItems, parseWorkItemIdsInput, queryWorkItems } from './work-items.js';
+export { getWorkItem, getWorkItemHierarchyContext, getWorkItemsByIds, listWorkItems, parseWorkItemIdsInput, queryWorkItems, searchWorkItems } from './work-items.js';
+export { getWorkItemComments } from './work-item-comments.js';
+export { listPullRequestThreads } from './pull-request-threads.js';

@@ -23,6 +23,11 @@ const mockSummaries: WorkItemSummary[] = [
     title: 'Story A',
     type: 'User Story',
     state: 'Active',
+    assignedTo: null,
+    tags: [],
+    changedDate: null,
+    iterationPath: '',
+    parentId: null,
     url: 'https://dev.azure.com/myorg/_workitems/edit/1',
   },
   {
@@ -30,6 +35,11 @@ const mockSummaries: WorkItemSummary[] = [
     title: 'Bug B',
     type: 'Bug',
     state: 'New',
+    assignedTo: null,
+    tags: [],
+    changedDate: null,
+    iterationPath: '',
+    parentId: null,
     url: 'https://dev.azure.com/myorg/_workitems/edit/2',
   },
 ];

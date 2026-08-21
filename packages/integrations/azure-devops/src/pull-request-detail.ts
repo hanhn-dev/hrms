@@ -385,6 +385,105 @@ function isBinaryItem(item: GitItem | undefined): boolean {
   return item?.contentMetadata?.isBinary === true || item?.isFolder === true;
 }
 
+function splitLines(value: string): string[] {
+  return value.length === 0 ? [] : value.split(/\r?\n/);
+}
+
+function formatDiffPath(path: string): string {
+  return path.startsWith('/') ? path : `/${path}`;
+}
+
+function sliceFileLines(lines: readonly string[], start: number | null, count: number | null): string[] {
+  if (start === null || count === null || count <= 0 || start < 1) {
+    return [];
+  }
+
+  return lines.slice(start - 1, start - 1 + count);
+}
+
+function formatHunkHeader(
+  originalStart: number,
+  originalCount: number,
+  modifiedStart: number,
+  modifiedCount: number,
+): string {
+  return `@@ -${originalStart},${originalCount} +${modifiedStart},${modifiedCount} @@`;
+}
+
+function buildUnifiedDiff(file: {
+  readonly path: string;
+  readonly originalPath: string | null;
+  readonly changeType: PullRequestChangeType;
+  readonly baseContent: string | null;
+  readonly currentContent: string | null;
+  readonly lineDiffBlocks: readonly PullRequestLineDiffBlock[];
+}): { diff: string | null; truncated: boolean } {
+  if (file.baseContent === null && file.currentContent === null) {
+    return { diff: null, truncated: false };
+  }
+
+  const oldPath = formatDiffPath(file.originalPath ?? file.path);
+  const newPath = formatDiffPath(file.path);
+  const header = `--- a${oldPath}\n+++ b${newPath}`;
+  const baseLines = splitLines(file.baseContent ?? '');
+  const currentLines = splitLines(file.currentContent ?? '');
+  const hunks: string[] = [];
+
+  if (file.changeType === 'add') {
+    hunks.push(
+      [
+        formatHunkHeader(0, 0, currentLines.length === 0 ? 0 : 1, currentLines.length),
+        ...currentLines.map((line) => `+${line}`),
+      ].join('\n'),
+    );
+  } else if (file.changeType === 'delete') {
+    hunks.push(
+      [
+        formatHunkHeader(baseLines.length === 0 ? 0 : 1, baseLines.length, 0, 0),
+        ...baseLines.map((line) => `-${line}`),
+      ].join('\n'),
+    );
+  } else {
+    const changedBlocks = file.lineDiffBlocks.filter((block) => block.changeType !== 'none');
+    for (const block of changedBlocks) {
+      const originalLines = sliceFileLines(baseLines, block.originalLineNumberStart, block.originalLinesCount);
+      const modifiedLines = sliceFileLines(currentLines, block.modifiedLineNumberStart, block.modifiedLinesCount);
+      const originalStart = block.originalLineNumberStart ?? 0;
+      const modifiedStart = block.modifiedLineNumberStart ?? 0;
+      const body: string[] = [];
+
+      if (block.changeType === 'add') {
+        body.push(...modifiedLines.map((line) => `+${line}`));
+      } else if (block.changeType === 'delete') {
+        body.push(...originalLines.map((line) => `-${line}`));
+      } else {
+        body.push(...originalLines.map((line) => `-${line}`), ...modifiedLines.map((line) => `+${line}`));
+      }
+
+      hunks.push(
+        [formatHunkHeader(originalStart, originalLines.length, modifiedStart, modifiedLines.length), ...body].join('\n'),
+      );
+    }
+
+    if (hunks.length === 0 && file.baseContent !== file.currentContent) {
+      hunks.push(
+        [
+          formatHunkHeader(baseLines.length === 0 ? 0 : 1, baseLines.length, currentLines.length === 0 ? 0 : 1, currentLines.length),
+          ...baseLines.map((line) => `-${line}`),
+          ...currentLines.map((line) => `+${line}`),
+        ].join('\n'),
+      );
+    }
+  }
+
+  if (hunks.length === 0) {
+    return { diff: null, truncated: false };
+  }
+
+  const truncated = truncateText([header, ...hunks].join('\n'));
+  return { diff: truncated.content, truncated: truncated.truncated };
+}
+
 function truncateText(value: string): { content: string; truncated: boolean } {
   const bytes = Buffer.byteLength(value, 'utf8');
   if (bytes <= MAX_TEXT_BYTES) {
@@ -547,6 +646,7 @@ async function hydrateChangedFile(
   repositoryId: string,
   projectId: string,
   hashes: PullRequestHashes,
+  includeContents: boolean,
 ): Promise<PullRequestChangedFile | null> {
   const path = getChangePath(change);
   if (path === null) {
@@ -565,6 +665,7 @@ async function hydrateChangedFile(
       isBinary: true,
       omission: 'Binary or non-text content omitted',
       truncation: null,
+      unifiedDiff: null,
       baseContent: null,
       currentContent: null,
       lineDiffBlocks: [],
@@ -590,10 +691,24 @@ async function hydrateChangedFile(
 
   const isBinary = baseResult.isBinary || currentResult.isBinary;
   const omissions = [baseResult.omission, currentResult.omission].filter((value): value is string => value !== null);
+  const baseContent = isBinary ? null : baseResult.content;
+  const currentContent = isBinary ? null : currentResult.content;
+  const unifiedDiff = isBinary
+    ? { diff: null, truncated: false }
+    : buildUnifiedDiff({
+        path,
+        originalPath,
+        changeType,
+        baseContent,
+        currentContent,
+        lineDiffBlocks,
+      });
   const truncated = {
     base: baseResult.truncated,
     current: currentResult.truncated,
+    diff: unifiedDiff.truncated,
   };
+  const hasTruncation = truncated.base || truncated.current || truncated.diff;
 
   return {
     path,
@@ -605,9 +720,10 @@ async function hydrateChangedFile(
       : omissions.length > 0
         ? omissions.join('; ')
         : null,
-    truncation: truncated.base || truncated.current ? truncated : null,
-    baseContent: isBinary ? null : baseResult.content,
-    currentContent: isBinary ? null : currentResult.content,
+    truncation: hasTruncation ? truncated : null,
+    unifiedDiff: unifiedDiff.diff,
+    baseContent: includeContents ? baseContent : null,
+    currentContent: includeContents ? currentContent : null,
     lineDiffBlocks,
   };
 }
@@ -620,7 +736,7 @@ function selectLatestIteration(iterations: readonly GitPullRequestIteration[]): 
   return [...iterations].sort((left, right) => (right.id ?? 0) - (left.id ?? 0))[0]!;
 }
 
-async function resolvePullRequest(
+export async function resolvePullRequest(
   client: AzureDevOpsClient,
   reference: ParsedPullRequestReference,
 ): Promise<{ pullRequest: GitPullRequest; projectId: string; repositoryId: string }> {
@@ -742,7 +858,9 @@ export async function getPullRequestDetail(
   const changeEntries = changePage.changeEntries ?? [];
   const files = (
     await Promise.all(
-      changeEntries.map((change) => hydrateChangedFile(client, change, repositoryId, projectId, hashes)),
+      changeEntries.map((change) =>
+        hydrateChangedFile(client, change, repositoryId, projectId, hashes, request.includeContents === true),
+      ),
     )
   ).filter((file): file is PullRequestChangedFile => file !== null);
 

@@ -6,6 +6,7 @@ export interface WorkItemAttachment {
   readonly contentType: string | null;
   readonly size: number | null;
   readonly isImage: boolean;
+  readonly resourceUri: string | null;
 }
 
 export interface WorkItem {
@@ -14,6 +15,7 @@ export interface WorkItem {
   readonly type: string;
   readonly state: string;
   readonly description: string;
+  readonly reproSteps: string;
   readonly acceptanceCriteria: string;
   readonly attachments: readonly WorkItemAttachment[];
   readonly tags: readonly string[];
@@ -21,6 +23,14 @@ export interface WorkItem {
   readonly iterationPath: string;
   readonly areaPath: string;
   readonly parentId: number | null;
+  readonly priority: number | null;
+  readonly severity: string | null;
+  readonly createdDate: string | null;
+  readonly changedDate: string | null;
+  readonly createdBy: string | null;
+  readonly childIds: readonly number[];
+  readonly relatedWorkItemIds: readonly number[];
+  readonly hints: readonly string[];
   readonly url: string;
 }
 
@@ -29,7 +39,37 @@ export interface WorkItemSummary {
   readonly title: string;
   readonly type: string;
   readonly state: string;
+  readonly assignedTo: string | null;
+  readonly tags: readonly string[];
+  readonly changedDate: string | null;
+  readonly iterationPath: string;
+  readonly parentId: number | null;
   readonly url: string;
+}
+
+export interface WorkItemComment {
+  readonly id: number;
+  readonly author: string | null;
+  readonly createdDate: string | null;
+  readonly text: string;
+}
+
+export interface WorkItemCommentsResponse {
+  readonly workItemId: number;
+  readonly totalCount: number;
+  readonly hasMore: boolean;
+  readonly comments: readonly WorkItemComment[];
+}
+
+export interface SearchWorkItemsFilter {
+  readonly project?: string;
+  readonly titleContains?: string;
+  readonly assignedTo?: string;
+  readonly type?: string;
+  readonly state?: string;
+  readonly iteration?: string;
+  readonly changedSince?: string;
+  readonly top?: number;
 }
 
 export interface WorkItemRequestEntry {
@@ -178,6 +218,7 @@ export interface PullRequestDetailRequest {
   readonly pullRequest: string | number;
   readonly top?: number;
   readonly skip?: number;
+  readonly includeContents?: boolean;
 }
 
 export interface PullRequestReviewer {
@@ -209,7 +250,9 @@ export interface PullRequestChangedFile {
   readonly truncation: {
     readonly base: boolean;
     readonly current: boolean;
+    readonly diff: boolean;
   } | null;
+  readonly unifiedDiff: string | null;
   readonly baseContent: string | null;
   readonly currentContent: string | null;
   readonly lineDiffBlocks: readonly PullRequestLineDiffBlock[];
@@ -249,6 +292,7 @@ export interface PullRequestDetail {
 export interface WorkItemContextMissingFields {
   readonly description: boolean;
   readonly acceptanceCriteria: boolean;
+  readonly reproSteps: boolean;
   readonly imageAttachments: boolean;
 }
 
@@ -271,9 +315,35 @@ export interface WorkItemHierarchyContextEntry {
   readonly parentId: number | null;
   readonly url: string;
   readonly description: string | null;
+  readonly reproSteps: string | null;
   readonly acceptanceCriteria: string | null;
   readonly missing: WorkItemContextMissingFields;
   readonly imageAttachments: readonly ImageAttachmentContext[];
+}
+
+export interface PullRequestThreadComment {
+  readonly id: number;
+  readonly author: string | null;
+  readonly content: string;
+  readonly publishedDate: string | null;
+}
+
+export interface PullRequestThread {
+  readonly threadId: number;
+  readonly status: string;
+  readonly filePath: string | null;
+  readonly line: number | null;
+  readonly comments: readonly PullRequestThreadComment[];
+}
+
+export interface PullRequestThreadsRequest {
+  readonly pullRequest: string | number;
+  readonly status?: string;
+}
+
+export interface PullRequestThreadsResponse {
+  readonly pullRequestId: number;
+  readonly threads: readonly PullRequestThread[];
 }
 
 export interface WorkItemHierarchyContextOmission {

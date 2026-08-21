@@ -17,6 +17,11 @@ const mockSummaries: WorkItemSummary[] = [
     title: 'Active Task',
     type: 'Task',
     state: 'Active',
+    assignedTo: null,
+    tags: [],
+    changedDate: null,
+    iterationPath: '',
+    parentId: null,
     url: 'https://dev.azure.com/myorg/_workitems/edit/10',
   },
 ];

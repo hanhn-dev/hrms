@@ -27,6 +27,7 @@ const mockWorkItem: WorkItem = {
       contentType: 'image/png',
       size: 2048,
       isImage: true,
+      resourceUri: 'azdo://workitem/1234/images/img-1',
     },
   ],
   tags: ['auth', 'ux'],
@@ -34,6 +35,15 @@ const mockWorkItem: WorkItem = {
   iterationPath: 'MyProject\\Sprint 1',
   areaPath: 'MyProject',
   parentId: 1100,
+  reproSteps: '',
+  priority: null,
+  severity: null,
+  createdDate: null,
+  changedDate: null,
+  createdBy: null,
+  childIds: [],
+  relatedWorkItemIds: [],
+  hints: [],
   url: 'https://dev.azure.com/myorg/_workitems/edit/1234',
 };
 

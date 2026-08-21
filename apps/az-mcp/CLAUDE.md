@@ -1,9 +1,11 @@
+# CLAUDE.md
+
 This file provides guidance to Claude Code when working in `apps/az-mcp`.
 
 ## Tool naming convention
 
 - Every public Azure DevOps MCP tool exposed by this app uses the `az_` prefix, with the remainder in descriptive snake_case. Treat the prefixed name as canonical everywhere it's referenced.
-- Current canonical names: `az_get_work_item`, `az_get_work_items`, `az_get_work_item_hierarchy_context`, `az_get_pull_request`, `az_get_work_item_pull_requests`, `az_list_work_items`, `az_query_work_items`.
+- Current canonical names: `az_get_work_item`, `az_get_work_items`, `az_get_work_item_hierarchy_context`, `az_get_work_item_comments`, `az_get_work_item_image`, `az_get_pull_request`, `az_list_pull_request_threads`, `az_get_work_item_pull_requests`, `az_list_work_items`, `az_search_work_items`, `az_query_work_items`.
 - `src/server.ts` is the runtime source of truth for the public tool catalog — check it before trusting any other doc, test, or example.
 
 ## Renaming or adding a public tool

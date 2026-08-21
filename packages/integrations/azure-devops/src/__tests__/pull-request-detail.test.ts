@@ -213,11 +213,14 @@ describe('getPullRequestDetail', () => {
     expect(result.changes.hasMore).toBe(false);
     expect(result.changes.files.find((file) => file.path === '/src/login.ts')).toMatchObject({
       changeType: 'edit',
-      baseContent: 'export function login() {}',
-      currentContent: 'export function login() {}',
+      baseContent: null,
+      currentContent: null,
     });
+    expect(result.changes.files.find((file) => file.path === '/src/login.ts')?.unifiedDiff).toContain('@@ -1,1 +1,1 @@');
     expect(result.changes.files.find((file) => file.path === '/src/new.ts')?.changeType).toBe('add');
+    expect(result.changes.files.find((file) => file.path === '/src/new.ts')?.unifiedDiff).toContain('+export const value = 1;');
     expect(result.changes.files.find((file) => file.path === '/src/old.ts')?.changeType).toBe('delete');
+    expect(result.changes.files.find((file) => file.path === '/src/old.ts')?.unifiedDiff).toContain('-export const legacy = true;');
     expect(result.changes.files.find((file) => file.path === '/src/renamed.ts')).toMatchObject({
       changeType: 'rename',
       originalPath: '/src/before.ts',
@@ -225,6 +228,7 @@ describe('getPullRequestDetail', () => {
     expect(result.changes.files.find((file) => file.path === '/assets/logo.png')).toMatchObject({
       isBinary: true,
       omission: 'Binary or non-text content omitted',
+      unifiedDiff: null,
       baseContent: null,
       currentContent: null,
     });
@@ -238,6 +242,17 @@ describe('getPullRequestDetail', () => {
       0,
       0,
     );
+  });
+
+  it('returns base and current file contents when includeContents is true', async () => {
+    mockHappyPathApis();
+
+    const result = await getPullRequestDetail(mockClient, { pullRequest: 501, includeContents: true });
+    const login = result.changes.files.find((file) => file.path === '/src/login.ts');
+
+    expect(login?.baseContent).toBe('export function login() {}');
+    expect(login?.currentContent).toBe('export function login() {}');
+    expect(login?.unifiedDiff).toContain('export function login() {}');
   });
 
   it('resolves a same-organization URL through repository-scoped lookup', async () => {

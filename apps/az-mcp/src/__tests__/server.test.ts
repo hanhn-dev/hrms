@@ -14,8 +14,11 @@ vi.mock('@hrms/azure-devops', () => ({
   getWorkItemHierarchyContext: vi.fn(),
   getWorkItemPullRequests: vi.fn(),
   getWorkItemsByIds: vi.fn(),
+  getWorkItemComments: vi.fn(),
+  listPullRequestThreads: vi.fn(),
   listWorkItems: vi.fn(),
   queryWorkItems: vi.fn(),
+  searchWorkItems: vi.fn(),
 }));
 
 import {
@@ -57,6 +60,7 @@ const mockWorkItem: WorkItem = {
       contentType: 'image/png',
       size: 8192,
       isImage: true,
+      resourceUri: 'azdo://workitem/135898/images/img-1',
     },
   ],
   tags: [],
@@ -64,6 +68,15 @@ const mockWorkItem: WorkItem = {
   iterationPath: 'Project\\Sprint 1',
   areaPath: 'Project',
   parentId: null,
+  reproSteps: '',
+  priority: null,
+  severity: null,
+  createdDate: null,
+  changedDate: null,
+  createdBy: null,
+  childIds: [],
+  relatedWorkItemIds: [],
+  hints: [],
   url: 'https://dev.azure.com/example/_workitems/edit/135898',
 };
 
@@ -106,8 +119,9 @@ const mockHierarchyContextResponse: WorkItemHierarchyContextResponse = {
       parentId: null,
       url: 'https://dev.azure.com/example/_workitems/edit/135898',
       description: 'Description text',
+      reproSteps: null,
       acceptanceCriteria: '- Done',
-      missing: { description: false, acceptanceCriteria: false, imageAttachments: true },
+      missing: { description: false, acceptanceCriteria: false, reproSteps: true, imageAttachments: true },
       imageAttachments: [],
     },
   ],
@@ -186,8 +200,9 @@ const mockPullRequestDetail: PullRequestDetail = {
         isBinary: false,
         omission: null,
         truncation: null,
-        baseContent: 'old',
-        currentContent: 'new',
+        unifiedDiff: '--- a/src/login.ts\n+++ b/src/login.ts\n@@ -1,1 +1,1 @@\n-old\n+new',
+        baseContent: null,
+        currentContent: null,
         lineDiffBlocks: [],
       },
     ],
@@ -313,9 +328,13 @@ describe('createServer', () => {
           'az_get_work_item',
           'az_get_work_item_hierarchy_context',
           'az_get_work_items',
+          'az_get_work_item_comments',
+          'az_get_work_item_image',
           'az_get_pull_request',
+          'az_list_pull_request_threads',
           'az_get_work_item_pull_requests',
           'az_list_work_items',
+          'az_search_work_items',
           'az_query_work_items',
         ]),
       );
@@ -380,6 +399,9 @@ describe('createServer', () => {
           skip: {
             type: 'integer',
           },
+          includeContents: {
+            type: 'boolean',
+          },
         },
         required: ['pullRequest'],
       });
@@ -407,6 +429,7 @@ describe('createServer', () => {
         pullRequest: 'https://dev.azure.com/example/Sample%20Project/_git/app/pullrequest/501',
         top: 10,
         skip: 0,
+        includeContents: undefined,
       });
       expect(result.isError).toBeFalsy();
       expect(JSON.parse(content[0]!.text)).toMatchObject({ pullRequestId: 501 });
@@ -507,6 +530,54 @@ describe('createServer', () => {
       const parsed = JSON.parse(content[0]!.text) as WorkItemHierarchyContextResponse;
       expect(parsed.rootWorkItemId).toBe(135898);
       expect(parsed.items).toHaveLength(1);
+    } finally {
+      await session.close();
+    }
+  });
+
+  it('registers investigation packet tools with expected input schemas', async () => {
+    const session = await connectClientAndServer();
+
+    try {
+      const tools = await session.client.listTools();
+      const comments = tools.tools.find(({ name }) => name === 'az_get_work_item_comments');
+      const image = tools.tools.find(({ name }) => name === 'az_get_work_item_image');
+      const threads = tools.tools.find(({ name }) => name === 'az_list_pull_request_threads');
+      const search = tools.tools.find(({ name }) => name === 'az_search_work_items');
+
+      expect(comments?.inputSchema).toMatchObject({
+        type: 'object',
+        properties: {
+          id: { type: 'integer' },
+          top: { type: 'integer' },
+        },
+        required: expect.arrayContaining(['id']),
+      });
+      expect(image?.inputSchema).toMatchObject({
+        type: 'object',
+        properties: {
+          id: { type: 'integer' },
+          attachmentId: { type: 'string' },
+        },
+        required: expect.arrayContaining(['id', 'attachmentId']),
+      });
+      expect(threads?.inputSchema).toMatchObject({
+        type: 'object',
+        properties: {
+          pullRequest: {},
+          status: { type: 'string' },
+        },
+        required: expect.arrayContaining(['pullRequest']),
+      });
+      expect(search?.inputSchema).toMatchObject({
+        type: 'object',
+        properties: {
+          titleContains: { type: 'string' },
+          assignedTo: { type: 'string' },
+          type: { type: 'string' },
+          state: { type: 'string' },
+        },
+      });
     } finally {
       await session.close();
     }

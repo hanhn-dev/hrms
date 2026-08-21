@@ -1,14 +1,5 @@
-import { AzureDevOpsClient, getWorkItem } from '@hrms/azure-devops';
-
-const IMAGE_MIME_TYPES: Record<string, string> = {
-  '.png': 'image/png',
-  '.jpg': 'image/jpeg',
-  '.jpeg': 'image/jpeg',
-  '.gif': 'image/gif',
-  '.webp': 'image/webp',
-  '.bmp': 'image/bmp',
-  '.svg': 'image/svg+xml',
-};
+import { AzureDevOpsClient } from '@hrms/azure-devops';
+import { readWorkItemImage } from '../work-item-image.js';
 
 export function createWorkItemImageResourceHandler(client: AzureDevOpsClient) {
   return async (uri: URL, variables: Record<string, string | string[] | undefined>) => {
@@ -24,25 +15,14 @@ export function createWorkItemImageResourceHandler(client: AzureDevOpsClient) {
       throw new Error(`Invalid attachment ID in URI: ${uri.href}`);
     }
 
-    const workItem = await getWorkItem(client, workItemId);
-    const attachment = workItem.attachments.find((candidate) => candidate.id === attachmentId);
-
-    if (!attachment) {
-      throw new Error(`Attachment ${attachmentId} not found on work item ${workItemId}`);
-    }
-
-    if (!attachment.isImage) {
-      throw new Error(`Attachment ${attachmentId} on work item ${workItemId} is not an image`);
-    }
-
-    const binaryContent = await client.getAttachmentContent(attachment.url);
+    const image = await readWorkItemImage(client, workItemId, attachmentId);
 
     return {
       contents: [
         {
           uri: uri.href,
-          mimeType: attachment.contentType ?? getMimeTypeFromName(attachment.name),
-          blob: binaryContent.toString('base64'),
+          mimeType: image.mimeType,
+          blob: image.data.toString('base64'),
         },
       ],
     };
@@ -55,10 +35,4 @@ function getSingleVariable(value: string | string[] | undefined): string | null 
   }
 
   return typeof value === 'string' && value.trim().length > 0 ? value : null;
-}
-
-function getMimeTypeFromName(name: string): string {
-  const lowerName = name.toLowerCase();
-  const matchingExtension = Object.keys(IMAGE_MIME_TYPES).find((extension) => lowerName.endsWith(extension));
-  return matchingExtension ? (IMAGE_MIME_TYPES[matchingExtension] ?? 'application/octet-stream') : 'application/octet-stream';
 }

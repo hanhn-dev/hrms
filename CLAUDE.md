@@ -74,7 +74,7 @@ Both follow the same pattern: environment config → `StdioServerTransport` → 
 
 **Bundling contract**: MCP apps bundle via `tsdown` with an app-local `tsdown.config.ts`. The runtime artifact is always `dist/index.js`. The `build`, `start`, and `inspect` scripts must all agree on this path. When modifying MCP app build tooling, update: app package manifest, app-local bundler config, root `inspect:*` scripts, and any build-contract tests. See `.github/skills/mcp-app-bundling/SKILL.md` for the full checklist.
 
-**az-mcp tools**: `az_get_work_item`, `az_get_work_item_hierarchy_context`, `az_get_work_items`, `az_get_pull_request`, `az_get_work_item_pull_requests`, `az_list_work_items`, `az_query_work_items`.
+**az-mcp tools**: `az_get_work_item`, `az_get_work_item_hierarchy_context`, `az_get_work_items`, `az_get_work_item_comments`, `az_get_work_item_image`, `az_get_pull_request`, `az_list_pull_request_threads`, `az_get_work_item_pull_requests`, `az_list_work_items`, `az_search_work_items`, `az_query_work_items`.
 
 **db-mcp tools**: `db_get_catalog`, `db_get_object_details`, `db_create_table`, `db_alter_table`, `db_add_relationship`, `db_get_stored_procedure_script`, `db_get_stored_procedure_dependencies`. SQLite is fully validated; PostgreSQL, MySQL, SQL Server, Oracle support read-only catalog and object inspection.
 

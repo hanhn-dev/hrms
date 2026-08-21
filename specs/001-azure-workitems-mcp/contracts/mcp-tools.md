@@ -4,7 +4,9 @@
 **Feature**: [spec.md](../spec.md)  
 **Date**: 2026-05-14
 
-This document defines the complete interface contract for the Azure Work Items MCP server: all tools and resources exposed to AI agents.
+This document defines the original interface contract for the Azure Work Items MCP server.
+
+The current catalog, widened work-item/PR payloads, and new investigation-packet tools live in [specs/010-investigation-packet/contracts/mcp-tools.md](../../010-investigation-packet/contracts/mcp-tools.md).
 
 ---
 
