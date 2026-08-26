@@ -15,6 +15,8 @@ vi.mock('@hrms/azure-devops', () => ({
   getWorkItemPullRequests: vi.fn(),
   getWorkItemsByIds: vi.fn(),
   getWorkItemComments: vi.fn(),
+  getWorkItemSpecContext: vi.fn(),
+  getWorkItemFieldRevisions: vi.fn(),
   listPullRequestThreads: vi.fn(),
   listWorkItems: vi.fn(),
   queryWorkItems: vi.fn(),
@@ -76,6 +78,19 @@ const mockWorkItem: WorkItem = {
   createdBy: null,
   childIds: [],
   relatedWorkItemIds: [],
+  acceptanceCriteriaItems: [],
+  inlineImages: [],
+  links: [],
+  coverage: {
+    acceptanceCriteriaEmpty: false,
+    acceptanceCriteriaLooksBuriedInDescription: false,
+    descriptionThin: false,
+    childCount: 0,
+    relatedCount: 0,
+    imageCount: 1,
+    nonImageAttachmentCount: 0,
+    acItemCount: 0,
+  },
   hints: [],
   url: 'https://dev.azure.com/example/_workitems/edit/135898',
 };
@@ -336,6 +351,8 @@ describe('createServer', () => {
           'az_list_work_items',
           'az_search_work_items',
           'az_query_work_items',
+          'az_get_work_item_spec_context',
+          'az_get_work_item_revisions',
         ]),
       );
     } finally {
@@ -544,6 +561,8 @@ describe('createServer', () => {
       const image = tools.tools.find(({ name }) => name === 'az_get_work_item_image');
       const threads = tools.tools.find(({ name }) => name === 'az_list_pull_request_threads');
       const search = tools.tools.find(({ name }) => name === 'az_search_work_items');
+      const specContext = tools.tools.find(({ name }) => name === 'az_get_work_item_spec_context');
+      const revisions = tools.tools.find(({ name }) => name === 'az_get_work_item_revisions');
 
       expect(comments?.inputSchema).toMatchObject({
         type: 'object',
@@ -578,6 +597,37 @@ describe('createServer', () => {
           state: { type: 'string' },
         },
       });
+      expect(specContext?.inputSchema).toMatchObject({
+        type: 'object',
+        properties: {
+          id: { type: 'integer' },
+          commentTop: { type: 'integer' },
+        },
+        required: expect.arrayContaining(['id']),
+      });
+      expect(revisions?.inputSchema).toMatchObject({
+        type: 'object',
+        properties: {
+          id: { type: 'integer' },
+          top: { type: 'integer' },
+        },
+        required: expect.arrayContaining(['id']),
+      });
+    } finally {
+      await session.close();
+    }
+  });
+
+  it('registers az_draft_spec_from_work_item prompt', async () => {
+    const session = await connectClientAndServer();
+
+    try {
+      const prompts = await session.client.listPrompts();
+      const prompt = prompts.prompts.find(({ name }) => name === 'az_draft_spec_from_work_item');
+      expect(prompt).toBeDefined();
+      expect(prompt?.arguments).toEqual(
+        expect.arrayContaining([expect.objectContaining({ name: 'id', required: true })]),
+      );
     } finally {
       await session.close();
     }

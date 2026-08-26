@@ -22,6 +22,8 @@ const mockSummaries: WorkItemSummary[] = [
     changedDate: null,
     iterationPath: '',
     parentId: null,
+    hasDescription: true,
+    hasAcceptanceCriteria: false,
     url: 'https://dev.azure.com/myorg/_workitems/edit/10',
   },
 ];

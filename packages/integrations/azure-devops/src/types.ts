@@ -9,6 +9,29 @@ export interface WorkItemAttachment {
   readonly resourceUri: string | null;
 }
 
+export interface WorkItemInlineImage {
+  readonly alt: string;
+  readonly src: string;
+}
+
+export interface AcceptanceCriteriaItem {
+  readonly id: string;
+  readonly text: string;
+  readonly source: 'field' | 'description';
+  readonly observable: boolean;
+}
+
+export interface WorkItemCoverage {
+  readonly acceptanceCriteriaEmpty: boolean;
+  readonly acceptanceCriteriaLooksBuriedInDescription: boolean;
+  readonly descriptionThin: boolean;
+  readonly childCount: number;
+  readonly relatedCount: number;
+  readonly imageCount: number;
+  readonly nonImageAttachmentCount: number;
+  readonly acItemCount: number;
+}
+
 export interface WorkItem {
   readonly id: number;
   readonly title: string;
@@ -17,6 +40,8 @@ export interface WorkItem {
   readonly description: string;
   readonly reproSteps: string;
   readonly acceptanceCriteria: string;
+  readonly acceptanceCriteriaItems: readonly AcceptanceCriteriaItem[];
+  readonly inlineImages: readonly WorkItemInlineImage[];
   readonly attachments: readonly WorkItemAttachment[];
   readonly tags: readonly string[];
   readonly assignedTo: string | null;
@@ -30,6 +55,8 @@ export interface WorkItem {
   readonly createdBy: string | null;
   readonly childIds: readonly number[];
   readonly relatedWorkItemIds: readonly number[];
+  readonly links: readonly WorkItemLink[];
+  readonly coverage: WorkItemCoverage;
   readonly hints: readonly string[];
   readonly url: string;
 }
@@ -44,7 +71,64 @@ export interface WorkItemSummary {
   readonly changedDate: string | null;
   readonly iterationPath: string;
   readonly parentId: number | null;
+  readonly hasDescription: boolean;
+  readonly hasAcceptanceCriteria: boolean;
   readonly url: string;
+}
+
+export type WorkItemLinkKind =
+  | 'related'
+  | 'predecessor'
+  | 'successor'
+  | 'duplicate'
+  | 'duplicateOf'
+  | 'testedBy'
+  | 'tests'
+  | 'hyperlink';
+
+export interface WorkItemLink {
+  readonly kind: WorkItemLinkKind;
+  readonly rel: string;
+  readonly id: number | null;
+  readonly url: string;
+  readonly title: string | null;
+  readonly comment: string | null;
+}
+
+export interface WorkItemSpecContextChild {
+  readonly id: number;
+  readonly title: string;
+  readonly type: string;
+  readonly state: string;
+  readonly hasAcceptanceCriteria: boolean;
+}
+
+export interface WorkItemSpecAttachmentInventory {
+  readonly images: readonly WorkItemAttachment[];
+  readonly documents: readonly WorkItemAttachment[];
+}
+
+export interface WorkItemSpecContext {
+  readonly workItem: WorkItem;
+  readonly comments: WorkItemCommentsResponse;
+  readonly children: readonly WorkItemSpecContextChild[];
+  readonly links: readonly WorkItemLink[];
+  readonly attachments: WorkItemSpecAttachmentInventory;
+  readonly hints: readonly string[];
+}
+
+export interface WorkItemFieldRevision {
+  readonly revision: number | null;
+  readonly changedDate: string | null;
+  readonly changedBy: string | null;
+  readonly field: 'description' | 'acceptanceCriteria';
+  readonly oldMarkdown: string;
+  readonly newMarkdown: string;
+}
+
+export interface WorkItemFieldRevisionsResponse {
+  readonly workItemId: number;
+  readonly revisions: readonly WorkItemFieldRevision[];
 }
 
 export interface WorkItemComment {

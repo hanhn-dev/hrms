@@ -30,7 +30,8 @@ const rawWorkItem = {
   id: 1234,
   fields: {
     'System.Title': 'Test Story',
-    'System.Description': '<p>Description text</p>',
+    'System.Description':
+      '<p>Migrate the username-changed email into React My Details after a successful personal update.</p>',
     'Microsoft.VSTS.Common.AcceptanceCriteria': '<ul><li>AC 1</li><li>AC 2</li></ul>',
     'System.State': 'Active',
     'System.WorkItemType': 'User Story',
@@ -86,7 +87,9 @@ describe('getWorkItem', () => {
     const result = await getWorkItem(mockClient, 1234);
     expect(result.id).toBe(1234);
     expect(result.title).toBe('Test Story');
-    expect(result.description).toBe('Description text');
+    expect(result.description).toBe(
+      'Migrate the username-changed email into React My Details after a successful personal update.',
+    );
     expect(result.state).toBe('Active');
     expect(result.type).toBe('User Story');
     expect(result.assignedTo).toBe('Jane Smith');
@@ -100,10 +103,31 @@ describe('getWorkItem', () => {
     expect(result.createdBy).toBe('Pat Lee');
     expect(result.childIds).toEqual([2001]);
     expect(result.relatedWorkItemIds).toEqual([3001]);
+    expect(result.links).toEqual([
+      {
+        kind: 'related',
+        rel: 'System.LinkTypes.Related',
+        id: 3001,
+        url: 'https://dev.azure.com/myorg/_apis/wit/workItems/3001',
+        title: null,
+        comment: null,
+      },
+    ]);
+    expect(result.coverage).toEqual({
+      acceptanceCriteriaEmpty: false,
+      acceptanceCriteriaLooksBuriedInDescription: false,
+      descriptionThin: false,
+      childCount: 1,
+      relatedCount: 1,
+      imageCount: 1,
+      nonImageAttachmentCount: 1,
+      acItemCount: 2,
+    });
     expect(result.hints).toEqual([
       'Call az_get_work_item_image with id=1234 and attachmentId=image-1',
       'Call az_get_work_item_hierarchy_context with id=1234',
-      'Call az_get_work_item_comments with id=1234 if discussion may add context',
+      'Related work items: 3001; fetch with az_get_work_items',
+      'Non-image attachments (not fetchable via az_get_work_item_image): notes.pdf',
       'Parent work item is 1100',
     ]);
   });
@@ -176,6 +200,159 @@ describe('getWorkItem', () => {
     const result = await getWorkItem(mockClient, 1234);
     expect(result.acceptanceCriteria).toMatch(/^- +AC 1$/m);
     expect(result.acceptanceCriteria).toMatch(/^- +AC 2$/m);
+    expect(result.acceptanceCriteriaItems).toEqual([
+      { id: 'AC-1', text: 'AC 1', source: 'field', observable: true },
+      { id: 'AC-2', text: 'AC 2', source: 'field', observable: true },
+    ]);
+  });
+
+  it('extracts inline images from Description HTML', async () => {
+    mockWitApi.getWorkItem.mockResolvedValue({
+      ...rawWorkItem,
+      fields: {
+        ...rawWorkItem.fields,
+        'System.Description':
+          '<p>See flow</p><img src="https://example.com/flow.png" alt="User flow">',
+      },
+    });
+
+    const result = await getWorkItem(mockClient, 1234);
+
+    expect(result.inlineImages).toEqual([{ alt: 'User flow', src: 'https://example.com/flow.png' }]);
+  });
+
+  it('maps predecessor, duplicate, tested-by, and hyperlink relations', async () => {
+    mockWitApi.getWorkItem.mockResolvedValue({
+      ...rawWorkItem,
+      relations: [
+        {
+          rel: 'System.LinkTypes.Dependency-Reverse',
+          url: 'https://dev.azure.com/myorg/_apis/wit/workItems/4001',
+        },
+        {
+          rel: 'System.LinkTypes.Dependency-Forward',
+          url: 'https://dev.azure.com/myorg/_apis/wit/workItems/4004',
+        },
+        {
+          rel: 'System.LinkTypes.Duplicate-Forward',
+          url: 'https://dev.azure.com/myorg/_apis/wit/workItems/4002',
+        },
+        {
+          rel: 'System.LinkTypes.Duplicate-Reverse',
+          url: 'https://dev.azure.com/myorg/_apis/wit/workItems/4005',
+        },
+        {
+          rel: 'Microsoft.VSTS.Common.TestedBy-Forward',
+          url: 'https://dev.azure.com/myorg/_apis/wit/workItems/4003',
+        },
+        {
+          rel: 'Microsoft.VSTS.Common.TestedBy-Reverse',
+          url: 'https://dev.azure.com/myorg/_apis/wit/workItems/4006',
+        },
+        {
+          rel: 'Hyperlink',
+          url: 'https://wiki.example/spec',
+          attributes: { comment: 'Design notes' },
+        },
+      ],
+    });
+
+    const result = await getWorkItem(mockClient, 1234);
+
+    expect(result.links).toEqual([
+      {
+        kind: 'predecessor',
+        rel: 'System.LinkTypes.Dependency-Reverse',
+        id: 4001,
+        url: 'https://dev.azure.com/myorg/_apis/wit/workItems/4001',
+        title: null,
+        comment: null,
+      },
+      {
+        kind: 'successor',
+        rel: 'System.LinkTypes.Dependency-Forward',
+        id: 4004,
+        url: 'https://dev.azure.com/myorg/_apis/wit/workItems/4004',
+        title: null,
+        comment: null,
+      },
+      {
+        kind: 'duplicate',
+        rel: 'System.LinkTypes.Duplicate-Forward',
+        id: 4002,
+        url: 'https://dev.azure.com/myorg/_apis/wit/workItems/4002',
+        title: null,
+        comment: null,
+      },
+      {
+        kind: 'duplicateOf',
+        rel: 'System.LinkTypes.Duplicate-Reverse',
+        id: 4005,
+        url: 'https://dev.azure.com/myorg/_apis/wit/workItems/4005',
+        title: null,
+        comment: null,
+      },
+      {
+        kind: 'testedBy',
+        rel: 'Microsoft.VSTS.Common.TestedBy-Forward',
+        id: 4003,
+        url: 'https://dev.azure.com/myorg/_apis/wit/workItems/4003',
+        title: null,
+        comment: null,
+      },
+      {
+        kind: 'tests',
+        rel: 'Microsoft.VSTS.Common.TestedBy-Reverse',
+        id: 4006,
+        url: 'https://dev.azure.com/myorg/_apis/wit/workItems/4006',
+        title: null,
+        comment: null,
+      },
+      {
+        kind: 'hyperlink',
+        rel: 'Hyperlink',
+        id: null,
+        url: 'https://wiki.example/spec',
+        title: null,
+        comment: 'Design notes',
+      },
+    ]);
+  });
+
+  it('hints comments when AC is empty or the description is thin', async () => {
+    mockWitApi.getWorkItem.mockResolvedValue({
+      ...rawWorkItem,
+      fields: {
+        ...rawWorkItem.fields,
+        'Microsoft.VSTS.Common.AcceptanceCriteria': '',
+        'System.Description': '<p>TBD</p>',
+      },
+      relations: [],
+    });
+
+    const result = await getWorkItem(mockClient, 1234);
+
+    expect(result.coverage.acceptanceCriteriaEmpty).toBe(true);
+    expect(result.coverage.descriptionThin).toBe(true);
+    expect(result.hints).toContain('Call az_get_work_item_comments with id=1234; AC/description is thin');
+  });
+
+  it('hints when acceptance criteria appear buried in the description', async () => {
+    mockWitApi.getWorkItem.mockResolvedValue({
+      ...rawWorkItem,
+      fields: {
+        ...rawWorkItem.fields,
+        'Microsoft.VSTS.Common.AcceptanceCriteria': '',
+        'System.Description':
+          '<p>Acceptance Criteria</p><p>Given a user When they save Then a toast appears</p>',
+      },
+      relations: [],
+    });
+
+    const result = await getWorkItem(mockClient, 1234);
+
+    expect(result.coverage.acceptanceCriteriaLooksBuriedInDescription).toBe(true);
+    expect(result.hints).toContain('Acceptance criteria appear to be buried in the description field');
   });
 
   it('splits tags on semicolon and trims whitespace', async () => {
@@ -459,6 +636,8 @@ describe('listWorkItems', () => {
         'System.ChangedDate': '2026-08-01T00:00:00Z',
         'System.IterationPath': 'MyProject\\Sprint 1',
         'System.Parent': 10,
+        'System.Description': '<p>Story A description that is long enough not to be thin.</p>',
+        'Microsoft.VSTS.Common.AcceptanceCriteria': '<ul><li>AC 1</li></ul>',
       },
     },
     {
@@ -488,6 +667,10 @@ describe('listWorkItems', () => {
     expect(result[0]!.changedDate).toBe('2026-08-01T00:00:00Z');
     expect(result[0]!.iterationPath).toBe('MyProject\\Sprint 1');
     expect(result[0]!.parentId).toBe(10);
+    expect(result[0]!.hasDescription).toBe(true);
+    expect(result[0]!.hasAcceptanceCriteria).toBe(true);
+    expect(result[1]!.hasDescription).toBe(false);
+    expect(result[1]!.hasAcceptanceCriteria).toBe(false);
   });
 
   it('includes all filter conditions in the WIQL query', async () => {
@@ -548,7 +731,13 @@ describe('queryWorkItems', () => {
     const result = await queryWorkItems(mockClient, wiql, 50);
     expect(result).toHaveLength(1);
     expect(result[0]!.id).toBe(10);
+    expect(result[0]!.hasDescription).toBe(false);
+    expect(result[0]!.hasAcceptanceCriteria).toBe(false);
     expect(mockWitApi.queryByWiql).toHaveBeenCalledWith({ query: wiql }, undefined, undefined, 50);
+    expect(mockWitApi.getWorkItems).toHaveBeenCalledWith(
+      [10],
+      expect.arrayContaining(['System.Description', 'Microsoft.VSTS.Common.AcceptanceCriteria']),
+    );
   });
 
   it('passes top to queryByWiql so Azure limits the result set server-side', async () => {

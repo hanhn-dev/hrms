@@ -357,3 +357,8 @@ DECLARE @FunctionalManager TABLE (ID INT,EmployeeId INT,Name NVARCHAR(300),Title
 SELECT TOP 100 * FROM TEmployee WHERE EmployerId = 25
 
 EXEc USP_FreezeAttendance_GetEffectiveFreezeDate 10, 'E'
+
+SELECT TOP 100 * FROM TEmployeeDetail_Section
+SELECT TOP 100 * FROM TEmployeeDetail_Fields WHERE EmployerID = 10 AND SectionID = 9
+UPDATE TEmployeeDetail_Fields SET DisplayText = 'Type of Institute'  WHERE FieldID = 1890
+UPDATE TEmployeeDetail_Fields SET DisplayText = 'Name of Institute'  WHERE FieldID = 1891

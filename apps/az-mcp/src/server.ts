@@ -8,11 +8,14 @@ import {
 } from '@hrms/azure-devops';
 import type { AzureDevOpsConfig } from '@hrms/azure-devops';
 import { z } from 'zod';
+import { buildDraftSpecFromWorkItemPrompt } from './prompts/draft-spec-from-work-item.js';
 import { createWorkItemImageResourceHandler } from './resources/work-item-image-resource.js';
 import { createGetPullRequestHandler } from './tools/get-pull-request.js';
 import { createGetWorkItemCommentsHandler } from './tools/get-work-item-comments.js';
 import { createGetWorkItemImageHandler } from './tools/get-work-item-image.js';
 import { createGetWorkItemPullRequestsHandler } from './tools/get-work-item-pull-requests.js';
+import { createGetWorkItemRevisionsHandler } from './tools/get-work-item-revisions.js';
+import { createGetWorkItemSpecContextHandler } from './tools/get-work-item-spec-context.js';
 import { createGetWorkItemsHandler } from './tools/get-work-items.js';
 import { createListPullRequestThreadsHandler } from './tools/list-pull-request-threads.js';
 import { createSearchWorkItemsHandler } from './tools/search-work-items.js';
@@ -56,13 +59,15 @@ export function createServer(config: AzureDevOpsConfig): McpServer {
   const getPullRequestHandler = createGetPullRequestHandler(client);
   const getWorkItemCommentsHandler = createGetWorkItemCommentsHandler(client);
   const getWorkItemImageHandler = createGetWorkItemImageHandler(client);
+  const getWorkItemSpecContextHandler = createGetWorkItemSpecContextHandler(client);
+  const getWorkItemRevisionsHandler = createGetWorkItemRevisionsHandler(client);
   const listPullRequestThreadsHandler = createListPullRequestThreadsHandler(client);
   const searchWorkItemsHandler = createSearchWorkItemsHandler(client, config);
 
   registerTool(
     server,
     'az_get_work_item',
-    'Retrieve one work item as an investigation packet (Markdown description, Repro Steps, acceptance criteria, priority, links, attachment resource URIs, hints). Use when you have a single ID. Use az_get_work_item_hierarchy_context when the item may have child Tasks. Use az_get_work_items for a comma-separated list.',
+    'Retrieve one work item as an investigation packet (Markdown description, Repro Steps, parsed acceptance criteria items, coverage, typed links, attachment resource URIs, hints). Use when you have a single ID. Use az_get_work_item_spec_context to draft requirements/AC. Use az_get_work_item_hierarchy_context when the item may have child Tasks. Use az_get_work_items for a comma-separated list.',
     { id: z.number().int().positive().describe('Positive Azure DevOps work item ID') },
     async ({ id }) => {
       const numId = id as number;
@@ -79,7 +84,7 @@ export function createServer(config: AzureDevOpsConfig): McpServer {
   registerTool(
     server,
     'az_get_work_item_hierarchy_context',
-    'Retrieve a work item and all its descendants, with Description, Repro Steps, Acceptance Criteria, and image resource URIs. Use when the item is a User Story/Feature/PBI that may have child Tasks. Do not use for a single Bug with no children — use az_get_work_item.',
+    'Retrieve a work item and all its descendants, with Description, Repro Steps, Acceptance Criteria, and image resource URIs. Use when the item is a User Story/Feature/PBI that may have child Tasks that hold AC. For drafting a spec from a PBI, prefer az_get_work_item_spec_context. Do not use for a single Bug with no children — use az_get_work_item.',
     { id: z.number().int().positive().describe('Root work item ID to expand downward') },
     async ({ id }) => {
       const numId = id as number;
@@ -104,12 +109,44 @@ export function createServer(config: AzureDevOpsConfig): McpServer {
   registerTool(
     server,
     'az_get_work_item_comments',
-    'Retrieve discussion comments for a work item, newest first. Use after az_get_work_item when the description is thin or QA notes may exist.',
+    'Retrieve discussion comments for a work item, newest first. Use after az_get_work_item when the description is thin or QA notes may exist. az_get_work_item_spec_context already includes comments.',
     {
       id: z.number().int().positive().describe('Work item ID'),
       top: z.number().int().min(1).max(200).optional().describe('Max comments to return (default 50)'),
     },
     async ({ id, top }) => getWorkItemCommentsHandler({ id: id as number, top: top as number | undefined }),
+  );
+
+  registerTool(
+    server,
+    'az_get_work_item_spec_context',
+    'Gather the packet needed to draft requirements and acceptance criteria: root work item (coverage + parsed AC), discussion comments, immediate child summaries, titled related/predecessor/duplicate/tested-by links, and image vs document attachment inventory. Use this to draft requirements/AC. Use az_get_work_item for a cheap single-item packet. Use az_get_work_item_hierarchy_context when descendants may hold AC.',
+    {
+      id: z.number().int().positive().describe('Root work item ID'),
+      commentTop: z
+        .number()
+        .int()
+        .min(1)
+        .max(200)
+        .optional()
+        .describe('Max discussion comments to include (default 50)'),
+    },
+    async ({ id, commentTop }) =>
+      getWorkItemSpecContextHandler({
+        id: id as number,
+        commentTop: commentTop as number | undefined,
+      }),
+  );
+
+  registerTool(
+    server,
+    'az_get_work_item_revisions',
+    'Retrieve Description and Acceptance Criteria field revisions (HTML converted to Markdown). Use after az_get_work_item_spec_context when grooming may have changed AC. Unrelated field updates are omitted.',
+    {
+      id: z.number().int().positive().describe('Work item ID'),
+      top: z.number().int().min(1).max(50).optional().describe('Max updates to inspect (default 20, max 50)'),
+    },
+    async ({ id, top }) => getWorkItemRevisionsHandler({ id: id as number, top: top as number | undefined }),
   );
 
   registerTool(
@@ -268,6 +305,23 @@ export function createServer(config: AzureDevOpsConfig): McpServer {
         return { content: [{ type: 'text', text: message }], isError: true };
       }
     },
+  );
+
+  server.prompt(
+    'az_draft_spec_from_work_item',
+    'Draft a requirements summary and testable acceptance criteria from an Azure DevOps work item. Generation stays in the agent; call az_get_work_item_spec_context first.',
+    { id: z.string().min(1).describe('Azure DevOps work item ID') },
+    ({ id }: { id: string }) => ({
+      messages: [
+        {
+          role: 'user' as const,
+          content: {
+            type: 'text' as const,
+            text: buildDraftSpecFromWorkItemPrompt(id),
+          },
+        },
+      ],
+    }),
   );
 
   server.resource(

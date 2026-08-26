@@ -9,7 +9,9 @@ import {
   getAzureDevOpsErrorMessage,
   type AzureDevOpsClient,
 } from './client.js';
-import { htmlToMarkdown } from './html-to-text.js';
+import { buildWorkItemCoverage, htmlFieldHasContent } from './coverage.js';
+import { extractInlineImages, htmlToMarkdown } from './html-to-text.js';
+import { parseAcceptanceCriteria } from './parse-acceptance-criteria.js';
 import type {
   AzureDevOpsConfig,
   ImageAttachmentContext,
@@ -25,6 +27,8 @@ import type {
   WorkItemHierarchyContextEntry,
   WorkItemHierarchyContextOmission,
   WorkItemHierarchyContextResponse,
+  WorkItemLink,
+  WorkItemLinkKind,
   WorkItemRequestEntry,
   WorkItemSummary,
 } from './types.js';
@@ -206,16 +210,21 @@ async function mapWorkItem(client: AzureDevOpsClient, raw: AzureWorkItem, orgUrl
   const f = raw.fields ?? {};
   const tagsRaw = (f['System.Tags'] as string | undefined) ?? '';
   const attachments = await mapAttachments(client, raw);
-  const mapped: Omit<WorkItem, 'hints'> = {
+  const descriptionHtml = f['System.Description'] as string | null | undefined;
+  const acceptanceCriteriaHtml = f['Microsoft.VSTS.Common.AcceptanceCriteria'] as string | null | undefined;
+  const description = htmlToMarkdown(descriptionHtml);
+  const acceptanceCriteria = htmlToMarkdown(acceptanceCriteriaHtml);
+  const acceptanceCriteriaItems = parseAcceptanceCriteria({ description, acceptanceCriteria });
+  const mapped: Omit<WorkItem, 'hints' | 'coverage'> = {
     id: raw.id!,
     title: (f['System.Title'] as string | undefined) ?? '',
     type: (f['System.WorkItemType'] as string | undefined) ?? '',
     state: (f['System.State'] as string | undefined) ?? '',
-    description: htmlToMarkdown(f['System.Description'] as string | null | undefined),
+    description,
     reproSteps: htmlToMarkdown(f['Microsoft.VSTS.TCM.ReproSteps'] as string | null | undefined),
-    acceptanceCriteria: htmlToMarkdown(
-      f['Microsoft.VSTS.Common.AcceptanceCriteria'] as string | null | undefined,
-    ),
+    acceptanceCriteria,
+    acceptanceCriteriaItems,
+    inlineImages: [...extractInlineImages(descriptionHtml), ...extractInlineImages(acceptanceCriteriaHtml)],
     attachments,
     tags: tagsRaw ? tagsRaw.split(';').map((t) => t.trim()).filter(Boolean) : [],
     assignedTo: getIdentityDisplayName(f['System.AssignedTo']),
@@ -229,12 +238,15 @@ async function mapWorkItem(client: AzureDevOpsClient, raw: AzureWorkItem, orgUrl
     createdBy: getIdentityDisplayName(f['System.CreatedBy']),
     childIds: getRelatedWorkItemIds(raw, HIERARCHY_FORWARD_REL),
     relatedWorkItemIds: getRelatedWorkItemIds(raw, RELATED_REL),
+    links: mapWorkItemLinks(raw),
     url: `${orgUrl}/_workitems/edit/${raw.id}`,
   };
+  const coverage = buildWorkItemCoverage({ ...mapped, acItemCount: acceptanceCriteriaItems.length });
 
   return {
     ...mapped,
-    hints: buildWorkItemHints(mapped),
+    coverage,
+    hints: buildWorkItemHints({ ...mapped, coverage }),
   };
 }
 
@@ -285,7 +297,26 @@ function buildWorkItemHints(item: Omit<WorkItem, 'hints'>): string[] {
     hints.push(`Call az_get_work_item_hierarchy_context with id=${item.id}`);
   }
 
-  hints.push(`Call az_get_work_item_comments with id=${item.id} if discussion may add context`);
+  if (item.coverage.acceptanceCriteriaEmpty || item.coverage.descriptionThin) {
+    hints.push(`Call az_get_work_item_comments with id=${item.id}; AC/description is thin`);
+  }
+
+  if (item.relatedWorkItemIds.length > 0) {
+    hints.push(`Related work items: ${item.relatedWorkItemIds.join(', ')}; fetch with az_get_work_items`);
+  }
+
+  const documentNames = item.attachments
+    .filter((attachment) => !attachment.isImage)
+    .map((attachment) => attachment.name);
+  if (documentNames.length > 0) {
+    hints.push(
+      `Non-image attachments (not fetchable via az_get_work_item_image): ${documentNames.join(', ')}`,
+    );
+  }
+
+  if (item.coverage.acceptanceCriteriaLooksBuriedInDescription) {
+    hints.push('Acceptance criteria appear to be buried in the description field');
+  }
 
   if (item.parentId !== null) {
     hints.push(`Parent work item is ${item.parentId}`);
@@ -352,6 +383,10 @@ function mapSummary(raw: AzureWorkItem, orgUrl: string): WorkItemSummary {
     changedDate: toIsoDate(f['System.ChangedDate']),
     iterationPath: (f['System.IterationPath'] as string | undefined) ?? '',
     parentId: (f['System.Parent'] as number | null | undefined) ?? null,
+    hasDescription: htmlFieldHasContent(f['System.Description'] as string | null | undefined),
+    hasAcceptanceCriteria: htmlFieldHasContent(
+      f['Microsoft.VSTS.Common.AcceptanceCriteria'] as string | null | undefined,
+    ),
     url: `${orgUrl}/_workitems/edit/${raw.id}`,
   };
 }
@@ -683,6 +718,8 @@ export async function queryWorkItems(
     'System.ChangedDate',
     'System.IterationPath',
     'System.Parent',
+    'System.Description',
+    'Microsoft.VSTS.Common.AcceptanceCriteria',
   ]);
   return (items ?? [])
     .filter((item): item is AzureWorkItem => item !== null && item !== undefined)
@@ -695,6 +732,16 @@ export async function queryWorkItems(
 
 const HIERARCHY_FORWARD_REL = 'System.LinkTypes.Hierarchy-Forward';
 const RELATED_REL = 'System.LinkTypes.Related';
+const LINK_KIND_BY_REL: Readonly<Record<string, WorkItemLinkKind>> = {
+  'System.LinkTypes.Related': 'related',
+  'System.LinkTypes.Dependency-Reverse': 'predecessor',
+  'System.LinkTypes.Dependency-Forward': 'successor',
+  'System.LinkTypes.Duplicate-Forward': 'duplicate',
+  'System.LinkTypes.Duplicate-Reverse': 'duplicateOf',
+  'Microsoft.VSTS.Common.TestedBy-Forward': 'testedBy',
+  'Microsoft.VSTS.Common.TestedBy-Reverse': 'tests',
+  Hyperlink: 'hyperlink',
+};
 
 function parseWorkItemIdFromRelationUrl(url: string): number | null {
   try {
@@ -711,6 +758,62 @@ function parseWorkItemIdFromRelationUrl(url: string): number | null {
     const id = Number.parseInt(last, 10);
     return Number.isSafeInteger(id) ? id : null;
   }
+}
+
+export function mapWorkItemLinks(raw: AzureWorkItem): WorkItemLink[] {
+  return (raw.relations ?? []).flatMap((relation) => {
+    if (
+      relation === null ||
+      relation === undefined ||
+      typeof relation.rel !== 'string' ||
+      typeof relation.url !== 'string' ||
+      relation.url.length === 0
+    ) {
+      return [];
+    }
+
+    const kind = LINK_KIND_BY_REL[relation.rel];
+    if (kind === undefined) {
+      return [];
+    }
+
+    const attributes = relation.attributes as Record<string, unknown> | undefined;
+    const comment = typeof attributes?.['comment'] === 'string' ? attributes['comment'] : null;
+
+    return [
+      {
+        kind,
+        rel: relation.rel,
+        id: kind === 'hyperlink' ? null : parseWorkItemIdFromRelationUrl(relation.url),
+        url: relation.url,
+        title: null,
+        comment,
+      },
+    ];
+  });
+}
+
+export async function withWorkItemLinkTitles(
+  client: AzureDevOpsClient,
+  links: readonly WorkItemLink[],
+): Promise<WorkItemLink[]> {
+  const ids = [...new Set(links.flatMap((link) => (link.id === null ? [] : [link.id])))];
+  if (ids.length === 0) {
+    return [...links];
+  }
+
+  const rawById = await getRawWorkItemsWithRelations(client, ids);
+  return links.map((link) => {
+    if (link.id === null) {
+      return link;
+    }
+
+    const title = rawById.get(link.id)?.fields?.['System.Title'];
+    return {
+      ...link,
+      title: typeof title === 'string' && title.trim().length > 0 ? title.trim() : null,
+    };
+  });
 }
 
 function getRelatedWorkItemIds(raw: AzureWorkItem, rel: string): readonly number[] {

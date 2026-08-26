@@ -35,8 +35,18 @@ export type {
 	WorkItemBatchResult,
 	WorkItemBatchResultEntry,
 	WorkItemBatchResultStatus,
+	AcceptanceCriteriaItem,
 	WorkItem,
 	WorkItemAttachment,
+	WorkItemCoverage,
+	WorkItemInlineImage,
+	WorkItemLink,
+	WorkItemLinkKind,
+	WorkItemFieldRevision,
+	WorkItemFieldRevisionsResponse,
+	WorkItemSpecAttachmentInventory,
+	WorkItemSpecContext,
+	WorkItemSpecContextChild,
 	WorkItemRequestEntry,
 	WorkItemSummary,
 	PullRequestThread,
@@ -51,7 +61,19 @@ export {
 	getAzureDevOpsErrorMessage,
 } from './client.js';
 export { loadConfig } from './config.js';
-export { htmlToMarkdown } from './html-to-text.js';
+export {
+	acceptanceCriteriaLooksBuriedInDescription,
+	buildWorkItemCoverage,
+	htmlFieldHasContent,
+	isAcceptanceCriteriaEmpty,
+	isDescriptionThin,
+	stripBoilerplate,
+} from './coverage.js';
+export { extractInlineImages, htmlToMarkdown } from './html-to-text.js';
+export {
+	isObservableAcceptanceCriterion,
+	parseAcceptanceCriteria,
+} from './parse-acceptance-criteria.js';
 export {
 	getOrganizationIdentity,
 	getPullRequestDetail,
@@ -60,6 +82,8 @@ export {
 } from './pull-request-detail.js';
 export type { ParsedPullRequestReference } from './pull-request-detail.js';
 export { getWorkItemPullRequests } from './pull-requests.js';
-export { getWorkItem, getWorkItemHierarchyContext, getWorkItemsByIds, listWorkItems, parseWorkItemIdsInput, queryWorkItems, searchWorkItems } from './work-items.js';
+export { getWorkItem, getWorkItemHierarchyContext, getWorkItemsByIds, listWorkItems, mapWorkItemLinks, parseWorkItemIdsInput, queryWorkItems, searchWorkItems, withWorkItemLinkTitles } from './work-items.js';
 export { getWorkItemComments } from './work-item-comments.js';
+export { getWorkItemSpecContext } from './work-item-spec-context.js';
+export { getWorkItemFieldRevisions } from './work-item-revisions.js';
 export { listPullRequestThreads } from './pull-request-threads.js';

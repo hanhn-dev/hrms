@@ -28,6 +28,8 @@ const mockSummaries: WorkItemSummary[] = [
     changedDate: '2026-08-01T00:00:00Z',
     iterationPath: 'MyProject\\Sprint 1',
     parentId: null,
+    hasDescription: true,
+    hasAcceptanceCriteria: false,
     url: 'https://dev.azure.com/myorg/_workitems/edit/1',
   },
 ];
