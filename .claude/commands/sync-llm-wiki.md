@@ -14,6 +14,9 @@ The mirror step is copy-only: no transformation, no regeneration.
 `content/wiki/*.md` (no `llm-` prefix) is separate, hand-authored content —
 never touch it from this command.
 
+To **author** wiki/changelog updates from a SQL delta (not just report drift),
+use `/track-db-updates` instead — this command never edits wiki prose.
+
 Beyond the mirror, this command also answers "did the database change under
 the wiki's feet?" TDG HRMS DB (`HRMS-DATABASE/<Module>/{TABLES,STOREPROCEDURE,
 Stored Procedures,FUNCTIONS,VIEWS,Triggers,SYNONYMS,UDT,DDL,DML}/`) is the

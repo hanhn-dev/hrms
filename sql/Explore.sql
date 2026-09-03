@@ -1,3 +1,25 @@
+SELECT TOP 100 * FROM TEmployeeDetail_Fields WHERE DisplayText = 'If Yes then Add Amount'
+
+SELECT TOP 100 * FROM TEmployeeDetail_Section
+SELECT * FROM TEMployerDetails WHERE EmployerId = 297
+SELECT TOP 100 ValidationRule, DisplayText, FieldID, FieldType_JSON_SQL, FieldName, EmployerId, SectionId, FieldID, IsHidden, IsActive FROM TEmployeeDetail_Fields WHERE EmployerID = 10 AND SectionID = 12
+
+SELECT TOP 100 * FROM TEmployeeFamilyDetails WHERE EmployeeId = 1431
+
+sp_help TEmployeeBankDetails
+
+EXEC dbo.SP_CM_GetWorkflowTreeXmlDetailsByPageTitle
+    @PageTitle  = 'EmploymentTypeChange',
+    @Employerid = 10,
+    @Employeeid = 1431;   -- pass the person being saved
+
+
+SELECT BankDetailId, EmployeeId, Payroll, isDefault AS [Default], [Show], IsDelete FROM TEmployeeBankDetails WHERE EmployeeId = 1431 AND [Show] = 1 AND (IsDelete IS NULL OR IsDelete = 0)
+SELECT BankDetailId, EmployeeId, Payroll, isDefault AS [Default], [Show], IsDelete
+       FROM TEmployeeBankDetails
+       WHERE EmployeeId IN (1431) AND [Show] = 1 AND (IsDelete IS NULL OR IsDelete = 0)
+
+
 
 sp_helptext SP_CM_GetAllEmployeeListByOrg_Clone
 
@@ -359,6 +381,53 @@ SELECT TOP 100 * FROM TEmployee WHERE EmployerId = 25
 EXEc USP_FreezeAttendance_GetEffectiveFreezeDate 10, 'E'
 
 SELECT TOP 100 * FROM TEmployeeDetail_Section
-SELECT TOP 100 * FROM TEmployeeDetail_Fields WHERE EmployerID = 10 AND SectionID = 9
+SELECT TOP 100 FieldType, FieldName, DisplayText FROM TEmployeeDetail_Fields 
+INNER JOIN TFieldType_Lookup ON TEmployeeDetail_Fields.FieldTypeId = TFieldType_Lookup.FieldTypeId
+WHERE EmployerID = 10 AND SectionID = 7
 UPDATE TEmployeeDetail_Fields SET DisplayText = 'Type of Institute'  WHERE FieldID = 1890
 UPDATE TEmployeeDetail_Fields SET DisplayText = 'Name of Institute'  WHERE FieldID = 1891
+
+select TOP 100 * FROM TFieldType_Lookup
+
+SELECT TOP 100 IsHidden, IsPublic, IsDeleted, DisplayText FROM TEmployeeDetail_Fields WHERE EmployerID = 10 AND SectionID = 1
+-- update TEmployeeDetail_Fields SET IsPublic = 0 WHERE FieldID = 1751
+
+UPDATE TEmployeeDetail_Fields SET IsHidden = 1, IsPublic = 0 WHERE FieldID IN (1751, 1752)
+
+UPDATE TEmployeeDetail_Fields SET IsHidden = 1, IsPublic = 0, IsDeleted = 1, IsActive = 0 WHERE FieldID IN (1748)
+
+SELECT TOP 100 FName, LName, MiddleName FROM TEmployee WHERE EmployeeID = 1431
+-- UPDATE TEmployee SET LName = NULL, MiddleName = NULL WHERE EmployeeID = 1431
+
+-- SELECT FieldID, FieldName, DisplayText, FieldEntity, IsPublic, IsHidden, IsDeleted, CountryID
+-- FROM dbo.TEmployeeDetail_Fields WITH (NOLOCK)
+-- WHERE EmployerId = 10
+--   AND IsPublic = 1
+--   AND IsHidden = 0
+--   AND IsDeleted = 0
+--   AND FieldEntity IN ('System', 'Segment')
+--   AND CountryID IN (0, 99)
+--   AND (FieldName = 'Employee Name' OR DisplayText = 'Employee Name'
+--        OR DB_Column LIKE '%Fn_GetEmployeeName%');
+
+--        Select distinct DB_Table,DB_Column,DISPLAYTEXT FROM temployeedetail_fields where employerid=10 and ispublic=1 and ishidden=0 and isdeleted=0 and fieldentity IN('system','segment') AND COUNTRYID IN (0,99) 
+-- AND fieldname NOT IN ('First Name',
+-- 'Middle Name',
+-- 'Last Name','ShiftGroup')
+
+
+EXEC Usp_Mydetails_Publicfields 1431
+
+SELECT TOP 100 * FROM TEmployeeDetail_Section
+SELECT * FROM TEMployerDetails WHERE EmployerId = 297
+SELECT TOP 100 ValidationRule, DisplayText, FieldType_JSON_SQL, FieldName, EmployerId, SectionId, FieldID, IsHidden, IsActive FROM TEmployeeDetail_Fields WHERE EmployerID = 10 AND SectionID = 8
+
+
+
+SELECT ValidationRule, * FROM TEmployeeDetail_Fields WHERE ValidationRule LIKE '%range%'
+
+EXEC dbo.SP_CM_GetWorkflowTreeXmlDetailsByPageTitle
+    @PageTitle  = 'EmploymentTypeChange',
+    @Employerid = 10,
+    @Employeeid = 1431;   -- pass the person being saved
+

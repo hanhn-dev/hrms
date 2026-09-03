@@ -11,6 +11,8 @@ sources:
   - HRMS-DATABASE/HRMS/TABLES/TWorkFromHomeRequest.sql
   - HRMS-DATABASE/HRMS/TABLES/TEmployerDetails.sql
   - HRMS-DATABASE/HRMS/STOREPROCEDURE/USP_Process_ClientAttendanceData_New.sql
+  - HRMS-DATABASE/HRMS/STOREPROCEDURE/SP_InsertAttendanceData.sql
+  - HRMS-DATABASE/HRMS/STOREPROCEDURE/SP_InsertAttendanceDataWithMachineID.sql
   - HRMS-DATABASE/HRMS/STOREPROCEDURE/USP_UpdateAttendance.sql
   - HRMS-DATABASE/HRMS/STOREPROCEDURE/USP_CalculateDailyAttendance.sql
   - HRMS-DATABASE/HRMS/STOREPROCEDURE/SP_UpdateDailyRegisterNew.sql
@@ -18,7 +20,7 @@ sources:
   - HRMS-DATABASE/HRMS/STOREPROCEDURE/SP_LA_AddWorkFromHomeRequestDetails.sql
   - HRMS-DATABASE/HRMS/STOREPROCEDURE/SP_ApproveWorkFlowRequest.sql
 confidence: medium (pipeline stages are individually high-confidence with line cites; TAttendanceForPayroll population path is an open gap)
-last-analyzed: 2026-08-10
+last-analyzed: 2026-09-03
 ---
 
 # Attendance Lifecycle
@@ -42,7 +44,9 @@ chain (except stage D, which is a real call chain):
 per source: `USP_Process_ClientAttendanceData_New` (biometric/vendor device
 data staged in `TAttendanceDataFromClient` where `IsSync=0`, `:60`),
 `SP_InsertAttendanceData` (access-card/MS-Teams sources, logged via
-`TClientAttendanceDataLog`), and `SP_InsertAttendanceDetails` (mobile/web
+`TClientAttendanceDataLog`) plus its machine-id sibling
+`SP_InsertAttendanceDataWithMachineID` (same log table, keyed by
+`ClientMachineID`), and `SP_InsertAttendanceDetails` (mobile/web
 self-punch — the only entry point that carries `Latitude`/`Longitude`
 directly into `TAttendanceTransaction`, `:334,346-347`, plus a companion
 `TAttendanceLocationDetails` row). Each either inserts a valid punch into
@@ -133,7 +137,7 @@ surfaces.
 ```mermaid
 flowchart TD
   In1["USP_Process_ClientAttendanceData_New<br/>(biometric/vendor)"] --> TT
-  In2["SP_InsertAttendanceData<br/>(access-card/Teams)"] --> TT
+  In2["SP_InsertAttendanceData /<br/>SP_InsertAttendanceDataWithMachineID<br/>(access-card/Teams/device)"] --> TT
   In3["SP_InsertAttendanceDetails<br/>(mobile/web self-punch, w/ lat-long)"] --> TT
   TT[("TAttendanceTransaction<br/>IsSync=0")] --> Clean["USP_RearrangeAttTranData<br/>dedupe/re-flag"]
   Clean --> Agg["USP_UpdateAttendance<br/>per employee/day aggregation"]

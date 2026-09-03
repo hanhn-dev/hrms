@@ -15,7 +15,8 @@ Internal HRMS docs site (`apps/backstage`, port 5001). Next.js 16 App Router. Pu
 | `content/features/<menu-folder>/<slug>.md` | `/features/<menu-folder>/<slug>` | `/document-feature` (freeze previous date first) or Admin-approved in-app proposal |
 | `content/features/<menu-folder>/<slug>/YYYY-MM-DD.md` | `/features/<menu-folder>/<slug>/YYYY-MM-DD` | Immutable snapshot — do not edit |
 | `content/features/_proposals/` | Admin queue only | In-app Edit; gitignored |
-| `content/llm-wiki/**` | `/wiki/<path>` | `/sync-llm-wiki` only — never hand-edit |
+| `content/llm-wiki/**` | `/wiki/<path>` | `/sync-llm-wiki` (mirror). `/track-db-updates` may patch pages contradicted by this run's SQL delta |
+| `content/wiki/database-changelog.md` | `/docs/database-changelog` | `/track-db-updates` only |
 | `content/wiki/*.md` | `/docs/<slug>` | Hand-authored; wiki-sync must not touch |
 
 Adding a `.md` file is enough. Slugs come from `readdirSync` in `lib/docs.ts`, `lib/llm-wiki.ts`, `lib/features.ts`. Do not hardcode route lists.

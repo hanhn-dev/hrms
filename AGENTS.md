@@ -3,7 +3,7 @@
 This folder is the **new HRMS Turborepo** (`ui-editor`, Backstage, az-mcp, db-mcp, `@hrms/ui`). It is **not** classic My Details, Core API, or the Liquibase database.
 
 Canonical repo map (read before choosing where to edit):
-`D:\TDG HRMS\SourceCode\AGENTS.md`
+`AGENTS.md` at the `SourceCode` root.
 
 Only change this repo for editor / Backstage / MCP / `@hrms/ui` work. Classic employee profile, search, Core Node API, `@hrms/sdk`, and `HRMS-DATABASE` live in the other workspace folders.
 

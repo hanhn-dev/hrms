@@ -2,7 +2,7 @@ import Link from "next/link";
 import { getAllWikiDocs, type WikiDoc } from "@/lib/docs";
 
 function groupByCategory(docs: WikiDoc[]): [WikiDoc["category"], WikiDoc[]][] {
-  const order: WikiDoc["category"][] = ["Guides", "Database Baselines"];
+  const order: WikiDoc["category"][] = ["Database updates", "Guides", "Database Baselines"];
   return order
     .map((category): [WikiDoc["category"], WikiDoc[]] => [
       category,

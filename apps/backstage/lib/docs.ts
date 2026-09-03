@@ -9,7 +9,7 @@ export interface WikiDoc {
   content: string;
   /** "markdown" for well-formed CommonMark; "text" for plain-text exports that would render incorrectly if parsed as markdown. */
   format: "markdown" | "text";
-  category: "Database Baselines" | "Guides";
+  category: "Database updates" | "Guides" | "Database Baselines";
 }
 
 function isWellFormedMarkdown(content: string): boolean {
@@ -34,7 +34,12 @@ export function getWikiDocSlugs(): string[] {
 export function getWikiDoc(slug: string): WikiDoc {
   const content = readFileSync(path.join(WIKI_DIR, `${slug}.md`), "utf8");
   const format = isWellFormedMarkdown(content) ? "markdown" : "text";
-  const category = slug.startsWith("baseline-") ? "Database Baselines" : "Guides";
+  const category =
+    slug === "database-changelog"
+      ? "Database updates"
+      : slug.startsWith("baseline-")
+        ? "Database Baselines"
+        : "Guides";
   return { slug, title: titleFromContent(content, format, slug), content, format, category };
 }
 

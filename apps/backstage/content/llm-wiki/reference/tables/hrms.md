@@ -2,14 +2,14 @@
 source-root: HRMS-DATABASE/HRMS/TABLES
 generated-by: mechanical extraction (CREATE TABLE parse for columns/FKs) + LLM-inferred one-line descriptions from table name/columns
 confidence: low-medium (descriptions are inferred, not sourced from comments — verify against source before relying on business meaning)
-last-analyzed: 2026-07-08
+last-analyzed: 2026-09-03
 ---
 
 # HRMS — Table Catalog
 
 Database: `HRMS_PROD`. Core HR: employees, employers (tenants), roles/access, leave, attendance, payroll/salary, resignation, BGV, recruitment (RRS), confirmation (CMS), performance (PMS), the approval engine, ELMAH error log.
 
-1106 tables (see `../../architecture/module-catalog.md`). Descriptions are inferred from table/column
+1110 tables (see `../../architecture/module-catalog.md`). Descriptions are inferred from table/column
 names by an LLM pass, not from source comments (this codebase's CREATE TABLE scripts carry none) —
 treat as a navigation aid, not authoritative business definition. "Depends on" lists FK targets found
 via `FOREIGN KEY ... REFERENCES` in this table's own script and in ALTER scripts elsewhere in the module tree;
@@ -781,8 +781,12 @@ columns from — these are marked "(unparsed)".
 | `TLeaveTypeMaster_History` | Audit/history mirror of TLeaveTypeMaster capturing prior versions of leave type configuration. | — |
 | `TLeaveTypeRules` | Accrual/credit rules per leave type, including frequency, pro-rata, rounding, and scheduling of credit runs. | — |
 | `TLeaveTypeRules_History` | Audit/history mirror of TLeaveTypeRules capturing prior versions of leave accrual rules. | — |
+| `tLeaveTypeRules_Abbrevation` | Lookup of leave-type rule column names to storage values and abbreviation descriptions (inferred; spelling is the script's). | — |
 | `TLeaveTypes` | Simple lookup list of leave type names and active status. | — |
 | `TLicenseEmailTemplate` | Email templates (subject/body/from/cc) used for license-related notifications. | — |
+| `TLicenseInsight` | Open/closed customer-license insight rows (rule, employer, severity, usage metrics, notify count); unique on open `DedupeKey`. | — |
+| `TLicenseInsightNotification` | Send log for license-insight notifications (channel, recipient, success/error); no FK so rows survive insight purge. | — |
+| `TLicenseInsightSetting` | Admin-configurable license-insight rule thresholds (usage vs subscription groups, bounds, default/reset values). | — |
 | `TLicenseType` | Master list of license types available for customers/employers. | — |
 | `TLicenseUser` | License user account records with login credentials and login-enabled flag per customer. | — |
 | `TLoans` | Employee loan records tracking loan amount, balance due, installments, and status. | `TEmployee` |
