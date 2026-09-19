@@ -258,4 +258,62 @@ describe("fillFields", () => {
       document.querySelector("[aria-label='Filling form fields']"),
     ).toBeNull();
   });
+
+  it("checks one option in a radio group (positive)", async () => {
+    document.body.innerHTML = `
+      <div class="MuiFormControl-root">
+        <label class="MuiInputLabel-root">Name</label>
+        <input id="name" type="text" />
+      </div>
+      <div class="MuiFormControl-root">
+        <label class="MuiInputLabel-root">Address</label>
+        <input id="address" type="text" />
+      </div>
+      <div>
+        <span>GOVERMENT EMPLOYEE</span>
+        <div role="radiogroup">
+          <label>
+            <input id="gov-yes" type="radio" name="gov" value="Yes" style="opacity:0" />
+            YES
+          </label>
+          <label>
+            <input id="gov-no" type="radio" name="gov" value="No" style="opacity:0" />
+            NO
+          </label>
+        </div>
+      </div>
+    `;
+    const result = await fillFields();
+    expect(result.filledCount).toBe(3);
+    const yes = document.getElementById("gov-yes") as HTMLInputElement;
+    const no = document.getElementById("gov-no") as HTMLInputElement;
+    expect(yes.checked || no.checked).toBe(true);
+    expect(yes.checked && no.checked).toBe(false);
+  });
+
+  it("skips a radio group when every option is disabled (negative)", async () => {
+    document.body.innerHTML = `
+      <div role="radiogroup" aria-label="Locked">
+        <label><input type="radio" name="lock" value="Yes" disabled />YES</label>
+        <label><input type="radio" name="lock" value="No" disabled />NO</label>
+      </div>
+    `;
+    const result = await fillFields();
+    expect(result.filledCount).toBe(0);
+  });
+
+  it("leaves an already-checked radio checked (edge)", async () => {
+    document.body.innerHTML = `
+      <fieldset>
+        <legend>Status</legend>
+        <label><input id="active" type="radio" name="status" value="a" checked />Active</label>
+        <label><input id="inactive" type="radio" name="status" value="b" />Inactive</label>
+      </fieldset>
+    `;
+    const result = await fillFields();
+    expect(result.filledCount).toBe(1);
+    const active = document.getElementById("active") as HTMLInputElement;
+    const inactive = document.getElementById("inactive") as HTMLInputElement;
+    expect(active.checked || inactive.checked).toBe(true);
+  });
 });

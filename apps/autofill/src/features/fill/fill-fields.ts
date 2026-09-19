@@ -6,6 +6,7 @@ import {
   dispatchBlur,
   dismissOpenOverlays,
   fillAutocomplete,
+  fillRadio,
   setNativeValue,
 } from "./react-fill";
 import { endFillSession, startFillSession } from "./fill-session";
@@ -33,7 +34,12 @@ function isFillable(field: ScannedField): boolean {
   }
   // Date pickers and MUI Autocomplete often mark the input readOnly
   // while the popup/calendar remains usable.
-  if (field.readOnly && !isDateField(field) && field.kind !== "select") {
+  if (
+    field.readOnly &&
+    !isDateField(field) &&
+    field.kind !== "select" &&
+    field.kind !== "radio"
+  ) {
     return false;
   }
   // Monthly CTC is typically computed/disabled on employment forms
@@ -90,6 +96,7 @@ export async function fillFields(
       }
 
       try {
+        let filled = true;
         if (isDateField(field) && element instanceof HTMLInputElement) {
           await fillDatePicker(element, value, field.label);
         } else if (
@@ -100,12 +107,21 @@ export async function fillFields(
             element as HTMLInputElement | HTMLSelectElement,
             value,
           );
+        } else if (
+          field.kind === "radio" ||
+          (element instanceof HTMLInputElement && element.type === "radio")
+        ) {
+          filled = fillRadio(element as HTMLInputElement);
         } else {
           element.focus();
           setNativeValue(element, value);
           dispatchBlur(element);
         }
-        filledCount += 1;
+        if (filled) {
+          filledCount += 1;
+        } else {
+          skippedCount += 1;
+        }
       } catch {
         skippedCount += 1;
       }

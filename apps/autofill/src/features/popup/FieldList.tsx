@@ -21,6 +21,8 @@ function kindColor(kind: ScannedField["kind"]): string {
       return "cyan";
     case "select":
       return "magenta";
+    case "radio":
+      return "gold";
     default:
       return "default";
   }

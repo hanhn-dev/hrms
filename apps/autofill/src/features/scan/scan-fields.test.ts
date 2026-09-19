@@ -54,6 +54,25 @@ describe("detectFieldKind", () => {
     const input = document.getElementById("tenure") as HTMLInputElement;
     expect(detectFieldKind(input, "Tenure")).toBe("date");
   });
+
+  it("detects radio inputs as radio (positive)", () => {
+    const input = document.createElement("input");
+    input.type = "radio";
+    expect(detectFieldKind(input, "Government Employee")).toBe("radio");
+  });
+
+  it("does not classify a text input as radio (negative)", () => {
+    const input = document.createElement("input");
+    input.type = "text";
+    expect(detectFieldKind(input, "Government Employee")).toBe("text");
+  });
+
+  it("keeps type=radio even when role is combobox (edge)", () => {
+    const input = document.createElement("input");
+    input.type = "radio";
+    input.setAttribute("role", "combobox");
+    expect(detectFieldKind(input, "From")).toBe("radio");
+  });
 });
 
 describe("scanFields", () => {
@@ -159,5 +178,65 @@ describe("scanFields", () => {
     `;
     const fields = scanFields();
     expect(fields.some((f) => f.label === "Ghost Field")).toBe(false);
+  });
+
+  it("scans a MUI radio group as one field using the sibling label (positive)", () => {
+    document.body.innerHTML = `
+      <div class="MuiFormControl-root">
+        <label class="MuiInputLabel-root">Name</label>
+        <input id="name" type="text" />
+      </div>
+      <div class="MuiFormControl-root">
+        <label class="MuiInputLabel-root">Address</label>
+        <input id="address" type="text" />
+      </div>
+      <div>
+        <span>GOVERMENT EMPLOYEE</span>
+        <div role="radiogroup">
+          <label class="MuiFormControlLabel-root">
+            <span class="MuiRadio-root">
+              <input type="radio" name="gov" value="Yes" style="opacity:0" />
+            </span>
+            YES
+          </label>
+          <label class="MuiFormControlLabel-root">
+            <span class="MuiRadio-root">
+              <input type="radio" name="gov" value="No" style="opacity:0" />
+            </span>
+            NO
+          </label>
+        </div>
+      </div>
+    `;
+    const fields = scanFields();
+    const radio = fields.find((f) => f.label === "GOVERMENT EMPLOYEE");
+    expect(radio?.kind).toBe("radio");
+    expect(fields.filter((f) => f.kind === "radio")).toHaveLength(1);
+  });
+
+  it("does not emit one field per radio option (negative)", () => {
+    document.body.innerHTML = `
+      <fieldset>
+        <legend>Status</legend>
+        <label><input type="radio" name="status" value="a" />Active</label>
+        <label><input type="radio" name="status" value="b" />Inactive</label>
+      </fieldset>
+    `;
+    const fields = scanFields();
+    expect(fields.filter((f) => f.kind === "radio")).toHaveLength(1);
+    expect(fields.some((f) => f.label === "YES" || f.label === "NO")).toBe(
+      false,
+    );
+  });
+
+  it("skips a radio group when every option is disabled (edge)", () => {
+    document.body.innerHTML = `
+      <div role="radiogroup" aria-label="Locked">
+        <label><input type="radio" name="lock" value="Yes" disabled />YES</label>
+        <label><input type="radio" name="lock" value="No" disabled />NO</label>
+      </div>
+    `;
+    const fields = scanFields();
+    expect(fields.some((f) => f.label === "Locked")).toBe(false);
   });
 });

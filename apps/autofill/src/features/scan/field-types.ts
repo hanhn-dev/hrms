@@ -49,6 +49,10 @@ export function detectFieldKind(
   const input = element as HTMLInputElement;
   const type = (input.type || "text").toLowerCase();
 
+  if (type === "radio") {
+    return "radio";
+  }
+
   // MUI DatePicker inputs use role="combobox" — classify as date before Autocomplete.
   if (
     type === "date" ||

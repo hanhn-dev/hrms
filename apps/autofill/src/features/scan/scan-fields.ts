@@ -77,7 +77,91 @@ function isSkippableInputType(el: FillableElement): boolean {
   ].includes(type);
 }
 
+/**
+ * MUI Radio renders `opacity: 0` on the native input (PrivateSwitchBase).
+ * Visibility must be taken from the painted host, not the hidden input.
+ */
+function radioHost(el: Element): Element {
+  return (
+    el.closest(
+      '.MuiRadio-root, .MuiFormControlLabel-root, [role="radiogroup"]',
+    ) ?? el
+  );
+}
+
+function isUsableRadio(el: Element): el is HTMLInputElement {
+  if (!(el instanceof HTMLInputElement) || el.type !== "radio") {
+    return false;
+  }
+  if (el.disabled || isPageChromeControl(el)) {
+    return false;
+  }
+  return isVisible(radioHost(el));
+}
+
+/**
+ * Group label — never the wrapping option label ("YES" / "NO").
+ */
+function resolveRadioGroupLabel(element: HTMLInputElement): string {
+  const group = element.closest('[role="radiogroup"]');
+  if (group) {
+    const labelledBy = group.getAttribute("aria-labelledby");
+    if (labelledBy) {
+      const viaId = document.getElementById(labelledBy);
+      if (viaId?.textContent) {
+        return normalizeLabelText(viaId.textContent);
+      }
+    }
+    const aria = group.getAttribute("aria-label");
+    if (aria) {
+      return normalizeLabelText(aria);
+    }
+
+    const parent = group.parentElement;
+    if (parent) {
+      for (const child of Array.from(parent.children)) {
+        if (child === group || child.contains(element)) {
+          continue;
+        }
+        if (child.matches("input, textarea, select, button")) {
+          continue;
+        }
+        const text = normalizeLabelText(child.textContent || "");
+        if (text) {
+          return text;
+        }
+      }
+    }
+  }
+
+  const formControl = element.closest(
+    ".MuiFormControl-root, .MuiTextField-root, fieldset",
+  );
+  const groupLabel = formControl?.querySelector(
+    "legend, label.MuiFormLabel-root, label.MuiInputLabel-root",
+  );
+  if (groupLabel?.textContent) {
+    return normalizeLabelText(groupLabel.textContent);
+  }
+
+  const fieldset = element.closest("fieldset");
+  const legend = fieldset?.querySelector(":scope > legend");
+  if (legend?.textContent) {
+    return normalizeLabelText(legend.textContent);
+  }
+
+  if (element.name) {
+    return normalizeLabelText(element.name);
+  }
+
+  return "";
+}
+
 export function resolveLabel(element: FillableElement): string {
+  if (element instanceof HTMLInputElement && element.type === "radio") {
+    return resolveRadioGroupLabel(element);
+  }
+
   const formControl = element.closest(
     ".MuiFormControl-root, .MuiTextField-root",
   );
@@ -162,6 +246,11 @@ function pickPrimaryInput(control: Element): FillableElement | null {
     );
   }
 
+  const radio = candidates.find((el) => isUsableRadio(el));
+  if (radio) {
+    return radio;
+  }
+
   if (isSectionedDateField(control)) {
     const hiddenInput = candidates.find(
       (el) =>
@@ -175,6 +264,106 @@ function pickPrimaryInput(control: Element): FillableElement | null {
   }
 
   return null;
+}
+
+function collectRadioGroupPrimaries(root: ParentNode): HTMLInputElement[] {
+  const primaries: HTMLInputElement[] = [];
+  const seen = new Set<string>();
+
+  const groups = Array.from(root.querySelectorAll('[role="radiogroup"]'));
+  for (const group of groups) {
+    const radios = Array.from(
+      group.querySelectorAll('input[type="radio"]'),
+    ).filter(isUsableRadio);
+    if (radios.length === 0) {
+      continue;
+    }
+    const first = radios[0]!;
+    const key = first.name ? `name:${first.name}` : `group:${primaries.length}`;
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    primaries.push(first);
+  }
+
+  const loose = Array.from(root.querySelectorAll('input[type="radio"]'))
+    .filter(isUsableRadio)
+    .filter((el) => !el.closest('[role="radiogroup"]'));
+  const byName = new Map<string, HTMLInputElement[]>();
+  let unnamed = 0;
+  for (const radio of loose) {
+    const key = radio.name || `__unnamed_${unnamed++}`;
+    const list = byName.get(key) ?? [];
+    list.push(radio);
+    byName.set(key, list);
+  }
+  for (const [key, radios] of byName) {
+    if (radios.length === 0) {
+      continue;
+    }
+    const seenKey = key.startsWith("__unnamed_") ? `anon:${key}` : `name:${key}`;
+    if (seen.has(seenKey)) {
+      continue;
+    }
+    seen.add(seenKey);
+    primaries.push(radios[0]!);
+  }
+
+  return primaries;
+}
+
+function mergeRadioGroups(
+  elements: FillableElement[],
+  root: ParentNode,
+): FillableElement[] {
+  const existingNames = new Set(
+    elements
+      .filter(
+        (el): el is HTMLInputElement =>
+          el instanceof HTMLInputElement && el.type === "radio",
+      )
+      .map((el) => el.name)
+      .filter(Boolean),
+  );
+  const existing = new Set(elements);
+  const extras: FillableElement[] = [];
+
+  for (const radio of collectRadioGroupPrimaries(root)) {
+    if (existing.has(radio)) {
+      continue;
+    }
+    if (radio.name && existingNames.has(radio.name)) {
+      continue;
+    }
+    extras.push(radio);
+    if (radio.name) {
+      existingNames.add(radio.name);
+    }
+  }
+
+  return extras.length === 0 ? elements : [...elements, ...extras];
+}
+
+function radioGroupPreview(element: FillableElement): string {
+  if (!(element instanceof HTMLInputElement) || element.type !== "radio") {
+    return (element.value || "").slice(0, 40);
+  }
+  const group = element.closest('[role="radiogroup"]');
+  const radios = group
+    ? Array.from(group.querySelectorAll('input[type="radio"]'))
+    : element.name
+      ? Array.from(
+          (element.form ?? document).querySelectorAll(
+            `input[type="radio"][name="${CSS.escape(element.name)}"]`,
+          ),
+        )
+      : [element];
+  const checked = radios.find(
+    (node): node is HTMLInputElement =>
+      node instanceof HTMLInputElement && node.checked,
+  );
+  return (checked?.value || "").slice(0, 40);
 }
 
 function outermostFormControls(root: ParentNode): Element[] {
@@ -210,7 +399,7 @@ export function collectElements(root: ParentNode): FillableElement[] {
     }
 
     // Merge phone country FormControl + national tel FormControl that share a wrapper
-    return mergePhoneControlPairs(picked);
+    return mergeRadioGroups(mergePhoneControlPairs(picked), root);
   }
 
   // Non-MUI fallback: raw inputs
@@ -223,7 +412,7 @@ export function collectElements(root: ParentNode): FillableElement[] {
     }
     result.push(el);
   });
-  return result;
+  return mergeRadioGroups(result, root);
 }
 
 /** Country dial UI + national tel often sit as two adjacent FormControls. */
@@ -308,7 +497,7 @@ export function scanFields(options: ScanOptions = {}): ScannedField[] {
           : false,
       maxLength,
       selectorHint,
-      valuePreview: (element.value || "").slice(0, 40),
+      valuePreview: radioGroupPreview(element),
     });
   });
 

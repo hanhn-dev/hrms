@@ -5,6 +5,7 @@ export {
   clearNativeValue,
   dispatchBlur,
   fillAutocomplete,
+  fillRadio,
   dismissOpenOverlays,
 } from "./react-fill";
 export {

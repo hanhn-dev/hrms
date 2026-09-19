@@ -235,3 +235,118 @@ export async function fillAutocomplete(
   option.click();
   await sleep(40);
 }
+
+function radiosInGroup(element: HTMLInputElement): HTMLInputElement[] {
+  const group = element.closest('[role="radiogroup"]');
+  const nodes = group
+    ? Array.from(group.querySelectorAll('input[type="radio"]'))
+    : element.name
+      ? Array.from(
+          (element.form ?? document).querySelectorAll(
+            `input[type="radio"][name="${CSS.escape(element.name)}"]`,
+          ),
+        )
+      : [element];
+
+  return nodes.filter((node): node is HTMLInputElement => {
+    if (!(node instanceof HTMLInputElement) || node.type !== "radio") {
+      return false;
+    }
+    if (node.disabled) {
+      return false;
+    }
+    const host =
+      node.closest(
+        '.MuiRadio-root, .MuiFormControlLabel-root, [role="radiogroup"]',
+      ) ?? node;
+    if (
+      host instanceof HTMLElement &&
+      (host.hidden || host.getAttribute("aria-hidden") === "true")
+    ) {
+      return false;
+    }
+    return true;
+  });
+}
+
+function radioOptionLabel(radio: HTMLInputElement): string {
+  const wrapping = radio.closest("label");
+  if (wrapping?.textContent) {
+    return wrapping.textContent.replace(/\s+/g, " ").trim();
+  }
+  return (radio.getAttribute("aria-label") || radio.value || "").trim();
+}
+
+/**
+ * Check a radio the way React's tracker expects: native `checked` setter,
+ * then click/change so MUI RadioGroup onChange runs.
+ */
+export function setNativeChecked(
+  element: HTMLInputElement,
+  checked: boolean,
+): void {
+  const descriptor = Object.getOwnPropertyDescriptor(
+    HTMLInputElement.prototype,
+    "checked",
+  );
+  const tracker = (
+    element as HTMLInputElement & {
+      _valueTracker?: { setValue: (value: string) => void };
+    }
+  )._valueTracker;
+
+  const previous = String(Boolean(element.checked));
+  tracker?.setValue(
+    checked ? (previous === "true" ? "false" : previous) : previous,
+  );
+
+  if (descriptor?.set) {
+    descriptor.set.call(element, checked);
+  } else {
+    element.checked = checked;
+  }
+
+  element.dispatchEvent(
+    new MouseEvent("click", { bubbles: true, cancelable: true }),
+  );
+  element.dispatchEvent(new Event("input", { bubbles: true }));
+  element.dispatchEvent(new Event("change", { bubbles: true }));
+}
+
+/**
+ * Select one option in a radio group (MUI RadioGroup or native radios).
+ * Returns false when nothing in the group can be checked.
+ */
+export function fillRadio(
+  element: HTMLInputElement,
+  preferred?: string,
+): boolean {
+  const radios = radiosInGroup(element);
+  if (radios.length === 0) {
+    return false;
+  }
+
+  const needle = preferred?.trim().toLowerCase();
+  const chosen =
+    (needle
+      ? radios.find((radio) => radio.value.toLowerCase() === needle) ||
+        radios.find(
+          (radio) => radioOptionLabel(radio).toLowerCase() === needle,
+        ) ||
+        radios.find((radio) =>
+          radioOptionLabel(radio).toLowerCase().includes(needle),
+        )
+      : undefined) ?? radios[Math.floor(Math.random() * radios.length)]!;
+
+  if (!chosen.checked) {
+    chosen.click();
+  }
+  if (!chosen.checked) {
+    chosen.closest("label")?.click();
+  }
+  if (!chosen.checked) {
+    setNativeChecked(chosen, true);
+  }
+
+  return chosen.checked;
+}

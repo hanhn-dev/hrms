@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { dismissOpenOverlays, fillAutocomplete } from "./react-fill";
+import { dismissOpenOverlays, fillAutocomplete, fillRadio } from "./react-fill";
 
 describe("dismissOpenOverlays", () => {
   it("hides Autocomplete poppers without detaching them (positive)", () => {
@@ -129,5 +129,48 @@ describe("fillAutocomplete", () => {
     await fillAutocomplete(input, "INR");
     expect(input.value).toBe("");
     expect(spy).not.toHaveBeenCalled();
+  });
+});
+
+describe("fillRadio", () => {
+  it("checks the matching option by value (positive)", () => {
+    document.body.innerHTML = `
+      <div role="radiogroup">
+        <label><input id="yes" type="radio" name="gov" value="Yes" />YES</label>
+        <label><input id="no" type="radio" name="gov" value="No" />NO</label>
+      </div>
+    `;
+    const yes = document.getElementById("yes") as HTMLInputElement;
+    expect(fillRadio(yes, "No")).toBe(true);
+    expect((document.getElementById("no") as HTMLInputElement).checked).toBe(
+      true,
+    );
+    expect(yes.checked).toBe(false);
+  });
+
+  it("returns false when every option is disabled (negative)", () => {
+    document.body.innerHTML = `
+      <div role="radiogroup">
+        <label><input id="yes" type="radio" name="gov" value="Yes" disabled />YES</label>
+        <label><input id="no" type="radio" name="gov" value="No" disabled />NO</label>
+      </div>
+    `;
+    const yes = document.getElementById("yes") as HTMLInputElement;
+    expect(fillRadio(yes)).toBe(false);
+    expect(yes.checked).toBe(false);
+  });
+
+  it("picks an enabled option when preferred is empty (edge)", () => {
+    document.body.innerHTML = `
+      <div role="radiogroup">
+        <label><input id="yes" type="radio" name="gov" value="Yes" disabled />YES</label>
+        <label><input id="no" type="radio" name="gov" value="No" />NO</label>
+      </div>
+    `;
+    const yes = document.getElementById("yes") as HTMLInputElement;
+    expect(fillRadio(yes, "")).toBe(true);
+    expect((document.getElementById("no") as HTMLInputElement).checked).toBe(
+      true,
+    );
   });
 });

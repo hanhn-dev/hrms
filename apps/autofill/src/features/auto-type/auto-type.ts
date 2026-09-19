@@ -4,6 +4,7 @@ import { findElementForField } from "@/features/scan";
 import {
   clearNativeValue,
   dispatchBlur,
+  fillRadio,
   setNativeValue,
 } from "@/features/fill";
 
@@ -114,6 +115,16 @@ export async function autoTypeField(
 
   if (element.disabled || element.readOnly) {
     throw new Error(`Field "${field.label}" is not editable`);
+  }
+
+  if (
+    field.kind === "radio" ||
+    (element instanceof HTMLInputElement && element.type === "radio")
+  ) {
+    if (!fillRadio(element as HTMLInputElement)) {
+      throw new Error(`Could not check radio field "${field.label}"`);
+    }
+    return { fieldId: field.id, label: field.label };
   }
 
   if (startWithInvalid) {

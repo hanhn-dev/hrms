@@ -34,6 +34,7 @@ export type FieldKind =
   | "number"
   | "date"
   | "select"
+  | "radio"
   | "unknown";
 
 export interface ScannedField {
