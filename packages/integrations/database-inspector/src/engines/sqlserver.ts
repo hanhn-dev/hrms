@@ -1,10 +1,14 @@
 import sql from 'mssql';
 
 import {
-  buildObjectId,
-  normalizeDefinition,
-  normalizeRoutineParameterMode,
-} from './shared.js';
+  assertSqlIdentifier,
+  buildNamedExecSql,
+  mapPayloadToProcedureParameters,
+  normalizeParameterName,
+  parseProcedurePayload,
+  quoteSqlIdentifier,
+  type PayloadMappingResult,
+} from '../payload-to-parameters.js';
 import type {
   CatalogQuery,
   DatabaseCatalog,
@@ -15,10 +19,19 @@ import type {
   DatabaseObjectSummary,
   DatabaseRelationship,
   DependencySummary,
+  ExecuteStoredProcedureRequest,
   ObjectDetailsRequest,
+  ProcedureParameterDescriptor,
+  StoredProcedureExecutionResult,
   StoredProcedureInsight,
   StoredProcedureRequest,
 } from '../types.js';
+import {
+  buildObjectId,
+  normalizeDefinition,
+  normalizeErrorMessage,
+  normalizeRoutineParameterMode,
+} from './shared.js';
 
 type SqlServerObjectType = 'U' | 'V' | 'P' | 'FN' | 'IF' | 'TF' | 'SO';
 
@@ -57,6 +70,27 @@ type SqlServerParameterRow = {
   scale: number | null;
   is_output: boolean | number;
 };
+
+type SqlServerExecuteParameterRow = {
+  parameter_name: string | null;
+  parameter_id: number;
+  system_type: string | null;
+  user_type: string | null;
+  is_table_type: boolean | number;
+  max_length: number | null;
+  precision: number | null;
+  scale: number | null;
+  is_output: boolean | number;
+};
+
+type SqlServerExecuteParameter = ProcedureParameterDescriptor & {
+  maxLength: number | null;
+  precision: number | null;
+  scale: number | null;
+};
+
+const EXECUTE_OPERATION = 'db_execute_stored_procedure';
+const RECORDSET_ROW_LIMIT = 500;
 
 type SqlServerDefinitionRow = {
   definition?: string | null;
@@ -216,6 +250,126 @@ export async function getSqlServerStoredProcedureDependencies(
   try {
     await ensureSqlServerObjectExists(pool, request.schema, request.name, 'storedProcedure');
     return loadSqlServerRoutineInsight(pool, request, 'storedProcedure');
+  } finally {
+    await pool.close().catch(() => undefined);
+  }
+}
+
+export async function executeSqlServerStoredProcedure(
+  config: DatabaseMcpConfig,
+  request: ExecuteStoredProcedureRequest,
+): Promise<StoredProcedureExecutionResult> {
+  assertSqlIdentifier(request.schema, 'Schema');
+  assertSqlIdentifier(request.name, 'Procedure name');
+
+  const objectId = `${request.schema}.${request.name}`;
+  const dryRun = request.dryRun === true;
+
+  let payload: Record<string, unknown>;
+  try {
+    payload = parseProcedurePayload(request.payload);
+  } catch (error) {
+    return createExecutionErrorResult(config, request, error, dryRun);
+  }
+
+  const pool = await connectSqlServer(config);
+  let mapping: PayloadMappingResult | undefined;
+
+  try {
+    await ensureSqlServerObjectExists(pool, request.schema, request.name, 'storedProcedure');
+    const parameters = await loadSqlServerExecuteParameters(pool, request.schema, request.name);
+    mapping = mapPayloadToProcedureParameters(parameters, payload);
+    const sql = [buildNamedExecSql(request.schema, request.name, mapping.boundParameters)];
+
+    if (!mapping.ok) {
+      return {
+        ok: false,
+        operation: EXECUTE_OPERATION,
+        engine: config.engine,
+        affectedObjects: [objectId],
+        sql,
+        message: mapping.error ?? 'Unable to map payload to procedure parameters.',
+        warnings: mapping.warnings,
+        error: mapping.error,
+        boundParameters: mapping.boundParameters,
+        unmatchedPayloadKeys: mapping.unmatchedPayloadKeys,
+        omittedParameters: mapping.omittedParameters,
+        dryRun,
+        recordsets: null,
+        output: null,
+        returnValue: null,
+        rowsAffected: null,
+      };
+    }
+
+    if (dryRun) {
+      return {
+        ok: true,
+        operation: EXECUTE_OPERATION,
+        engine: config.engine,
+        affectedObjects: [objectId],
+        sql,
+        message: `Mapped payload onto ${objectId} without executing.`,
+        warnings: mapping.warnings,
+        error: null,
+        boundParameters: mapping.boundParameters,
+        unmatchedPayloadKeys: mapping.unmatchedPayloadKeys,
+        omittedParameters: mapping.omittedParameters,
+        dryRun: true,
+        recordsets: null,
+        output: null,
+        returnValue: null,
+        rowsAffected: null,
+      };
+    }
+
+    const boundByName = new Map(
+      mapping.boundParameters.map((item) => [normalizeParameterName(item.name), item]),
+    );
+    const dbRequest = pool.request();
+
+    for (const parameter of parameters) {
+      const bound = boundByName.get(normalizeParameterName(parameter.name));
+      const sqlType = toMssqlType(parameter);
+      const bindName = parameter.name.startsWith('@') ? parameter.name.slice(1) : parameter.name;
+      const isOutput = parameter.mode === 'out' || parameter.mode === 'inout';
+
+      if (bound) {
+        if (isOutput) {
+          dbRequest.output(bindName, sqlType, bound.value);
+        } else {
+          dbRequest.input(bindName, sqlType, bound.value);
+        }
+      } else if (isOutput) {
+        dbRequest.output(bindName, sqlType);
+      }
+    }
+
+    const result = await dbRequest.execute(
+      `${quoteSqlIdentifier(request.schema)}.${quoteSqlIdentifier(request.name)}`,
+    );
+    const capped = capRecordsets(result.recordsets);
+
+    return {
+      ok: true,
+      operation: EXECUTE_OPERATION,
+      engine: config.engine,
+      affectedObjects: [objectId],
+      sql,
+      message: `Executed ${objectId}.`,
+      warnings: [...mapping.warnings, ...capped.warnings],
+      error: null,
+      boundParameters: mapping.boundParameters,
+      unmatchedPayloadKeys: mapping.unmatchedPayloadKeys,
+      omittedParameters: mapping.omittedParameters,
+      dryRun: false,
+      recordsets: capped.recordsets,
+      output: (result.output ?? {}) as Record<string, unknown>,
+      returnValue: toReturnValue(result.returnValue),
+      rowsAffected: Array.isArray(result.rowsAffected) ? result.rowsAffected : [],
+    };
+  } catch (error) {
+    return createExecutionErrorResult(config, request, error, dryRun, mapping);
   } finally {
     await pool.close().catch(() => undefined);
   }
@@ -625,4 +779,199 @@ function toSqlServerBoolean(value: boolean | number | string | null | undefined)
 
 function sqlServerTypeToOperation(type: string | null): DependencySummary['operation'] {
   return type === 'P' || type === 'FN' || type === 'IF' || type === 'TF' ? 'execute' : 'select';
+}
+
+async function loadSqlServerExecuteParameters(
+  pool: SqlServerPool,
+  schema: string,
+  name: string,
+): Promise<SqlServerExecuteParameter[]> {
+  const request = pool.request();
+  request.input('schema', sql.NVarChar, schema);
+  request.input('name', sql.NVarChar, name);
+  const rows = (await request.query(`
+    SELECT p.name AS parameter_name, p.parameter_id,
+      TYPE_NAME(p.system_type_id) AS system_type,
+      TYPE_NAME(p.user_type_id) AS user_type,
+      t.is_table_type, p.max_length, p.precision, p.scale, p.is_output
+    FROM sys.objects AS o
+    INNER JOIN sys.schemas AS s ON s.schema_id = o.schema_id
+    INNER JOIN sys.parameters AS p ON p.object_id = o.object_id
+    INNER JOIN sys.types AS t ON t.user_type_id = p.user_type_id
+    WHERE s.name = @schema AND o.name = @name AND p.parameter_id > 0
+    ORDER BY p.parameter_id
+  `)).recordset as SqlServerExecuteParameterRow[];
+
+  return rows.map((row: SqlServerExecuteParameterRow) => {
+    const isTableType = Boolean(row.is_table_type);
+    const systemType = row.system_type ?? row.user_type ?? 'nvarchar';
+    const displayType = isTableType
+      ? (row.user_type ?? systemType)
+      : formatSqlServerType({
+        data_type: systemType,
+        max_length: row.max_length,
+        precision: row.precision,
+        scale: row.scale,
+      });
+
+    return {
+      name: row.parameter_name ?? `@param${row.parameter_id}`,
+      dataType: displayType,
+      systemType,
+      mode: Boolean(row.is_output) ? 'out' : 'in',
+      isTableType,
+      maxLength: row.max_length,
+      precision: row.precision,
+      scale: row.scale,
+    };
+  });
+}
+
+function toMssqlType(parameter: SqlServerExecuteParameter) {
+  const type = parameter.systemType.trim().toLowerCase();
+  const maxLength = parameter.maxLength;
+
+  switch (type) {
+    case 'int':
+      return sql.Int;
+    case 'bigint':
+      return sql.BigInt;
+    case 'smallint':
+      return sql.SmallInt;
+    case 'tinyint':
+      return sql.TinyInt;
+    case 'bit':
+      return sql.Bit;
+    case 'decimal':
+    case 'numeric':
+      return sql.Decimal(parameter.precision ?? 18, parameter.scale ?? 0);
+    case 'money':
+      return sql.Money;
+    case 'smallmoney':
+      return sql.SmallMoney;
+    case 'float':
+      return sql.Float;
+    case 'real':
+      return sql.Real;
+    case 'nvarchar':
+    case 'sysname':
+      return sql.NVarChar(unicodeLength(maxLength));
+    case 'nchar':
+      return sql.NChar(fixedUnicodeLength(maxLength));
+    case 'varchar':
+      return sql.VarChar(maxLength == null || maxLength < 0 ? sql.MAX : maxLength);
+    case 'char':
+      return sql.Char(maxLength == null || maxLength < 0 ? 8000 : maxLength);
+    case 'text':
+      return sql.Text;
+    case 'ntext':
+      return sql.NText;
+    case 'xml':
+      return sql.Xml;
+    case 'json':
+      return sql.NVarChar(sql.MAX);
+    case 'uniqueidentifier':
+      return sql.UniqueIdentifier;
+    case 'date':
+      return sql.Date;
+    case 'datetime':
+      return sql.DateTime;
+    case 'datetime2':
+      return sql.DateTime2(parameter.scale ?? 7);
+    case 'smalldatetime':
+      return sql.SmallDateTime;
+    case 'datetimeoffset':
+      return sql.DateTimeOffset(parameter.scale ?? 7);
+    case 'time':
+      return sql.Time(parameter.scale ?? 7);
+    case 'binary':
+      return sql.Binary(maxLength == null || maxLength < 0 ? 8000 : maxLength);
+    case 'varbinary':
+    case 'image':
+    case 'timestamp':
+    case 'rowversion':
+      return sql.VarBinary(maxLength == null || maxLength < 0 ? sql.MAX : maxLength);
+    default:
+      throw new Error(`Unsupported SQL Server parameter type ${parameter.dataType} for ${parameter.name}.`);
+  }
+}
+
+function unicodeLength(maxLength: number | null): number {
+  if (maxLength == null || maxLength < 0) {
+    return sql.MAX;
+  }
+
+  const characters = Math.floor(maxLength / 2);
+  return characters > 0 ? characters : sql.MAX;
+}
+
+function fixedUnicodeLength(maxLength: number | null): number {
+  const length = unicodeLength(maxLength);
+  return length === sql.MAX ? 4000 : length;
+}
+
+function capRecordsets(recordsets: unknown): {
+  recordsets: Record<string, unknown>[][];
+  warnings: string[];
+} {
+  const sets = Array.isArray(recordsets) ? recordsets : [];
+  let truncated = false;
+  const capped = sets.map((set) => {
+    if (!Array.isArray(set)) {
+      return [];
+    }
+
+    if (set.length > RECORDSET_ROW_LIMIT) {
+      truncated = true;
+      return set.slice(0, RECORDSET_ROW_LIMIT) as Record<string, unknown>[];
+    }
+
+    return set as Record<string, unknown>[];
+  });
+
+  return {
+    recordsets: capped,
+    warnings: truncated ? [`One or more recordsets were truncated to ${RECORDSET_ROW_LIMIT} rows.`] : [],
+  };
+}
+
+function createExecutionErrorResult(
+  config: DatabaseMcpConfig,
+  request: ExecuteStoredProcedureRequest,
+  error: unknown,
+  dryRun: boolean,
+  mapping?: PayloadMappingResult,
+): StoredProcedureExecutionResult {
+  const message = normalizeErrorMessage(error, `Unable to complete ${EXECUTE_OPERATION}.`);
+
+  return {
+    ok: false,
+    operation: EXECUTE_OPERATION,
+    engine: config.engine,
+    affectedObjects: [`${request.schema}.${request.name}`],
+    sql: mapping ? [buildNamedExecSql(request.schema, request.name, mapping.boundParameters)] : [],
+    message,
+    warnings: mapping?.warnings ?? [],
+    error: message,
+    boundParameters: mapping?.boundParameters ?? [],
+    unmatchedPayloadKeys: mapping?.unmatchedPayloadKeys ?? [],
+    omittedParameters: mapping?.omittedParameters ?? [],
+    dryRun,
+    recordsets: null,
+    output: null,
+    returnValue: null,
+    rowsAffected: null,
+  };
+}
+
+function toReturnValue(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === 'string' && value.trim() !== '' && Number.isFinite(Number(value))) {
+    return Number(value);
+  }
+
+  return null;
 }

@@ -15,10 +15,18 @@ import {
   getSqliteStoredProcedureScript,
 } from './engines/sqlite.js';
 import {
+  executeSqlServerStoredProcedure,
   getSqlServerStoredProcedureDependencies,
   getSqlServerStoredProcedureScript,
 } from './engines/sqlserver.js';
-import type { DatabaseMcpConfig, StoredProcedureInsight, StoredProcedureRequest } from './types.js';
+import type {
+  DatabaseEngine,
+  DatabaseMcpConfig,
+  ExecuteStoredProcedureRequest,
+  StoredProcedureExecutionResult,
+  StoredProcedureInsight,
+  StoredProcedureRequest,
+} from './types.js';
 
 export async function getStoredProcedureScript(
   config: DatabaseMcpConfig,
@@ -64,4 +72,41 @@ export async function getStoredProcedureDependencies(
   }
 
   return getSqliteStoredProcedureDependencies(config, request);
+}
+
+export async function executeStoredProcedure(
+  config: DatabaseMcpConfig,
+  request: ExecuteStoredProcedureRequest,
+): Promise<StoredProcedureExecutionResult> {
+  if (config.engine === 'sqlserver') {
+    return executeSqlServerStoredProcedure(config, request);
+  }
+
+  return unsupportedStoredProcedureExecution(config.engine, request);
+}
+
+function unsupportedStoredProcedureExecution(
+  engine: DatabaseEngine,
+  request: ExecuteStoredProcedureRequest,
+): StoredProcedureExecutionResult {
+  const message = `Operation db_execute_stored_procedure is not implemented for ${engine}.`;
+
+  return {
+    ok: false,
+    operation: 'db_execute_stored_procedure',
+    engine,
+    affectedObjects: [`${request.schema}.${request.name}`],
+    sql: [],
+    message,
+    warnings: [],
+    error: message,
+    boundParameters: [],
+    unmatchedPayloadKeys: [],
+    omittedParameters: [],
+    dryRun: request.dryRun === true,
+    recordsets: null,
+    output: null,
+    returnValue: null,
+    rowsAffected: null,
+  };
 }

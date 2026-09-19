@@ -11,7 +11,8 @@ This document defines the public MCP tool surface for the database MCP server. T
 - SQLite is the only engine validated end to end for catalog inspection and schema mutation flows.
 - Stored procedure tools are available now and return explicit unsupported payloads for SQLite.
 - SQL Server, PostgreSQL, MySQL, and Oracle read-only adapter paths are implemented for catalog, object detail, and stored procedure inspection flows.
-- Non-SQLite mutation flows are still out of scope for the current implementation, and network-engine runtime behavior is not yet covered by the same end-to-end validation depth as SQLite.
+- `db_execute_stored_procedure` is implemented for SQL Server. Other engines return a structured unsupported result.
+- Non-SQLite schema mutation flows are still out of scope for the current implementation, and network-engine runtime behavior is not yet covered by the same end-to-end validation depth as SQLite.
 
 ## Tools
 
@@ -185,6 +186,56 @@ Returns the direct dependencies and direct dependents for a stored procedure whe
 `content[0].text` contains a JSON-serialized `StoredProcedureInsight` where `dependencies` and `dependents` are the primary fields of interest.
 
 For SQLite, this tool currently returns empty dependency arrays plus a warning explaining that stored procedures are unsupported.
+
+---
+
+### `db_execute_stored_procedure`
+
+Binds a JSON payload onto a named stored procedure's parameters and executes it. Matching is mechanical: strip a leading `@`, compare names case-insensitively, and JSON-stringify nested objects/arrays for string-like parameters. Table-valued parameters are rejected. SQL Server only.
+
+**Input schema**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `schema` | string | Yes | Procedure schema |
+| `name` | string | Yes | Procedure name |
+| `payload` | object or string | Yes | JSON object of values to bind, or a JSON object string |
+| `dryRun` | boolean | No | When true, return the mapped binds without executing. Default false |
+
+**Output**
+
+`content[0].text` contains a JSON-serialized `StoredProcedureExecutionResult`:
+
+```json
+{
+  "ok": true,
+  "operation": "db_execute_stored_procedure",
+  "engine": "sqlserver",
+  "affectedObjects": ["dbo.Usp_Mydetails_Enhanced_Process_Template"],
+  "sql": ["EXEC [dbo].[Usp_Mydetails_Enhanced_Process_Template] @LoginId = @LoginId, @EmployeeData = @EmployeeData"],
+  "message": "Executed dbo.Usp_Mydetails_Enhanced_Process_Template.",
+  "warnings": [],
+  "error": null,
+  "boundParameters": [
+    { "name": "@LoginId", "dataType": "int", "sourceKey": "LoginId", "value": 1431, "mode": "in" }
+  ],
+  "unmatchedPayloadKeys": [],
+  "omittedParameters": [],
+  "dryRun": false,
+  "recordsets": [[]],
+  "output": {},
+  "returnValue": 0,
+  "rowsAffected": [0]
+}
+```
+
+**Error behavior**
+
+- Engines other than SQL Server return `ok = false` with `Operation db_execute_stored_procedure is not implemented for {engine}.`
+- Unmatched payload keys are warnings, not failures
+- Missing procedure parameters are omitted (SQL Server applies a default or raises)
+- Duplicate payload keys that collapse to the same parameter name are rejected
+- Handler-level failures are normalized into the standard JSON rejection envelope
 
 ## Output Envelope Convention
 

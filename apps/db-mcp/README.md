@@ -7,6 +7,7 @@
 - SQLite is the validated engine for catalog inspection, object details, create-table, alter-table, and add-relationship flows.
 - Stored procedure tools are registered and return explicit unsupported responses for SQLite.
 - SQL Server, PostgreSQL, MySQL, and Oracle are wired for read-only catalog, object detail, and stored procedure inspection paths.
+- `db_execute_stored_procedure` is implemented for SQL Server only. Other engines return an explicit unsupported result.
 - Network-engine read-only adapters currently build and are connected through the shared services, but SQLite remains the only engine validated end to end in this repo.
 
 ## Commands
@@ -53,5 +54,6 @@ DB_MCP_SQLITE_PATH=./fixtures/sample.sqlite
 - `db_add_relationship`
 - `db_get_stored_procedure_script`
 - `db_get_stored_procedure_dependencies`
+- `db_execute_stored_procedure`
 
-Tool responses are JSON payloads in `content[0].text`. Successful mutation tools return `OperationResult`; unsupported and rejected requests are also normalized into the same JSON envelope.
+Tool responses are JSON payloads in `content[0].text`. Successful mutation tools return `OperationResult`; unsupported and rejected requests are also normalized into the same JSON envelope. `db_execute_stored_procedure` returns a `StoredProcedureExecutionResult` that includes the bound parameters, unmatched payload keys, and (when executed) recordsets.

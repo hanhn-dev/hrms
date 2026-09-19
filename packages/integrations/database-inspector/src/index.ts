@@ -18,10 +18,14 @@ export type {
   DatabaseRelationship,
   DependencySummary,
   DependencySupport,
+  BoundProcedureParameter,
+  ExecuteStoredProcedureRequest,
   ObjectDetailsRequest,
   OperationResult,
+  ProcedureParameterDescriptor,
   RelationshipMutationRequest,
   RoutineParameter,
+  StoredProcedureExecutionResult,
   StoredProcedureRequest,
   StoredProcedureInsight,
   TableConstraintRequest,
@@ -31,7 +35,7 @@ export { asBoolean, asNumber, asString, createOperationErrorResult, normalizeErr
 export type { EngineConnectionValues } from './engines/types.js';
 export { getCatalog } from './catalog.js';
 export { getObjectDetails } from './object-details.js';
-export { getStoredProcedureDependencies, getStoredProcedureScript } from './procedures.js';
+export { executeStoredProcedure, getStoredProcedureDependencies, getStoredProcedureScript } from './procedures.js';
 export { createTable } from './mutations/create-table.js';
 export { alterTable } from './mutations/alter-table.js';
 export { addRelationship } from './mutations/add-relationship.js';

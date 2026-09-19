@@ -1,6 +1,6 @@
 # Part of the HRMS workspace
 
-This folder is the **new HRMS Turborepo** (`ui-editor`, Backstage, az-mcp, db-mcp, `@hrms/ui`). It is **not** classic My Details, Core API, or the Liquibase database.
+This folder is the **new HRMS Turborepo** (`ui-editor`, Backstage, az-mcp, db-mcp, `autofill`, `@hrms/ui`). It is **not** classic My Details, Core API, or the Liquibase database.
 
 Canonical repo map (read before choosing where to edit):
 `AGENTS.md` at the `SourceCode` root.

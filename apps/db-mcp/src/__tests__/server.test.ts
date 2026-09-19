@@ -51,6 +51,7 @@ describe('createServer', () => {
         'db_add_relationship',
         'db_get_stored_procedure_script',
         'db_get_stored_procedure_dependencies',
+        'db_execute_stored_procedure',
       ]);
     } finally {
       await session.close();

@@ -23,3 +23,7 @@ with enough scripts per scenario to need it.
 2. **Designation shows selected on the Employment Details tab, but Grade shows
    blank — even though the Designation has a Grade mapped to it.**
    → [`grade-designation-mismatch/`](grade-designation-mismatch/README.md)
+
+3. **Compare rewritten `Sp_CM_Mydetails_DirectIndirectReports_Count` against a
+   local `_Legacy` clone (CSV employers, no FiltersJson).**
+   → [`reportee-count-rewrite/`](reportee-count-rewrite/README.md)

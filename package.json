@@ -14,7 +14,8 @@
     "inspect:db": "npm run build --workspace=apps/db-mcp && npx @modelcontextprotocol/inspector node --env-file=./apps/db-mcp/.env ./apps/db-mcp/dist/index.js",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
     "postinstall": "patch-package && node scripts/fix-next-postcss.mjs && npm dedupe --ignore-scripts",
-    "backstage": "npm run dev --workspace=apps/backstage"
+    "backstage": "npm run dev --workspace=apps/backstage",
+    "autofill": "npm run build --workspace=apps/autofill"
   },
   "devDependencies": {
     "@types/node": "^26.1.2",

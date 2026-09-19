@@ -38,6 +38,7 @@ npm run start --workspace=apps/db-mcp   # Run db-mcp directly after build
 | `apps/backstage` | Next.js 16 + React 19 | 5001 | Internal docs site — markdown on disk, Entra proposals |
 | `apps/az-mcp` | Node MCP server | stdio | Azure DevOps integration for AI tooling |
 | `apps/db-mcp` | Node MCP server | stdio | Database schema inspection/mutation for AI tooling |
+| `apps/autofill` | Vite 8 + React 19 (MV3) | 9100 | Chrome extension — form scan / random fill / auto-type |
 
 ### Packages
 
@@ -76,7 +77,7 @@ Both follow the same pattern: environment config → `StdioServerTransport` → 
 
 **az-mcp tools**: `az_get_work_item`, `az_get_work_item_hierarchy_context`, `az_get_work_items`, `az_get_work_item_comments`, `az_get_work_item_image`, `az_get_work_item_spec_context`, `az_get_work_item_revisions`, `az_get_pull_request`, `az_list_pull_request_threads`, `az_get_work_item_pull_requests`, `az_list_work_items`, `az_search_work_items`, `az_query_work_items`. Prompt: `az_draft_spec_from_work_item`.
 
-**db-mcp tools**: `db_get_catalog`, `db_get_object_details`, `db_create_table`, `db_alter_table`, `db_add_relationship`, `db_get_stored_procedure_script`, `db_get_stored_procedure_dependencies`. SQLite is fully validated; PostgreSQL, MySQL, SQL Server, Oracle support read-only catalog and object inspection.
+**db-mcp tools**: `db_get_catalog`, `db_get_object_details`, `db_create_table`, `db_alter_table`, `db_add_relationship`, `db_get_stored_procedure_script`, `db_get_stored_procedure_dependencies`, `db_execute_stored_procedure`. SQLite is fully validated; PostgreSQL, MySQL, SQL Server, Oracle support read-only catalog and object inspection. `db_execute_stored_procedure` is SQL Server only.
 
 ### backstage
 

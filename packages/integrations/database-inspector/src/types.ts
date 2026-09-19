@@ -164,6 +164,29 @@ export interface StoredProcedureRequest {
   readonly includeDependents?: boolean;
 }
 
+export interface ProcedureParameterDescriptor {
+  readonly name: string;
+  readonly dataType: string;
+  readonly systemType: string;
+  readonly mode: 'in' | 'out' | 'inout';
+  readonly isTableType: boolean;
+}
+
+export interface BoundProcedureParameter {
+  readonly name: string;
+  readonly dataType: string;
+  readonly sourceKey: string;
+  readonly value: unknown;
+  readonly mode: 'in' | 'out' | 'inout';
+}
+
+export interface ExecuteStoredProcedureRequest {
+  readonly schema: string;
+  readonly name: string;
+  readonly payload: unknown;
+  readonly dryRun?: boolean;
+}
+
 export interface OperationResult {
   readonly ok: boolean;
   readonly operation: string;
@@ -173,4 +196,15 @@ export interface OperationResult {
   readonly message: string;
   readonly warnings: readonly string[];
   readonly error: string | null;
+}
+
+export interface StoredProcedureExecutionResult extends OperationResult {
+  readonly boundParameters: readonly BoundProcedureParameter[];
+  readonly unmatchedPayloadKeys: readonly string[];
+  readonly omittedParameters: readonly string[];
+  readonly dryRun: boolean;
+  readonly recordsets: readonly (readonly Record<string, unknown>[])[] | null;
+  readonly output: Record<string, unknown> | null;
+  readonly returnValue: number | null;
+  readonly rowsAffected: readonly number[] | null;
 }

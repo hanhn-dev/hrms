@@ -8,6 +8,7 @@ import { createAlterTableHandler } from './tools/alter-table.js';
 import { createCreateTableHandler } from './tools/create-table.js';
 import { createGetCatalogHandler } from './tools/get-catalog.js';
 import { createGetObjectDetailsHandler } from './tools/get-object-details.js';
+import { createExecuteStoredProcedureHandler } from './tools/execute-stored-procedure.js';
 import { createGetStoredProcedureDependenciesHandler } from './tools/get-stored-procedure-dependencies.js';
 import { createGetStoredProcedureScriptHandler } from './tools/get-stored-procedure-script.js';
 import type { ToolCallback, ToolResult } from './tool-types.js';
@@ -149,6 +150,19 @@ export function createServer(config: DatabaseMcpConfig): McpServer {
       includeDependents: z.boolean().optional(),
     },
     createGetStoredProcedureDependenciesHandler(config),
+  );
+
+  registerTool(
+    server,
+    'db_execute_stored_procedure',
+    'Bind a JSON payload onto a named stored procedure by parameter name (case-insensitive, @-stripped) and execute it. Nested objects/arrays are JSON-stringified for string parameters. SQL Server only. Use db_get_object_details to inspect parameter names first. Pass dryRun=true to preview binds without executing.',
+    {
+      schema: z.string().min(1),
+      name: z.string().min(1),
+      payload: z.union([z.record(z.string(), z.unknown()), z.string().min(1)]),
+      dryRun: z.boolean().optional(),
+    },
+    createExecuteStoredProcedureHandler(config),
   );
 
   return server;
