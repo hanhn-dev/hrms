@@ -13,6 +13,7 @@ import {
   ReloadOutlined,
 } from "@ant-design/icons";
 import { showPageToast } from "@/shared/page-toast";
+import { isEscapeKey, shortcutLabelFor } from "@/features/shortcuts";
 import {
   FAB_ID,
   FAB_SIZE,
@@ -103,6 +104,8 @@ export function FloatMenuPanel({ sendMessage, onReady }: FloatMenuPanelProps) {
     originTop: number;
     moved: boolean;
   } | null>(null);
+  /** After a drag, ignore the browser's follow-up click so the menu does not toggle. */
+  const skipNextClickRef = useRef(false);
 
   const runAction = async (actionId: FloatMenuActionId) => {
     if (busyRef.current) {
@@ -148,15 +151,19 @@ export function FloatMenuPanel({ sendMessage, onReady }: FloatMenuPanelProps) {
       setOpenState(false);
     };
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setOpenState(false);
+      if (!isEscapeKey(event)) {
+        return;
       }
+      event.preventDefault();
+      event.stopPropagation();
+      setOpenState(false);
     };
     document.addEventListener("click", onDocumentClick, true);
-    document.addEventListener("keydown", onKeyDown, true);
+    // Window capture runs before document; catches Esc while a page field is focused.
+    window.addEventListener("keydown", onKeyDown, true);
     return () => {
       document.removeEventListener("click", onDocumentClick, true);
-      document.removeEventListener("keydown", onKeyDown, true);
+      window.removeEventListener("keydown", onKeyDown, true);
     };
   }, [open]);
 
@@ -174,6 +181,7 @@ export function FloatMenuPanel({ sendMessage, onReady }: FloatMenuPanelProps) {
     if (busy || event.button !== 0) {
       return;
     }
+    skipNextClickRef.current = false;
     event.currentTarget.setPointerCapture(event.pointerId);
     dragRef.current = {
       pointerId: event.pointerId,
@@ -223,6 +231,8 @@ export function FloatMenuPanel({ sendMessage, onReady }: FloatMenuPanelProps) {
       /* already released */
     }
     if (drag.moved) {
+      // pointerup is followed by click; pointercancel is not.
+      skipNextClickRef.current = event.type !== "pointercancel";
       setPosition((prev) => {
         const next = clampFabPosition(
           prev,
@@ -232,6 +242,15 @@ export function FloatMenuPanel({ sendMessage, onReady }: FloatMenuPanelProps) {
         void persistFabPosition(sendRef.current, next);
         return next;
       });
+      return;
+    }
+  };
+
+  // Open/close on click so keyboard, .click(), and Vimium hints work.
+  // Pointer events are only for dragging; a drag's follow-up click is skipped.
+  const onFabClick = () => {
+    if (skipNextClickRef.current) {
+      skipNextClickRef.current = false;
       return;
     }
     if (!busyRef.current) {
@@ -258,7 +277,7 @@ export function FloatMenuPanel({ sendMessage, onReady }: FloatMenuPanelProps) {
     position: "absolute",
     right: 0,
     bottom: FAB_SIZE + 8,
-    minWidth: 168,
+    minWidth: 220,
     padding: 8,
     borderRadius: 10,
     background: "#fff",
@@ -286,7 +305,20 @@ export function FloatMenuPanel({ sendMessage, onReady }: FloatMenuPanelProps) {
 
   return (
     <div style={shellStyle} data-form-autofill-float="">
-      <div id={MENU_ID} role="menu" style={menuStyle} hidden={!open}>
+      <div
+        id={MENU_ID}
+        role="menu"
+        style={menuStyle}
+        hidden={!open}
+        onKeyDown={(event) => {
+          if (!isEscapeKey(event)) {
+            return;
+          }
+          event.preventDefault();
+          event.stopPropagation();
+          setOpenState(false);
+        }}
+      >
         {FLOAT_MENU_ITEMS.map((item) => {
           const Icon = ICON_MAP[item.icon];
           return (
@@ -295,6 +327,7 @@ export function FloatMenuPanel({ sendMessage, onReady }: FloatMenuPanelProps) {
               type="button"
               role="menuitem"
               data-action-id={item.id}
+              aria-keyshortcuts={shortcutLabelFor(item.id)}
               disabled={busy}
               onClick={(event) => {
                 event.stopPropagation();
@@ -327,6 +360,18 @@ export function FloatMenuPanel({ sendMessage, onReady }: FloatMenuPanelProps) {
             >
               <Icon style={{ fontSize: 14, color: "#1677ff" }} />
               <span>{item.label}</span>
+              <span
+                aria-hidden="true"
+                style={{
+                  marginLeft: "auto",
+                  fontSize: 11,
+                  color: "#8c8c8c",
+                  letterSpacing: 0.2,
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {shortcutLabelFor(item.id)}
+              </span>
             </button>
           );
         })}
@@ -335,6 +380,7 @@ export function FloatMenuPanel({ sendMessage, onReady }: FloatMenuPanelProps) {
         id={FAB_ID}
         type="button"
         aria-label="Form Autofill actions"
+        aria-keyshortcuts={shortcutLabelFor("toggle-menu")}
         aria-expanded={open}
         aria-haspopup="menu"
         disabled={busy}
@@ -343,6 +389,15 @@ export function FloatMenuPanel({ sendMessage, onReady }: FloatMenuPanelProps) {
         onPointerMove={onPointerMove}
         onPointerUp={endDrag}
         onPointerCancel={endDrag}
+        onClick={onFabClick}
+        onKeyDown={(event) => {
+          if (!open || !isEscapeKey(event)) {
+            return;
+          }
+          event.preventDefault();
+          event.stopPropagation();
+          setOpenState(false);
+        }}
       >
         <FormOutlined />
       </button>

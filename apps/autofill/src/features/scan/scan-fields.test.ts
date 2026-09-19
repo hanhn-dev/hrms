@@ -1,6 +1,5 @@
-import { describe, expect, it } from "vitest";
 import { detectFieldKind, normalizeLabelText } from "./field-types";
-import { scanFields } from "./scan-fields";
+import { scanFields, scannedFieldFromElement } from "./scan-fields";
 
 describe("normalizeLabelText", () => {
   it("strips asterisks and collapses whitespace (positive)", () => {
@@ -238,5 +237,41 @@ describe("scanFields", () => {
     `;
     const fields = scanFields();
     expect(fields.some((f) => f.label === "Locked")).toBe(false);
+  });
+});
+
+describe("scannedFieldFromElement", () => {
+  it("maps a labeled text input (positive)", () => {
+    document.body.innerHTML = `
+      <label for="company">Company Name</label>
+      <input id="company" type="text" maxlength="40" />
+    `;
+    const field = scannedFieldFromElement(
+      document.getElementById("company") as HTMLInputElement,
+    );
+    expect(field.label).toBe("Company Name");
+    expect(field.kind).toBe("text");
+    expect(field.maxLength).toBe(40);
+  });
+
+  it("uses an unnamed fallback when there is no label (negative)", () => {
+    document.body.innerHTML = `<input id="bare" type="text" />`;
+    const field = scannedFieldFromElement(
+      document.getElementById("bare") as HTMLInputElement,
+    );
+    expect(field.label).toBe("(unnamed text)");
+  });
+
+  it("maps a radio using the group label (edge)", () => {
+    document.body.innerHTML = `
+      <div role="radiogroup" aria-label="Government Employee">
+        <label><input id="yes" type="radio" name="gov" value="Yes" />YES</label>
+      </div>
+    `;
+    const field = scannedFieldFromElement(
+      document.getElementById("yes") as HTMLInputElement,
+    );
+    expect(field.kind).toBe("radio");
+    expect(field.label).toBe("Government Employee");
   });
 });

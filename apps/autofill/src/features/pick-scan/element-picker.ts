@@ -1,15 +1,40 @@
-import { resolvePickRoot, scanFromElement } from "@/features/scan/resolve-pick-root";
+import {
+  markScanRoot,
+  pickHighlightHost,
+  resolvePickControl,
+  resolvePickRoot,
+  scanFromElement,
+} from "@/features/scan/resolve-pick-root";
+import {
+  scannedFieldFromElement,
+  type FillableElement,
+} from "@/features/scan/scan-fields";
 import { showPageToast } from "@/shared/page-toast";
 
 const OVERLAY_ID = "form-autofill-pick-overlay";
 const HIGHLIGHT_ID = "form-autofill-pick-highlight";
 const BANNER_ID = "form-autofill-pick-banner";
 
+const SECTION_BANNER =
+  "Click the form section (blue box = scan area) · Esc cancels";
+const CONTROL_BANNER = "Click the field to auto-type · Esc cancels";
+
+export type PickMode = "section" | "control";
+
+export interface StartPickerOptions {
+  mode?: PickMode;
+  bannerText?: string;
+  /** When false, skip the "scanned N field(s)" toast (caller announces). */
+  announceScan?: boolean;
+}
+
 export type PickScanResult = {
   fields: ReturnType<typeof scanFromElement>["fields"];
   rootSelector: string;
   fieldCount: number;
   url: string;
+  /** Live control when mode is "control" — stays in the content script. */
+  element?: FillableElement;
 };
 
 type PickResolve = (result: PickScanResult | null) => void;
@@ -18,6 +43,14 @@ let activeResolve: PickResolve | null = null;
 let onMove: ((ev: MouseEvent) => void) | null = null;
 let onClick: ((ev: MouseEvent) => void) | null = null;
 let onKey: ((ev: KeyboardEvent) => void) | null = null;
+
+function isPickerChrome(target: Element): boolean {
+  return (
+    target.id === HIGHLIGHT_ID ||
+    target.id === BANNER_ID ||
+    Boolean(target.closest(`#${BANNER_ID}`))
+  );
+}
 
 function ensureHighlight(): HTMLDivElement {
   let el = document.getElementById(HIGHLIGHT_ID) as HTMLDivElement | null;
@@ -38,13 +71,11 @@ function ensureHighlight(): HTMLDivElement {
   return el;
 }
 
-function ensureBanner(): HTMLDivElement {
+function ensureBanner(text: string): HTMLDivElement {
   let el = document.getElementById(BANNER_ID) as HTMLDivElement | null;
   if (!el) {
     el = document.createElement("div");
     el.id = BANNER_ID;
-    el.textContent =
-      "Click the form section (blue box = scan area) · Esc cancels";
     Object.assign(el.style, {
       position: "fixed",
       top: "12px",
@@ -62,7 +93,23 @@ function ensureBanner(): HTMLDivElement {
     });
     document.documentElement.appendChild(el);
   }
+  el.textContent = text;
   return el;
+}
+
+function positionHighlight(highlight: HTMLDivElement, box: Element): void {
+  const rect = box.getBoundingClientRect();
+  Object.assign(highlight.style, {
+    top: `${rect.top}px`,
+    left: `${rect.left}px`,
+    width: `${Math.max(rect.width, 4)}px`,
+    height: `${Math.max(rect.height, 4)}px`,
+    display: "block",
+  });
+}
+
+function hideHighlight(highlight: HTMLDivElement): void {
+  highlight.style.display = "none";
 }
 
 function cleanupUi(): void {
@@ -92,14 +139,37 @@ function stopPick(result: PickScanResult | null): void {
   resolve?.(result);
 }
 
-/** Enter inspector-style pick mode; resolves when user clicks a section or cancels. */
-export function startElementPicker(): Promise<PickScanResult | null> {
+function pickControlResult(target: Element): PickScanResult | null {
+  const control = resolvePickControl(target);
+  if (!control) {
+    return null;
+  }
+  const field = scannedFieldFromElement(control);
+  const host = pickHighlightHost(control);
+  return {
+    fields: [field],
+    rootSelector: markScanRoot(host),
+    fieldCount: 1,
+    url: location.href,
+    element: control,
+  };
+}
+
+/** Enter inspector-style pick mode; resolves when user clicks a section/control or cancels. */
+export function startElementPicker(
+  options: StartPickerOptions = {},
+): Promise<PickScanResult | null> {
+  const mode = options.mode ?? "section";
+  const announceScan = options.announceScan ?? true;
+  const bannerText =
+    options.bannerText ?? (mode === "control" ? CONTROL_BANNER : SECTION_BANNER);
+
   // Cancel any prior session
   if (activeResolve) {
     stopPick(null);
   }
 
-  ensureBanner();
+  ensureBanner(bannerText);
   const highlight = ensureHighlight();
   document.body.style.cursor = "crosshair";
 
@@ -108,26 +178,22 @@ export function startElementPicker(): Promise<PickScanResult | null> {
 
     onMove = (ev: MouseEvent) => {
       const target = ev.target;
-      if (!(target instanceof Element)) {
+      if (!(target instanceof Element) || isPickerChrome(target)) {
         return;
       }
-      if (
-        target.id === HIGHLIGHT_ID ||
-        target.id === BANNER_ID ||
-        target.closest(`#${BANNER_ID}`)
-      ) {
+
+      if (mode === "control") {
+        const control = resolvePickControl(target);
+        if (!control) {
+          hideHighlight(highlight);
+          return;
+        }
+        positionHighlight(highlight, pickHighlightHost(control));
         return;
       }
-      // Highlight the section that would actually be scanned (not just the hovered node)
+
       const root = resolvePickRoot(target);
-      const rect = root.getBoundingClientRect();
-      Object.assign(highlight.style, {
-        top: `${rect.top}px`,
-        left: `${rect.left}px`,
-        width: `${Math.max(rect.width, 4)}px`,
-        height: `${Math.max(rect.height, 4)}px`,
-        display: "block",
-      });
+      positionHighlight(highlight, root);
     };
 
     onClick = (ev: MouseEvent) => {
@@ -138,7 +204,17 @@ export function startElementPicker(): Promise<PickScanResult | null> {
         stopPick(null);
         return;
       }
-      if (target.id === BANNER_ID || target.id === HIGHLIGHT_ID) {
+      if (isPickerChrome(target)) {
+        return;
+      }
+
+      if (mode === "control") {
+        const result = pickControlResult(target);
+        if (!result) {
+          showPageToast("Click an input, textarea, or select", "error");
+          return;
+        }
+        stopPick(result);
         return;
       }
 
@@ -149,10 +225,12 @@ export function startElementPicker(): Promise<PickScanResult | null> {
           url: location.href,
         };
         stopPick(result);
-        showPageToast(
-          `Autofill: scanned ${result.fieldCount} field(s) in selected section`,
-          result.fieldCount > 0 ? "success" : "error",
-        );
+        if (announceScan) {
+          showPageToast(
+            `Autofill: scanned ${result.fieldCount} field(s) in selected section`,
+            result.fieldCount > 0 ? "success" : "error",
+          );
+        }
       } catch (error) {
         stopPick(null);
         showPageToast(

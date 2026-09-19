@@ -18,10 +18,16 @@ import {
   createContextMenus,
   isAutofillMenuId,
 } from "@/features/context-menu";
+import { buildRequestForAction } from "@/features/float-menu/float-menu-logic";
+import { actionFromChromeCommand } from "@/features/shortcuts";
 import {
   fillControlledDateMainWorld,
   type MainWorldFillResult,
 } from "@/features/fill/page-world";
+import {
+  DISALLOWED_PAGE_ERROR,
+  isAllowedPageUrl,
+} from "@/shared/allowed-hosts";
 import { needsContentScriptInject, shouldPrepareContentScripts } from "./content-inject";
 
 function sleep(ms: number): Promise<void> {
@@ -155,13 +161,18 @@ function pickBestResponse(
 
   if (
     messageType === MESSAGE.START_PICK_SCAN ||
-    messageType === MESSAGE.START_PICK_FILL
+    messageType === MESSAGE.START_PICK_FILL ||
+    messageType === MESSAGE.START_PICK_AUTO_TYPE
   ) {
     const notReady = responses.some(
       (r) => !r.ok && r.error === "Content script not ready",
     );
-    const isFill = messageType === MESSAGE.START_PICK_FILL;
-    const actionLabel = isFill ? "Pick & fill" : "Pick & scan";
+    const actionLabel =
+      messageType === MESSAGE.START_PICK_FILL
+        ? "Pick & fill"
+        : messageType === MESSAGE.START_PICK_AUTO_TYPE
+          ? "Pick & type"
+          : "Pick & scan";
     return {
       ok: false,
       error: notReady
@@ -193,11 +204,67 @@ function pickBestResponse(
   );
 }
 
+async function getTabUrl(tabId: number): Promise<string | undefined> {
+  try {
+    const tab = await chrome.tabs.get(tabId);
+    return tab.url;
+  } catch {
+    return undefined;
+  }
+}
+
+function applyActionState(tabId: number | undefined, url: string | undefined): void {
+  if (tabId == null) {
+    return;
+  }
+  if (isAllowedPageUrl(url)) {
+    void chrome.action.enable(tabId);
+  } else {
+    void chrome.action.disable(tabId);
+  }
+}
+
+function initHostRestriction(): void {
+  void chrome.action.disable();
+  void chrome.tabs
+    .query({})
+    .then((tabs) => {
+      for (const tab of tabs) {
+        applyActionState(tab.id, tab.url);
+      }
+    })
+    .catch(() => {
+      /* host URLs may be unavailable without tabs permission */
+    });
+
+  chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+    if (changeInfo.url == null && changeInfo.status !== "complete") {
+      return;
+    }
+    applyActionState(tabId, tab.url ?? changeInfo.url);
+  });
+
+  chrome.tabs.onActivated.addListener((activeInfo) => {
+    void chrome.tabs
+      .get(activeInfo.tabId)
+      .then((tab) => {
+        applyActionState(tab.id, tab.url);
+      })
+      .catch(() => {
+        applyActionState(activeInfo.tabId, undefined);
+      });
+  });
+}
+
 async function sendToTab(
   tabId: number,
   message: AutofillRequest,
   frameId?: number,
 ): Promise<AutofillResponse> {
+  if (!isAllowedPageUrl(await getTabUrl(tabId))) {
+    return { ok: false, error: DISALLOWED_PAGE_ERROR };
+  }
+
   const frameIds = frameId != null && frameId >= 0 ? [frameId] : undefined;
 
   const attempt = async (): Promise<AutofillResponse[]> => {
@@ -284,6 +351,38 @@ chrome.runtime.onStartup.addListener(() => {
 });
 
 createContextMenus();
+initHostRestriction();
+
+// In-page Alt+Shift chords are the fallback when Chrome does not bind these.
+chrome.commands.onCommand.addListener((command, tab) => {
+  const action = actionFromChromeCommand(command);
+  if (!action) {
+    return;
+  }
+
+  void (async () => {
+    const tabId = await resolveTabId(tab?.id);
+    if (tabId == null) {
+      return;
+    }
+
+    if (action === "toggle-menu") {
+      await sendToTab(tabId, { type: MESSAGE.TOGGLE_FLOAT_MENU });
+      return;
+    }
+
+    const settings = await loadSettings();
+    const request = buildRequestForAction(action, settings);
+    const response = await sendToTab(tabId, request);
+    if (response.ok && "fields" in response && response.fields) {
+      await saveLastScan(
+        response.fields,
+        response.url,
+        response.rootSelector,
+      );
+    }
+  })();
+});
 
 chrome.contextMenus.onClicked.addListener((info, tab) => {
   if (!isAutofillMenuId(info.menuItemId)) {
@@ -418,7 +517,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     request.type === MESSAGE.AUTO_TYPE ||
     request.type === MESSAGE.START_PICK_SCAN ||
     request.type === MESSAGE.START_PICK_FILL ||
-    request.type === MESSAGE.CANCEL_PICK_SCAN
+    request.type === MESSAGE.START_PICK_AUTO_TYPE ||
+    request.type === MESSAGE.CANCEL_PICK_SCAN ||
+    request.type === MESSAGE.TOGGLE_FLOAT_MENU ||
+    request.type === MESSAGE.CLOSE_FLOAT_MENU
   ) {
     void (async () => {
       const tabId = sender.tab?.id ?? (await resolveTabId());

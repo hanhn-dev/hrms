@@ -1,5 +1,11 @@
 import type { ScannedField } from "@/shared/messaging";
-import { collectElements, scanFields } from "./scan-fields";
+import {
+  asFillableControl,
+  collectElements,
+  pickPrimaryInput,
+  scanFields,
+  type FillableElement,
+} from "./scan-fields";
 
 /**
  * Count logical form fields (FormControl-grouped), not raw DOM inputs.
@@ -58,6 +64,67 @@ function looksLikeFormSection(el: Element): boolean {
     return true;
   }
   return false;
+}
+
+const PICK_CONTROL_HOST_SELECTOR = [
+  "input",
+  "textarea",
+  "select",
+  "label",
+  ".MuiFormControl-root",
+  ".MuiTextField-root",
+  "[role='radiogroup']",
+].join(", ");
+
+/**
+ * Resolve a single fillable control under the cursor for Pick & type.
+ * Does not expand to a form section — returns null when the hover is not a field.
+ */
+export function resolvePickControl(clicked: Element): FillableElement | null {
+  let host: Element | null = null;
+  try {
+    host = clicked.closest(PICK_CONTROL_HOST_SELECTOR);
+  } catch {
+    host = null;
+  }
+  if (!host) {
+    return null;
+  }
+
+  const direct = asFillableControl(host);
+  if (direct) {
+    return direct;
+  }
+
+  if (host instanceof HTMLLabelElement) {
+    if (host.htmlFor) {
+      const labelled = document.getElementById(host.htmlFor);
+      if (labelled) {
+        const fromFor = asFillableControl(labelled);
+        if (fromFor) {
+          return fromFor;
+        }
+      }
+    }
+    const nested = host.querySelector("input, textarea, select");
+    if (nested) {
+      const fromNested = asFillableControl(nested);
+      if (fromNested) {
+        return fromNested;
+      }
+    }
+  }
+
+  return pickPrimaryInput(host);
+}
+
+/** Tight highlight box: MUI host when present, otherwise the control itself. */
+export function pickHighlightHost(el: FillableElement): Element {
+  return (
+    el.closest(
+      ".MuiFormControl-root, .MuiTextField-root, .MuiFormControlLabel-root, [role='radiogroup']",
+    ) ?? el
+  );
 }
 
 /**

@@ -75,6 +75,28 @@ function normalizeLabel(label: string): string {
   return label.replace(/\*/g, "").replace(/\s+/g, " ").trim().toLowerCase();
 }
 
+/** Indian IFSC: 4 letters + '0' + 6 alphanumeric. */
+export const IFSC_CODE_PATTERN = /^[A-Z]{4}0[A-Z0-9]{6}$/i;
+
+const IFSC_BANK_CODES = ["SBIN", "HDFC", "ICIC", "AXIS", "KKBK", "PUNB"];
+
+export function isIfscLabel(label: string): boolean {
+  const normalized = normalizeLabel(label);
+  return /\bifsc\b/.test(normalized) || normalized.includes("bank identifier");
+}
+
+export function isIfscCode(value: string): boolean {
+  return IFSC_CODE_PATTERN.test(value.trim());
+}
+
+function generateIfsc(): string {
+  const alphabet = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  const branch = Array.from({ length: 6 }, () => pick(alphabet.split(""))).join(
+    "",
+  );
+  return `${pick(IFSC_BANK_CODES)}0${branch}`;
+}
+
 export interface GenerateOptions {
   label: string;
   kind: FieldKind;
@@ -116,6 +138,10 @@ export function generateValue(options: GenerateOptions): string {
 
   if (/currency/.test(normalized)) {
     return pick(["INR", "USD", "EUR", "GBP"]);
+  }
+
+  if (isIfscLabel(label)) {
+    return trimToMax(generateIfsc(), maxLength ?? 11);
   }
 
   if (/company/.test(normalized)) {
@@ -189,6 +215,9 @@ export function generateInvalidValue(options: {
   }
   if (kind === "date" || normalized === "from" || normalized === "to") {
     return trimToMax("99-Xxx-9999", maxLength);
+  }
+  if (isIfscLabel(label)) {
+    return trimToMax("NOTANIFSC", maxLength);
   }
   // Empty-ish invalid for required text fields
   return "";

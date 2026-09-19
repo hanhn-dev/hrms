@@ -1,6 +1,8 @@
 # Form Autofill (`apps/autofill`)
 
-Chrome Manifest V3 extension that scans form fields, fills random values, and keystroke-types into inputs so you can exercise validation UI on any web form.
+Chrome Manifest V3 extension that scans form fields, fills random values, and keystroke-types into inputs so you can exercise validation UI.
+
+The floating button, context menus, and page injection only run on **localhost** (including `127.0.0.1` / `[::1]`) and **`*.thedigitalgroup.com`** (plus the apex `thedigitalgroup.com`).
 
 ## Stack
 
@@ -28,7 +30,7 @@ Load the unpacked extension:
 ## Usage
 
 1. Open a page with a form.
-2. Use the blue floating **Form** button (bottom-right on the top page; drag to reposition — position is remembered across extension reloads) to open Pick & scan, Scan page, Pick & fill, or Auto-type without opening the extension popup.
+2. Use the blue floating **Form** button (bottom-right on the top page; drag to reposition — position is remembered across extension reloads) to open Pick & scan, Scan page, Pick & fill, or Pick & type without opening the extension popup. Keyboard shortcuts are listed on each menu item (see below). Press **Esc** to close the menu (also works while a form field or iframe is focused).
 3. Or click the extension → **Pick & scan** (inspector mode):
    - Popup closes; click the form section (or any field inside it).
    - Works inside iframes (picker starts in every frame that has inputs).
@@ -38,7 +40,23 @@ Load the unpacked extension:
 5. **Pick & fill** uses the same inspector: click a section, then that area is scanned and filled immediately.
 6. With fields checked in the popup, **Fill selected** fills only those fields (no new pick).
 7. Context-menu fill still uses the last marked section / context target.
-8. **Auto-type selected** keystroke-fills one field (validation testing).
+8. **Pick & type** uses inspector mode on a **single field**: a blue box tracks the input under the cursor; click to keystroke-type into it (Esc cancels). In the popup, checking fields swaps this button to **Auto-type selected**.
+9. Right-click an editable field → **Auto-type into this field** still types into that context target.
+
+## Keyboard shortcuts
+
+Shortcuts work on allowed pages (including inside form iframes) and in the extension popup. Rebind the first four at `chrome://extensions/shortcuts`.
+
+| Action | Shortcut |
+|--------|----------|
+| Pick & scan | `Alt+Shift+P` |
+| Scan page | `Alt+Shift+S` |
+| Pick & fill (or **Fill selected** in the popup when fields are checked) | `Alt+Shift+F` |
+| Pick & type (or **Auto-type selected** in the popup when fields are checked) | `Alt+Shift+T` |
+| Toggle floating menu | `Alt+Shift+M` |
+| Close floating menu | `Esc` |
+
+On macOS, Alt is the Option key (`⌥⇧P`, …).
 
 ## Features
 

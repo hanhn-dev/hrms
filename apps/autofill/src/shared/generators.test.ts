@@ -1,4 +1,3 @@
-import { describe, expect, it } from "vitest";
 import {
   formatDate,
   generateDateRange,
@@ -31,6 +30,33 @@ describe("generateValue", () => {
       maxLength: 5,
     });
     expect(value.length).toBeLessThanOrEqual(5);
+  });
+
+  it("generates a valid IFSC for Bank Identifier Code (positive)", () => {
+    const value = generateValue({
+      label: "Bank Identifier Code *",
+      kind: "select",
+    });
+    expect(value).toMatch(/^[A-Z]{4}0[A-Z0-9]{6}$/);
+    expect(value).toHaveLength(11);
+  });
+
+  it("does not emit an IFSC for unrelated labels (negative)", () => {
+    const value = generateValue({
+      label: "Account Number",
+      kind: "text",
+    });
+    expect(value).not.toMatch(/^[A-Z]{4}0[A-Z0-9]{6}$/);
+  });
+
+  it("returns a malformed IFSC when invalid is set (edge)", () => {
+    expect(
+      generateValue({
+        label: "IFSC Code",
+        kind: "text",
+        invalid: true,
+      }),
+    ).toBe("NOTANIFSC");
   });
 });
 

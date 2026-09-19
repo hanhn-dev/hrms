@@ -1,4 +1,3 @@
-import { describe, expect, it, vi, afterEach } from "vitest";
 import { createRoot, type Root } from "react-dom/client";
 import { act, type ComponentProps } from "react";
 import { ActionBar } from "./ActionBar";
@@ -19,6 +18,7 @@ function mount(
     onPickScan: vi.fn(),
     onPickFill: vi.fn(),
     onFillSelected: vi.fn(),
+    onPickAutoType: vi.fn(),
     onAutoTypeSelected: vi.fn(),
     ...props,
   };
@@ -48,6 +48,11 @@ describe("ActionBar", () => {
       el.textContent?.includes("Pick & fill"),
     );
     expect(button).toBeTruthy();
+    expect(button?.getAttribute("aria-keyshortcuts")).toBe("Alt+Shift+F");
+    const pickScan = Array.from(container.querySelectorAll("button")).find(
+      (el) => el.textContent?.includes("Pick & scan"),
+    );
+    expect(pickScan?.getAttribute("aria-keyshortcuts")).toBe("Alt+Shift+P");
     act(() => {
       button!.click();
     });
@@ -71,6 +76,7 @@ describe("ActionBar", () => {
       el.textContent?.includes("Fill selected"),
     );
     expect(button).toBeTruthy();
+    expect(button?.getAttribute("aria-keyshortcuts")).toBe("Alt+Shift+F");
     act(() => {
       button!.click();
     });
@@ -79,6 +85,50 @@ describe("ActionBar", () => {
     expect(
       Array.from(container.querySelectorAll("button")).some((el) =>
         el.textContent?.includes("Pick & fill"),
+      ),
+    ).toBe(false);
+  });
+
+  it("shows Pick & type when nothing is selected (positive)", () => {
+    const onPickAutoType = vi.fn();
+    ({ container, root } = mount({ onPickAutoType, hasSelection: false }));
+    const button = Array.from(container.querySelectorAll("button")).find((el) =>
+      el.textContent?.includes("Pick & type"),
+    );
+    expect(button).toBeTruthy();
+    expect(button?.getAttribute("aria-keyshortcuts")).toBe("Alt+Shift+T");
+    act(() => {
+      button!.click();
+    });
+    expect(onPickAutoType).toHaveBeenCalledTimes(1);
+    expect(
+      Array.from(container.querySelectorAll("button")).some((el) =>
+        el.textContent?.includes("Auto-type selected"),
+      ),
+    ).toBe(false);
+  });
+
+  it("shows Auto-type selected when fields are checked (negative path for pick)", () => {
+    const onAutoTypeSelected = vi.fn();
+    const onPickAutoType = vi.fn();
+    ({ container, root } = mount({
+      onAutoTypeSelected,
+      onPickAutoType,
+      hasSelection: true,
+    }));
+    const button = Array.from(container.querySelectorAll("button")).find((el) =>
+      el.textContent?.includes("Auto-type selected"),
+    );
+    expect(button).toBeTruthy();
+    expect(button?.getAttribute("aria-keyshortcuts")).toBe("Alt+Shift+T");
+    act(() => {
+      button!.click();
+    });
+    expect(onAutoTypeSelected).toHaveBeenCalledTimes(1);
+    expect(onPickAutoType).not.toHaveBeenCalled();
+    expect(
+      Array.from(container.querySelectorAll("button")).some((el) =>
+        el.textContent?.includes("Pick & type"),
       ),
     ).toBe(false);
   });
@@ -93,5 +143,10 @@ describe("ActionBar", () => {
     );
     expect(scanPage?.disabled).toBe(true);
     expect(pickFill?.disabled).toBe(false);
+    const pickType = Array.from(container.querySelectorAll("button")).find(
+      (el) => el.textContent?.includes("Pick & type"),
+    );
+    expect(pickType?.getAttribute("aria-keyshortcuts")).toBe("Alt+Shift+T");
+    expect(pickType?.disabled).toBe(false);
   });
 });

@@ -226,7 +226,7 @@ function isSectionedDateField(control: Element): boolean {
   );
 }
 
-function pickPrimaryInput(control: Element): FillableElement | null {
+export function pickPrimaryInput(control: Element): FillableElement | null {
   const candidates = Array.from(
     control.querySelectorAll("input, textarea, select"),
   ) as FillableElement[];
@@ -448,6 +448,67 @@ function mergePhoneControlPairs(elements: FillableElement[]): FillableElement[] 
   return out;
 }
 
+/**
+ * True when the node itself is a fillable control (including radio).
+ * Used by the control-mode picker; does not walk into arbitrary ancestors.
+ */
+export function asFillableControl(el: Element): FillableElement | null {
+  if (
+    !(
+      el instanceof HTMLInputElement ||
+      el instanceof HTMLTextAreaElement ||
+      el instanceof HTMLSelectElement
+    )
+  ) {
+    return null;
+  }
+
+  if (el instanceof HTMLInputElement && el.type === "radio") {
+    return isUsableRadio(el) ? el : null;
+  }
+
+  if (isSkippableInputType(el) || !isVisible(el) || isPageChromeControl(el)) {
+    return null;
+  }
+
+  return el;
+}
+
+/** Map a live control to the scan payload used for fill / auto-type. */
+export function scannedFieldFromElement(
+  element: FillableElement,
+  index = 0,
+): ScannedField {
+  const label = resolveLabel(element);
+  const kind = detectFieldKind(element, label);
+  const selectorHint = buildSelectorHint(element);
+  const id = element.id || `${selectorHint}::${label || "field"}::${index}`;
+  const maxLengthAttr = element.getAttribute("maxlength");
+  const maxLength =
+    maxLengthAttr && Number(maxLengthAttr) > 0
+      ? Number(maxLengthAttr)
+      : null;
+
+  return {
+    id,
+    label: label || `(unnamed ${kind})`,
+    kind,
+    tagName: element.tagName.toLowerCase(),
+    inputType:
+      element.tagName.toLowerCase() === "input"
+        ? (element as HTMLInputElement).type || "text"
+        : element.tagName.toLowerCase(),
+    disabled: Boolean(element.disabled),
+    readOnly:
+      "readOnly" in element
+        ? Boolean((element as HTMLInputElement).readOnly)
+        : false,
+    maxLength,
+    selectorHint,
+    valuePreview: radioGroupPreview(element),
+  };
+}
+
 export interface ScanOptions {
   root?: ParentNode | null;
 }
@@ -460,45 +521,16 @@ export function scanFields(options: ScanOptions = {}): ScannedField[] {
   const seen = new Set<string>();
 
   elements.forEach((element, index) => {
-    const label = resolveLabel(element);
-    const kind = detectFieldKind(element, label);
-    const selectorHint = buildSelectorHint(element);
-    const id =
-      element.id || `${selectorHint}::${label || "field"}::${index}`;
-
+    const field = scannedFieldFromElement(element, index);
     const dedupeKey = element.id
       ? `id:${element.id}`
-      : `lk:${label.toLowerCase()}|${kind}|${element.tagName}`;
-    if (seen.has(dedupeKey) || seen.has(id)) {
+      : `lk:${field.label.toLowerCase()}|${field.kind}|${element.tagName}`;
+    if (seen.has(dedupeKey) || seen.has(field.id)) {
       return;
     }
     seen.add(dedupeKey);
-    seen.add(id);
-
-    const maxLengthAttr = element.getAttribute("maxlength");
-    const maxLength =
-      maxLengthAttr && Number(maxLengthAttr) > 0
-        ? Number(maxLengthAttr)
-        : null;
-
-    fields.push({
-      id,
-      label: label || `(unnamed ${kind})`,
-      kind,
-      tagName: element.tagName.toLowerCase(),
-      inputType:
-        element.tagName.toLowerCase() === "input"
-          ? (element as HTMLInputElement).type || "text"
-          : element.tagName.toLowerCase(),
-      disabled: Boolean(element.disabled),
-      readOnly:
-        "readOnly" in element
-          ? Boolean((element as HTMLInputElement).readOnly)
-          : false,
-      maxLength,
-      selectorHint,
-      valuePreview: radioGroupPreview(element),
-    });
+    seen.add(field.id);
+    fields.push(field);
   });
 
   return fields;

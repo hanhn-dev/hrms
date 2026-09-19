@@ -1,4 +1,3 @@
-import { describe, expect, it, vi } from "vitest";
 import { autoTypeField, buildTypedPrefixes, typeKeystroke } from "./auto-type";
 
 describe("buildTypedPrefixes", () => {

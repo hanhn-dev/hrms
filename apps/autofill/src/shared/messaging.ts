@@ -11,7 +11,13 @@ export const MESSAGE = {
   START_PICK_SCAN: "autofill/START_PICK_SCAN",
   /** Pick a section, then scan + fill it in one pass. */
   START_PICK_FILL: "autofill/START_PICK_FILL",
+  /** Pick one control, then keystroke-type into it. */
+  START_PICK_AUTO_TYPE: "autofill/START_PICK_AUTO_TYPE",
   CANCEL_PICK_SCAN: "autofill/CANCEL_PICK_SCAN",
+  /** Top-frame only: open or close the floating action menu. */
+  TOGGLE_FLOAT_MENU: "autofill/TOGGLE_FLOAT_MENU",
+  /** Top-frame only: close the floating action menu if it is open. */
+  CLOSE_FLOAT_MENU: "autofill/CLOSE_FLOAT_MENU",
   GET_FAB_POSITION: "autofill/GET_FAB_POSITION",
   SET_FAB_POSITION: "autofill/SET_FAB_POSITION",
   /** Content → background: run MAIN-world React date fill. */
@@ -115,7 +121,13 @@ export type AutofillResponse =
   | FillResponse
   | AutoTypeResponse
   | ErrorResponse
-  | { ok: true; started?: boolean; cancelled?: boolean };
+  | {
+      ok: true;
+      started?: boolean;
+      cancelled?: boolean;
+      toggled?: boolean;
+      closed?: boolean;
+    };
 
 export interface FieldsUpdatedMessage {
   type: typeof MESSAGE.FIELDS_UPDATED;
@@ -145,8 +157,22 @@ export interface StartPickFillRequest {
   type: typeof MESSAGE.START_PICK_FILL;
 }
 
+export interface StartPickAutoTypeRequest {
+  type: typeof MESSAGE.START_PICK_AUTO_TYPE;
+  typingDelayMs?: number;
+  startWithInvalid?: boolean;
+}
+
 export interface CancelPickScanRequest {
   type: typeof MESSAGE.CANCEL_PICK_SCAN;
+}
+
+export interface ToggleFloatMenuRequest {
+  type: typeof MESSAGE.TOGGLE_FLOAT_MENU;
+}
+
+export interface CloseFloatMenuRequest {
+  type: typeof MESSAGE.CLOSE_FLOAT_MENU;
 }
 
 export interface GetFabPositionRequest {
@@ -174,7 +200,10 @@ export type AutofillRequest =
   | GetLastScanRequest
   | StartPickScanRequest
   | StartPickFillRequest
+  | StartPickAutoTypeRequest
   | CancelPickScanRequest
+  | ToggleFloatMenuRequest
+  | CloseFloatMenuRequest
   | GetFabPositionRequest
   | SetFabPositionRequest
   | FillControlledDateRequest;

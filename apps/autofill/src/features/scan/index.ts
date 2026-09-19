@@ -1,4 +1,10 @@
-export { scanFields, findElementForField, resolveScanRoot } from "./scan-fields";
+export {
+  scanFields,
+  findElementForField,
+  resolveScanRoot,
+  scannedFieldFromElement,
+} from "./scan-fields";
+export type { FillableElement } from "./scan-fields";
 export {
   detectFieldKind,
   normalizeLabelText,
@@ -6,6 +12,8 @@ export {
 } from "./field-types";
 export {
   resolvePickRoot,
+  resolvePickControl,
+  pickHighlightHost,
   scanFromElement,
   getMarkedScanRoot,
   markScanRoot,

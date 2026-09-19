@@ -1,4 +1,3 @@
-import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { MESSAGE, type AutofillResponse } from "@/shared/messaging";
 import {
   FLOAT_MENU_ITEMS,
@@ -48,6 +47,9 @@ describe("float menu items", () => {
       "form",
       "fontSize",
     ]);
+    expect(FLOAT_MENU_ITEMS.find((i) => i.id === "auto-type")?.label).toBe(
+      "Pick & type",
+    );
     expect(buildRequestForAction("pick-scan").type).toBe(
       MESSAGE.START_PICK_SCAN,
     );
@@ -61,7 +63,7 @@ describe("float menu items", () => {
         startWithInvalid: true,
       }),
     ).toEqual({
-      type: MESSAGE.AUTO_TYPE,
+      type: MESSAGE.START_PICK_AUTO_TYPE,
       typingDelayMs: 40,
       startWithInvalid: true,
     });
@@ -139,10 +141,42 @@ describe("fab position helpers", () => {
   });
 });
 
+function stubSendMessage() {
+  return vi.fn(async (payload: unknown) => {
+    if (
+      typeof payload === "object" &&
+      payload !== null &&
+      "type" in payload &&
+      payload.type === MESSAGE.GET_FAB_POSITION
+    ) {
+      return { ok: true as const, position: null };
+    }
+    return { ok: true as const, started: true };
+  });
+}
+
+function pointerEvent(
+  type: string,
+  clientX: number,
+  clientY: number,
+): PointerEvent {
+  return new PointerEvent(type, {
+    bubbles: true,
+    cancelable: true,
+    pointerId: 1,
+    button: 0,
+    buttons: type === "pointerup" || type === "pointercancel" ? 0 : 1,
+    clientX,
+    clientY,
+  });
+}
+
 describe("mountFloatMenu", () => {
   beforeEach(() => {
     unmountFloatMenu(document);
     document.body.innerHTML = "";
+    HTMLElement.prototype.setPointerCapture ??= () => undefined;
+    HTMLElement.prototype.releasePointerCapture ??= () => undefined;
   });
 
   afterEach(() => {
@@ -307,5 +341,169 @@ describe("mountFloatMenu", () => {
     });
     expect(controller).toBeNull();
     expect(document.getElementById("form-autofill-float-root")).toBeNull();
+  });
+
+  it("opens the menu on click without pointer events (positive)", async () => {
+    const controller = mountFloatMenu({
+      sendMessage: stubSendMessage(),
+      document,
+    });
+    await controller!.whenReady();
+
+    const fab = document.getElementById(
+      "form-autofill-float-fab",
+    ) as HTMLButtonElement;
+    fab.click();
+    await waitForHandle(() => controller!.open);
+
+    expect(controller!.open).toBe(true);
+    expect(
+      document.getElementById("form-autofill-float-menu")?.hidden,
+    ).toBe(false);
+    expect(
+      document.getElementById("form-autofill-float-menu")?.textContent,
+    ).toContain("Alt+Shift+P");
+    expect(
+      document.getElementById("form-autofill-float-fab")?.getAttribute(
+        "aria-keyshortcuts",
+      ),
+    ).toBe("Alt+Shift+M");
+  });
+
+  it("does not open the menu after a drag gesture (negative)", async () => {
+    const controller = mountFloatMenu({
+      sendMessage: stubSendMessage(),
+      document,
+    });
+    await controller!.whenReady();
+
+    const fab = document.getElementById(
+      "form-autofill-float-fab",
+    ) as HTMLButtonElement;
+    fab.dispatchEvent(pointerEvent("pointerdown", 100, 100));
+    fab.dispatchEvent(pointerEvent("pointermove", 140, 100));
+    fab.dispatchEvent(pointerEvent("pointerup", 140, 100));
+    fab.click();
+    await new Promise((resolve) => {
+      setTimeout(resolve, 30);
+    });
+
+    expect(controller!.open).toBe(false);
+  });
+
+  it("opens from an inner-icon click and only once after pointerup (edge)", async () => {
+    const controller = mountFloatMenu({
+      sendMessage: stubSendMessage(),
+      document,
+    });
+    await controller!.whenReady();
+
+    const fab = document.getElementById(
+      "form-autofill-float-fab",
+    ) as HTMLButtonElement;
+    const icon = fab.querySelector(".anticon");
+    expect(icon).toBeTruthy();
+
+    icon!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    await waitForHandle(() => controller!.open);
+    expect(controller!.open).toBe(true);
+
+    fab.dispatchEvent(pointerEvent("pointerdown", 20, 20));
+    fab.dispatchEvent(pointerEvent("pointerup", 20, 20));
+    fab.click();
+    await waitForHandle(() => !controller!.open);
+    expect(controller!.open).toBe(false);
+  });
+});
+
+function escapeEvent(key = "Escape"): KeyboardEvent {
+  return new KeyboardEvent("keydown", {
+    key,
+    code: "Escape",
+    bubbles: true,
+    cancelable: true,
+  });
+}
+
+describe("float menu Escape", () => {
+  beforeEach(() => {
+    unmountFloatMenu(document);
+    document.body.innerHTML = "";
+    HTMLElement.prototype.setPointerCapture ??= () => undefined;
+    HTMLElement.prototype.releasePointerCapture ??= () => undefined;
+  });
+
+  afterEach(() => {
+    unmountFloatMenu(document);
+  });
+
+  async function openMenu() {
+    const controller = mountFloatMenu({
+      sendMessage: stubSendMessage(),
+      document,
+    });
+    await controller!.whenReady();
+    controller!.setOpen(true);
+    await waitForHandle(() => controller!.open);
+    // Window capture listener is registered in useEffect after paint.
+    await new Promise((resolve) => {
+      setTimeout(resolve, 20);
+    });
+    return controller!;
+  }
+
+  it("closes an open menu on Escape (positive)", async () => {
+    const controller = await openMenu();
+    expect(
+      document.getElementById("form-autofill-float-menu")?.hidden,
+    ).toBe(false);
+
+    window.dispatchEvent(escapeEvent());
+    await waitForHandle(() => !controller.open);
+
+    expect(controller.open).toBe(false);
+    expect(
+      document.getElementById("form-autofill-float-menu")?.hidden,
+    ).toBe(true);
+  });
+
+  it("does not open a closed menu on Escape (negative)", async () => {
+    const controller = mountFloatMenu({
+      sendMessage: stubSendMessage(),
+      document,
+    });
+    await controller!.whenReady();
+    expect(controller!.open).toBe(false);
+
+    window.dispatchEvent(escapeEvent());
+    await new Promise((resolve) => {
+      setTimeout(resolve, 30);
+    });
+
+    expect(controller!.open).toBe(false);
+  });
+
+  it("closes on legacy Esc from the FAB and ignores other keys (edge)", async () => {
+    const controller = await openMenu();
+    const fab = document.getElementById(
+      "form-autofill-float-fab",
+    ) as HTMLButtonElement;
+
+    fab.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "Enter",
+        code: "Enter",
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    await new Promise((resolve) => {
+      setTimeout(resolve, 20);
+    });
+    expect(controller.open).toBe(true);
+
+    fab.dispatchEvent(escapeEvent("Esc"));
+    await waitForHandle(() => !controller.open);
+    expect(controller.open).toBe(false);
   });
 });

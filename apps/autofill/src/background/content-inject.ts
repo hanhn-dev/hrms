@@ -9,13 +9,14 @@ export function needsContentScriptInject(readyFrameCount: number): boolean {
 }
 
 /**
- * Probe/inject only for pick + scan (+ pick-fill). Instant FILL must not run
+ * Probe/inject only for pick + scan (+ pick-fill / pick-type). Instant FILL must not run
  * executeScript({ files }) or a readiness probe first — that flashes the live tab.
  */
 export function shouldPrepareContentScripts(messageType: string): boolean {
   return (
     messageType === MESSAGE.START_PICK_SCAN ||
     messageType === MESSAGE.START_PICK_FILL ||
+    messageType === MESSAGE.START_PICK_AUTO_TYPE ||
     messageType === MESSAGE.SCAN
   );
 }

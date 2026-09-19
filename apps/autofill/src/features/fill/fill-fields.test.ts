@@ -1,4 +1,3 @@
-import { describe, expect, it } from "vitest";
 import { fillFields } from "./fill-fields";
 import { setNativeValue } from "./react-fill";
 
@@ -315,5 +314,163 @@ describe("fillFields", () => {
     const active = document.getElementById("active") as HTMLInputElement;
     const inactive = document.getElementById("inactive") as HTMLInputElement;
     expect(active.checked || inactive.checked).toBe(true);
+  });
+
+  it("fills Bank Identifier Code without using leftover Account Type options (positive)", async () => {
+    document.body.innerHTML = `
+      <div class="MuiFormControl-root">
+        <label class="MuiInputLabel-root">Account Type</label>
+        <div class="MuiAutocomplete-root">
+          <input id="account-type" role="combobox" />
+          <button type="button" class="MuiAutocomplete-popupIndicator" id="open-type" title="Open">open</button>
+        </div>
+      </div>
+      <div id="ifsc-row">
+        <div class="MuiFormControl-root">
+          <label class="MuiInputLabel-root">Bank Identifier Code</label>
+          <div class="MuiAutocomplete-root">
+            <input id="ifsc" role="combobox" />
+            <button type="button" class="MuiAutocomplete-popupIndicator" id="open-ifsc" title="Open">open</button>
+          </div>
+        </div>
+        <button type="button" id="validate" disabled>Validate</button>
+      </div>
+      <div class="MuiFormControl-root">
+        <label class="MuiInputLabel-root">Bank Name</label>
+        <input id="bank-name" disabled />
+      </div>
+      <div class="MuiFormControl-root">
+        <label class="MuiInputLabel-root">Branch Name</label>
+        <input id="branch-name" disabled />
+      </div>
+    `;
+    const accountType = document.getElementById(
+      "account-type",
+    ) as HTMLInputElement;
+    const ifsc = document.getElementById("ifsc") as HTMLInputElement;
+    const bankName = document.getElementById("bank-name") as HTMLInputElement;
+    const branchName = document.getElementById(
+      "branch-name",
+    ) as HTMLInputElement;
+    const validate = document.getElementById("validate") as HTMLButtonElement;
+
+    document.getElementById("open-type")!.addEventListener("click", () => {
+      const popper = document.createElement("div");
+      popper.className = "MuiAutocomplete-popper";
+      popper.innerHTML = `<ul role="listbox"><li role="option">Savings</li></ul>`;
+      document.body.appendChild(popper);
+      popper.querySelector('[role="option"]')!.addEventListener("click", () => {
+        accountType.value = "Savings";
+      });
+    });
+    document.getElementById("open-ifsc")!.addEventListener("click", () => {
+      const popper = document.createElement("div");
+      popper.className = "MuiAutocomplete-popper";
+      popper.innerHTML = `<ul role="listbox"><li role="option">HDFC0001234</li></ul>`;
+      document.body.appendChild(popper);
+      popper.querySelector('[role="option"]')!.addEventListener("click", () => {
+        ifsc.value = "HDFC0001234";
+        validate.disabled = false;
+      });
+    });
+    validate.addEventListener("click", () => {
+      bankName.value = "HDFC Bank";
+      branchName.value = "MG Road";
+    });
+
+    const result = await fillFields();
+    expect(accountType.value).toBe("Savings");
+    expect(ifsc.value).toBe("HDFC0001234");
+    expect(result.filledCount).toBeGreaterThanOrEqual(2);
+    expect(result.skippedCount).toBeGreaterThanOrEqual(2);
+  });
+
+  it("clicks Validate after typing an IFSC with an empty master list (positive)", async () => {
+    document.body.innerHTML = `
+      <div class="MuiFormControl-root">
+        <label class="MuiInputLabel-root">Account Number</label>
+        <input id="account-number" type="text" />
+      </div>
+      <div id="ifsc-row">
+        <div class="MuiFormControl-root">
+          <label class="MuiInputLabel-root">Bank Identifier Code</label>
+          <input id="ifsc" role="combobox" />
+        </div>
+        <button type="button" id="validate" disabled>Validate</button>
+      </div>
+      <div class="MuiFormControl-root">
+        <label class="MuiInputLabel-root">Bank Name</label>
+        <input id="bank-name" disabled />
+      </div>
+    `;
+    const ifsc = document.getElementById("ifsc") as HTMLInputElement;
+    const validate = document.getElementById("validate") as HTMLButtonElement;
+    const bankName = document.getElementById("bank-name") as HTMLInputElement;
+    ifsc.addEventListener("input", () => {
+      if (/^[A-Z]{4}0[A-Z0-9]{6}$/i.test(ifsc.value)) {
+        validate.disabled = false;
+      }
+    });
+    validate.addEventListener("click", () => {
+      bankName.value = "State Bank of India";
+    });
+
+    await fillFields();
+    expect(ifsc.value).toMatch(/^[A-Z]{4}0[A-Z0-9]{6}$/i);
+    expect(bankName.value).toBe("State Bank of India");
+  });
+
+  it("does not click a disabled Validate button (negative)", async () => {
+    document.body.innerHTML = `
+      <div class="MuiFormControl-root">
+        <label class="MuiInputLabel-root">Account Number</label>
+        <input id="account-number" type="text" />
+      </div>
+      <div id="ifsc-row">
+        <div class="MuiFormControl-root">
+          <label class="MuiInputLabel-root">Bank Identifier Code</label>
+          <input id="ifsc" role="combobox" />
+        </div>
+        <button type="button" id="validate" disabled>Validate</button>
+      </div>
+    `;
+    const validate = document.getElementById("validate") as HTMLButtonElement;
+    let clicked = false;
+    validate.addEventListener("click", () => {
+      clicked = true;
+    });
+    Object.defineProperty(validate, "disabled", {
+      get: () => true,
+      configurable: true,
+    });
+
+    await fillFields();
+    expect(clicked).toBe(false);
+  });
+
+  it("leaves disabled Bank Name empty when Validate is absent (edge)", async () => {
+    document.body.innerHTML = `
+      <div class="MuiFormControl-root">
+        <label class="MuiInputLabel-root">Bank Identifier Code</label>
+        <input id="ifsc" role="combobox" />
+      </div>
+      <div class="MuiFormControl-root">
+        <label class="MuiInputLabel-root">Bank Name</label>
+        <input id="bank-name" disabled />
+      </div>
+      <div class="MuiFormControl-root">
+        <label class="MuiInputLabel-root">Branch Name</label>
+        <input id="branch-name" disabled />
+      </div>
+    `;
+    const ifsc = document.getElementById("ifsc") as HTMLInputElement;
+    await fillFields();
+    expect(ifsc.value).toMatch(/^[A-Z]{4}0[A-Z0-9]{6}$/i);
+    expect(
+      (document.getElementById("bank-name") as HTMLInputElement).value,
+    ).toBe("");
+    expect(
+      (document.getElementById("branch-name") as HTMLInputElement).value,
+    ).toBe("");
   });
 });

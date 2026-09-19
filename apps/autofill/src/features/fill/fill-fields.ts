@@ -1,4 +1,9 @@
-import { generateDateRange, generateValue } from "@/shared/generators";
+import {
+  generateDateRange,
+  generateValue,
+  isIfscCode,
+  isIfscLabel,
+} from "@/shared/generators";
 import type { ScannedField } from "@/shared/messaging";
 import { findElementForField, scanFields } from "@/features/scan";
 import { fillDatePicker } from "./fill-date-picker";
@@ -26,6 +31,44 @@ function isDateField(field: ScannedField): boolean {
   return (
     field.kind === "date" || labelLower === "from" || labelLower === "to"
   );
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Bank Name / Branch Name are disabled and populated from IFSC. After filling
+ * a code that is not in the master, click the adjacent Validate control.
+ */
+function findNearbyValidateButton(
+  element: Element,
+): HTMLButtonElement | null {
+  let node: Element | null = element;
+  for (let depth = 0; depth < 8 && node; depth += 1) {
+    const match = Array.from(node.querySelectorAll("button")).find((btn) => {
+      if (!(btn instanceof HTMLButtonElement) || btn.disabled) {
+        return false;
+      }
+      const haystack = `${btn.textContent || ""} ${btn.getAttribute("aria-label") || ""}`;
+      return /validate/i.test(haystack);
+    });
+    if (match instanceof HTMLButtonElement) {
+      return match;
+    }
+    node = node.parentElement;
+  }
+  return null;
+}
+
+async function clickNearbyValidate(element: Element): Promise<void> {
+  await sleep(80);
+  const button = findNearbyValidateButton(element);
+  if (!button) {
+    return;
+  }
+  button.click();
+  await sleep(150);
 }
 
 function isFillable(field: ScannedField): boolean {
@@ -106,7 +149,14 @@ export async function fillFields(
           await fillAutocomplete(
             element as HTMLInputElement | HTMLSelectElement,
             value,
+            {
+              allowTypedValue:
+                isIfscLabel(field.label) || isIfscCode(value),
+            },
           );
+          if (isIfscLabel(field.label)) {
+            await clickNearbyValidate(element);
+          }
         } else if (
           field.kind === "radio" ||
           (element instanceof HTMLInputElement && element.type === "radio")

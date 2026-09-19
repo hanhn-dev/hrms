@@ -7,6 +7,7 @@ import {
   type FillRequest,
   type ScanRequest,
   type ScannedField,
+  type StartPickAutoTypeRequest,
 } from "@/shared/messaging";
 import { showPageToast, toastFillResult } from "@/shared/page-toast";
 import {
@@ -22,7 +23,13 @@ import {
   startElementPicker,
   cancelElementPicker,
 } from "@/features/pick-scan";
-import { mountFloatMenu } from "@/features/float-menu";
+import { mountFloatMenu, type FloatMenuActionId, type FloatMenuController } from "@/features/float-menu";
+import {
+  defaultSendMessage,
+  executeFloatMenuAction,
+} from "@/features/float-menu/float-menu-logic";
+import { bindPageShortcuts } from "@/features/shortcuts";
+import { isAllowedPageUrl } from "@/shared/allowed-hosts";
 
 /** Last element under a context-menu click. */
 let lastContextTarget: Element | null = null;
@@ -169,6 +176,59 @@ async function handleStartPickFill(): Promise<AutofillResponse> {
   return { ok: true, started: true };
 }
 
+/**
+ * Inspector pick a single control, then keystroke-type into it.
+ */
+async function handleStartPickAutoType(
+  request: StartPickAutoTypeRequest,
+): Promise<AutofillResponse> {
+  if (countFillableControls(document) === 0) {
+    return { ok: true, started: false };
+  }
+
+  void (async () => {
+    const result = await startElementPicker({
+      mode: "control",
+      bannerText: "Click the field to auto-type · Esc cancels",
+      announceScan: false,
+    });
+    if (!result?.element) {
+      return;
+    }
+    lastRootSelector = result.rootSelector;
+    notifyFieldsUpdated(result.fields, result.rootSelector);
+    chrome.runtime.sendMessage({ type: MESSAGE.CANCEL_PICK_SCAN }).catch(() => {
+      /* ignore */
+    });
+
+    const field = result.fields[0];
+    if (!field) {
+      showPageToast("Autofill: no editable field found for auto-type", "error");
+      return;
+    }
+
+    try {
+      const typed = await autoTypeField({
+        field,
+        element: result.element,
+        typingDelayMs: request.typingDelayMs,
+        startWithInvalid: request.startWithInvalid,
+      });
+      showPageToast(`Autofill: typed into ${typed.label}`, "success");
+    } catch (error) {
+      const messageText =
+        error instanceof Error ? error.message : "Auto-type failed";
+      showPageToast(`Autofill: ${messageText}`, "error");
+    }
+  })();
+
+  showPageToast(
+    "Click a field in this frame to auto-type (Esc to cancel)",
+    "info",
+  );
+  return { ok: true, started: true };
+}
+
 async function handleCancelPickScan(): Promise<AutofillResponse> {
   cancelElementPicker();
   return { ok: true, cancelled: true };
@@ -249,10 +309,6 @@ async function handleAutoType(
     field = fields.find((f) => f.id === request.fieldId);
   }
 
-  if (!field && fields.length > 0) {
-    field = fields.find((f) => !f.disabled && !f.readOnly) ?? fields[0];
-  }
-
   if (!field) {
     showPageToast("Autofill: no editable field found for auto-type", "error");
     return { ok: false, error: "No editable field found for auto-type" };
@@ -270,6 +326,21 @@ async function handleAutoType(
   return { ok: true, ...result };
 }
 
+async function handleToggleFloatMenu(): Promise<AutofillResponse> {
+  const host = globalThis as ContentScriptHost;
+  const toggled = host.__FORM_AUTOFILL__?.toggleMenu?.() === true;
+  if (!toggled) {
+    return { ok: true, started: false };
+  }
+  return { ok: true, toggled: true };
+}
+
+async function handleCloseFloatMenu(): Promise<AutofillResponse> {
+  const host = globalThis as ContentScriptHost;
+  const closed = host.__FORM_AUTOFILL__?.closeMenu?.() === true;
+  return { ok: true, closed };
+}
+
 export async function dispatchAutofillMessage(
   message: AutofillRequest,
 ): Promise<AutofillResponse> {
@@ -280,8 +351,14 @@ export async function dispatchAutofillMessage(
       return handleStartPickScan();
     case MESSAGE.START_PICK_FILL:
       return handleStartPickFill();
+    case MESSAGE.START_PICK_AUTO_TYPE:
+      return handleStartPickAutoType(message);
     case MESSAGE.CANCEL_PICK_SCAN:
       return handleCancelPickScan();
+    case MESSAGE.TOGGLE_FLOAT_MENU:
+      return handleToggleFloatMenu();
+    case MESSAGE.CLOSE_FLOAT_MENU:
+      return handleCloseFloatMenu();
     case MESSAGE.FILL:
       return handleFill(message);
     case MESSAGE.AUTO_TYPE:
@@ -295,10 +372,19 @@ export async function dispatchAutofillMessage(
 }
 
 type ContentScriptHost = typeof globalThis & {
-  __FORM_AUTOFILL__?: { dispatch: typeof dispatchAutofillMessage };
+  __FORM_AUTOFILL__?: {
+    dispatch: typeof dispatchAutofillMessage;
+    toggleMenu?: () => boolean;
+    closeMenu?: () => boolean;
+    runAction?: (actionId: FloatMenuActionId) => Promise<void>;
+  };
 };
 
 function startContentScript(): void {
+  if (!isAllowedPageUrl(location.href)) {
+    return;
+  }
+
   const host = globalThis as ContentScriptHost;
   if (host.__FORM_AUTOFILL__) {
     // executeScript can re-run this file; do not remount UI or stack listeners.
@@ -307,8 +393,56 @@ function startContentScript(): void {
   }
 
   trackContextTarget();
-  mountFloatMenu();
-  host.__FORM_AUTOFILL__ = { dispatch: dispatchAutofillMessage };
+  const floatMenu: FloatMenuController | null = mountFloatMenu();
+  host.__FORM_AUTOFILL__ = {
+    dispatch: dispatchAutofillMessage,
+    toggleMenu: () => {
+      if (!floatMenu) {
+        return false;
+      }
+      floatMenu.setOpen(!floatMenu.open);
+      return true;
+    },
+    closeMenu: () => {
+      if (!floatMenu?.open) {
+        return false;
+      }
+      floatMenu.setOpen(false);
+      return true;
+    },
+    runAction: async (actionId) => {
+      if (floatMenu) {
+        await floatMenu.runAction(actionId);
+        return;
+      }
+      await executeFloatMenuAction(actionId, defaultSendMessage);
+    },
+  };
+
+  bindPageShortcuts({
+    onAction: (actionId) => {
+      void host.__FORM_AUTOFILL__?.runAction?.(actionId);
+    },
+    onToggleMenu: () => {
+      const toggled = host.__FORM_AUTOFILL__?.toggleMenu?.() === true;
+      if (!toggled) {
+        // Nested frames have no FAB; ask the top frame via the service worker.
+        void chrome.runtime.sendMessage({ type: MESSAGE.TOGGLE_FLOAT_MENU });
+      }
+    },
+    onEscape: (event) => {
+      const closed = host.__FORM_AUTOFILL__?.closeMenu?.() === true;
+      if (closed) {
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
+      if (!floatMenu) {
+        // Nested frames never mount the FAB; close the top-frame menu if open.
+        void chrome.runtime.sendMessage({ type: MESSAGE.CLOSE_FLOAT_MENU });
+      }
+    },
+  });
 
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     void dispatchAutofillMessage(message as AutofillRequest)

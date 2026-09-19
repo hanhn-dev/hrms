@@ -1,4 +1,8 @@
 import { defineManifest } from "@crxjs/vite-plugin";
+import { ALLOWED_HOST_MATCH_PATTERNS } from "./src/shared/allowed-hosts";
+import { getChromeCommandsManifest } from "./src/features/shortcuts";
+
+const allowedHosts = [...ALLOWED_HOST_MATCH_PATTERNS];
 
 export default defineManifest({
   manifest_version: 3,
@@ -27,13 +31,14 @@ export default defineManifest({
     type: "module",
   },
   permissions: ["contextMenus", "storage", "activeTab", "scripting"],
-  host_permissions: ["<all_urls>"],
+  host_permissions: allowedHosts,
   content_scripts: [
     {
-      matches: ["<all_urls>"],
+      matches: allowedHosts,
       js: ["src/content/content-script.ts"],
       run_at: "document_idle",
       all_frames: true,
     },
   ],
+  commands: getChromeCommandsManifest(),
 });

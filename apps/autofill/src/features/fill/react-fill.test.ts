@@ -1,4 +1,3 @@
-import { describe, expect, it, vi } from "vitest";
 import { dismissOpenOverlays, fillAutocomplete, fillRadio } from "./react-fill";
 
 describe("dismissOpenOverlays", () => {
@@ -122,6 +121,67 @@ describe("fillAutocomplete", () => {
     expect(input.value).toBe("GBP");
   });
 
+  it("does not pick leftover options from another Autocomplete (negative)", async () => {
+    document.body.innerHTML = `
+      <div class="MuiAutocomplete-root">
+        <label>Account Type</label>
+        <input id="account-type" role="combobox" />
+      </div>
+      <div class="MuiAutocomplete-popper" id="leftover">
+        <ul role="listbox">
+          <li role="option">Savings</li>
+          <li role="option">Current</li>
+        </ul>
+      </div>
+      <div class="MuiAutocomplete-root">
+        <label>Bank Identifier Code</label>
+        <input id="ifsc" role="combobox" />
+        <button type="button" class="MuiAutocomplete-popupIndicator" title="Open">open</button>
+      </div>
+    `;
+    const leftover = document.getElementById("leftover") as HTMLElement;
+    leftover.querySelectorAll('[role="option"]').forEach((node) => {
+      node.addEventListener("click", () => {
+        leftover.dataset.picked = (node.textContent || "").trim();
+      });
+    });
+    const input = document.getElementById("ifsc") as HTMLInputElement;
+    document
+      .querySelector(".MuiAutocomplete-popupIndicator")!
+      .addEventListener("click", () => {
+        const popper = document.createElement("div");
+        popper.className = "MuiAutocomplete-popper";
+        popper.innerHTML = `
+          <ul role="listbox">
+            <li role="option">HDFC0001234</li>
+            <li role="option">SBIN0005943</li>
+          </ul>
+        `;
+        document.body.appendChild(popper);
+        popper.querySelectorAll('[role="option"]').forEach((node) => {
+          node.addEventListener("click", () => {
+            input.value = (node.textContent || "").trim();
+          });
+        });
+      });
+
+    await fillAutocomplete(input, "SBIN0005943");
+    expect(input.value).toBe("SBIN0005943");
+    expect(leftover.dataset.picked).toBeUndefined();
+  });
+
+  it("types an IFSC when this combobox has no options (positive)", async () => {
+    document.body.innerHTML = `
+      <div class="MuiAutocomplete-popper">
+        <ul role="listbox"><li role="option">Savings</li></ul>
+      </div>
+      <input id="ifsc" role="combobox" />
+    `;
+    const input = document.getElementById("ifsc") as HTMLInputElement;
+    await fillAutocomplete(input, "SBIN0005943", { allowTypedValue: true });
+    expect(input.value).toBe("SBIN0005943");
+  });
+
   it("does nothing when the list has no options (negative)", async () => {
     document.body.innerHTML = `<input id="currency" role="combobox" />`;
     const input = document.getElementById("currency") as HTMLInputElement;
@@ -129,6 +189,13 @@ describe("fillAutocomplete", () => {
     await fillAutocomplete(input, "INR");
     expect(input.value).toBe("");
     expect(spy).not.toHaveBeenCalled();
+  });
+
+  it("does not type into a readOnly combobox without options (edge)", async () => {
+    document.body.innerHTML = `<input id="ifsc" role="combobox" readonly />`;
+    const input = document.getElementById("ifsc") as HTMLInputElement;
+    await fillAutocomplete(input, "SBIN0005943", { allowTypedValue: true });
+    expect(input.value).toBe("");
   });
 });
 

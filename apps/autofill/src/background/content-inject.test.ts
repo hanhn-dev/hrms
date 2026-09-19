@@ -1,4 +1,3 @@
-import { describe, expect, it } from "vitest";
 import { MESSAGE } from "@/shared/messaging";
 import {
   needsContentScriptInject,
@@ -22,9 +21,12 @@ describe("needsContentScriptInject", () => {
 });
 
 describe("shouldPrepareContentScripts", () => {
-  it("prepares for pick, pick-fill, and scan (positive)", () => {
+  it("prepares for pick, pick-fill, pick-type, and scan (positive)", () => {
     expect(shouldPrepareContentScripts(MESSAGE.START_PICK_SCAN)).toBe(true);
     expect(shouldPrepareContentScripts(MESSAGE.START_PICK_FILL)).toBe(true);
+    expect(shouldPrepareContentScripts(MESSAGE.START_PICK_AUTO_TYPE)).toBe(
+      true,
+    );
     expect(shouldPrepareContentScripts(MESSAGE.SCAN)).toBe(true);
   });
 
@@ -35,5 +37,7 @@ describe("shouldPrepareContentScripts", () => {
   it("does not prepare for unknown types (edge)", () => {
     expect(shouldPrepareContentScripts("")).toBe(false);
     expect(shouldPrepareContentScripts(MESSAGE.AUTO_TYPE)).toBe(false);
+    expect(shouldPrepareContentScripts(MESSAGE.TOGGLE_FLOAT_MENU)).toBe(false);
+    expect(shouldPrepareContentScripts(MESSAGE.CLOSE_FLOAT_MENU)).toBe(false);
   });
 });

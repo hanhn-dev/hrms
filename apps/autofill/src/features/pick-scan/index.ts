@@ -3,4 +3,4 @@ export {
   cancelElementPicker,
   isPickerActive,
 } from "./element-picker";
-export type { PickScanResult } from "./element-picker";
+export type { PickScanResult, StartPickerOptions, PickMode } from "./element-picker";

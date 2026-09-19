@@ -1,6 +1,7 @@
-import { describe, expect, it } from "vitest";
 import {
   countFillableControls,
+  pickHighlightHost,
+  resolvePickControl,
   resolvePickRoot,
   scanFromElement,
 } from "./resolve-pick-root";
@@ -102,5 +103,47 @@ describe("scanFromElement", () => {
     expect(result.fieldCount).toBe(2);
     expect(result.fields.some((f) => f.label === "Company Name")).toBe(true);
     expect(result.rootSelector).toContain("data-form-autofill-root");
+  });
+});
+
+describe("resolvePickControl", () => {
+  it("resolves the input inside a wrapping label (positive)", () => {
+    document.body.innerHTML = `
+      <label id="wrap">Company Name<input id="company" /></label>
+    `;
+    const control = resolvePickControl(document.getElementById("wrap")!);
+    expect(control?.id).toBe("company");
+  });
+
+  it("ignores header search / page chrome and button inputs (negative)", () => {
+    document.body.innerHTML = `
+      <header><input id="search" placeholder="Search employees" /></header>
+      <main>
+        <input id="save" type="button" value="Save" />
+        <div id="empty">Not a field</div>
+      </main>
+    `;
+    expect(resolvePickControl(document.getElementById("search")!)).toBeNull();
+    expect(resolvePickControl(document.getElementById("save")!)).toBeNull();
+    expect(resolvePickControl(document.getElementById("empty")!)).toBeNull();
+  });
+
+  it("resolves a MUI FormControl host and a radio option (edge)", () => {
+    document.body.innerHTML = `
+      <div id="fc" class="MuiFormControl-root">
+        <label class="MuiInputLabel-root">Roles</label>
+        <input id="roles" type="text" />
+      </div>
+      <div role="radiogroup" aria-label="Government Employee">
+        <label id="yes-label"><input id="yes" type="radio" name="gov" value="Yes" />YES</label>
+      </div>
+    `;
+    const fromHost = resolvePickControl(document.getElementById("fc")!);
+    expect(fromHost?.id).toBe("roles");
+    expect(pickHighlightHost(fromHost!).id).toBe("fc");
+
+    const radio = resolvePickControl(document.getElementById("yes-label")!);
+    expect(radio).toBeInstanceOf(HTMLInputElement);
+    expect((radio as HTMLInputElement).type).toBe("radio");
   });
 });

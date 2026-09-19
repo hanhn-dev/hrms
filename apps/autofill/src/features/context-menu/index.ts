@@ -1,1 +1,6 @@
-export { MENU_IDS, createContextMenus, isAutofillMenuId } from "./menus";
+export {
+  MENU_IDS,
+  createContextMenus,
+  getContextMenuCreateProperties,
+  isAutofillMenuId,
+} from "./menus";

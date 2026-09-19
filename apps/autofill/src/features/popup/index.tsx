@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Alert, Card, Divider, Typography, message } from "antd";
 import {
   DEFAULT_SETTINGS,
@@ -7,6 +7,10 @@ import {
   type AutofillResponse,
   type ScannedField,
 } from "@/shared/messaging";
+import {
+  bindPageShortcuts,
+  resolvePopupShortcutAction,
+} from "@/features/shortcuts";
 import { ActionBar } from "./ActionBar";
 import { FieldList } from "./FieldList";
 import { TypeSettings } from "./TypeSettings";
@@ -136,6 +140,35 @@ export function PopupPanel() {
     }
   };
 
+  const handlePickAutoType = async () => {
+    setPicking(true);
+    setError(null);
+    try {
+      const response = await sendMessage<AutofillResponse>({
+        type: MESSAGE.START_PICK_AUTO_TYPE,
+        typingDelayMs: settings.typingDelayMs,
+        startWithInvalid: settings.startWithInvalid,
+      });
+      if (!response.ok) {
+        setError(response.error);
+        setPicking(false);
+        return;
+      }
+      if (!("started" in response) || response.started !== true) {
+        setError(
+          "Pick mode did not start on any frame. Refresh the page and try again.",
+        );
+        setPicking(false);
+        return;
+      }
+      message.info("Click a field to auto-type…");
+      window.close();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+      setPicking(false);
+    }
+  };
+
   const handleFillSelected = async () => {
     setFilling(true);
     setError(null);
@@ -198,6 +231,67 @@ export function PopupPanel() {
     await sendMessage({ type: MESSAGE.SET_SETTINGS, settings: patch });
   };
 
+  const shortcutActionsRef = useRef({
+    busy: false,
+    hasSelection: false,
+    pickScan: handlePickScan,
+    scanPage: handleScanPage,
+    pickFill: handlePickFill,
+    fillSelected: handleFillSelected,
+    pickAutoType: handlePickAutoType,
+    autoType: handleAutoType,
+  });
+  shortcutActionsRef.current = {
+    busy: scanning || picking || filling || typing,
+    hasSelection: selectedIds.length > 0,
+    pickScan: handlePickScan,
+    scanPage: handleScanPage,
+    pickFill: handlePickFill,
+    fillSelected: handleFillSelected,
+    pickAutoType: handlePickAutoType,
+    autoType: handleAutoType,
+  };
+
+  useEffect(() => {
+    return bindPageShortcuts({
+      document,
+      onAction: (actionId) => {
+        const actions = shortcutActionsRef.current;
+        if (actions.busy) {
+          return;
+        }
+        const popupAction = resolvePopupShortcutAction(
+          actionId,
+          actions.hasSelection,
+        );
+        switch (popupAction) {
+          case "pick-scan":
+            void actions.pickScan();
+            break;
+          case "scan-page":
+            void actions.scanPage();
+            break;
+          case "pick-fill":
+            void actions.pickFill();
+            break;
+          case "fill-selected":
+            void actions.fillSelected();
+            break;
+          case "pick-auto-type":
+            void actions.pickAutoType();
+            break;
+          case "auto-type":
+            void actions.autoType();
+            break;
+          default:
+            break;
+        }
+      },
+    });
+    // Bind once; shortcutActionsRef always has the latest handlers.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional mount-only
+  }, []);
+
   return (
     <Card
       size="small"
@@ -233,7 +327,10 @@ export function PopupPanel() {
       <Typography.Paragraph type="secondary" className="autofill:!mb-2 autofill:text-xs">
         Use <strong>Pick &amp; scan</strong> or <strong>Pick &amp; fill</strong>{" "}
         like DevTools inspector: click the form section (or any field inside it)
-        to capture or fill that area.
+        to capture or fill that area. <strong>Pick &amp; type</strong> highlights
+        a single field — click it to keystroke-type. Shortcuts:{" "}
+        <strong>Alt+Shift+P</strong> / <strong>S</strong> / <strong>F</strong> /{" "}
+        <strong>T</strong>.
       </Typography.Paragraph>
 
       <ActionBar
@@ -246,6 +343,7 @@ export function PopupPanel() {
         onPickScan={() => void handlePickScan()}
         onPickFill={() => void handlePickFill()}
         onFillSelected={() => void handleFillSelected()}
+        onPickAutoType={() => void handlePickAutoType()}
         onAutoTypeSelected={() => void handleAutoType()}
       />
 

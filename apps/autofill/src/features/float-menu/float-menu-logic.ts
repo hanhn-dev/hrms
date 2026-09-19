@@ -35,7 +35,7 @@ export const FLOAT_MENU_ITEMS: readonly FloatMenuItem[] = [
   { id: "pick-scan", label: "Pick & scan", icon: "aim" },
   { id: "scan-page", label: "Scan page", icon: "reload" },
   { id: "pick-fill", label: "Pick & fill", icon: "form" },
-  { id: "auto-type", label: "Auto-type", icon: "fontSize" },
+  { id: "auto-type", label: "Pick & type", icon: "fontSize" },
 ] as const;
 
 const ACTION_IDS = new Set<string>(FLOAT_MENU_ITEMS.map((item) => item.id));
@@ -70,7 +70,7 @@ export function buildRequestForAction(
       return { type: MESSAGE.START_PICK_FILL };
     case "auto-type":
       return {
-        type: MESSAGE.AUTO_TYPE,
+        type: MESSAGE.START_PICK_AUTO_TYPE,
         typingDelayMs: settings.typingDelayMs,
         startWithInvalid: settings.startWithInvalid,
       };
@@ -215,6 +215,15 @@ export function toastForResponse(
   if (actionId === "pick-fill") {
     if ("started" in response && response.started === true) {
       showPageToast("Click a form section to fill (Esc to cancel)", "info");
+    } else {
+      showPageToast("Pick mode did not start on any frame", "error");
+    }
+    return;
+  }
+
+  if (actionId === "auto-type") {
+    if ("started" in response && response.started === true) {
+      showPageToast("Click a field to auto-type (Esc to cancel)", "info");
     } else {
       showPageToast("Pick mode did not start on any frame", "error");
     }

@@ -112,16 +112,61 @@ function isUsableOption(el: Element): el is HTMLElement {
   return (el.textContent || "").trim().length > 0;
 }
 
-function collectListOptions(): HTMLElement[] {
-  return Array.from(
-    document.querySelectorAll(
-      [
-        '.MuiAutocomplete-popper [role="option"]',
-        '.MuiPopover-root [role="option"]',
-        '[role="listbox"] [role="option"]',
-      ].join(", "),
-    ),
-  ).filter(isUsableOption);
+function optionsIn(root: ParentNode | Element | null): HTMLElement[] {
+  if (!root) {
+    return [];
+  }
+  return Array.from(root.querySelectorAll('[role="option"]')).filter(
+    isUsableOption,
+  );
+}
+
+function optionsFromAria(element: HTMLElement): HTMLElement[] {
+  const ids = [
+    element.getAttribute("aria-controls"),
+    element.getAttribute("aria-owns"),
+  ]
+    .filter((value): value is string => Boolean(value))
+    .flatMap((value) => value.split(/\s+/).filter(Boolean));
+
+  const collected: HTMLElement[] = [];
+  for (const id of ids) {
+    collected.push(...optionsIn(document.getElementById(id)));
+  }
+  return collected;
+}
+
+const POPPER_SELECTOR = ".MuiAutocomplete-popper, .MuiPopover-root";
+
+/**
+ * Options that belong to *this* combobox — never leftover lists from Account
+ * Type / Currency still sitting in the DOM after the previous field filled.
+ */
+function collectListOptionsFor(
+  element: HTMLElement,
+  newPoppers: Element[],
+): HTMLElement[] {
+  const fromAria = optionsFromAria(element);
+  if (fromAria.length > 0) {
+    return fromAria;
+  }
+  for (const popper of newPoppers) {
+    const fromPopper = optionsIn(popper);
+    if (fromPopper.length > 0) {
+      return fromPopper;
+    }
+  }
+  return [];
+}
+
+function snapshotPoppers(): Set<Element> {
+  return new Set(document.querySelectorAll(POPPER_SELECTOR));
+}
+
+function poppersOpenedSince(before: Set<Element>): Element[] {
+  return Array.from(document.querySelectorAll(POPPER_SELECTOR)).filter(
+    (node) => !before.has(node),
+  );
 }
 
 function matchOption(
@@ -182,6 +227,15 @@ function fillNativeSelect(
   dispatchBlur(element);
 }
 
+export interface FillAutocompleteOptions {
+  /**
+   * When this combobox has no pickable options (freeSolo IFSC, empty master),
+   * type `preferred` instead of leaving the field blank. Do not use for
+   * ordinary Autocomplete — typed values revert on blur.
+   */
+  allowTypedValue?: boolean;
+}
+
 /**
  * Fill MUI Autocomplete / native <select> by choosing a real option.
  * Typing into Autocomplete does not fire onChange (not freeSolo) so the value
@@ -190,50 +244,77 @@ function fillNativeSelect(
 export async function fillAutocomplete(
   element: HTMLInputElement | HTMLSelectElement,
   preferred?: string,
+  fillOptions: FillAutocompleteOptions = {},
 ): Promise<void> {
   if (element instanceof HTMLSelectElement) {
     fillNativeSelect(element, preferred);
     return;
   }
 
+  const beforePoppers = snapshotPoppers();
   const indicator = findPopupIndicator(element);
   if (indicator) {
     indicator.click();
   } else {
     element.click();
   }
-  await sleep(80);
 
-  let options = collectListOptions();
+  let options: HTMLElement[] = [];
+  let newPoppers: Element[] = [];
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    await sleep(80);
+    newPoppers = poppersOpenedSince(beforePoppers);
+    options = collectListOptionsFor(element, newPoppers);
+    if (options.length > 0) {
+      break;
+    }
+    if (optionsFromAria(element).length === 0 && newPoppers.length > 0) {
+      // This field opened an empty list — don't wait for leftover lists.
+      break;
+    }
+    if (!indicator && newPoppers.length === 0 && attempt === 0) {
+      break;
+    }
+  }
+
   if (
     options.length === 0 &&
     preferred &&
     preferred.length <= 12 &&
-    document.querySelector(
-      '.MuiAutocomplete-popper, .MuiPopover-root [role="listbox"], [role="listbox"]',
-    )
+    (newPoppers.length > 0 || optionsFromAria(element).length > 0)
   ) {
     // Short codes like INR can filter an already-open list; random sentences cannot.
     setNativeValue(element, preferred);
     await sleep(80);
-    options = collectListOptions();
+    newPoppers = poppersOpenedSince(beforePoppers);
+    options = collectListOptionsFor(element, newPoppers);
   }
 
   const option = matchOption(options, preferred);
-  if (!option) {
+  if (option) {
+    option.scrollIntoView?.({ block: "nearest" });
+    try {
+      option.dispatchEvent(
+        new MouseEvent("mousedown", { bubbles: true, cancelable: true }),
+      );
+    } catch {
+      // jsdom / older runtimes
+    }
+    option.click();
+    await sleep(40);
     return;
   }
 
-  option.scrollIntoView?.({ block: "nearest" });
-  try {
-    option.dispatchEvent(
-      new MouseEvent("mousedown", { bubbles: true, cancelable: true }),
-    );
-  } catch {
-    // jsdom / older runtimes
+  if (
+    fillOptions.allowTypedValue &&
+    preferred &&
+    !element.readOnly &&
+    !element.disabled
+  ) {
+    element.focus();
+    setNativeValue(element, preferred);
+    dispatchBlur(element);
   }
-  option.click();
-  await sleep(40);
 }
 
 function radiosInGroup(element: HTMLInputElement): HTMLInputElement[] {
