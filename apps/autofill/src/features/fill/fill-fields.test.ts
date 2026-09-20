@@ -343,7 +343,7 @@ describe("fillFields", () => {
     expect(result.filledCount).toBe(0);
   });
 
-  it("leaves an already-checked radio checked (edge)", async () => {
+  it("skips an already-checked radio by default (edge)", async () => {
     document.body.innerHTML = `
       <fieldset>
         <legend>Status</legend>
@@ -352,10 +352,53 @@ describe("fillFields", () => {
       </fieldset>
     `;
     const result = await fillFields();
-    expect(result.filledCount).toBe(1);
+    expect(result.filledCount).toBe(0);
+    expect(
+      result.entries.find((e) => e.status === "skipped")?.reason,
+    ).toBe("Already filled");
     const active = document.getElementById("active") as HTMLInputElement;
-    const inactive = document.getElementById("inactive") as HTMLInputElement;
-    expect(active.checked || inactive.checked).toBe(true);
+    expect(active.checked).toBe(true);
+  });
+
+  it("skips a pre-filled text input by default (negative)", async () => {
+    document.body.innerHTML = `
+      <label for="company">Company Name</label>
+      <input id="company" type="text" value="Acme Corp" />
+    `;
+    const result = await fillFields();
+    expect(result.filledCount).toBe(0);
+    expect(result.skippedCount).toBeGreaterThanOrEqual(1);
+    expect(
+      result.entries.find((e) => e.status === "skipped")?.reason,
+    ).toBe("Already filled");
+    expect(
+      (document.getElementById("company") as HTMLInputElement).value,
+    ).toBe("Acme Corp");
+  });
+
+  it("fills a whitespace-only text input (edge)", async () => {
+    document.body.innerHTML = `
+      <label for="company">Company Name</label>
+      <input id="company" type="text" value="   " />
+    `;
+    const result = await fillFields();
+    expect(result.filledCount).toBe(1);
+    expect(
+      (document.getElementById("company") as HTMLInputElement).value.trim()
+        .length,
+    ).toBeGreaterThan(0);
+  });
+
+  it("overwrites a pre-filled text input when overwrite is enabled (positive)", async () => {
+    document.body.innerHTML = `
+      <label for="company">Company Name</label>
+      <input id="company" type="text" value="Acme Corp" />
+    `;
+    const result = await fillFields({ overwriteExistingValues: true });
+    expect(result.filledCount).toBe(1);
+    expect(
+      (document.getElementById("company") as HTMLInputElement).value,
+    ).not.toBe("Acme Corp");
   });
 
   it("fills Bank Identifier Code without using leftover Account Type options (positive)", async () => {

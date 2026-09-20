@@ -163,6 +163,7 @@ export function PopupPanel() {
         type: MESSAGE.START_PICK_FILL,
         personaId: settings.activePersonaId,
         scenarioId: settings.activeScenarioId,
+        overwriteExistingValues: settings.overwriteExistingValues,
       });
       if (!response.ok) {
         setError(response.error);
@@ -225,6 +226,7 @@ export function PopupPanel() {
         rootSelector,
         personaId: settings.activePersonaId,
         scenarioId: settings.activeScenarioId,
+        overwriteExistingValues: settings.overwriteExistingValues,
       });
       if (!response.ok) {
         setError(response.error);

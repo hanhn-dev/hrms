@@ -1,4 +1,8 @@
-import { MESSAGE, type AutofillResponse } from "@/shared/messaging";
+import {
+  DEFAULT_SETTINGS,
+  MESSAGE,
+  type AutofillResponse,
+} from "@/shared/messaging";
 import {
   FLOAT_MENU_ITEMS,
   FAB_SIZE,
@@ -61,6 +65,7 @@ describe("float menu items", () => {
       type: MESSAGE.START_PICK_FILL,
       personaId: "random-valid",
       scenarioId: "none",
+      overwriteExistingValues: false,
     });
     expect(
       buildRequestForAction("auto-type", {
@@ -68,12 +73,22 @@ describe("float menu items", () => {
         startWithInvalid: true,
         activePersonaId: "invalid-contact",
         activeScenarioId: "contact",
+        overwriteExistingValues: true,
       }),
     ).toEqual({
       type: MESSAGE.START_PICK_AUTO_TYPE,
       typingDelayMs: 40,
       startWithInvalid: true,
       personaId: "invalid-contact",
+    });
+    expect(
+      buildRequestForAction("pick-fill", {
+        ...DEFAULT_SETTINGS,
+        overwriteExistingValues: true,
+      }),
+    ).toMatchObject({
+      type: MESSAGE.START_PICK_FILL,
+      overwriteExistingValues: true,
     });
   });
 

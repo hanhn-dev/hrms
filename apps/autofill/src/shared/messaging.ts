@@ -92,6 +92,8 @@ export interface AutofillSettings {
   startWithInvalid: boolean;
   activePersonaId: PersonaId;
   activeScenarioId: ScenarioId;
+  /** When true, Fill replaces non-empty values. Default skips them. */
+  overwriteExistingValues: boolean;
 }
 
 export const DEFAULT_SETTINGS: AutofillSettings = {
@@ -99,6 +101,7 @@ export const DEFAULT_SETTINGS: AutofillSettings = {
   startWithInvalid: false,
   activePersonaId: "random-valid",
   activeScenarioId: "none",
+  overwriteExistingValues: false,
 };
 
 export interface ScanRequest {
@@ -124,6 +127,8 @@ export interface FillRequest {
   useMarkedRoot?: boolean;
   personaId?: PersonaId;
   scenarioId?: ScenarioId;
+  /** When true, replace non-empty values. Default skips already-filled. */
+  overwriteExistingValues?: boolean;
 }
 
 export interface FillResponse {
@@ -200,6 +205,8 @@ export interface StartPickFillRequest {
   type: typeof MESSAGE.START_PICK_FILL;
   personaId?: PersonaId;
   scenarioId?: ScenarioId;
+  /** When true, replace non-empty values. Default skips already-filled. */
+  overwriteExistingValues?: boolean;
 }
 
 export interface StartPickAutoTypeRequest {

@@ -77,6 +77,7 @@ Thin adapters: `src/background/service-worker.ts`, `src/content/content-script.t
 
 - **Persona** — `Random valid` (default) or `Invalid email / phone` for validation UI.
 - **Scenario pack** — optional My Details fixtures (`Bank (India)`, `Employment dates`, `Contact`).
+- **Overwrite existing values** — off by default; Fill skips non-empty fields unless this is checked.
 - **Last fill report** — filled / skipped / failed with reasons after each fill.
 - **Allowed hosts** — localhost and `*.thedigitalgroup.com` always work; add customer UAT hostnames (Chrome prompts for optional host permission).
 

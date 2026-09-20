@@ -1,4 +1,4 @@
-import { Select, Typography } from "antd";
+import { Checkbox, Select, Typography } from "antd";
 import { PERSONAS, type PersonaId } from "@/features/personas";
 import { SCENARIOS, type ScenarioId } from "@/features/scenarios";
 import type { AutofillSettings } from "@/shared/messaging";
@@ -40,6 +40,14 @@ export function ProfileSettings({ settings, onChange }: ProfileSettingsProps) {
         }
         className="autofill:w-full"
       />
+      <Checkbox
+        checked={settings.overwriteExistingValues}
+        onChange={(e) =>
+          onChange({ overwriteExistingValues: e.target.checked })
+        }
+      >
+        Overwrite existing values
+      </Checkbox>
     </div>
   );
 }

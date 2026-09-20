@@ -71,6 +71,7 @@ export function buildRequestForAction(
         type: MESSAGE.START_PICK_FILL,
         personaId: settings.activePersonaId,
         scenarioId: settings.activeScenarioId,
+        overwriteExistingValues: settings.overwriteExistingValues,
       };
     case "auto-type":
       return {

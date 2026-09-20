@@ -54,6 +54,7 @@ function normalizeSettings(
     activeScenarioId: isScenarioId(merged.activeScenarioId)
       ? merged.activeScenarioId
       : DEFAULT_SCENARIO_ID,
+    overwriteExistingValues: Boolean(merged.overwriteExistingValues),
   };
 }
 

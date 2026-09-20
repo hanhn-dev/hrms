@@ -1,5 +1,6 @@
 export { fillFields } from "./fill-fields";
 export type { FillResult, FillOptions } from "./fill-fields";
+export { hasExistingValue } from "./has-existing-value";
 export {
   setNativeValue,
   clearNativeValue,

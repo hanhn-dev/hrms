@@ -80,6 +80,8 @@ async function enrichFillProfile(
     ...withProfile,
     personaId: withProfile.personaId ?? settings.activePersonaId,
     scenarioId: withProfile.scenarioId ?? settings.activeScenarioId,
+    overwriteExistingValues:
+      withProfile.overwriteExistingValues ?? settings.overwriteExistingValues,
   };
 }
 

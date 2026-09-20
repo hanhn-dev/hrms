@@ -9,6 +9,7 @@ import type { ScenarioId } from "@/features/scenarios";
 import { resolveScenarioValue } from "@/features/scenarios";
 import { findElementForField, scanFields } from "@/features/scan";
 import { fillDatePicker } from "./fill-date-picker";
+import { hasExistingValue } from "./has-existing-value";
 import {
   dispatchBlur,
   dismissOpenOverlays,
@@ -23,6 +24,8 @@ export interface FillOptions {
   fieldIds?: string[];
   personaId?: PersonaId | null;
   scenarioId?: ScenarioId | null;
+  /** When true, replace non-empty values. Default: skip already-filled. */
+  overwriteExistingValues?: boolean;
 }
 
 export interface FillResult {
@@ -175,6 +178,20 @@ export async function fillFields(
           kind: field.kind,
           status: "skipped",
           reason: "Element not found",
+        });
+        continue;
+      }
+
+      if (
+        !options.overwriteExistingValues &&
+        hasExistingValue(element, field)
+      ) {
+        entries.push({
+          fieldId: field.id,
+          label: field.label,
+          kind: field.kind,
+          status: "skipped",
+          reason: "Already filled",
         });
         continue;
       }

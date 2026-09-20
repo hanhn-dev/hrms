@@ -202,6 +202,7 @@ async function handleStartPickFill(
       root,
       personaId: request.personaId,
       scenarioId: request.scenarioId,
+      overwriteExistingValues: request.overwriteExistingValues,
     });
     toastFillResult(fillResult);
     notifyFillReport(fillResult, request.personaId, request.scenarioId);
@@ -297,6 +298,7 @@ async function handleFill(request: FillRequest): Promise<AutofillResponse> {
     fieldIds: request.fieldIds,
     personaId: request.personaId,
     scenarioId: request.scenarioId,
+    overwriteExistingValues: request.overwriteExistingValues,
   });
   toastFillResult(result);
   notifyFillReport(result, request.personaId, request.scenarioId);
