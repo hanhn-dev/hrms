@@ -245,10 +245,10 @@ export async function fillAutocomplete(
   element: HTMLInputElement | HTMLSelectElement,
   preferred?: string,
   fillOptions: FillAutocompleteOptions = {},
-): Promise<void> {
+): Promise<boolean> {
   if (element instanceof HTMLSelectElement) {
     fillNativeSelect(element, preferred);
-    return;
+    return element.value.length > 0;
   }
 
   const beforePoppers = snapshotPoppers();
@@ -302,7 +302,7 @@ export async function fillAutocomplete(
     }
     option.click();
     await sleep(40);
-    return;
+    return true;
   }
 
   if (
@@ -314,7 +314,10 @@ export async function fillAutocomplete(
     element.focus();
     setNativeValue(element, preferred);
     dispatchBlur(element);
+    return true;
   }
+
+  return false;
 }
 
 function radiosInGroup(element: HTMLInputElement): HTMLInputElement[] {

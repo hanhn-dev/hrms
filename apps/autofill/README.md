@@ -63,13 +63,22 @@ On macOS, Alt is the Option key (`⌥⇧P`, …).
 | Feature | Path | Role |
 |---------|------|------|
 | `scan` | `src/features/scan` | Field discovery + kind heuristics |
-| `fill` | `src/features/fill` | Instant React-safe fill |
+| `fill` | `src/features/fill` | Instant React-safe fill + per-field report |
+| `personas` | `src/features/personas` | Random valid vs invalid email/phone profiles |
+| `scenarios` | `src/features/scenarios` | My Details packs (bank IFSC, employment dates, contact) |
 | `auto-type` | `src/features/auto-type` | Per-character keystroke typing |
-| `popup` | `src/features/popup` | Ant Design popup panels |
+| `popup` | `src/features/popup` | Ant Design popup panels (profile, report, hosts) |
 | `float-menu` | `src/features/float-menu` | On-page FAB + feature menu (top frame) |
 | `context-menu` | `src/features/context-menu` | Menu ids / registration |
 
 Thin adapters: `src/background/service-worker.ts`, `src/content/content-script.ts`. Shared contracts: `src/shared/`.
+
+### QA profiles (popup)
+
+- **Persona** — `Random valid` (default) or `Invalid email / phone` for validation UI.
+- **Scenario pack** — optional My Details fixtures (`Bank (India)`, `Employment dates`, `Contact`).
+- **Last fill report** — filled / skipped / failed with reasons after each fill.
+- **Allowed hosts** — localhost and `*.thedigitalgroup.com` always work; add customer UAT hostnames (Chrome prompts for optional host permission).
 
 
 ## Tests

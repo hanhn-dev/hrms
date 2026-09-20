@@ -5,6 +5,7 @@ import {
   MESSAGE,
   type AutofillSettings,
   type AutofillResponse,
+  type FillReport,
   type ScannedField,
 } from "@/shared/messaging";
 import {
@@ -14,6 +15,9 @@ import {
 import { ActionBar } from "./ActionBar";
 import { FieldList } from "./FieldList";
 import { TypeSettings } from "./TypeSettings";
+import { ProfileSettings } from "./ProfileSettings";
+import { FillReportPanel } from "./FillReportPanel";
+import { HostAllowlist } from "./HostAllowlist";
 
 async function sendMessage<T>(payload: unknown): Promise<T> {
   return (await chrome.runtime.sendMessage(payload)) as T;
@@ -25,6 +29,8 @@ export function PopupPanel() {
   const [rootSelector, setRootSelector] = useState<string | undefined>();
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [settings, setSettings] = useState<AutofillSettings>(DEFAULT_SETTINGS);
+  const [fillReport, setFillReport] = useState<FillReport | null>(null);
+  const [customHosts, setCustomHosts] = useState<string[]>([]);
   const [scanning, setScanning] = useState(false);
   const [picking, setPicking] = useState(false);
   const [filling, setFilling] = useState(false);
@@ -52,6 +58,20 @@ export function PopupPanel() {
       if (settingsResult.ok) {
         setSettings(settingsResult.settings);
       }
+      const reportResult = await sendMessage<{
+        ok: true;
+        report: FillReport | null;
+      }>({ type: MESSAGE.GET_LAST_FILL_REPORT });
+      if (reportResult.ok) {
+        setFillReport(reportResult.report);
+      }
+      const hostsResult = await sendMessage<{
+        ok: true;
+        hosts: string[];
+      }>({ type: MESSAGE.GET_CUSTOM_HOSTS });
+      if (hostsResult.ok) {
+        setCustomHosts(hostsResult.hosts ?? []);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }
@@ -60,6 +80,28 @@ export function PopupPanel() {
   useEffect(() => {
     void refreshFromStorage();
   }, [refreshFromStorage]);
+
+  const applyFillResponse = (response: AutofillResponse) => {
+    if (!response.ok || !("filledCount" in response)) {
+      return;
+    }
+    const report: FillReport = {
+      filledCount: response.filledCount,
+      skippedCount: response.skippedCount,
+      failedCount: response.failedCount ?? 0,
+      entries: response.entries ?? [],
+      personaId: settings.activePersonaId,
+      scenarioId: settings.activeScenarioId,
+      at: Date.now(),
+      url,
+    };
+    setFillReport(report);
+    message.success(
+      `Filled ${response.filledCount}, skipped ${response.skippedCount}${
+        report.failedCount ? `, failed ${report.failedCount}` : ""
+      }`,
+    );
+  };
 
   const handleScanPage = async () => {
     setScanning(true);
@@ -119,6 +161,8 @@ export function PopupPanel() {
     try {
       const response = await sendMessage<AutofillResponse>({
         type: MESSAGE.START_PICK_FILL,
+        personaId: settings.activePersonaId,
+        scenarioId: settings.activeScenarioId,
       });
       if (!response.ok) {
         setError(response.error);
@@ -148,6 +192,7 @@ export function PopupPanel() {
         type: MESSAGE.START_PICK_AUTO_TYPE,
         typingDelayMs: settings.typingDelayMs,
         startWithInvalid: settings.startWithInvalid,
+        personaId: settings.activePersonaId,
       });
       if (!response.ok) {
         setError(response.error);
@@ -178,17 +223,15 @@ export function PopupPanel() {
         fieldIds: selectedIds,
         useMarkedRoot: true,
         rootSelector,
+        personaId: settings.activePersonaId,
+        scenarioId: settings.activeScenarioId,
       });
       if (!response.ok) {
         setError(response.error);
         return;
       }
-      if ("filledCount" in response) {
-        message.success(
-          `Filled ${response.filledCount}, skipped ${response.skippedCount}`,
-        );
-        await refreshFromStorage();
-      }
+      applyFillResponse(response);
+      await refreshFromStorage();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -210,6 +253,7 @@ export function PopupPanel() {
         fieldId,
         typingDelayMs: settings.typingDelayMs,
         startWithInvalid: settings.startWithInvalid,
+        personaId: settings.activePersonaId,
       });
       if (!response.ok) {
         setError(response.error);
@@ -229,6 +273,18 @@ export function PopupPanel() {
     const next = { ...settings, ...patch };
     setSettings(next);
     await sendMessage({ type: MESSAGE.SET_SETTINGS, settings: patch });
+  };
+
+  const handleCustomHostsChange = async (hosts: string[]) => {
+    const result = await sendMessage<{
+      ok: boolean;
+      hosts?: string[];
+      error?: string;
+    }>({ type: MESSAGE.SET_CUSTOM_HOSTS, hosts });
+    if (!result.ok) {
+      throw new Error(result.error || "Could not update hosts");
+    }
+    setCustomHosts(result.hosts ?? hosts);
   };
 
   const shortcutActionsRef = useRef({
@@ -349,9 +405,30 @@ export function PopupPanel() {
 
       <Divider className="autofill:!my-3" />
 
+      <ProfileSettings
+        settings={settings}
+        onChange={(p) => void handleSettingsChange(p)}
+      />
+
+      <Divider className="autofill:!my-3" />
+
       <TypeSettings
         settings={settings}
         onChange={(p) => void handleSettingsChange(p)}
+      />
+
+      <Divider className="autofill:!my-3" />
+
+      <Typography.Text strong className="autofill:mb-2 autofill:block">
+        Last fill report
+      </Typography.Text>
+      <FillReportPanel report={fillReport} />
+
+      <Divider className="autofill:!my-3" />
+
+      <HostAllowlist
+        hosts={customHosts}
+        onChange={handleCustomHostsChange}
       />
 
       <Divider className="autofill:!my-3" />
@@ -373,4 +450,11 @@ export function PopupPanel() {
   );
 }
 
-export { ActionBar, FieldList, TypeSettings };
+export {
+  ActionBar,
+  FieldList,
+  TypeSettings,
+  ProfileSettings,
+  FillReportPanel,
+  HostAllowlist,
+};

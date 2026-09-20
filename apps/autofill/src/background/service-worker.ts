@@ -4,12 +4,19 @@ import {
   type AutofillResponse,
   type FieldsUpdatedMessage,
   type FillControlledDateRequest,
+  type FillReportUpdatedMessage,
+  type FillRequest,
+  type StartPickFillRequest,
 } from "@/shared/messaging";
 import {
+  loadCustomHosts,
   loadFabPosition,
+  loadLastFillReport,
   loadLastScan,
   loadSettings,
+  saveCustomHosts,
   saveFabPosition,
+  saveLastFillReport,
   saveLastScan,
   saveSettings,
 } from "@/shared/storage";
@@ -26,9 +33,55 @@ import {
 } from "@/features/fill/page-world";
 import {
   DISALLOWED_PAGE_ERROR,
+  hostToMatchPatterns,
   isAllowedPageUrl,
 } from "@/shared/allowed-hosts";
 import { needsContentScriptInject, shouldPrepareContentScripts } from "./content-inject";
+
+/** In-memory cache of customer UAT hostnames (refreshed from storage). */
+let customHostsCache: string[] = [];
+
+async function refreshCustomHostsCache(): Promise<string[]> {
+  customHostsCache = await loadCustomHosts();
+  return customHostsCache;
+}
+
+function pageUrlAllowed(url: string | null | undefined): boolean {
+  return isAllowedPageUrl(url, customHostsCache);
+}
+
+async function requestOriginsForHosts(hosts: string[]): Promise<void> {
+  if (hosts.length === 0 || !chrome.permissions?.request) {
+    return;
+  }
+  const origins = hosts.flatMap((host) => hostToMatchPatterns(host));
+  if (origins.length === 0) {
+    return;
+  }
+  try {
+    await chrome.permissions.request({ origins });
+  } catch {
+    // User denied or API unavailable in this context
+  }
+}
+
+async function enrichFillProfile(
+  request: AutofillRequest,
+): Promise<AutofillRequest> {
+  if (
+    request.type !== MESSAGE.FILL &&
+    request.type !== MESSAGE.START_PICK_FILL
+  ) {
+    return request;
+  }
+  const settings = await loadSettings();
+  const withProfile = request as FillRequest | StartPickFillRequest;
+  return {
+    ...withProfile,
+    personaId: withProfile.personaId ?? settings.activePersonaId,
+    scenarioId: withProfile.scenarioId ?? settings.activeScenarioId,
+  };
+}
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -217,7 +270,7 @@ function applyActionState(tabId: number | undefined, url: string | undefined): v
   if (tabId == null) {
     return;
   }
-  if (isAllowedPageUrl(url)) {
+  if (pageUrlAllowed(url)) {
     void chrome.action.enable(tabId);
   } else {
     void chrome.action.disable(tabId);
@@ -226,8 +279,8 @@ function applyActionState(tabId: number | undefined, url: string | undefined): v
 
 function initHostRestriction(): void {
   void chrome.action.disable();
-  void chrome.tabs
-    .query({})
+  void refreshCustomHostsCache()
+    .then(() => chrome.tabs.query({}))
     .then((tabs) => {
       for (const tab of tabs) {
         applyActionState(tab.id, tab.url);
@@ -261,16 +314,17 @@ async function sendToTab(
   message: AutofillRequest,
   frameId?: number,
 ): Promise<AutofillResponse> {
-  if (!isAllowedPageUrl(await getTabUrl(tabId))) {
+  if (!pageUrlAllowed(await getTabUrl(tabId))) {
     return { ok: false, error: DISALLOWED_PAGE_ERROR };
   }
 
+  const enriched = await enrichFillProfile(message);
   const frameIds = frameId != null && frameId >= 0 ? [frameId] : undefined;
 
   const attempt = async (): Promise<AutofillResponse[]> => {
     if (frameIds?.length === 1) {
       try {
-        const one = (await chrome.tabs.sendMessage(tabId, message, {
+        const one = (await chrome.tabs.sendMessage(tabId, enriched, {
           frameId: frameIds[0],
         })) as AutofillResponse;
         return [one];
@@ -278,7 +332,7 @@ async function sendToTab(
         // fall through
       }
     }
-    return dispatchViaExecuteScript(tabId, message, frameIds);
+    return dispatchViaExecuteScript(tabId, enriched, frameIds);
   };
 
   const prepare = async (): Promise<void> => {
@@ -300,7 +354,7 @@ async function sendToTab(
   try {
     // Always prepare for pick/scan — those are sensitive to load races.
     // Fill must not probe/inject first; that flashes the live tab.
-    if (shouldPrepareContentScripts(message.type)) {
+    if (shouldPrepareContentScripts(enriched.type)) {
       await prepare();
     }
 
@@ -314,12 +368,12 @@ async function sendToTab(
       responses = await attempt();
     }
 
-    return pickBestResponse(responses, message.type);
+    return pickBestResponse(responses, enriched.type);
   } catch (error) {
     await prepare();
     try {
       const responses = await attempt();
-      return pickBestResponse(responses, message.type);
+      return pickBestResponse(responses, enriched.type);
     } catch (retryError) {
       return {
         ok: false,
@@ -399,7 +453,15 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
     const frameId = typeof info.frameId === "number" ? info.frameId : undefined;
 
     if (info.menuItemId === MENU_IDS.FILL) {
-      await sendToTab(tabId, { type: MESSAGE.FILL }, frameId);
+      await sendToTab(
+        tabId,
+        {
+          type: MESSAGE.FILL,
+          personaId: settings.activePersonaId,
+          scenarioId: settings.activeScenarioId,
+        },
+        frameId,
+      );
       return;
     }
 
@@ -419,7 +481,10 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
 });
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  const request = message as AutofillRequest | FieldsUpdatedMessage;
+  const request = message as
+    | AutofillRequest
+    | FieldsUpdatedMessage
+    | FillReportUpdatedMessage;
 
   if (request.type === MESSAGE.FIELDS_UPDATED) {
     void saveLastScan(
@@ -427,6 +492,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       request.url,
       request.rootSelector,
     ).then(() => sendResponse({ ok: true }));
+    return true;
+  }
+
+  if (request.type === MESSAGE.FILL_REPORT_UPDATED) {
+    void saveLastFillReport(request.report).then(() =>
+      sendResponse({ ok: true }),
+    );
     return true;
   }
 
@@ -449,10 +521,49 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  if (request.type === MESSAGE.GET_LAST_FILL_REPORT) {
+    void loadLastFillReport().then((report) =>
+      sendResponse({ ok: true, report }),
+    );
+    return true;
+  }
+
   if (request.type === MESSAGE.SET_SETTINGS) {
     void saveSettings(request.settings).then((settings) =>
       sendResponse({ ok: true, settings }),
     );
+    return true;
+  }
+
+  if (request.type === MESSAGE.GET_CUSTOM_HOSTS) {
+    void refreshCustomHostsCache().then((hosts) =>
+      sendResponse({ ok: true, hosts }),
+    );
+    return true;
+  }
+
+  if (request.type === MESSAGE.SET_CUSTOM_HOSTS) {
+    void (async () => {
+      try {
+        const hosts = await saveCustomHosts(request.hosts);
+        await requestOriginsForHosts(hosts);
+        customHostsCache = hosts;
+        // Re-apply action enable/disable for open tabs
+        const tabs = await chrome.tabs.query({});
+        for (const tab of tabs) {
+          applyActionState(tab.id, tab.url);
+        }
+        sendResponse({ ok: true, hosts });
+      } catch (error) {
+        sendResponse({
+          ok: false,
+          error:
+            error instanceof Error
+              ? error.message
+              : "Could not save custom hosts",
+        });
+      }
+    })();
     return true;
   }
 
@@ -536,6 +647,19 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           response.url,
           response.rootSelector,
         );
+      }
+      if (response.ok && "entries" in response && response.entries) {
+        const settings = await loadSettings();
+        await saveLastFillReport({
+          filledCount: response.filledCount,
+          skippedCount: response.skippedCount,
+          failedCount: response.failedCount ?? 0,
+          entries: response.entries,
+          personaId: settings.activePersonaId,
+          scenarioId: settings.activeScenarioId,
+          at: Date.now(),
+          url: (await getTabUrl(tabId)) ?? undefined,
+        });
       }
       sendResponse(response);
     })();

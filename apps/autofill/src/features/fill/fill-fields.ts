@@ -1,10 +1,12 @@
 import {
   generateDateRange,
-  generateValue,
   isIfscCode,
   isIfscLabel,
 } from "@/shared/generators";
-import type { ScannedField } from "@/shared/messaging";
+import type { FillReportEntry, ScannedField } from "@/shared/messaging";
+import type { PersonaId } from "@/features/personas";
+import type { ScenarioId } from "@/features/scenarios";
+import { resolveScenarioValue } from "@/features/scenarios";
 import { findElementForField, scanFields } from "@/features/scan";
 import { fillDatePicker } from "./fill-date-picker";
 import {
@@ -19,11 +21,15 @@ import { endFillSession, startFillSession } from "./fill-session";
 export interface FillOptions {
   root?: ParentNode;
   fieldIds?: string[];
+  personaId?: PersonaId | null;
+  scenarioId?: ScenarioId | null;
 }
 
 export interface FillResult {
   filledCount: number;
   skippedCount: number;
+  failedCount: number;
+  entries: FillReportEntry[];
 }
 
 function isDateField(field: ScannedField): boolean {
@@ -71,6 +77,24 @@ async function clickNearbyValidate(element: Element): Promise<void> {
   await sleep(150);
 }
 
+function skipReason(field: ScannedField): string {
+  if (field.disabled) {
+    return "Disabled";
+  }
+  if (/monthly\s*ctc/i.test(field.label)) {
+    return "Computed / Monthly CTC";
+  }
+  if (
+    field.readOnly &&
+    !isDateField(field) &&
+    field.kind !== "select" &&
+    field.kind !== "radio"
+  ) {
+    return "Read-only";
+  }
+  return "Not fillable";
+}
+
 function isFillable(field: ScannedField): boolean {
   if (field.disabled) {
     return false;
@@ -92,7 +116,11 @@ function isFillable(field: ScannedField): boolean {
   return true;
 }
 
-/** Instant-fill discoverable fields with random values. */
+function previewValue(value: string): string {
+  return value.length > 40 ? `${value.slice(0, 40)}…` : value;
+}
+
+/** Instant-fill discoverable fields with persona / scenario-aware values. */
 export async function fillFields(
   options: FillOptions = {},
 ): Promise<FillResult> {
@@ -102,17 +130,35 @@ export async function fillFields(
     ? fields.filter((f) => options.fieldIds!.includes(f.id))
     : fields;
 
+  const entries: FillReportEntry[] = [];
   const targets = allCandidates.filter(isFillable);
-  let skippedCount = allCandidates.length - targets.length;
+
+  for (const field of allCandidates) {
+    if (!isFillable(field)) {
+      entries.push({
+        fieldId: field.id,
+        label: field.label,
+        kind: field.kind,
+        status: "skipped",
+        reason: skipReason(field),
+      });
+    }
+  }
 
   if (targets.length === 0) {
-    return { filledCount: 0, skippedCount };
+    return {
+      filledCount: 0,
+      skippedCount: entries.length,
+      failedCount: 0,
+      entries,
+    };
   }
 
   startFillSession();
   try {
     const dateRange = generateDateRange();
     let filledCount = 0;
+    let failedCount = 0;
 
     // Fill dates first so later focus moves don't remount an open calendar mid-commit.
     const ordered = [
@@ -123,30 +169,39 @@ export async function fillFields(
     for (const field of ordered) {
       const element = findElementForField(field, root);
       if (!element) {
-        skippedCount += 1;
+        entries.push({
+          fieldId: field.id,
+          label: field.label,
+          kind: field.kind,
+          status: "skipped",
+          reason: "Element not found",
+        });
         continue;
       }
 
-      let value = generateValue({
+      const value = resolveScenarioValue({
         label: field.label,
         kind: field.kind,
         maxLength: field.maxLength,
+        personaId: options.personaId,
+        scenarioId: options.scenarioId,
+        dateRange,
       });
 
-      const labelLower = field.label.toLowerCase();
-      if (isDateField(field)) {
-        value = labelLower === "to" ? dateRange.to : dateRange.from;
-      }
-
       try {
-        let filled = true;
+        let ok = true;
+        let reason: string | undefined;
+
         if (isDateField(field) && element instanceof HTMLInputElement) {
-          await fillDatePicker(element, value, field.label);
+          ok = await fillDatePicker(element, value, field.label);
+          if (!ok) {
+            reason = "DatePicker did not accept value";
+          }
         } else if (
           field.kind === "select" ||
           element.getAttribute("role") === "combobox"
         ) {
-          await fillAutocomplete(
+          ok = await fillAutocomplete(
             element as HTMLInputElement | HTMLSelectElement,
             value,
             {
@@ -154,30 +209,63 @@ export async function fillFields(
                 isIfscLabel(field.label) || isIfscCode(value),
             },
           );
-          if (isIfscLabel(field.label)) {
+          if (isIfscLabel(field.label) && ok) {
             await clickNearbyValidate(element);
+          }
+          if (!ok) {
+            reason = "No Autocomplete option / could not type value";
           }
         } else if (
           field.kind === "radio" ||
           (element instanceof HTMLInputElement && element.type === "radio")
         ) {
-          filled = fillRadio(element as HTMLInputElement);
+          ok = fillRadio(element as HTMLInputElement);
+          if (!ok) {
+            reason = "No radio option available";
+          }
         } else {
           element.focus();
           setNativeValue(element, value);
           dispatchBlur(element);
+          ok = true;
         }
-        if (filled) {
+
+        if (ok) {
           filledCount += 1;
+          entries.push({
+            fieldId: field.id,
+            label: field.label,
+            kind: field.kind,
+            status: "filled",
+            valuePreview: previewValue(value),
+          });
         } else {
-          skippedCount += 1;
+          failedCount += 1;
+          entries.push({
+            fieldId: field.id,
+            label: field.label,
+            kind: field.kind,
+            status: "failed",
+            reason,
+            valuePreview: previewValue(value),
+          });
         }
-      } catch {
-        skippedCount += 1;
+      } catch (error) {
+        failedCount += 1;
+        entries.push({
+          fieldId: field.id,
+          label: field.label,
+          kind: field.kind,
+          status: "failed",
+          reason:
+            error instanceof Error ? error.message : "Unexpected fill error",
+          valuePreview: previewValue(value),
+        });
       }
     }
 
-    return { filledCount, skippedCount };
+    const skippedCount = entries.filter((e) => e.status === "skipped").length;
+    return { filledCount, skippedCount, failedCount, entries };
   } finally {
     dismissOpenOverlays();
     endFillSession();

@@ -37,15 +37,17 @@ export function showPageToast(
 }
 
 export function toastFillResult(result: FillResult): void {
+  const failed = result.failedCount ?? 0;
   if (result.filledCount === 0) {
     showPageToast(
-      `Autofill: no fields filled (skipped ${result.skippedCount}). Open the form panel and try again.`,
+      `Autofill: no fields filled (skipped ${result.skippedCount}${failed ? `, failed ${failed}` : ""}). Open the form panel and try again.`,
       "error",
     );
     return;
   }
+  const failPart = failed > 0 ? `, failed ${failed}` : "";
   showPageToast(
-    `Autofill: filled ${result.filledCount}, skipped ${result.skippedCount}`,
-    "success",
+    `Autofill: filled ${result.filledCount}, skipped ${result.skippedCount}${failPart}`,
+    failed > 0 ? "info" : "success",
   );
 }

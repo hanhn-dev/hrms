@@ -57,15 +57,23 @@ describe("float menu items", () => {
     expect(buildRequestForAction("pick-fill").type).toBe(
       MESSAGE.START_PICK_FILL,
     );
+    expect(buildRequestForAction("pick-fill")).toMatchObject({
+      type: MESSAGE.START_PICK_FILL,
+      personaId: "random-valid",
+      scenarioId: "none",
+    });
     expect(
       buildRequestForAction("auto-type", {
         typingDelayMs: 40,
         startWithInvalid: true,
+        activePersonaId: "invalid-contact",
+        activeScenarioId: "contact",
       }),
     ).toEqual({
       type: MESSAGE.START_PICK_AUTO_TYPE,
       typingDelayMs: 40,
       startWithInvalid: true,
+      personaId: "invalid-contact",
     });
   });
 
@@ -193,7 +201,12 @@ describe("mountFloatMenu", () => {
       ) {
         return {
           ok: true as const,
-          settings: { typingDelayMs: 60, startWithInvalid: false },
+          settings: {
+            typingDelayMs: 60,
+            startWithInvalid: false,
+            activePersonaId: "random-valid",
+            activeScenarioId: "none",
+          },
         };
       }
       if (
@@ -247,7 +260,12 @@ describe("mountFloatMenu", () => {
       ) {
         return Promise.resolve({
           ok: true as const,
-          settings: { typingDelayMs: 60, startWithInvalid: false },
+          settings: {
+            typingDelayMs: 60,
+            startWithInvalid: false,
+            activePersonaId: "random-valid",
+            activeScenarioId: "none",
+          },
         });
       }
       if (

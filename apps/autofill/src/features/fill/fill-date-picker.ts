@@ -291,28 +291,30 @@ async function fillViaCalendar(
 /**
  * Fill a DatePicker through page-world React props. Isolated-world calendar
  * clicks do not update controlled pickers — they are only a test/DOM fallback.
+ * @returns true when the value was applied via MAIN-world or calendar path.
  */
 export async function fillDatePicker(
   element: HTMLInputElement,
   value: string,
   label?: string,
-): Promise<void> {
+): Promise<boolean> {
   const injected = await fillControlledDateInPageWorld(element, value, label);
   if (injected) {
     // Parent state updates on the next paint; do not open the calendar after
     // a successful props fill (click-away remounts the picker to the old value).
     await sleep(150);
-    return;
+    return true;
   }
 
   const parsed = parseDisplayDate(value);
   if (!parsed) {
-    return;
+    return false;
   }
 
   try {
-    await fillViaCalendar(element, parsed);
+    return await fillViaCalendar(element, parsed);
   } catch {
     // Leave the field empty rather than stuffing a DOM-only value React will wipe.
+    return false;
   }
 }

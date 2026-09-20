@@ -1,6 +1,9 @@
 import {
   ALLOWED_HOST_MATCH_PATTERNS,
+  hostToMatchPatterns,
   isAllowedPageUrl,
+  matchesExtraHostname,
+  normalizeCustomHostInput,
 } from "./allowed-hosts";
 
 describe("ALLOWED_HOST_MATCH_PATTERNS", () => {
@@ -30,6 +33,31 @@ describe("ALLOWED_HOST_MATCH_PATTERNS", () => {
   });
 });
 
+describe("normalizeCustomHostInput", () => {
+  it("parses hostnames and URLs (positive)", () => {
+    expect(normalizeCustomHostInput("uat.example.com")).toBe("uat.example.com");
+    expect(normalizeCustomHostInput("https://uat.example.com/app")).toBe(
+      "uat.example.com",
+    );
+    expect(normalizeCustomHostInput("*://qa.customer.com/*")).toBe(
+      "qa.customer.com",
+    );
+  });
+
+  it("rejects wildcards and empty input (negative)", () => {
+    expect(normalizeCustomHostInput("<all_urls>")).toBeNull();
+    expect(normalizeCustomHostInput("*://*/*")).toBeNull();
+    expect(normalizeCustomHostInput("")).toBeNull();
+    expect(normalizeCustomHostInput("   ")).toBeNull();
+  });
+
+  it("handles nullish and odd shapes (edge)", () => {
+    expect(normalizeCustomHostInput(null)).toBeNull();
+    expect(normalizeCustomHostInput(undefined)).toBeNull();
+    expect(normalizeCustomHostInput("host with spaces")).toBeNull();
+  });
+});
+
 describe("isAllowedPageUrl", () => {
   it("allows localhost, loopback, and TDG hosts (positive)", () => {
     expect(isAllowedPageUrl("http://localhost:9100/")).toBe(true);
@@ -43,6 +71,15 @@ describe("isAllowedPageUrl", () => {
     ).toBe(true);
   });
 
+  it("allows custom extra hosts (positive)", () => {
+    expect(
+      isAllowedPageUrl("https://uat.customer.com/HRM", ["uat.customer.com"]),
+    ).toBe(true);
+    expect(
+      isAllowedPageUrl("https://app.uat.customer.com/", ["uat.customer.com"]),
+    ).toBe(true);
+  });
+
   it("rejects unrelated hosts and lookalikes (negative)", () => {
     expect(isAllowedPageUrl("https://google.com")).toBe(false);
     expect(isAllowedPageUrl("https://thedigitalgroup.com.evil.com")).toBe(
@@ -52,6 +89,9 @@ describe("isAllowedPageUrl", () => {
     expect(isAllowedPageUrl("https://localhost.example.com")).toBe(false);
     expect(isAllowedPageUrl("chrome://extensions")).toBe(false);
     expect(isAllowedPageUrl("file:///tmp/form.html")).toBe(false);
+    expect(isAllowedPageUrl("https://evil.com", ["uat.customer.com"])).toBe(
+      false,
+    );
   });
 
   it("handles empty, invalid, and unusual input (edge)", () => {
@@ -64,5 +104,29 @@ describe("isAllowedPageUrl", () => {
     expect(isAllowedPageUrl("https://FOO.BAR.thedigitalgroup.com/a")).toBe(
       true,
     );
+  });
+});
+
+describe("matchesExtraHostname / hostToMatchPatterns", () => {
+  it("matches exact and subdomain extras (positive)", () => {
+    expect(matchesExtraHostname("uat.example.com", ["uat.example.com"])).toBe(
+      true,
+    );
+    expect(matchesExtraHostname("a.uat.example.com", ["uat.example.com"])).toBe(
+      true,
+    );
+  });
+
+  it("does not match sibling domains (negative)", () => {
+    expect(
+      matchesExtraHostname("notuat.example.com", ["uat.example.com"]),
+    ).toBe(false);
+  });
+
+  it("builds match patterns (edge)", () => {
+    expect(hostToMatchPatterns("uat.example.com")).toEqual([
+      "*://uat.example.com/*",
+    ]);
+    expect(hostToMatchPatterns("")).toEqual([]);
   });
 });

@@ -1,5 +1,8 @@
 /** Cross-feature message contracts between popup, background, and content script. */
 
+import type { PersonaId } from "@/features/personas";
+import type { ScenarioId } from "@/features/scenarios";
+
 export const MESSAGE = {
   SCAN: "autofill/SCAN",
   FILL: "autofill/FILL",
@@ -8,6 +11,7 @@ export const MESSAGE = {
   GET_SETTINGS: "autofill/GET_SETTINGS",
   SET_SETTINGS: "autofill/SET_SETTINGS",
   GET_LAST_SCAN: "autofill/GET_LAST_SCAN",
+  GET_LAST_FILL_REPORT: "autofill/GET_LAST_FILL_REPORT",
   START_PICK_SCAN: "autofill/START_PICK_SCAN",
   /** Pick a section, then scan + fill it in one pass. */
   START_PICK_FILL: "autofill/START_PICK_FILL",
@@ -22,6 +26,10 @@ export const MESSAGE = {
   SET_FAB_POSITION: "autofill/SET_FAB_POSITION",
   /** Content → background: run MAIN-world React date fill. */
   FILL_CONTROLLED_DATE: "autofill/FILL_CONTROLLED_DATE",
+  GET_CUSTOM_HOSTS: "autofill/GET_CUSTOM_HOSTS",
+  SET_CUSTOM_HOSTS: "autofill/SET_CUSTOM_HOSTS",
+  /** Content → background: persist last fill report. */
+  FILL_REPORT_UPDATED: "autofill/FILL_REPORT_UPDATED",
 } as const;
 
 /** Persisted floating-action-button coordinates (CSS px). */
@@ -57,14 +65,40 @@ export interface ScannedField {
   valuePreview: string;
 }
 
+export type FillEntryStatus = "filled" | "skipped" | "failed";
+
+export interface FillReportEntry {
+  fieldId: string;
+  label: string;
+  kind: FieldKind;
+  status: FillEntryStatus;
+  reason?: string;
+  valuePreview?: string;
+}
+
+export interface FillReport {
+  filledCount: number;
+  skippedCount: number;
+  failedCount: number;
+  entries: FillReportEntry[];
+  personaId?: PersonaId;
+  scenarioId?: ScenarioId;
+  at: number;
+  url?: string;
+}
+
 export interface AutofillSettings {
   typingDelayMs: number;
   startWithInvalid: boolean;
+  activePersonaId: PersonaId;
+  activeScenarioId: ScenarioId;
 }
 
 export const DEFAULT_SETTINGS: AutofillSettings = {
   typingDelayMs: 60,
   startWithInvalid: false,
+  activePersonaId: "random-valid",
+  activeScenarioId: "none",
 };
 
 export interface ScanRequest {
@@ -88,12 +122,16 @@ export interface FillRequest {
   rootSelector?: string;
   /** When true, fill inside the last marked pick-scan root if present. */
   useMarkedRoot?: boolean;
+  personaId?: PersonaId;
+  scenarioId?: ScenarioId;
 }
 
 export interface FillResponse {
   ok: true;
   filledCount: number;
   skippedCount: number;
+  failedCount: number;
+  entries: FillReportEntry[];
 }
 
 export interface AutoTypeRequest {
@@ -103,6 +141,7 @@ export interface AutoTypeRequest {
   useContextTarget?: boolean;
   typingDelayMs?: number;
   startWithInvalid?: boolean;
+  personaId?: PersonaId;
 }
 
 export interface AutoTypeResponse {
@@ -149,18 +188,25 @@ export interface GetLastScanRequest {
   type: typeof MESSAGE.GET_LAST_SCAN;
 }
 
+export interface GetLastFillReportRequest {
+  type: typeof MESSAGE.GET_LAST_FILL_REPORT;
+}
+
 export interface StartPickScanRequest {
   type: typeof MESSAGE.START_PICK_SCAN;
 }
 
 export interface StartPickFillRequest {
   type: typeof MESSAGE.START_PICK_FILL;
+  personaId?: PersonaId;
+  scenarioId?: ScenarioId;
 }
 
 export interface StartPickAutoTypeRequest {
   type: typeof MESSAGE.START_PICK_AUTO_TYPE;
   typingDelayMs?: number;
   startWithInvalid?: boolean;
+  personaId?: PersonaId;
 }
 
 export interface CancelPickScanRequest {
@@ -191,6 +237,20 @@ export interface FillControlledDateRequest {
   label?: string;
 }
 
+export interface GetCustomHostsRequest {
+  type: typeof MESSAGE.GET_CUSTOM_HOSTS;
+}
+
+export interface SetCustomHostsRequest {
+  type: typeof MESSAGE.SET_CUSTOM_HOSTS;
+  hosts: string[];
+}
+
+export interface FillReportUpdatedMessage {
+  type: typeof MESSAGE.FILL_REPORT_UPDATED;
+  report: FillReport;
+}
+
 export type AutofillRequest =
   | ScanRequest
   | FillRequest
@@ -198,6 +258,7 @@ export type AutofillRequest =
   | GetSettingsRequest
   | SetSettingsRequest
   | GetLastScanRequest
+  | GetLastFillReportRequest
   | StartPickScanRequest
   | StartPickFillRequest
   | StartPickAutoTypeRequest
@@ -206,4 +267,6 @@ export type AutofillRequest =
   | CloseFloatMenuRequest
   | GetFabPositionRequest
   | SetFabPositionRequest
-  | FillControlledDateRequest;
+  | FillControlledDateRequest
+  | GetCustomHostsRequest
+  | SetCustomHostsRequest;

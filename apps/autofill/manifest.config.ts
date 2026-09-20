@@ -32,6 +32,7 @@ export default defineManifest({
   },
   permissions: ["contextMenus", "storage", "activeTab", "scripting"],
   host_permissions: allowedHosts,
+  optional_host_permissions: ["http://*/*", "https://*/*"],
   content_scripts: [
     {
       matches: allowedHosts,

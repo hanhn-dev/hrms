@@ -64,6 +64,48 @@ describe("fillFields", () => {
     document.body.innerHTML = "";
     const result = await fillFields();
     expect(result.filledCount).toBe(0);
+    expect(result.failedCount).toBe(0);
+    expect(result.entries).toEqual([]);
+  });
+
+  it("records skipped Monthly CTC in the fill report (negative)", async () => {
+    document.body.innerHTML = `
+      <label for="monthly">Monthly CTC</label>
+      <input id="monthly" type="text" />
+      <label for="company">Company Name</label>
+      <input id="company" type="text" />
+    `;
+    const result = await fillFields();
+    expect(result.filledCount).toBe(1);
+    expect(result.entries.some((e) => e.status === "skipped")).toBe(true);
+    expect(
+      result.entries.find((e) => /monthly/i.test(e.label))?.reason,
+    ).toMatch(/Monthly CTC/i);
+  });
+
+  it("applies invalid-contact persona to email fields (positive)", async () => {
+    document.body.innerHTML = `
+      <label for="email">Email</label>
+      <input id="email" type="email" />
+    `;
+    const result = await fillFields({ personaId: "invalid-contact" });
+    expect(result.filledCount).toBe(1);
+    expect(
+      (document.getElementById("email") as HTMLInputElement).value,
+    ).toBe("not-an-email");
+    expect(result.entries[0]?.valuePreview).toBe("not-an-email");
+  });
+
+  it("applies bank-india IFSC fixture (edge)", async () => {
+    document.body.innerHTML = `
+      <label for="ifsc">IFSC Code</label>
+      <input id="ifsc" type="text" />
+    `;
+    const result = await fillFields({ scenarioId: "bank-india" });
+    expect(result.filledCount).toBe(1);
+    expect(
+      (document.getElementById("ifsc") as HTMLInputElement).value,
+    ).toBe("HDFC0001234");
   });
 
   it("fills From/To DatePicker via calendar path (positive)", async () => {

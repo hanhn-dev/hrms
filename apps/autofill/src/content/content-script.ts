@@ -5,9 +5,11 @@ import {
   type AutoTypeRequest,
   type FieldsUpdatedMessage,
   type FillRequest,
+  type FillReport,
   type ScanRequest,
   type ScannedField,
   type StartPickAutoTypeRequest,
+  type StartPickFillRequest,
 } from "@/shared/messaging";
 import { showPageToast, toastFillResult } from "@/shared/page-toast";
 import {
@@ -30,10 +32,14 @@ import {
 } from "@/features/float-menu/float-menu-logic";
 import { bindPageShortcuts } from "@/features/shortcuts";
 import { isAllowedPageUrl } from "@/shared/allowed-hosts";
+import type { PersonaId } from "@/features/personas";
+import type { ScenarioId } from "@/features/scenarios";
 
 /** Last element under a context-menu click. */
 let lastContextTarget: Element | null = null;
 let lastRootSelector: string | undefined;
+/** Extra hosts from SW (customer UAT). Refreshed on start. */
+let extraAllowedHosts: string[] = [];
 
 function trackContextTarget(): void {
   document.addEventListener(
@@ -104,6 +110,33 @@ function notifyFieldsUpdated(
   });
 }
 
+function notifyFillReport(
+  result: {
+    filledCount: number;
+    skippedCount: number;
+    failedCount: number;
+    entries: FillReport["entries"];
+  },
+  personaId?: PersonaId | null,
+  scenarioId?: ScenarioId | null,
+): void {
+  const report: FillReport = {
+    filledCount: result.filledCount,
+    skippedCount: result.skippedCount,
+    failedCount: result.failedCount,
+    entries: result.entries,
+    personaId: personaId ?? undefined,
+    scenarioId: scenarioId ?? undefined,
+    at: Date.now(),
+    url: location.href,
+  };
+  chrome.runtime
+    .sendMessage({ type: MESSAGE.FILL_REPORT_UPDATED, report })
+    .catch(() => {
+      /* ignore */
+    });
+}
+
 async function handleScan(request: ScanRequest): Promise<AutofillResponse> {
   const root = resolveScanRoot(request.rootSelector);
   const fields = scanFields({ root });
@@ -146,7 +179,9 @@ async function handleStartPickScan(): Promise<AutofillResponse> {
 /**
  * Inspector pick like Pick & scan, then immediately fill the chosen section.
  */
-async function handleStartPickFill(): Promise<AutofillResponse> {
+async function handleStartPickFill(
+  request: StartPickFillRequest,
+): Promise<AutofillResponse> {
   if (countFillableControls(document) === 0) {
     return { ok: true, started: false };
   }
@@ -163,8 +198,13 @@ async function handleStartPickFill(): Promise<AutofillResponse> {
     });
 
     const root = getMarkedScanRoot() ?? resolveScanRoot(result.rootSelector);
-    const fillResult = await fillFields({ root });
+    const fillResult = await fillFields({
+      root,
+      personaId: request.personaId,
+      scenarioId: request.scenarioId,
+    });
     toastFillResult(fillResult);
+    notifyFillReport(fillResult, request.personaId, request.scenarioId);
     const fields = scanFields({ root });
     notifyFieldsUpdated(fields, result.rootSelector);
   })();
@@ -255,8 +295,11 @@ async function handleFill(request: FillRequest): Promise<AutofillResponse> {
   const result = await fillFields({
     root,
     fieldIds: request.fieldIds,
+    personaId: request.personaId,
+    scenarioId: request.scenarioId,
   });
   toastFillResult(result);
+  notifyFillReport(result, request.personaId, request.scenarioId);
   const fields = scanFields({ root });
   notifyFieldsUpdated(fields, lastRootSelector);
   return { ok: true, ...result };
@@ -350,7 +393,7 @@ export async function dispatchAutofillMessage(
     case MESSAGE.START_PICK_SCAN:
       return handleStartPickScan();
     case MESSAGE.START_PICK_FILL:
-      return handleStartPickFill();
+      return handleStartPickFill(message);
     case MESSAGE.START_PICK_AUTO_TYPE:
       return handleStartPickAutoType(message);
     case MESSAGE.CANCEL_PICK_SCAN:
@@ -380,11 +423,21 @@ type ContentScriptHost = typeof globalThis & {
   };
 };
 
-function startContentScript(): void {
-  if (!isAllowedPageUrl(location.href)) {
-    return;
+async function loadExtraHosts(): Promise<string[]> {
+  try {
+    const result = (await chrome.runtime.sendMessage({
+      type: MESSAGE.GET_CUSTOM_HOSTS,
+    })) as { ok?: boolean; hosts?: string[] };
+    if (result?.ok && Array.isArray(result.hosts)) {
+      return result.hosts;
+    }
+  } catch {
+    /* SW may be waking */
   }
+  return [];
+}
 
+function mountContentRuntime(): void {
   const host = globalThis as ContentScriptHost;
   if (host.__FORM_AUTOFILL__) {
     // executeScript can re-run this file; do not remount UI or stack listeners.
@@ -453,6 +506,22 @@ function startContentScript(): void {
         sendResponse({ ok: false, error: messageText });
       });
     return true;
+  });
+}
+
+function startContentScript(): void {
+  // Sync path for default hosts (manifest-injected).
+  if (isAllowedPageUrl(location.href, extraAllowedHosts)) {
+    mountContentRuntime();
+    return;
+  }
+
+  // Custom UAT hosts: resolve allowlist from SW, then mount if permitted.
+  void loadExtraHosts().then((hosts) => {
+    extraAllowedHosts = hosts;
+    if (isAllowedPageUrl(location.href, extraAllowedHosts)) {
+      mountContentRuntime();
+    }
   });
 }
 

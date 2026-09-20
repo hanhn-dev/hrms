@@ -67,12 +67,17 @@ export function buildRequestForAction(
     case "scan-page":
       return { type: MESSAGE.SCAN };
     case "pick-fill":
-      return { type: MESSAGE.START_PICK_FILL };
+      return {
+        type: MESSAGE.START_PICK_FILL,
+        personaId: settings.activePersonaId,
+        scenarioId: settings.activeScenarioId,
+      };
     case "auto-type":
       return {
         type: MESSAGE.START_PICK_AUTO_TYPE,
         typingDelayMs: settings.typingDelayMs,
         startWithInvalid: settings.startWithInvalid,
+        personaId: settings.activePersonaId,
       };
   }
 }
