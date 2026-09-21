@@ -19,9 +19,9 @@ export interface ActionBarProps {
   onPickFill: () => void;
   /** Fill only the checked fields from the last scan (no pick). */
   onFillSelected: () => void;
-  /** Inspector pick one field, then keystroke-type into it. */
+  /** Inspector pick a section, then keystroke-type each field. */
   onPickAutoType: () => void;
-  /** Keystroke-type the first checked field (no pick). */
+  /** Keystroke-type all checked fields in order (no pick). */
   onAutoTypeSelected: () => void;
 }
 
@@ -100,7 +100,7 @@ export function ActionBar({
       )}
       {hasSelection ? (
         <Tooltip
-          title={`Keystroke-fill the first checked field (${shortcutLabelFor("auto-type")})`}
+          title={`Keystroke-type all checked fields in order (${shortcutLabelFor("auto-type")})`}
         >
           <Button
             icon={<FontSizeOutlined />}
@@ -114,7 +114,7 @@ export function ActionBar({
         </Tooltip>
       ) : (
         <Tooltip
-          title={`Click a field, then keystroke-type into it (${shortcutLabelFor("auto-type")})`}
+          title={`Click a form section, then keystroke-type each field (${shortcutLabelFor("auto-type")})`}
         >
           <Button
             icon={<FontSizeOutlined />}

@@ -90,9 +90,21 @@ npm run dev --workspace=apps/backstage     # same
 
 Import app modules with `@/` (`@/lib/features`). Do not use parent-relative `../` paths.
 
+### autofill
+
+Chrome MV3 extension (form scan, random fill, keystroke type). Port **9100**. Full layout is in `apps/autofill/AGENTS.md` (Claude: `apps/autofill/CLAUDE.md` includes that file).
+
+```bash
+npm run dev --workspace=autofill
+npm run build --workspace=autofill
+npm run test --workspace=autofill
+```
+
+Popup and content script talk to the service worker through `src/shared/messaging.ts`. Do not call `chrome.storage` outside `src/shared/storage.ts`. Do not import `@hrms/ui` here: components are `antd` only, icons are `@ant-design/icons` only. Tailwind utilities use the `autofill:` prefix.
+
 ## Key conventions
 
-- **`@hrms/ui` first**: Before creating any new UI component, check `packages/ui`. A net-new component is only allowed if `@hrms/ui` cannot satisfy the requirement, and the new component ships to `@hrms/ui` in the same PR. Backstage is the exception — it does **not** use `@hrms/ui`.
+- **`@hrms/ui` first**: Before creating any new UI component, check `packages/ui`. A net-new component is only allowed if `@hrms/ui` cannot satisfy the requirement, and the new component ships to `@hrms/ui` in the same PR. Backstage does **not** use `@hrms/ui`. Form Autofill must not import `@hrms/ui` either — its components are `antd` only and its icons are `@ant-design/icons` only.
 - **Caret dependency ranges**: All `dependencies` use `^` ranges, matching `devDependencies`.
 - **Zod at boundaries**: All external inputs — API responses, IndexedDB reads, file uploads, MCP tool arguments — are Zod-validated.
 - **postinstall**: `npm install` runs `patch-package`, `fix-next-postcss.mjs`, and `npm dedupe` automatically. Do not skip `postinstall` when troubleshooting Next.js PostCSS issues.

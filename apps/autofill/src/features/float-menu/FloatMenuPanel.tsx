@@ -8,16 +8,22 @@ import {
 } from "react";
 import {
   AimOutlined,
+  FieldTimeOutlined,
   FontSizeOutlined,
   FormOutlined,
   ReloadOutlined,
 } from "@ant-design/icons";
 import { showPageToast } from "@/shared/page-toast";
+// Direct import so the content script does not bundle the debugger controller.
+import { RequestTimingOverlay } from "@/features/network-timing/RequestTimingOverlay";
 import { isEscapeKey, shortcutLabelFor } from "@/features/shortcuts";
 import {
   FAB_ID,
   FAB_SIZE,
   FLOAT_MENU_ITEMS,
+  MENU_ESTIMATED_HEIGHT,
+  MENU_ESTIMATED_WIDTH,
+  MENU_GAP_PX,
   MENU_ID,
   ROOT_ID,
   clampFabPosition,
@@ -26,6 +32,7 @@ import {
   fetchPersistedFabPosition,
   isDragGesture,
   persistFabPosition,
+  resolveMenuPlacement,
   type FabPosition,
   type FloatMenuActionId,
   type FloatMenuIconName,
@@ -56,6 +63,7 @@ export interface FloatMenuPanelProps {
 
 export function FloatMenuPanel({ sendMessage, onReady }: FloatMenuPanelProps) {
   const [open, setOpen] = useState(false);
+  const [timingOpen, setTimingOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [position, setPosition] = useState<FabPosition>(() =>
     defaultFabPosition(
@@ -106,6 +114,11 @@ export function FloatMenuPanel({ sendMessage, onReady }: FloatMenuPanelProps) {
   } | null>(null);
   /** After a drag, ignore the browser's follow-up click so the menu does not toggle. */
   const skipNextClickRef = useRef(false);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+  const [menuSize, setMenuSize] = useState({
+    width: MENU_ESTIMATED_WIDTH,
+    height: MENU_ESTIMATED_HEIGHT,
+  });
 
   const runAction = async (actionId: FloatMenuActionId) => {
     if (busyRef.current) {
@@ -165,6 +178,34 @@ export function FloatMenuPanel({ sendMessage, onReady }: FloatMenuPanelProps) {
       document.removeEventListener("click", onDocumentClick, true);
       window.removeEventListener("keydown", onKeyDown, true);
     };
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    const menu = menuRef.current;
+    if (!menu) {
+      return;
+    }
+    const measure = () => {
+      const { offsetWidth, offsetHeight } = menu;
+      if (offsetWidth <= 0 || offsetHeight <= 0) {
+        return;
+      }
+      setMenuSize((prev) =>
+        prev.width === offsetWidth && prev.height === offsetHeight
+          ? prev
+          : { width: offsetWidth, height: offsetHeight },
+      );
+    };
+    measure();
+    if (typeof ResizeObserver === "undefined") {
+      return;
+    }
+    const observer = new ResizeObserver(measure);
+    observer.observe(menu);
+    return () => observer.disconnect();
   }, [open]);
 
   useEffect(() => {
@@ -258,6 +299,16 @@ export function FloatMenuPanel({ sendMessage, onReady }: FloatMenuPanelProps) {
     }
   };
 
+  const placement = resolveMenuPlacement(
+    position,
+    typeof window !== "undefined" ? window.innerWidth : 1280,
+    typeof window !== "undefined" ? window.innerHeight : 720,
+    {
+      menuWidth: menuSize.width,
+      menuHeight: menuSize.height,
+    },
+  );
+
   const shellStyle: CSSProperties = {
     position: "fixed",
     zIndex: 2147483645,
@@ -275,8 +326,10 @@ export function FloatMenuPanel({ sendMessage, onReady }: FloatMenuPanelProps) {
     flexDirection: "column",
     gap: 4,
     position: "absolute",
-    right: 0,
-    bottom: FAB_SIZE + 8,
+    ...(placement.horizontal === "end" ? { right: 0 } : { left: 0 }),
+    ...(placement.vertical === "above"
+      ? { bottom: FAB_SIZE + MENU_GAP_PX }
+      : { top: FAB_SIZE + MENU_GAP_PX }),
     minWidth: 220,
     padding: 8,
     borderRadius: 10,
@@ -304,10 +357,14 @@ export function FloatMenuPanel({ sendMessage, onReady }: FloatMenuPanelProps) {
   };
 
   return (
-    <div style={shellStyle} data-form-autofill-float="">
+    <>
+      <div style={shellStyle} data-form-autofill-float="">
       <div
+        ref={menuRef}
         id={MENU_ID}
         role="menu"
+        data-placement-vertical={placement.vertical}
+        data-placement-horizontal={placement.horizontal}
         style={menuStyle}
         hidden={!open}
         onKeyDown={(event) => {
@@ -375,6 +432,46 @@ export function FloatMenuPanel({ sendMessage, onReady }: FloatMenuPanelProps) {
             </button>
           );
         })}
+        <button
+          type="button"
+          role="menuitem"
+          data-action-id="request-timing"
+          aria-pressed={timingOpen}
+          disabled={busy}
+          onClick={(event) => {
+            event.stopPropagation();
+            setOpenState(false);
+            setTimingOpen((current) => !current);
+          }}
+          style={{
+            appearance: "none",
+            border: "none",
+            background: timingOpen ? "rgba(22, 119, 255, 0.08)" : "transparent",
+            textAlign: "left",
+            padding: "8px 10px",
+            borderRadius: 6,
+            cursor: busy ? "not-allowed" : "pointer",
+            fontSize: 13,
+            color: "#1f1f1f",
+            width: "100%",
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+          }}
+          onMouseEnter={(event) => {
+            if (!busy) {
+              event.currentTarget.style.background = "rgba(22, 119, 255, 0.08)";
+            }
+          }}
+          onMouseLeave={(event) => {
+            event.currentTarget.style.background = timingOpen
+              ? "rgba(22, 119, 255, 0.08)"
+              : "transparent";
+          }}
+        >
+          <FieldTimeOutlined style={{ fontSize: 14, color: "#1677ff" }} />
+          <span>Request timing</span>
+        </button>
       </div>
       <button
         id={FAB_ID}
@@ -401,6 +498,13 @@ export function FloatMenuPanel({ sendMessage, onReady }: FloatMenuPanelProps) {
       >
         <FormOutlined />
       </button>
-    </div>
+      </div>
+      {timingOpen ? (
+        <RequestTimingOverlay
+          sendMessage={sendMessage}
+          onClose={() => setTimingOpen(false)}
+        />
+      ) : null}
+    </>
   );
 }

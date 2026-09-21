@@ -22,14 +22,19 @@ describe("dismissOpenOverlays", () => {
         <div class="MuiDialog-root" id="dialog">edit form</div>
       </div>
       <div class="MuiDrawer-root" id="drawer">drawer form</div>
+      <div class="ant-modal" id="antd-modal">antd form</div>
     `;
     dismissOpenOverlays();
     expect(document.getElementById("modal")).toBeTruthy();
     expect(document.getElementById("backdrop")).toBeTruthy();
     expect(document.getElementById("dialog")).toBeTruthy();
     expect(document.getElementById("drawer")).toBeTruthy();
+    expect(document.getElementById("antd-modal")).toBeTruthy();
     expect(
       (document.getElementById("dialog") as HTMLElement).style.visibility,
+    ).not.toBe("hidden");
+    expect(
+      (document.getElementById("antd-modal") as HTMLElement).style.visibility,
     ).not.toBe("hidden");
   });
 
@@ -90,7 +95,42 @@ describe("fillAutocomplete", () => {
     expect(select.value).toBe("INR");
   });
 
-  it("picks the first option when preferred is empty (edge)", async () => {
+  it("picks a random native <select> option when preferred does not match (positive)", async () => {
+    document.body.innerHTML = `
+      <select id="currency">
+        <option value="">Select</option>
+        <option value="EUR">EUR</option>
+        <option value="INR">INR</option>
+        <option value="USD">USD</option>
+      </select>
+    `;
+    const select = document.getElementById("currency") as HTMLSelectElement;
+    const random = vi.spyOn(Math, "random").mockReturnValue(0.9);
+
+    await fillAutocomplete(select, "not-a-currency");
+
+    random.mockRestore();
+    expect(select.value).toBe("USD");
+  });
+
+  it("skips a native <select> placeholder when choosing at random (edge)", async () => {
+    document.body.innerHTML = `
+      <select id="country">
+        <option value="prompt">Select country</option>
+        <option value="IN">India</option>
+        <option value="SG">Singapore</option>
+      </select>
+    `;
+    const select = document.getElementById("country") as HTMLSelectElement;
+    const random = vi.spyOn(Math, "random").mockReturnValue(0);
+
+    await fillAutocomplete(select, "");
+
+    random.mockRestore();
+    expect(select.value).toBe("IN");
+  });
+
+  function mountAutocomplete(optionHtml: string): HTMLInputElement {
     document.body.innerHTML = `
       <div class="MuiAutocomplete-root">
         <input id="currency" role="combobox" />
@@ -103,12 +143,7 @@ describe("fillAutocomplete", () => {
       .addEventListener("click", () => {
         const popper = document.createElement("div");
         popper.className = "MuiAutocomplete-popper";
-        popper.innerHTML = `
-          <ul role="listbox">
-            <li role="option" aria-disabled="true">None</li>
-            <li role="option">GBP</li>
-          </ul>
-        `;
+        popper.innerHTML = `<ul role="listbox">${optionHtml}</ul>`;
         document.body.appendChild(popper);
         popper.querySelectorAll('[role="option"]').forEach((node) => {
           node.addEventListener("click", () => {
@@ -116,9 +151,51 @@ describe("fillAutocomplete", () => {
           });
         });
       });
+    return input;
+  }
+
+  it("picks a random enabled option when preferred is empty (edge)", async () => {
+    const input = mountAutocomplete(`
+      <li role="option" aria-disabled="true">None</li>
+      <li role="option">EUR</li>
+      <li role="option">INR</li>
+      <li role="option">USD</li>
+    `);
+    const random = vi.spyOn(Math, "random").mockReturnValue(0.9);
 
     await fillAutocomplete(input, "");
-    expect(input.value).toBe("GBP");
+
+    random.mockRestore();
+    expect(input.value).toBe("USD");
+  });
+
+  it("does not fall back to the first option when preferred is missing (negative)", async () => {
+    const input = mountAutocomplete(`
+      <li role="option">EUR</li>
+      <li role="option">INR</li>
+      <li role="option">USD</li>
+    `);
+    const random = vi.spyOn(Math, "random").mockReturnValue(0.5);
+
+    await fillAutocomplete(input, "ZZZ-not-a-currency");
+
+    random.mockRestore();
+    expect(input.value).toBe("INR");
+    expect(input.value).not.toBe("EUR");
+  });
+
+  it("skips a placeholder row when choosing at random (edge)", async () => {
+    const input = mountAutocomplete(`
+      <li role="option">Select country</li>
+      <li role="option">India</li>
+      <li role="option">Singapore</li>
+    `);
+    const random = vi.spyOn(Math, "random").mockReturnValue(0);
+
+    await fillAutocomplete(input, "");
+
+    random.mockRestore();
+    expect(input.value).toBe("India");
   });
 
   it("does not pick leftover options from another Autocomplete (negative)", async () => {
@@ -197,6 +274,83 @@ describe("fillAutocomplete", () => {
     await fillAutocomplete(input, "SBIN0005943", { allowTypedValue: true });
     expect(input.value).toBe("");
   });
+
+  it("picks an ARIA listbox option with no library classes (positive)", async () => {
+    document.body.innerHTML = `<input id="country" role="combobox" aria-haspopup="listbox" />`;
+    const input = document.getElementById("country") as HTMLInputElement;
+    input.addEventListener("click", () => {
+      const list = document.createElement("ul");
+      list.setAttribute("role", "listbox");
+      list.innerHTML = `
+        <li role="option">India</li>
+        <li role="option">Singapore</li>
+      `;
+      document.body.appendChild(list);
+      list.querySelectorAll('[role="option"]').forEach((node) => {
+        node.addEventListener("click", () => {
+          input.value = (node.textContent || "").trim();
+        });
+      });
+    });
+    const random = vi.spyOn(Math, "random").mockReturnValue(0);
+    await fillAutocomplete(input);
+    random.mockRestore();
+    expect(input.value).toBe("India");
+  });
+
+  it("picks an Ant Design Select option from a new dropdown (positive)", async () => {
+    document.body.innerHTML = `
+      <div class="ant-select">
+        <input id="country" role="combobox" />
+        <span class="ant-select-arrow">v</span>
+      </div>
+    `;
+    const input = document.getElementById("country") as HTMLInputElement;
+    document.querySelector(".ant-select-arrow")!.addEventListener("click", () => {
+      const dropdown = document.createElement("div");
+      dropdown.className = "ant-select-dropdown";
+      dropdown.innerHTML = `
+        <div class="ant-select-item-option">INR</div>
+        <div class="ant-select-item-option">USD</div>
+      `;
+      document.body.appendChild(dropdown);
+      dropdown.querySelectorAll(".ant-select-item-option").forEach((node) => {
+        node.addEventListener("click", () => {
+          input.value = (node.textContent || "").trim();
+        });
+      });
+    });
+    await fillAutocomplete(input, "USD");
+    expect(input.value).toBe("USD");
+  });
+
+  it("does not reuse a leftover ARIA listbox from another field (negative)", async () => {
+    document.body.innerHTML = `
+      <ul role="listbox" id="leftover">
+        <li role="option">Savings</li>
+      </ul>
+      <input id="currency" role="combobox" />
+    `;
+    const leftover = document.getElementById("leftover") as HTMLElement;
+    leftover.querySelectorAll('[role="option"]').forEach((node) => {
+      node.addEventListener("click", () => {
+        leftover.dataset.picked = (node.textContent || "").trim();
+      });
+    });
+    const input = document.getElementById("currency") as HTMLInputElement;
+    input.addEventListener("click", () => {
+      const list = document.createElement("ul");
+      list.setAttribute("role", "listbox");
+      list.innerHTML = `<li role="option">EUR</li>`;
+      document.body.appendChild(list);
+      list.querySelector('[role="option"]')!.addEventListener("click", () => {
+        input.value = "EUR";
+      });
+    });
+    await fillAutocomplete(input);
+    expect(input.value).toBe("EUR");
+    expect(leftover.dataset.picked).toBeUndefined();
+  });
 });
 
 describe("fillRadio", () => {
@@ -225,6 +379,25 @@ describe("fillRadio", () => {
     const yes = document.getElementById("yes") as HTMLInputElement;
     expect(fillRadio(yes)).toBe(false);
     expect(yes.checked).toBe(false);
+  });
+
+  it("picks a random radio when preferred is empty (positive)", () => {
+    document.body.innerHTML = `
+      <div role="radiogroup">
+        <label><input id="a" type="radio" name="gov" value="A" />Alpha</label>
+        <label><input id="b" type="radio" name="gov" value="B" />Bravo</label>
+        <label><input id="c" type="radio" name="gov" value="C" />Charlie</label>
+      </div>
+    `;
+    const random = vi.spyOn(Math, "random").mockReturnValue(0.9);
+    const first = document.getElementById("a") as HTMLInputElement;
+
+    expect(fillRadio(first, "")).toBe(true);
+    random.mockRestore();
+    expect((document.getElementById("c") as HTMLInputElement).checked).toBe(
+      true,
+    );
+    expect(first.checked).toBe(false);
   });
 
   it("picks an enabled option when preferred is empty (edge)", () => {

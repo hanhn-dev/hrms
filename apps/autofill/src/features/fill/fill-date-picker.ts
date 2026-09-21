@@ -1,4 +1,9 @@
 import { fillControlledDateInPageWorld } from "./page-world";
+import {
+  dispatchBlur,
+  setNativeValue,
+  type FillTacticResult,
+} from "./react-fill";
 
 const MONTHS_SHORT = [
   "Jan",
@@ -51,14 +56,32 @@ export function parseDisplayDate(value: string): ParsedDisplayDate | null {
 
 function formControlFor(element: HTMLElement): Element | null {
   return element.closest(
-    ".MuiFormControl-root, .MuiTextField-root, .MuiPickersTextField-root, .MuiPickersInputBase-root",
+    [
+      ".MuiFormControl-root",
+      ".MuiTextField-root",
+      ".MuiPickersTextField-root",
+      ".MuiPickersInputBase-root",
+      ".ant-picker",
+      ".ant-form-item",
+    ].join(", "),
   );
 }
 
-/** Calendar adornment button next to a MUI DatePicker input. */
+function toNativeDateValue(value: string): string | null {
+  const parsed = parseDisplayDate(value);
+  if (parsed) {
+    const month = String(parsed.monthIndex + 1).padStart(2, "0");
+    const day = String(parsed.day).padStart(2, "0");
+    return `${parsed.year}-${month}-${day}`;
+  }
+  const iso = value.trim().match(/^(\d{4}-\d{2}-\d{2})(?:[T\s].*)?$/);
+  return iso ? iso[1]! : null;
+}
+
+/** Calendar adornment next to a date input (ARIA name first, library classes last). */
 export function findOpenPickerButton(
   element: HTMLInputElement,
-): HTMLButtonElement | null {
+): HTMLButtonElement | HTMLElement | null {
   let node: Element | null =
     formControlFor(element) ?? element.parentElement;
   for (let depth = 0; depth < 10 && node; depth += 1) {
@@ -81,9 +104,19 @@ export function findOpenPickerButton(
       }
     }
     const adornment = node.querySelector(
-      ".MuiInputAdornment-root button, button.MuiIconButton-root, .MuiPickersInputAdornment-root button, .MuiPickersOutlinedInput-endAdornment button",
+      [
+        ".MuiInputAdornment-root button",
+        "button.MuiIconButton-root",
+        ".MuiPickersInputAdornment-root button",
+        ".MuiPickersOutlinedInput-endAdornment button",
+        ".ant-picker-suffix",
+      ].join(", "),
     );
-    if (adornment instanceof HTMLButtonElement && !adornment.disabled) {
+    if (adornment instanceof HTMLElement) {
+      if (adornment instanceof HTMLButtonElement && adornment.disabled) {
+        node = node.parentElement;
+        continue;
+      }
       return adornment;
     }
     node = node.parentElement;
@@ -99,6 +132,8 @@ export function findPickerSurface(): HTMLElement | null {
         ".MuiPickerPopper-root",
         ".MuiPickersLayout-root",
         ".MuiDateCalendar-root",
+        ".ant-picker-dropdown",
+        "[role='grid']",
         "[role='dialog']",
       ].join(", "),
     ),
@@ -116,7 +151,13 @@ export function findPickerSurface(): HTMLElement | null {
     }
     if (
       node.querySelector(
-        ".MuiPickersDay-root, .MuiPickersYear-yearButton, .MuiPickersMonth-monthButton, [role='gridcell']",
+        [
+          ".MuiPickersDay-root",
+          ".MuiPickersYear-yearButton",
+          ".MuiPickersMonth-monthButton",
+          "[role='gridcell']",
+          ".ant-picker-cell",
+        ].join(", "),
       )
     ) {
       return node;
@@ -221,11 +262,30 @@ async function clickMonth(monthShort: string): Promise<void> {
   }
 }
 
-async function clickDay(day: number): Promise<boolean> {
-  const days = enabledButtons(
-    pickerRoot(),
+function dayCandidates(root: ParentNode): HTMLElement[] {
+  const mui = enabledButtons(
+    root,
     "button.MuiPickersDay-root:not(.MuiPickersDay-dayOutsideMonth), .MuiPickersDay-root:not(.MuiPickersDay-dayOutsideMonth)",
   );
+  if (mui.length > 0) {
+    return mui;
+  }
+  const gridCells = enabledButtons(root, "[role='gridcell']");
+  if (gridCells.length > 0) {
+    return gridCells;
+  }
+  return Array.from(
+    root.querySelectorAll(
+      ".ant-picker-cell:not(.ant-picker-cell-disabled), .ant-picker-cell-inner",
+    ),
+  ).filter(
+    (node): node is HTMLElement =>
+      node instanceof HTMLElement && !isDisabled(node),
+  );
+}
+
+async function clickDay(day: number): Promise<boolean> {
+  const days = dayCandidates(pickerRoot());
   if (days.length === 0) {
     return false;
   }
@@ -233,7 +293,13 @@ async function clickDay(day: number): Promise<boolean> {
   const match =
     days.find((el) => {
       const text = (el.textContent || "").trim();
-      return text === dayText || text === dayText.padStart(2, "0");
+      const title = (el.getAttribute("title") || "").trim();
+      return (
+        text === dayText ||
+        text === dayText.padStart(2, "0") ||
+        title.endsWith(`-${dayText.padStart(2, "0")}`) ||
+        title.endsWith(`/${dayText.padStart(2, "0")}`)
+      );
     }) ?? days[0];
   if (!match) {
     return false;
@@ -289,32 +355,64 @@ async function fillViaCalendar(
 }
 
 /**
- * Fill a DatePicker through page-world React props. Isolated-world calendar
- * clicks do not update controlled pickers — they are only a test/DOM fallback.
- * @returns true when the value was applied via MAIN-world or calendar path.
+ * Fill a date control: native type, React MAIN-world, typed value, then calendar.
+ * Library-specific calendar clicks are the last tactic, not a page mode.
  */
 export async function fillDatePicker(
   element: HTMLInputElement,
   value: string,
   label?: string,
-): Promise<boolean> {
+): Promise<FillTacticResult> {
+  const inputType = (element.type || "text").toLowerCase();
+  if (inputType === "date" || inputType === "datetime-local") {
+    const iso = toNativeDateValue(value);
+    if (iso) {
+      const nativeValue =
+        inputType === "datetime-local" ? `${iso}T00:00` : iso;
+      setNativeValue(element, nativeValue);
+      dispatchBlur(element);
+      if (element.value) {
+        return { ok: true, tactic: "native-date" };
+      }
+    }
+  }
+
   const injected = await fillControlledDateInPageWorld(element, value, label);
   if (injected) {
     // Parent state updates on the next paint; do not open the calendar after
     // a successful props fill (click-away remounts the picker to the old value).
     await sleep(150);
-    return true;
+    return { ok: true, tactic: "react-main-world" };
   }
 
   const parsed = parseDisplayDate(value);
+
+  if (
+    !element.readOnly &&
+    !element.disabled &&
+    parsed &&
+    element.getAttribute("role") !== "combobox"
+  ) {
+    element.focus();
+    setNativeValue(element, value);
+    dispatchBlur(element);
+    if (element.value.trim().length > 0) {
+      return { ok: true, tactic: "type-blur" };
+    }
+  }
+
   if (!parsed) {
-    return false;
+    return { ok: false, tactic: "unparseable-date" };
   }
 
   try {
-    return await fillViaCalendar(element, parsed);
+    const viaCalendar = await fillViaCalendar(element, parsed);
+    if (viaCalendar) {
+      return { ok: true, tactic: "calendar" };
+    }
   } catch {
     // Leave the field empty rather than stuffing a DOM-only value React will wipe.
-    return false;
   }
+
+  return { ok: false, tactic: "calendar" };
 }

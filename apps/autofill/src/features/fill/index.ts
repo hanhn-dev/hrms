@@ -9,7 +9,7 @@ export {
   fillRadio,
   dismissOpenOverlays,
 } from "./react-fill";
-export type { FillAutocompleteOptions } from "./react-fill";
+export type { FillAutocompleteOptions, FillTacticResult } from "./react-fill";
 export {
   fillDatePicker,
   parseDisplayDate,

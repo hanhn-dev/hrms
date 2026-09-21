@@ -260,6 +260,44 @@ describe("fillFields", () => {
     expect(input.value).toMatch(/^(INR|USD)$/);
   });
 
+  it("fills a combobox with a random option instead of the first (positive)", async () => {
+    document.body.innerHTML = `
+      <div class="MuiAutocomplete-root">
+        <label class="MuiInputLabel-root">Account Type</label>
+        <input id="account-type" role="combobox" />
+        <button type="button" class="MuiAutocomplete-popupIndicator" title="Open">open</button>
+      </div>
+    `;
+    const input = document.getElementById("account-type") as HTMLInputElement;
+    document
+      .querySelector(".MuiAutocomplete-popupIndicator")!
+      .addEventListener("click", () => {
+        const popper = document.createElement("div");
+        popper.className = "MuiAutocomplete-popper";
+        popper.innerHTML = `
+          <ul role="listbox">
+            <li role="option">Savings</li>
+            <li role="option">Current</li>
+            <li role="option">Salary</li>
+          </ul>
+        `;
+        document.body.appendChild(popper);
+        popper.querySelectorAll('[role="option"]').forEach((node) => {
+          node.addEventListener("click", () => {
+            input.value = (node.textContent || "").trim();
+          });
+        });
+      });
+
+    const random = vi.spyOn(Math, "random").mockReturnValue(0.9);
+    const result = await fillFields();
+    random.mockRestore();
+
+    expect(result.filledCount).toBe(1);
+    expect(input.value).toBe("Salary");
+    expect(result.entries[0]?.valuePreview).toBe("Salary");
+  });
+
   it("still fills a readOnly combobox (edge)", async () => {
     document.body.innerHTML = `
       <div class="MuiAutocomplete-root">
@@ -557,5 +595,71 @@ describe("fillFields", () => {
     expect(
       (document.getElementById("branch-name") as HTMLInputElement).value,
     ).toBe("");
+  });
+
+  it("fills a mixed native select and ARIA combobox (positive)", async () => {
+    document.body.innerHTML = `
+      <label for="status">Status</label>
+      <select id="status">
+        <option value="">Select</option>
+        <option value="open">Open</option>
+        <option value="closed">Closed</option>
+      </select>
+      <label for="country">Country</label>
+      <input id="country" role="combobox" />
+    `;
+    const country = document.getElementById("country") as HTMLInputElement;
+    country.addEventListener("click", () => {
+      const list = document.createElement("ul");
+      list.setAttribute("role", "listbox");
+      list.innerHTML = `<li role="option">India</li>`;
+      document.body.appendChild(list);
+      list.querySelector('[role="option"]')!.addEventListener("click", () => {
+        country.value = "India";
+      });
+    });
+    const result = await fillFields();
+    expect(result.failedCount).toBe(0);
+    expect(result.filledCount).toBe(2);
+    const status = document.getElementById("status") as HTMLSelectElement;
+    expect(status.value).toMatch(/^(open|closed)$/);
+    expect(country.value).toBe("India");
+  });
+
+  it("fills an Ant Design-like select (positive)", async () => {
+    document.body.innerHTML = `
+      <div class="ant-form-item">
+        <div class="ant-form-item-label"><label>Currency</label></div>
+        <div class="ant-select">
+          <input id="currency" role="combobox" />
+          <span class="ant-select-arrow">v</span>
+        </div>
+      </div>
+    `;
+    const input = document.getElementById("currency") as HTMLInputElement;
+    document.querySelector(".ant-select-arrow")!.addEventListener("click", () => {
+      const dropdown = document.createElement("div");
+      dropdown.className = "ant-select-dropdown";
+      dropdown.innerHTML = `<div class="ant-select-item-option">EUR</div>`;
+      document.body.appendChild(dropdown);
+      dropdown
+        .querySelector(".ant-select-item-option")!
+        .addEventListener("click", () => {
+          input.value = "EUR";
+        });
+    });
+    const result = await fillFields();
+    expect(result.filledCount).toBe(1);
+    expect(input.value).toBe("EUR");
+  });
+
+  it("reports a tactic reason when the listbox is empty (negative)", async () => {
+    document.body.innerHTML = `
+      <label for="currency">Currency</label>
+      <input id="currency" role="combobox" />
+    `;
+    const result = await fillFields();
+    expect(result.failedCount).toBe(1);
+    expect(result.entries[0]?.reason).toMatch(/listbox-option/);
   });
 });

@@ -6,6 +6,9 @@ import {
 import {
   FLOAT_MENU_ITEMS,
   FAB_SIZE,
+  MENU_ESTIMATED_HEIGHT,
+  MENU_ESTIMATED_WIDTH,
+  MENU_GAP_PX,
   buildRequestForAction,
   clampFabPosition,
   defaultFabPosition,
@@ -14,9 +17,34 @@ import {
   mountFloatMenu,
   normalizeFabPosition,
   resolveFabPosition,
+  resolveMenuPlacement,
   shouldMountFloatMenu,
   unmountFloatMenu,
 } from "./float-menu";
+
+if (typeof window.matchMedia !== "function") {
+  Object.defineProperty(window, "matchMedia", {
+    writable: true,
+    value: () => ({
+      matches: false,
+      media: "",
+      onchange: null,
+      addListener: () => undefined,
+      removeListener: () => undefined,
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+      dispatchEvent: () => false,
+    }),
+  });
+}
+
+if (typeof globalThis.ResizeObserver === "undefined") {
+  globalThis.ResizeObserver = class {
+    observe(): void {}
+    unobserve(): void {}
+    disconnect(): void {}
+  };
+}
 
 function waitForHandle(get: () => boolean, attempts = 40): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -80,6 +108,7 @@ describe("float menu items", () => {
       typingDelayMs: 40,
       startWithInvalid: true,
       personaId: "invalid-contact",
+      overwriteExistingValues: true,
     });
     expect(
       buildRequestForAction("pick-fill", {
@@ -161,6 +190,40 @@ describe("fab position helpers", () => {
   it("detects drag vs click threshold (positive/negative)", () => {
     expect(isDragGesture(6, 0)).toBe(true);
     expect(isDragGesture(1, 1)).toBe(false);
+  });
+});
+
+describe("resolveMenuPlacement", () => {
+  it("keeps the menu above the FAB when there is room (positive)", () => {
+    expect(
+      resolveMenuPlacement({ left: 900, top: 500 }, 1000, 800),
+    ).toEqual({ vertical: "above", horizontal: "end" });
+  });
+
+  it("flips the menu below when the FAB is near the top (negative)", () => {
+    expect(
+      resolveMenuPlacement({ left: 900, top: 8 }, 1000, 800),
+    ).toEqual({ vertical: "below", horizontal: "end" });
+  });
+
+  it("flips horizontally when the FAB is near the left edge (edge)", () => {
+    expect(
+      resolveMenuPlacement({ left: 4, top: 400 }, 1000, 800, {
+        menuWidth: MENU_ESTIMATED_WIDTH,
+      }),
+    ).toEqual({ vertical: "above", horizontal: "start" });
+  });
+
+  it("prefers the side with more room when both sides are tight (edge)", () => {
+    const menuHeight = 200;
+    const top = 40;
+    expect(
+      resolveMenuPlacement({ left: 900, top }, 1000, top + FAB_SIZE + 120, {
+        menuHeight,
+        gap: MENU_GAP_PX,
+      }),
+    ).toEqual({ vertical: "below", horizontal: "end" });
+    expect(MENU_ESTIMATED_HEIGHT).toBeGreaterThan(0);
   });
 });
 
@@ -447,6 +510,38 @@ describe("mountFloatMenu", () => {
     await waitForHandle(() => !controller!.open);
     expect(controller!.open).toBe(false);
   });
+
+  it("places the open menu below the FAB when near the top (positive)", async () => {
+    const sendMessage = vi.fn(async (payload: unknown) => {
+      if (
+        typeof payload === "object" &&
+        payload !== null &&
+        "type" in payload &&
+        payload.type === MESSAGE.GET_FAB_POSITION
+      ) {
+        return { ok: true as const, position: { left: 900, top: 4 } };
+      }
+      return { ok: true as const, started: true };
+    });
+
+    const controller = mountFloatMenu({ sendMessage, document });
+    await controller!.whenReady();
+    await waitForHandle(() => {
+      const root = document.getElementById("form-autofill-float-root");
+      const shell = root?.firstElementChild as HTMLElement | null;
+      return shell?.style.top === "4px";
+    });
+
+    controller!.setOpen(true);
+    await waitForHandle(() => controller!.open);
+
+    const menu = document.getElementById(
+      "form-autofill-float-menu",
+    ) as HTMLElement;
+    expect(menu.dataset.placementVertical).toBe("below");
+    expect(menu.style.top).toBe(`${FAB_SIZE + MENU_GAP_PX}px`);
+    expect(menu.style.bottom).toBe("");
+  });
 });
 
 function escapeEvent(key = "Escape"): KeyboardEvent {
@@ -538,5 +633,84 @@ describe("float menu Escape", () => {
     fab.dispatchEvent(escapeEvent("Esc"));
     await waitForHandle(() => !controller.open);
     expect(controller.open).toBe(false);
+  });
+});
+
+describe("request timing from the FAB", () => {
+  beforeEach(() => {
+    unmountFloatMenu(document);
+    document.body.innerHTML = "";
+    document.getElementById("form-autofill-toast")?.remove();
+  });
+
+  afterEach(() => {
+    unmountFloatMenu(document);
+    document.getElementById("form-autofill-slow-request-style")?.remove();
+    document.getElementById("form-autofill-toast")?.remove();
+  });
+
+  it("opens a page panel from the menu and leaves it up when the page is clicked (positive)", async () => {
+    const sendMessage = stubSendMessage();
+    const controller = mountFloatMenu({ sendMessage, document });
+    await controller!.whenReady();
+    controller!.setOpen(true);
+    await waitForHandle(() => controller!.open);
+
+    const item = document.querySelector(
+      '[data-action-id="request-timing"]',
+    ) as HTMLButtonElement;
+    expect(item.textContent).toContain("Request timing");
+    item.click();
+
+    await waitForHandle(
+      () => document.getElementById("form-autofill-request-timing") != null,
+    );
+    expect(controller!.open).toBe(false);
+
+    document.body.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(document.getElementById("form-autofill-request-timing")).toBeTruthy();
+
+    const types = sendMessage.mock.calls.map((call) => {
+      const payload = call[0];
+      return typeof payload === "object" && payload && "type" in payload
+        ? payload.type
+        : "";
+    });
+    expect(types).toContain(MESSAGE.GET_NETWORK_CAPTURE);
+    expect(types).not.toContain(MESSAGE.SCAN);
+    expect(types).not.toContain(MESSAGE.FILL);
+  });
+
+  it("does not treat request timing as a fill action (negative)", () => {
+    expect(isFloatMenuActionId("request-timing")).toBe(false);
+    expect(FLOAT_MENU_ITEMS.map((item) => item.id)).not.toContain("request-timing");
+  });
+
+  it("closes the page panel from its Close button (edge)", async () => {
+    const controller = mountFloatMenu({
+      sendMessage: stubSendMessage(),
+      document,
+    });
+    await controller!.whenReady();
+    controller!.setOpen(true);
+    await waitForHandle(() => controller!.open);
+    (
+      document.querySelector(
+        '[data-action-id="request-timing"]',
+      ) as HTMLButtonElement
+    ).click();
+    await waitForHandle(
+      () => document.getElementById("form-autofill-request-timing") != null,
+    );
+
+    (
+      document.querySelector(
+        '[aria-label="Close request timing"]',
+      ) as HTMLButtonElement
+    ).click();
+    await waitForHandle(
+      () => document.getElementById("form-autofill-request-timing") == null,
+    );
   });
 });

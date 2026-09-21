@@ -5,6 +5,8 @@ This folder is the **new HRMS Turborepo** (`ui-editor`, Backstage, az-mcp, db-mc
 Canonical repo map (read before choosing where to edit):
 `AGENTS.md` at the `SourceCode` root.
 
-Only change this repo for editor / Backstage / MCP / `@hrms/ui` work. Classic employee profile, search, Core Node API, `@hrms/sdk`, and `HRMS-DATABASE` live in the other workspace folders.
+Only change this repo for editor / Backstage / MCP / `autofill` / `@hrms/ui` work. Classic employee profile, search, Core Node API, `@hrms/sdk`, and `HRMS-DATABASE` live in the other workspace folders.
+
+Form Autofill (Chrome MV3 extension) conventions: `apps/autofill/AGENTS.md`.
 
 If the owning repo is not in the workspace, add that folder before editing.

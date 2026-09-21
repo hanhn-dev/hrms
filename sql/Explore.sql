@@ -1,47 +1,18 @@
-SELECT TOP 100 * FROM TEmployeeDetail_Fields WHERE EmployerId = 10 AND SectionID = 14 AND DisplayText LIKE '%Group%'
-
-EXEC SP_Bulkcreation_Getallfields 25, 99, NULL
-
-SELECT TOP 5 * FROM TEmployeeDetail_Upload WHERE EmployerID = 25 ORDER BY UploadID DESC
-
-SELECT top 100 * FROM TTabDetails WHERE MenuId = 5
-
-SELECT TOP 100 * FROM TUserTabDetails 
-INNER JOIN 
-WHERE MenuId = 5 AND Employerid = 10
+SELECT 
+  missix.index_handle,
+  t.name,
+  missix.equality_columns,
+  missix.inequality_columns,
+  missix.[statement]
+FROM sys.dm_db_missing_index_details missix
+INNER JOIN sys.tables t ON t.object_id = missix.object_id
 
 
-
-DECLARE @UploadID INT = 3008
-
-
--- SELECT TOP 100 * FROM TEmployeeDetail_Upload_Section WHERE UploadID = @UploadID
--- SELECT TOP 100 * FROM TProcessedBatchResult WHERE UploadID = @UploadID
-
--- SELECT TOP 100 * FROM TEmployeeDetail_Upload_Creation_Finalizing WHERE UploadID = @UploadID
+SELECT TOP 100 * FROM TEmployeeDetail_Section
 
 
+SELECT TOP 100 * FROM TEmployeeDetail_Fields WHERE DisplayText LIKE 'Acquired Qualification' AND EmployerId = 10
 
-DECLARE @JSONResult VARCHAR(MAX),
-        @JSONResult2 VARCHAR(MAX)
+SELECT TOP 100 ValidationRule, * FROM TEmployeeDetail_Fields WHERE DisplayText LIKE '%Person Mobile%' AND SectionID = 6 AND EmployerId = 10
 
-EXEC SP_BulkEmployeeCreationDetails
-          @UploadID,
-          25,
-          '[{"Date of Joining":"18-Sep-2026","Group Joining Date":"18-Sep-2026","Designation":1189,"Employee Role":106,"Work Location":4347,"Base Location":4347,"Business Unit":460,"Calendar":814,"Shift Type":1146,"Attendance Mode":"Mobile","Grade":1659,"Confirmation Due Date":null,"Confirmation Date":null,"Notice Period Type":null,"Notice Period":60,"Skill Category":null,"Previous Experience (Years)":null,"Previous Experience (Months)":null,"Previous Employment No In Current Organization":null,"Previous Experience In Current Organization (Years)":null,"Previous Experience In Current Organization (Months)":null,"Employment Type":147,"Assessment Tenure":null,"Upcoming Assessment":null,"End Of Contract":null,"Reporting Manager":24142,"Functional Manager":25146,"Comments":null,"Cost Center":null,"Is Auto Present":false,"Auto Present Effective From":null,"Universal Account no.":null,"Pension Fund N":null,"Health Insur.":null,"Vaccine":null,"AA":"sss","PO":null,"Work Email":"ramkate20581@gmail.com","isValid":true,"errorFields":[],"unprocessedReasons":""}]',
-          'Date of Joining,Group Joining Date,Designation,Employee Role,Work Location,Base Location,Business Unit,Calendar,Shift Type,Attendance Mode,Grade,Confirmation Due Date,Confirmation Date,Notice Period Type,Notice Period,Skill Category,Previous Experience (Years),Previous Experience (Months),Previous Employment No In Current Organization,Previous Experience In Current Organization (Years),Previous Experience In Current Organization (Months),Employment Type,Assessment Tenure,Upcoming Assessment,End Of Contract,Reporting Manager,Functional Manager,Comments,Cost Center,Is Auto Present,Auto Present Effective From,Universal Account no.,Pension Fund N,Health Insur.,Vaccine,AA,PO,Work Email',
-          0,
-          4880,
-          6,
-          14,
-          @JSONResult OUTPUT,
-          @JSONResult2 OUTPUT
-
-SELECT @JSONResult, @JSONResult2
-
-        
-
-
-
-
-
+sp_helptext 'SP_Mydetails_Enhanced_GetEmpHistoryDetails'

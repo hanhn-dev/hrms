@@ -1,10 +1,11 @@
 import { generateValue } from "@/shared/generators";
-import type { ScannedField } from "@/shared/messaging";
-import { findElementForField } from "@/features/scan";
+import type { FillReportEntry, ScannedField } from "@/shared/messaging";
+import { findElementForField, scanFields } from "@/features/scan";
 import {
   clearNativeValue,
   dispatchBlur,
   fillRadio,
+  hasExistingValue,
   setNativeValue,
 } from "@/features/fill";
 
@@ -17,6 +18,23 @@ export interface AutoTypeOptions {
   startWithInvalid?: boolean;
   /** Override the element (e.g. context-menu target). */
   element?: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | null;
+}
+
+export interface AutoTypeFieldsOptions {
+  root?: ParentNode;
+  /** When set, only type these field ids; otherwise type all typeable fields. */
+  fieldIds?: string[];
+  typingDelayMs?: number;
+  startWithInvalid?: boolean;
+  /** When true, replace non-empty values. Default skips already-filled. */
+  overwriteExistingValues?: boolean;
+}
+
+export interface AutoTypeFieldsResult {
+  typedCount: number;
+  skippedCount: number;
+  failedCount: number;
+  entries: FillReportEntry[];
 }
 
 function sleep(ms: number): Promise<void> {
@@ -149,4 +167,155 @@ export async function autoTypeField(
   await typeKeystroke(element, valid, typingDelayMs);
 
   return { fieldId: field.id, label: field.label };
+}
+
+function isTypeable(field: ScannedField): boolean {
+  if (field.disabled) {
+    return false;
+  }
+  if (field.kind === "select") {
+    return false;
+  }
+  if (field.readOnly && field.kind !== "radio") {
+    return false;
+  }
+  if (/monthly\s*ctc/i.test(field.label)) {
+    return false;
+  }
+  return true;
+}
+
+function skipReason(field: ScannedField): string {
+  if (field.disabled) {
+    return "Disabled";
+  }
+  if (field.kind === "select") {
+    return "Select (use Fill)";
+  }
+  if (/monthly\s*ctc/i.test(field.label)) {
+    return "Computed / Monthly CTC";
+  }
+  if (field.readOnly && field.kind !== "radio") {
+    return "Read-only";
+  }
+  return "Not typeable";
+}
+
+/**
+ * Sequentially keystroke-type each typeable field under a form section
+ * (or a checked subset), mirroring fillFields' multi-field loop.
+ */
+export async function autoTypeFields(
+  options: AutoTypeFieldsOptions = {},
+): Promise<AutoTypeFieldsResult> {
+  const root = options.root ?? document;
+  const typingDelayMs = options.typingDelayMs ?? 60;
+  const startWithInvalid = options.startWithInvalid ?? false;
+  const fields = scanFields({ root });
+  const allCandidates = options.fieldIds?.length
+    ? fields.filter((f) => options.fieldIds!.includes(f.id))
+    : fields;
+
+  const entries: FillReportEntry[] = [];
+  const targets = allCandidates.filter(isTypeable);
+
+  for (const field of allCandidates) {
+    if (!isTypeable(field)) {
+      entries.push({
+        fieldId: field.id,
+        label: field.label,
+        kind: field.kind,
+        status: "skipped",
+        reason: skipReason(field),
+      });
+    }
+  }
+
+  if (targets.length === 0) {
+    return {
+      typedCount: 0,
+      skippedCount: entries.length,
+      failedCount: 0,
+      entries,
+    };
+  }
+
+  let typedCount = 0;
+  let failedCount = 0;
+  const betweenDelay =
+    typingDelayMs <= 0 ? 0 : Math.max(typingDelayMs * 3, 150);
+
+  for (let i = 0; i < targets.length; i += 1) {
+    const field = targets[i]!;
+    const element = findElementForField(field, root);
+
+    if (!element) {
+      entries.push({
+        fieldId: field.id,
+        label: field.label,
+        kind: field.kind,
+        status: "skipped",
+        reason: "Element not found",
+      });
+      continue;
+    }
+
+    if (
+      !options.overwriteExistingValues &&
+      hasExistingValue(element, field)
+    ) {
+      entries.push({
+        fieldId: field.id,
+        label: field.label,
+        kind: field.kind,
+        status: "skipped",
+        reason: "Already filled",
+      });
+      continue;
+    }
+
+    try {
+      await autoTypeField({
+        field,
+        root,
+        element:
+          element instanceof HTMLInputElement ||
+          element instanceof HTMLTextAreaElement ||
+          element instanceof HTMLSelectElement
+            ? element
+            : null,
+        typingDelayMs,
+        startWithInvalid,
+      });
+      typedCount += 1;
+      entries.push({
+        fieldId: field.id,
+        label: field.label,
+        kind: field.kind,
+        status: "filled",
+      });
+    } catch (error) {
+      failedCount += 1;
+      entries.push({
+        fieldId: field.id,
+        label: field.label,
+        kind: field.kind,
+        status: "failed",
+        reason: error instanceof Error ? error.message : "Auto-type failed",
+      });
+    }
+
+    if (i < targets.length - 1 && betweenDelay > 0) {
+      await sleep(betweenDelay);
+    }
+  }
+
+  const skippedCount = entries.filter((e) => e.status === "skipped").length;
+
+  return {
+    typedCount,
+    skippedCount,
+    failedCount,
+    entries,
+  };
 }

@@ -40,8 +40,8 @@ Load the unpacked extension:
 5. **Pick & fill** uses the same inspector: click a section, then that area is scanned and filled immediately.
 6. With fields checked in the popup, **Fill selected** fills only those fields (no new pick).
 7. Context-menu fill still uses the last marked section / context target.
-8. **Pick & type** uses inspector mode on a **single field**: a blue box tracks the input under the cursor; click to keystroke-type into it (Esc cancels). In the popup, checking fields swaps this button to **Auto-type selected**.
-9. Right-click an editable field → **Auto-type into this field** still types into that context target.
+8. **Pick & type** uses the same inspector as Pick & fill: click a **form section**, then each typeable field is keystroke-typed in order (Esc cancels before typing starts). In the popup, checking fields swaps this button to **Auto-type selected**, which types all checked fields sequentially.
+9. Right-click an editable field → **Auto-type into this field** still types into that single context target.
 
 ## Keyboard shortcuts
 
@@ -66,7 +66,7 @@ On macOS, Alt is the Option key (`⌥⇧P`, …).
 | `fill` | `src/features/fill` | Instant React-safe fill + per-field report |
 | `personas` | `src/features/personas` | Random valid vs invalid email/phone profiles |
 | `scenarios` | `src/features/scenarios` | My Details packs (bank IFSC, employment dates, contact) |
-| `auto-type` | `src/features/auto-type` | Per-character keystroke typing |
+| `auto-type` | `src/features/auto-type` | Per-character keystroke typing (single field or sequential form) |
 | `popup` | `src/features/popup` | Ant Design popup panels (profile, report, hosts) |
 | `float-menu` | `src/features/float-menu` | On-page FAB + feature menu (top frame) |
 | `context-menu` | `src/features/context-menu` | Menu ids / registration |

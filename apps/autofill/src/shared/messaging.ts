@@ -15,7 +15,7 @@ export const MESSAGE = {
   START_PICK_SCAN: "autofill/START_PICK_SCAN",
   /** Pick a section, then scan + fill it in one pass. */
   START_PICK_FILL: "autofill/START_PICK_FILL",
-  /** Pick one control, then keystroke-type into it. */
+  /** Pick a section, then keystroke-type all typeable fields. */
   START_PICK_AUTO_TYPE: "autofill/START_PICK_AUTO_TYPE",
   CANCEL_PICK_SCAN: "autofill/CANCEL_PICK_SCAN",
   /** Top-frame only: open or close the floating action menu. */
@@ -30,6 +30,12 @@ export const MESSAGE = {
   SET_CUSTOM_HOSTS: "autofill/SET_CUSTOM_HOSTS",
   /** Content → background: persist last fill report. */
   FILL_REPORT_UPDATED: "autofill/FILL_REPORT_UPDATED",
+  /** Popup → background: attach the debugger and start timing requests. */
+  START_NETWORK_CAPTURE: "autofill/START_NETWORK_CAPTURE",
+  /** Popup → background: detach the debugger. Rows already captured stay. */
+  STOP_NETWORK_CAPTURE: "autofill/STOP_NETWORK_CAPTURE",
+  /** Popup → background: current rows for the active tab, slowest first. */
+  GET_NETWORK_CAPTURE: "autofill/GET_NETWORK_CAPTURE",
 } as const;
 
 /** Persisted floating-action-button coordinates (CSS px). */
@@ -141,18 +147,31 @@ export interface FillResponse {
 
 export interface AutoTypeRequest {
   type: typeof MESSAGE.AUTO_TYPE;
+  /** Single-field path (context menu / legacy). Prefer fieldIds for multi. */
   fieldId?: string;
+  /** When set, keystroke-type these fields in scan order. */
+  fieldIds?: string[];
+  rootSelector?: string;
+  /** When true, type inside the last marked pick-scan root if present. */
+  useMarkedRoot?: boolean;
   /** Prefer the element under the context-menu click when available. */
   useContextTarget?: boolean;
   typingDelayMs?: number;
   startWithInvalid?: boolean;
   personaId?: PersonaId;
+  /** When true, replace non-empty values. Default skips already-filled. */
+  overwriteExistingValues?: boolean;
 }
 
 export interface AutoTypeResponse {
   ok: true;
-  fieldId: string;
-  label: string;
+  typedCount: number;
+  skippedCount: number;
+  failedCount: number;
+  entries: FillReportEntry[];
+  /** Present when exactly one field was typed (toast convenience). */
+  fieldId?: string;
+  label?: string;
 }
 
 export interface ErrorResponse {
@@ -214,6 +233,8 @@ export interface StartPickAutoTypeRequest {
   typingDelayMs?: number;
   startWithInvalid?: boolean;
   personaId?: PersonaId;
+  /** When true, replace non-empty values. Default skips already-filled. */
+  overwriteExistingValues?: boolean;
 }
 
 export interface CancelPickScanRequest {
@@ -258,6 +279,49 @@ export interface FillReportUpdatedMessage {
   report: FillReport;
 }
 
+/** HTTP status, a terminal failure, or null while the call is still in flight. */
+export type NetworkRequestStatus = number | "failed" | "canceled" | null;
+
+/** One captured request. Seconds are browser wall-clock, not server handler time. */
+export interface NetworkTimingRow {
+  requestId: string;
+  url: string;
+  method: string;
+  resourceType: string;
+  initiatorLabel: string;
+  status: NetworkRequestStatus;
+  cached: boolean;
+  /** Total seconds from send until finish. Null while pending or if start was missed. */
+  durationSeconds: number | null;
+  /** Seconds until response headers, including connection setup. Null when Chrome omits timing. */
+  waitingSeconds: number | null;
+  /**
+   * Seconds the server spent answering after the request was fully sent,
+   * before response headers started. Excludes DNS, connect, TLS, and download.
+   */
+  handlingSeconds: number | null;
+  /** Monotonic Chrome timestamp when the request was sent. Null if that event was missed. */
+  startedAt: number | null;
+}
+
+export interface StartNetworkCaptureRequest {
+  type: typeof MESSAGE.START_NETWORK_CAPTURE;
+}
+
+export interface StopNetworkCaptureRequest {
+  type: typeof MESSAGE.STOP_NETWORK_CAPTURE;
+}
+
+export interface GetNetworkCaptureRequest {
+  type: typeof MESSAGE.GET_NETWORK_CAPTURE;
+}
+
+export interface NetworkCaptureResponse {
+  ok: true;
+  capturing: boolean;
+  rows: NetworkTimingRow[];
+}
+
 export type AutofillRequest =
   | ScanRequest
   | FillRequest
@@ -276,4 +340,7 @@ export type AutofillRequest =
   | SetFabPositionRequest
   | FillControlledDateRequest
   | GetCustomHostsRequest
-  | SetCustomHostsRequest;
+  | SetCustomHostsRequest
+  | StartNetworkCaptureRequest
+  | StopNetworkCaptureRequest
+  | GetNetworkCaptureRequest;

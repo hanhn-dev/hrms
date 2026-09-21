@@ -12,10 +12,15 @@ describe("normalizeLabelText", () => {
 });
 
 describe("detectFieldKind", () => {
-  it("detects email from label (positive)", () => {
-    const input = document.createElement("input");
-    input.type = "text";
-    expect(detectFieldKind(input, "Contact Person Email Id")).toBe("email");
+  it("detects email from type and autocomplete (positive)", () => {
+    const byType = document.createElement("input");
+    byType.type = "email";
+    expect(detectFieldKind(byType, "Anything")).toBe("email");
+
+    const byAutocomplete = document.createElement("input");
+    byAutocomplete.type = "text";
+    byAutocomplete.setAttribute("autocomplete", "email");
+    expect(detectFieldKind(byAutocomplete, "Anything")).toBe("email");
   });
 
   it("detects phone from type=tel (positive)", () => {
@@ -30,17 +35,34 @@ describe("detectFieldKind", () => {
     expect(detectFieldKind(input, "Something Else")).toBe("text");
   });
 
-  it("detects From/To DatePicker even with role=combobox (positive)", () => {
+  it("does not treat HRMS field titles as kinds (negative)", () => {
     const input = document.createElement("input");
-    input.setAttribute("role", "combobox");
-    expect(detectFieldKind(input, "From")).toBe("date");
-    expect(detectFieldKind(input, "To")).toBe("date");
+    input.type = "text";
+    expect(detectFieldKind(input, "Salary")).toBe("text");
+    expect(detectFieldKind(input, "Monthly CTC")).toBe("text");
+    expect(detectFieldKind(input, "Currency")).toBe("text");
+    expect(detectFieldKind(input, "Employment Type")).toBe("text");
+    expect(detectFieldKind(input, "From")).toBe("text");
   });
 
-  it("keeps Currency combobox as select (negative)", () => {
+  it("does not treat a From combobox as a date without a calendar (negative)", () => {
+    const input = document.createElement("input");
+    input.setAttribute("role", "combobox");
+    expect(detectFieldKind(input, "From")).toBe("select");
+  });
+
+  it("keeps a combobox as select regardless of label (positive)", () => {
     const input = document.createElement("input");
     input.setAttribute("role", "combobox");
     expect(detectFieldKind(input, "Currency")).toBe("select");
+    expect(detectFieldKind(input, "Employment Type")).toBe("select");
+  });
+
+  it("detects number from inputMode, not from a salary label (positive)", () => {
+    const input = document.createElement("input");
+    input.type = "text";
+    input.inputMode = "numeric";
+    expect(detectFieldKind(input, "Anything")).toBe("number");
   });
 
   it("detects date via calendar adornment when label is generic (edge)", () => {
@@ -52,6 +74,47 @@ describe("detectFieldKind", () => {
     `;
     const input = document.getElementById("tenure") as HTMLInputElement;
     expect(detectFieldKind(input, "Tenure")).toBe("date");
+  });
+
+  it("detects native type=date before combobox role (positive)", () => {
+    const input = document.createElement("input");
+    input.type = "date";
+    input.setAttribute("role", "combobox");
+    expect(detectFieldKind(input, "Start")).toBe("date");
+  });
+
+  it("detects a calendar combobox with no library classes (positive)", () => {
+    document.body.innerHTML = `
+      <div>
+        <input id="start" role="combobox" aria-haspopup="dialog" />
+        <button type="button" aria-label="Open calendar">📅</button>
+      </div>
+    `;
+    const input = document.getElementById("start") as HTMLInputElement;
+    expect(detectFieldKind(input, "Start")).toBe("date");
+  });
+
+  it("detects an Ant Design picker host as date (positive)", () => {
+    document.body.innerHTML = `
+      <div class="ant-picker">
+        <input id="hired" />
+      </div>
+    `;
+    const input = document.getElementById("hired") as HTMLInputElement;
+    expect(detectFieldKind(input, "Hired")).toBe("date");
+  });
+
+  it("detects an ARIA combobox without library classes as select (positive)", () => {
+    const input = document.createElement("input");
+    input.setAttribute("role", "combobox");
+    input.setAttribute("aria-haspopup", "listbox");
+    expect(detectFieldKind(input, "Country")).toBe("select");
+  });
+
+  it("does not treat a plain text field as date (negative)", () => {
+    const input = document.createElement("input");
+    input.type = "text";
+    expect(detectFieldKind(input, "Notes")).toBe("text");
   });
 
   it("detects radio inputs as radio (positive)", () => {
@@ -226,6 +289,38 @@ describe("scanFields", () => {
     expect(fields.some((f) => f.label === "YES" || f.label === "NO")).toBe(
       false,
     );
+  });
+
+  it("collects native inputs outside MUI FormControls on a mixed page (positive)", () => {
+    document.body.innerHTML = `
+      <div class="MuiFormControl-root">
+        <label class="MuiInputLabel-root">Currency</label>
+        <input role="combobox" />
+        <input type="text" value="extra-internal" />
+      </div>
+      <label for="notes">Notes</label>
+      <input id="notes" type="text" />
+    `;
+    const fields = scanFields();
+    expect(fields.some((f) => f.label === "Currency")).toBe(true);
+    expect(fields.some((f) => f.label === "Notes")).toBe(true);
+    expect(fields).toHaveLength(2);
+  });
+
+  it("groups an Ant Design Form.Item as one field (positive)", () => {
+    document.body.innerHTML = `
+      <div class="ant-form-item">
+        <div class="ant-form-item-label"><label>Country</label></div>
+        <div class="ant-select">
+          <input id="country" role="combobox" />
+          <input type="text" value="search-internal" />
+        </div>
+      </div>
+    `;
+    const fields = scanFields();
+    expect(fields).toHaveLength(1);
+    expect(fields[0]?.label).toBe("Country");
+    expect(fields[0]?.kind).toBe("select");
   });
 
   it("skips a radio group when every option is disabled (edge)", () => {

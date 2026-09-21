@@ -48,7 +48,7 @@ export const SHORTCUT_BINDINGS: readonly ShortcutBinding[] = [
     id: "auto-type",
     key: "t",
     label: "Alt+Shift+T",
-    description: "Pick a field and auto-type",
+    description: "Pick a section and auto-type each field",
     suggestInChrome: true,
   },
   {

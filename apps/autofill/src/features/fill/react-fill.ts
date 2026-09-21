@@ -71,27 +71,43 @@ export function clearNativeValue(element: FillableElement): void {
   setNativeValue(element, "");
 }
 
+/**
+ * Dropdown / calendar portals. Library class names are extra hints only.
+ * Never include form shells (role=dialog, .ant-modal, MUI Dialog/Drawer).
+ */
 const PICKER_OVERLAY_SELECTOR = [
+  "[role='listbox']",
   ".MuiPickersPopper-root",
   ".MuiPickerPopper-root",
   ".MuiAutocomplete-popper",
   ".MuiPopover-root:has([role='listbox'])",
   ".MuiPopover-root:has(.MuiDateCalendar-root)",
   ".MuiPopover-root:has(.MuiPickersLayout-root)",
+  ".ant-select-dropdown",
+  ".ant-picker-dropdown",
 ].join(", ");
 
 /**
- * Hide Autocomplete / DatePicker poppers without detaching React portals.
+ * Hide list / calendar overlays without detaching React portals.
  * `node.remove()` on MUI poppers crashes the host app (removeChild NotFoundError).
- * Never send document Escape or hide `.MuiModal-root` — that closes the form
- * dialog/drawer itself and looks like the page blinking.
+ * Never send document Escape or hide `.MuiModal-root` / `.ant-modal` — that
+ * closes the form dialog itself.
  */
 export function dismissOpenOverlays(): void {
   document.querySelectorAll(PICKER_OVERLAY_SELECTOR).forEach((node) => {
-    if (node instanceof HTMLElement) {
-      node.style.setProperty("visibility", "hidden", "important");
-      node.style.setProperty("pointer-events", "none", "important");
+    if (!(node instanceof HTMLElement)) {
+      return;
     }
+    if (
+      node.closest(
+        ".MuiDialog-root, .MuiDrawer-root, .MuiModal-root, .ant-modal, [role='dialog']",
+      ) &&
+      !node.matches(PICKER_OVERLAY_SELECTOR)
+    ) {
+      return;
+    }
+    node.style.setProperty("visibility", "hidden", "important");
+    node.style.setProperty("pointer-events", "none", "important");
   });
 }
 
@@ -105,7 +121,8 @@ function isUsableOption(el: Element): el is HTMLElement {
   }
   if (
     el.getAttribute("aria-disabled") === "true" ||
-    el.classList.contains("Mui-disabled")
+    el.classList.contains("Mui-disabled") ||
+    el.classList.contains("ant-select-item-option-disabled")
   ) {
     return false;
   }
@@ -116,9 +133,19 @@ function optionsIn(root: ParentNode | Element | null): HTMLElement[] {
   if (!root) {
     return [];
   }
-  return Array.from(root.querySelectorAll('[role="option"]')).filter(
-    isUsableOption,
+  const seen = new Set<HTMLElement>();
+  const collected: HTMLElement[] = [];
+  const nodes = root.querySelectorAll(
+    '[role="option"], .ant-select-item-option',
   );
+  nodes.forEach((node) => {
+    if (!isUsableOption(node) || seen.has(node)) {
+      return;
+    }
+    seen.add(node);
+    collected.push(node);
+  });
+  return collected;
 }
 
 function optionsFromAria(element: HTMLElement): HTMLElement[] {
@@ -136,7 +163,12 @@ function optionsFromAria(element: HTMLElement): HTMLElement[] {
   return collected;
 }
 
-const POPPER_SELECTOR = ".MuiAutocomplete-popper, .MuiPopover-root";
+const LIST_PORTAL_SELECTOR = [
+  "[role='listbox']",
+  ".MuiAutocomplete-popper",
+  ".MuiPopover-root",
+  ".ant-select-dropdown",
+].join(", ");
 
 /**
  * Options that belong to *this* combobox — never leftover lists from Account
@@ -160,13 +192,37 @@ function collectListOptionsFor(
 }
 
 function snapshotPoppers(): Set<Element> {
-  return new Set(document.querySelectorAll(POPPER_SELECTOR));
+  return new Set(document.querySelectorAll(LIST_PORTAL_SELECTOR));
 }
 
 function poppersOpenedSince(before: Set<Element>): Element[] {
-  return Array.from(document.querySelectorAll(POPPER_SELECTOR)).filter(
+  return Array.from(document.querySelectorAll(LIST_PORTAL_SELECTOR)).filter(
     (node) => !before.has(node),
   );
+}
+
+function pickRandom<T>(items: T[]): T | undefined {
+  if (items.length === 0) {
+    return undefined;
+  }
+  return items[Math.floor(Math.random() * items.length)]!;
+}
+
+/** Prompt rows such as "Select country" — skip these when choosing at random. */
+function looksLikePlaceholder(text: string): boolean {
+  const normalized = text.replace(/\s+/g, " ").trim().toLowerCase();
+  return (
+    normalized.length === 0 ||
+    /^(select|choose|please select)(\s+\w[\w\s]*)?\.?$/.test(normalized)
+  );
+}
+
+function pickRandomChoice<T>(
+  items: T[],
+  isPlaceholder: (item: T) => boolean,
+): T | undefined {
+  const real = items.filter((item) => !isPlaceholder(item));
+  return pickRandom(real.length > 0 ? real : items);
 }
 
 function matchOption(
@@ -174,33 +230,62 @@ function matchOption(
   preferred?: string,
 ): HTMLElement | undefined {
   const needle = preferred?.trim().toLowerCase();
-  if (!needle) {
-    return options[0];
+  if (needle) {
+    const matched =
+      options.find(
+        (el) => (el.textContent || "").trim().toLowerCase() === needle,
+      ) ??
+      options.find((el) =>
+        (el.textContent || "").trim().toLowerCase().includes(needle),
+      );
+    if (matched) {
+      return matched;
+    }
   }
-  return (
-    options.find((el) => (el.textContent || "").trim().toLowerCase() === needle) ??
-    options.find((el) =>
-      (el.textContent || "").trim().toLowerCase().includes(needle),
-    ) ??
-    options[0]
+  return pickRandomChoice(options, (el) =>
+    looksLikePlaceholder(el.textContent || ""),
   );
 }
 
+function looksLikeOpenControl(node: Element): boolean {
+  if (!(node instanceof HTMLElement)) {
+    return false;
+  }
+  if (
+    node.classList.contains("MuiAutocomplete-popupIndicator") ||
+    node.classList.contains("ant-select-arrow") ||
+    node.classList.contains("ant-select-selector")
+  ) {
+    return true;
+  }
+  const label = (
+    `${node.getAttribute("aria-label") || ""} ${node.getAttribute("title") || ""}`
+  ).toLowerCase();
+  return /^(open|close|expand)$/.test(label.trim()) || /\b(open|expand|close)\b/.test(label);
+}
+
 function findPopupIndicator(element: HTMLElement): HTMLElement | null {
-  const root =
-    element.closest(".MuiAutocomplete-root") ??
-    element.closest(".MuiFormControl-root") ??
-    element.parentElement;
-  const button = root?.querySelector(
-    [
-      ".MuiAutocomplete-popupIndicator",
-      "button[aria-label='Open']",
-      "button[title='Open']",
-      "button[aria-label='Close']",
-      "button[title='Close']",
-    ].join(", "),
-  );
-  return button instanceof HTMLElement ? button : null;
+  const roots: Array<Element | null> = [
+    element.closest(
+      ".MuiAutocomplete-root, .MuiFormControl-root, .ant-select, .ant-form-item",
+    ),
+    element.parentElement,
+  ];
+  for (const root of roots) {
+    if (!root) {
+      continue;
+    }
+    const candidates = Array.from(
+      root.querySelectorAll(
+        "button, .MuiAutocomplete-popupIndicator, .ant-select-arrow, .ant-select-selector",
+      ),
+    );
+    const match = candidates.find((node) => looksLikeOpenControl(node));
+    if (match instanceof HTMLElement) {
+      return match;
+    }
+  }
+  return null;
 }
 
 function fillNativeSelect(
@@ -214,15 +299,22 @@ function fillNativeSelect(
     return;
   }
   const needle = preferred?.trim().toLowerCase();
+  const matched = needle
+    ? options.find(
+        (option) =>
+          option.value.toLowerCase() === needle ||
+          option.text.trim().toLowerCase() === needle ||
+          option.text.trim().toLowerCase().includes(needle),
+      )
+    : undefined;
   const chosen =
-    (needle
-      ? options.find(
-          (option) =>
-            option.value.toLowerCase() === needle ||
-            option.text.trim().toLowerCase() === needle ||
-            option.text.trim().toLowerCase().includes(needle),
-        )
-      : undefined) ?? options[Math.floor(Math.random() * options.length)]!;
+    matched ??
+    pickRandomChoice(options, (option) =>
+      looksLikePlaceholder(option.text),
+    );
+  if (!chosen) {
+    return;
+  }
   setNativeValue(element, chosen.value);
   dispatchBlur(element);
 }
@@ -236,19 +328,27 @@ export interface FillAutocompleteOptions {
   allowTypedValue?: boolean;
 }
 
+export interface FillTacticResult {
+  ok: boolean;
+  tactic: string;
+}
+
 /**
- * Fill MUI Autocomplete / native <select> by choosing a real option.
- * Typing into Autocomplete does not fire onChange (not freeSolo) so the value
- * reverts on blur — Currency stays empty with "required".
+ * Fill native <select> or a combobox by choosing a real option.
+ * ARIA listbox first; MUI / Ant Design portal classes are extra hosts only.
+ * Typing a generated sentence does not fire onChange on most Autocompletes.
  */
 export async function fillAutocomplete(
   element: HTMLInputElement | HTMLSelectElement,
   preferred?: string,
   fillOptions: FillAutocompleteOptions = {},
-): Promise<boolean> {
+): Promise<FillTacticResult> {
   if (element instanceof HTMLSelectElement) {
     fillNativeSelect(element, preferred);
-    return element.value.length > 0;
+    return {
+      ok: element.value.length > 0,
+      tactic: "native-select",
+    };
   }
 
   const beforePoppers = snapshotPoppers();
@@ -258,6 +358,13 @@ export async function fillAutocomplete(
   } else {
     element.click();
   }
+  element.dispatchEvent(
+    new KeyboardEvent("keydown", {
+      key: "ArrowDown",
+      bubbles: true,
+      cancelable: true,
+    }),
+  );
 
   let options: HTMLElement[] = [];
   let newPoppers: Element[] = [];
@@ -302,7 +409,7 @@ export async function fillAutocomplete(
     }
     option.click();
     await sleep(40);
-    return true;
+    return { ok: true, tactic: "listbox-option" };
   }
 
   if (
@@ -314,10 +421,10 @@ export async function fillAutocomplete(
     element.focus();
     setNativeValue(element, preferred);
     dispatchBlur(element);
-    return true;
+    return { ok: true, tactic: "typed-value" };
   }
 
-  return false;
+  return { ok: false, tactic: "listbox-option" };
 }
 
 function radiosInGroup(element: HTMLInputElement): HTMLInputElement[] {
@@ -339,10 +446,10 @@ function radiosInGroup(element: HTMLInputElement): HTMLInputElement[] {
     if (node.disabled) {
       return false;
     }
-    const host =
-      node.closest(
-        '.MuiRadio-root, .MuiFormControlLabel-root, [role="radiogroup"]',
-      ) ?? node;
+        const host =
+          node.closest(
+            '.MuiRadio-root, .MuiFormControlLabel-root, .ant-radio-wrapper, .ant-radio, [role="radiogroup"]',
+          ) ?? node;
     if (
       host instanceof HTMLElement &&
       (host.hidden || host.getAttribute("aria-hidden") === "true")
@@ -411,16 +518,23 @@ export function fillRadio(
   }
 
   const needle = preferred?.trim().toLowerCase();
+  const matched = needle
+    ? radios.find((radio) => radio.value.toLowerCase() === needle) ||
+      radios.find(
+        (radio) => radioOptionLabel(radio).toLowerCase() === needle,
+      ) ||
+      radios.find((radio) =>
+        radioOptionLabel(radio).toLowerCase().includes(needle),
+      )
+    : undefined;
   const chosen =
-    (needle
-      ? radios.find((radio) => radio.value.toLowerCase() === needle) ||
-        radios.find(
-          (radio) => radioOptionLabel(radio).toLowerCase() === needle,
-        ) ||
-        radios.find((radio) =>
-          radioOptionLabel(radio).toLowerCase().includes(needle),
-        )
-      : undefined) ?? radios[Math.floor(Math.random() * radios.length)]!;
+    matched ??
+    pickRandomChoice(radios, (radio) =>
+      looksLikePlaceholder(radioOptionLabel(radio)),
+    );
+  if (!chosen) {
+    return false;
+  }
 
   if (!chosen.checked) {
     chosen.click();

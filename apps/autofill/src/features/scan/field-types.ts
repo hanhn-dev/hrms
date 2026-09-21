@@ -4,42 +4,107 @@ export function normalizeLabelText(raw: string): string {
   return raw.replace(/\*/g, "").replace(/\s+/g, " ").trim();
 }
 
-/** True when a MUI/TDG DatePicker calendar adornment sits next to the input. */
-export function hasDatePickerAdornment(element: Element): boolean {
-  const control = element.closest(
-    ".MuiFormControl-root, .MuiTextField-root, .MuiPickersTextField-root, .MuiPickersInputBase-root",
-  );
-  if (!control) {
-    return false;
+const CALENDAR_BUTTON_RE =
+  /choose date|open calendar|pick date|select date|toggle calendar|\bcalendar\b/;
+
+/** Single-field hosts used as per-control hints — never as a page-level library mode. */
+export const FIELD_GROUP_HOST_SELECTOR = [
+  ".MuiFormControl-root",
+  ".MuiTextField-root",
+  ".MuiPickersTextField-root",
+  ".MuiPickersInputBase-root",
+  ".ant-form-item",
+  ".ant-select",
+  ".ant-picker",
+].join(", ");
+
+function closestFieldHost(element: Element): Element | null {
+  return element.closest(FIELD_GROUP_HOST_SELECTOR) ?? element.parentElement;
+}
+
+function isCalendarNamed(text: string): boolean {
+  return CALENDAR_BUTTON_RE.test(text.toLowerCase());
+}
+
+function buttonAccessibleName(button: Element): string {
+  return `${button.getAttribute("aria-label") || ""} ${button.getAttribute("title") || ""}`;
+}
+
+/**
+ * True when this control looks like a date picker: native date type is handled
+ * separately; this covers combobox/text pickers with a calendar affordance.
+ * Library class names are last-resort per-control hints only.
+ */
+export function hasCalendarSignal(element: Element): boolean {
+  if (
+    element.closest(
+      ".ant-picker, .MuiPickersTextField-root, .MuiPickersInputBase-root",
+    )
+  ) {
+    return true;
   }
-  const buttons = Array.from(control.querySelectorAll("button"));
-  return buttons.some((button) => {
-    const label = (
-      button.getAttribute("aria-label") ||
-      button.getAttribute("title") ||
-      ""
-    ).toLowerCase();
-    return /choose date|open calendar|pick date|select date|toggle calendar|calendar/.test(
-      label,
-    );
-  });
+
+  const host = closestFieldHost(element);
+  if (
+    host?.querySelector(
+      '.MuiPickersSectionList-root, [role="spinbutton"]',
+    ) != null
+  ) {
+    return true;
+  }
+
+  const ownName = `${element.getAttribute("aria-label") || ""} ${element.getAttribute("title") || ""}`;
+  if (
+    element.getAttribute("aria-haspopup") === "dialog" &&
+    isCalendarNamed(ownName)
+  ) {
+    return true;
+  }
+
+  let node: Element | null = closestFieldHost(element);
+  for (let depth = 0; depth < 6 && node; depth += 1) {
+    const buttons = Array.from(node.querySelectorAll("button"));
+    if (buttons.some((button) => isCalendarNamed(buttonAccessibleName(button)))) {
+      return true;
+    }
+    node = node.parentElement;
+  }
+
+  return false;
 }
 
-function looksLikeDateLabel(normalized: string): boolean {
-  return (
-    normalized === "from" ||
-    normalized === "to" ||
-    /\b(date|dob|birth)\b/.test(normalized) ||
-    normalized.includes(" date") ||
-    /date$/.test(normalized)
-  );
+/** @deprecated Use hasCalendarSignal — kept as the previous public name. */
+export function hasDatePickerAdornment(element: Element): boolean {
+  return hasCalendarSignal(element);
 }
 
+function looksLikeListboxCombobox(element: Element): boolean {
+  const role = element.getAttribute("role");
+  const hasPopup = element.getAttribute("aria-haspopup");
+  if (role === "combobox") {
+    if (hasPopup === "dialog" && hasCalendarSignal(element)) {
+      return false;
+    }
+    return true;
+  }
+  if (hasPopup === "listbox") {
+    return true;
+  }
+  if (element.closest(".ant-select, [class*='Autocomplete']")) {
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Classify from the control itself (type, inputMode, autocomplete, ARIA,
+ * calendar affordance). Do not map HRMS field titles (Salary, Currency,
+ * Employment Type, From/To, …) — those are not portable across unseen forms.
+ */
 export function detectFieldKind(
   element: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement,
-  label: string,
+  _label: string,
 ): FieldKind {
-  const normalized = label.toLowerCase();
   const tag = element.tagName.toLowerCase();
 
   if (tag === "textarea") {
@@ -48,54 +113,47 @@ export function detectFieldKind(
 
   const input = element as HTMLInputElement;
   const type = (input.type || "text").toLowerCase();
+  const inputMode = (input.inputMode || "").toLowerCase();
+  const autocomplete = (input.getAttribute("autocomplete") || "").toLowerCase();
 
   if (type === "radio") {
     return "radio";
   }
 
-  // MUI DatePicker inputs use role="combobox" — classify as date before Autocomplete.
-  if (
-    type === "date" ||
-    looksLikeDateLabel(normalized) ||
-    hasDatePickerAdornment(element)
-  ) {
+  if (type === "date" || type === "datetime-local") {
     return "date";
   }
 
-  if (tag === "select" || element.getAttribute("role") === "combobox") {
+  // Date before combobox: DatePickers often use role=combobox.
+  if (hasCalendarSignal(element)) {
+    return "date";
+  }
+
+  if (tag === "select") {
     return "select";
   }
 
-  if (type === "email" || normalized.includes("email")) {
+  if (type === "email" || inputMode === "email" || autocomplete === "email") {
     return "email";
   }
   if (
     type === "tel" ||
-    /mobile|phone|tel/.test(normalized)
+    inputMode === "tel" ||
+    autocomplete === "tel" ||
+    autocomplete.includes("tel")
   ) {
     return "phone";
   }
   if (
     type === "number" ||
-    /salary|ctc|people reporting|headcount|amount|numeric/.test(normalized)
+    inputMode === "numeric" ||
+    inputMode === "decimal"
   ) {
     return "number";
   }
-  if (
-    input.getAttribute("role") === "combobox" ||
-    element.closest('[class*="Autocomplete"]') != null ||
-    /currency|employment type|location/.test(normalized)
-  ) {
+
+  if (looksLikeListboxCombobox(element)) {
     return "select";
-  }
-  if (
-    type === "text" &&
-    (normalized.includes("address") ||
-      normalized.includes("key experience") ||
-      normalized.includes("experience"))
-  ) {
-    // Often rendered as textarea; if still input, treat as long text via textarea kind for generators
-    return element.tagName.toLowerCase() === "textarea" ? "textarea" : "text";
   }
 
   return "text";

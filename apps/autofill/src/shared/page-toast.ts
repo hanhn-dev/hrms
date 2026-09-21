@@ -51,3 +51,25 @@ export function toastFillResult(result: FillResult): void {
     failed > 0 ? "info" : "success",
   );
 }
+
+export function toastAutoTypeResult(result: {
+  typedCount: number;
+  skippedCount: number;
+  failedCount: number;
+}): void {
+  const failed = result.failedCount ?? 0;
+  if (result.typedCount === 0) {
+    showPageToast(
+      `Autofill: no fields typed (skipped ${result.skippedCount}${failed ? `, failed ${failed}` : ""}).`,
+      "error",
+    );
+    return;
+  }
+  const failPart = failed > 0 ? `, failed ${failed}` : "";
+  const skipPart =
+    result.skippedCount > 0 ? `, skipped ${result.skippedCount}` : "";
+  showPageToast(
+    `Autofill: typed ${result.typedCount} field(s)${skipPart}${failPart}`,
+    failed > 0 ? "info" : "success",
+  );
+}

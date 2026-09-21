@@ -15,6 +15,11 @@ export const FAB_ID = "form-autofill-float-fab";
 export const MENU_ID = "form-autofill-float-menu";
 export const FAB_SIZE = 48;
 export const DRAG_THRESHOLD_PX = 5;
+/** Gap between FAB edge and the open menu. */
+export const MENU_GAP_PX = 8;
+/** Estimated open-menu size used for collision checks before layout measurement. */
+export const MENU_ESTIMATED_WIDTH = 236;
+export const MENU_ESTIMATED_HEIGHT = 232;
 
 export type FloatMenuActionId =
   | "pick-scan"
@@ -79,6 +84,7 @@ export function buildRequestForAction(
         typingDelayMs: settings.typingDelayMs,
         startWithInvalid: settings.startWithInvalid,
         personaId: settings.activePersonaId,
+        overwriteExistingValues: settings.overwriteExistingValues,
       };
   }
 }
@@ -135,6 +141,58 @@ export function resolveFabPosition(
     return clampFabPosition(stored, viewportWidth, viewportHeight);
   }
   return defaultFabPosition(viewportWidth, viewportHeight);
+}
+
+export type MenuVerticalPlacement = "above" | "below";
+export type MenuHorizontalPlacement = "end" | "start";
+
+export interface MenuPlacement {
+  /** Prefer "above" (opens toward the top); flip to "below" when clipped. */
+  vertical: MenuVerticalPlacement;
+  /** Prefer "end" (right-aligned with FAB); flip to "start" when clipped. */
+  horizontal: MenuHorizontalPlacement;
+}
+
+export interface ResolveMenuPlacementOptions {
+  fabSize?: number;
+  menuWidth?: number;
+  menuHeight?: number;
+  gap?: number;
+}
+
+/**
+ * Chooses menu side relative to the FAB so the panel stays inside the viewport.
+ * Prefer the default (above + end-aligned) unless there is not enough room.
+ */
+export function resolveMenuPlacement(
+  fab: FabPosition,
+  viewportWidth: number,
+  viewportHeight: number,
+  options: ResolveMenuPlacementOptions = {},
+): MenuPlacement {
+  const fabSize = options.fabSize ?? FAB_SIZE;
+  const menuWidth = options.menuWidth ?? MENU_ESTIMATED_WIDTH;
+  const menuHeight = options.menuHeight ?? MENU_ESTIMATED_HEIGHT;
+  const gap = options.gap ?? MENU_GAP_PX;
+
+  const spaceAbove = fab.top;
+  const spaceBelow = Math.max(0, viewportHeight - (fab.top + fabSize));
+  const neededVertical = menuHeight + gap;
+
+  let vertical: MenuVerticalPlacement = "above";
+  if (spaceAbove < neededVertical && spaceBelow > spaceAbove) {
+    vertical = "below";
+  }
+
+  // End-aligned: menu's right edge matches FAB's right edge (extends leftward).
+  const menuLeftIfEnd = fab.left + fabSize - menuWidth;
+  const menuRightIfStart = fab.left + menuWidth;
+  let horizontal: MenuHorizontalPlacement = "end";
+  if (menuLeftIfEnd < 0 && menuRightIfStart <= viewportWidth) {
+    horizontal = "start";
+  }
+
+  return { vertical, horizontal };
 }
 
 export type RuntimeResponse =
@@ -229,7 +287,10 @@ export function toastForResponse(
 
   if (actionId === "auto-type") {
     if ("started" in response && response.started === true) {
-      showPageToast("Click a field to auto-type (Esc to cancel)", "info");
+      showPageToast(
+        "Click a form section to auto-type (Esc to cancel)",
+        "info",
+      );
     } else {
       showPageToast("Pick mode did not start on any frame", "error");
     }

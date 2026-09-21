@@ -30,7 +30,7 @@ export default defineManifest({
     service_worker: "src/background/service-worker.ts",
     type: "module",
   },
-  permissions: ["contextMenus", "storage", "activeTab", "scripting"],
+  permissions: ["contextMenus", "storage", "activeTab", "scripting", "debugger"],
   host_permissions: allowedHosts,
   optional_host_permissions: ["http://*/*", "https://*/*"],
   content_scripts: [

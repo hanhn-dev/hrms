@@ -9,6 +9,9 @@ export {
   detectFieldKind,
   normalizeLabelText,
   buildSelectorHint,
+  hasCalendarSignal,
+  hasDatePickerAdornment,
+  FIELD_GROUP_HOST_SELECTOR,
 } from "./field-types";
 export {
   resolvePickRoot,

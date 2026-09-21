@@ -7,6 +7,7 @@ import {
   type AutofillResponse,
   type FillReport,
   type ScannedField,
+  type NetworkCaptureResponse,
 } from "@/shared/messaging";
 import {
   bindPageShortcuts,
@@ -18,6 +19,10 @@ import { TypeSettings } from "./TypeSettings";
 import { ProfileSettings } from "./ProfileSettings";
 import { FillReportPanel } from "./FillReportPanel";
 import { HostAllowlist } from "./HostAllowlist";
+import {
+  NetworkTimingPanel,
+  type NetworkTimingRow,
+} from "@/features/network-timing";
 
 async function sendMessage<T>(payload: unknown): Promise<T> {
   return (await chrome.runtime.sendMessage(payload)) as T;
@@ -31,6 +36,10 @@ export function PopupPanel() {
   const [settings, setSettings] = useState<AutofillSettings>(DEFAULT_SETTINGS);
   const [fillReport, setFillReport] = useState<FillReport | null>(null);
   const [customHosts, setCustomHosts] = useState<string[]>([]);
+  const [networkRows, setNetworkRows] = useState<NetworkTimingRow[]>([]);
+  const [networkCapturing, setNetworkCapturing] = useState(false);
+  const [networkBusy, setNetworkBusy] = useState(false);
+  const [showAllNetworkTypes, setShowAllNetworkTypes] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [picking, setPicking] = useState(false);
   const [filling, setFilling] = useState(false);
@@ -80,6 +89,78 @@ export function PopupPanel() {
   useEffect(() => {
     void refreshFromStorage();
   }, [refreshFromStorage]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const pullNetworkCapture = async () => {
+      try {
+        const result = await sendMessage<
+          NetworkCaptureResponse | { ok: false; error: string }
+        >({ type: MESSAGE.GET_NETWORK_CAPTURE });
+        if (cancelled || !result.ok) {
+          return;
+        }
+        setNetworkRows(result.rows);
+        setNetworkCapturing(result.capturing);
+      } catch (e) {
+        console.error(e);
+      }
+    };
+
+    void pullNetworkCapture();
+    const timer = window.setInterval(() => {
+      void pullNetworkCapture();
+    }, 1000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, []);
+
+  const applyNetworkCapture = (result: NetworkCaptureResponse) => {
+    setNetworkRows(result.rows);
+    setNetworkCapturing(result.capturing);
+  };
+
+  const handleStartNetworkCapture = async () => {
+    setNetworkBusy(true);
+    setError(null);
+    try {
+      const result = await sendMessage<
+        NetworkCaptureResponse | { ok: false; error: string }
+      >({ type: MESSAGE.START_NETWORK_CAPTURE });
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      applyNetworkCapture(result);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setNetworkBusy(false);
+    }
+  };
+
+  const handleStopNetworkCapture = async () => {
+    setNetworkBusy(true);
+    setError(null);
+    try {
+      const result = await sendMessage<
+        NetworkCaptureResponse | { ok: false; error: string }
+      >({ type: MESSAGE.STOP_NETWORK_CAPTURE });
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      applyNetworkCapture(result);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setNetworkBusy(false);
+    }
+  };
 
   const applyFillResponse = (response: AutofillResponse) => {
     if (!response.ok || !("filledCount" in response)) {
@@ -194,6 +275,7 @@ export function PopupPanel() {
         typingDelayMs: settings.typingDelayMs,
         startWithInvalid: settings.startWithInvalid,
         personaId: settings.activePersonaId,
+        overwriteExistingValues: settings.overwriteExistingValues,
       });
       if (!response.ok) {
         setError(response.error);
@@ -207,7 +289,7 @@ export function PopupPanel() {
         setPicking(false);
         return;
       }
-      message.info("Click a field to auto-type…");
+      message.info("Click a form section to auto-type…");
       window.close();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -242,8 +324,7 @@ export function PopupPanel() {
   };
 
   const handleAutoType = async () => {
-    const fieldId = selectedIds[0];
-    if (!fieldId) {
+    if (selectedIds.length === 0) {
       message.warning("Select a field to auto-type");
       return;
     }
@@ -252,17 +333,36 @@ export function PopupPanel() {
     try {
       const response = await sendMessage<AutofillResponse>({
         type: MESSAGE.AUTO_TYPE,
-        fieldId,
+        fieldIds: selectedIds,
+        useMarkedRoot: true,
+        rootSelector,
         typingDelayMs: settings.typingDelayMs,
         startWithInvalid: settings.startWithInvalid,
         personaId: settings.activePersonaId,
+        overwriteExistingValues: settings.overwriteExistingValues,
       });
       if (!response.ok) {
         setError(response.error);
         return;
       }
-      if ("label" in response) {
-        message.success(`Auto-typed into ${response.label}`);
+      if ("typedCount" in response) {
+        if (response.typedCount === 0) {
+          message.warning(
+            `No fields typed (skipped ${response.skippedCount}${response.failedCount ? `, failed ${response.failedCount}` : ""})`,
+          );
+        } else if (response.typedCount === 1 && response.label) {
+          message.success(`Auto-typed into ${response.label}`);
+        } else {
+          const failPart =
+            response.failedCount > 0 ? `, failed ${response.failedCount}` : "";
+          const skipPart =
+            response.skippedCount > 0
+              ? `, skipped ${response.skippedCount}`
+              : "";
+          message.success(
+            `Auto-typed ${response.typedCount} field(s)${skipPart}${failPart}`,
+          );
+        }
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -353,7 +453,7 @@ export function PopupPanel() {
   return (
     <Card
       size="small"
-      className="autofill:w-[380px] autofill:border-0 autofill:shadow-none"
+      className="autofill:w-[760px] autofill:border-0 autofill:shadow-none"
       title={
         <div>
           <Typography.Title level={5} className="autofill:!mb-0">
@@ -403,6 +503,21 @@ export function PopupPanel() {
         onFillSelected={() => void handleFillSelected()}
         onPickAutoType={() => void handlePickAutoType()}
         onAutoTypeSelected={() => void handleAutoType()}
+      />
+
+      <Divider className="autofill:!my-3" />
+
+      <Typography.Text strong className="autofill:mb-2 autofill:block">
+        Request timing
+      </Typography.Text>
+      <NetworkTimingPanel
+        capturing={networkCapturing}
+        busy={networkBusy}
+        rows={networkRows}
+        showAllTypes={showAllNetworkTypes}
+        onStart={() => void handleStartNetworkCapture()}
+        onStop={() => void handleStopNetworkCapture()}
+        onShowAllTypesChange={setShowAllNetworkTypes}
       />
 
       <Divider className="autofill:!my-3" />

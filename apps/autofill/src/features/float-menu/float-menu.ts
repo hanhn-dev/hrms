@@ -13,6 +13,9 @@ export {
   FLOAT_MENU_ITEMS,
   FAB_SIZE,
   DRAG_THRESHOLD_PX,
+  MENU_GAP_PX,
+  MENU_ESTIMATED_WIDTH,
+  MENU_ESTIMATED_HEIGHT,
   buildRequestForAction,
   clampFabPosition,
   defaultFabPosition,
@@ -20,6 +23,7 @@ export {
   isFloatMenuActionId,
   normalizeFabPosition,
   resolveFabPosition,
+  resolveMenuPlacement,
   shouldMountFloatMenu,
 } from "./float-menu-logic";
 export type {
@@ -27,6 +31,7 @@ export type {
   FloatMenuActionId,
   FloatMenuIconName,
   FloatMenuItem,
+  MenuPlacement,
 } from "./float-menu-logic";
 
 

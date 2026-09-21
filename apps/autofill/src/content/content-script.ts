@@ -11,7 +11,7 @@ import {
   type StartPickAutoTypeRequest,
   type StartPickFillRequest,
 } from "@/shared/messaging";
-import { showPageToast, toastFillResult } from "@/shared/page-toast";
+import { showPageToast, toastFillResult, toastAutoTypeResult } from "@/shared/page-toast";
 import {
   scanFields,
   resolveScanRoot,
@@ -20,7 +20,7 @@ import {
   countFillableControls,
 } from "@/features/scan";
 import { fillFields } from "@/features/fill";
-import { autoTypeField } from "@/features/auto-type";
+import { autoTypeField, autoTypeFields } from "@/features/auto-type";
 import {
   startElementPicker,
   cancelElementPicker,
@@ -218,7 +218,7 @@ async function handleStartPickFill(
 }
 
 /**
- * Inspector pick a single control, then keystroke-type into it.
+ * Inspector pick a form section, then keystroke-type each typeable field.
  */
 async function handleStartPickAutoType(
   request: StartPickAutoTypeRequest,
@@ -229,11 +229,10 @@ async function handleStartPickAutoType(
 
   void (async () => {
     const result = await startElementPicker({
-      mode: "control",
-      bannerText: "Click the field to auto-type · Esc cancels",
+      bannerText: "Click a form section to auto-type · Esc cancels",
       announceScan: false,
     });
-    if (!result?.element) {
+    if (!result) {
       return;
     }
     lastRootSelector = result.rootSelector;
@@ -242,29 +241,20 @@ async function handleStartPickAutoType(
       /* ignore */
     });
 
-    const field = result.fields[0];
-    if (!field) {
-      showPageToast("Autofill: no editable field found for auto-type", "error");
-      return;
-    }
-
-    try {
-      const typed = await autoTypeField({
-        field,
-        element: result.element,
-        typingDelayMs: request.typingDelayMs,
-        startWithInvalid: request.startWithInvalid,
-      });
-      showPageToast(`Autofill: typed into ${typed.label}`, "success");
-    } catch (error) {
-      const messageText =
-        error instanceof Error ? error.message : "Auto-type failed";
-      showPageToast(`Autofill: ${messageText}`, "error");
-    }
+    const root = getMarkedScanRoot() ?? resolveScanRoot(result.rootSelector);
+    const typed = await autoTypeFields({
+      root,
+      typingDelayMs: request.typingDelayMs,
+      startWithInvalid: request.startWithInvalid,
+      overwriteExistingValues: request.overwriteExistingValues,
+    });
+    toastAutoTypeResult(typed);
+    const fields = scanFields({ root });
+    notifyFieldsUpdated(fields, result.rootSelector);
   })();
 
   showPageToast(
-    "Click a field in this frame to auto-type (Esc to cancel)",
+    "Click a form section in this frame to auto-type (Esc to cancel)",
     "info",
   );
   return { ok: true, started: true };
@@ -310,6 +300,42 @@ async function handleFill(request: FillRequest): Promise<AutofillResponse> {
 async function handleAutoType(
   request: AutoTypeRequest,
 ): Promise<AutofillResponse> {
+  // Multi-field / selected ids — same root scoping as fill.
+  if (request.fieldIds?.length) {
+    let root: ParentNode = document;
+
+    if (request.rootSelector) {
+      root = resolveScanRoot(request.rootSelector);
+    } else if (request.useMarkedRoot !== false) {
+      const marked = getMarkedScanRoot();
+      if (marked) {
+        root = marked;
+      } else if (lastRootSelector) {
+        root = resolveScanRoot(lastRootSelector);
+      } else {
+        root = scopeRootFromTarget(lastContextTarget);
+      }
+    } else {
+      root = scopeRootFromTarget(lastContextTarget);
+    }
+
+    const result = await autoTypeFields({
+      root,
+      fieldIds: request.fieldIds,
+      typingDelayMs: request.typingDelayMs,
+      startWithInvalid: request.startWithInvalid,
+      overwriteExistingValues: request.overwriteExistingValues,
+    });
+    toastAutoTypeResult(result);
+    const typedEntries = result.entries.filter((e) => e.status === "filled");
+    return {
+      ok: true,
+      ...result,
+      fieldId: typedEntries[0]?.fieldId,
+      label: typedEntries[0]?.label,
+    };
+  }
+
   const root = scopeRootFromTarget(lastContextTarget);
   const fields = scanFields({ root });
 
@@ -359,16 +385,37 @@ async function handleAutoType(
     return { ok: false, error: "No editable field found for auto-type" };
   }
 
-  const result = await autoTypeField({
-    field,
-    root,
-    element,
-    typingDelayMs: request.typingDelayMs,
-    startWithInvalid: request.startWithInvalid,
-  });
-
-  showPageToast(`Autofill: typed into ${result.label}`, "success");
-  return { ok: true, ...result };
+  try {
+    const result = await autoTypeField({
+      field,
+      root,
+      element,
+      typingDelayMs: request.typingDelayMs,
+      startWithInvalid: request.startWithInvalid,
+    });
+    showPageToast(`Autofill: typed into ${result.label}`, "success");
+    return {
+      ok: true,
+      typedCount: 1,
+      skippedCount: 0,
+      failedCount: 0,
+      entries: [
+        {
+          fieldId: result.fieldId,
+          label: result.label,
+          kind: field.kind,
+          status: "filled",
+        },
+      ],
+      fieldId: result.fieldId,
+      label: result.label,
+    };
+  } catch (error) {
+    const messageText =
+      error instanceof Error ? error.message : "Auto-type failed";
+    showPageToast(`Autofill: ${messageText}`, "error");
+    return { ok: false, error: messageText };
+  }
 }
 
 async function handleToggleFloatMenu(): Promise<AutofillResponse> {

@@ -36,10 +36,7 @@ export interface FillResult {
 }
 
 function isDateField(field: ScannedField): boolean {
-  const labelLower = field.label.toLowerCase();
-  return (
-    field.kind === "date" || labelLower === "from" || labelLower === "to"
-  );
+  return field.kind === "date";
 }
 
 function sleep(ms: number): Promise<void> {
@@ -210,27 +207,33 @@ export async function fillFields(
         let reason: string | undefined;
 
         if (isDateField(field) && element instanceof HTMLInputElement) {
-          ok = await fillDatePicker(element, value, field.label);
+          const dateResult = await fillDatePicker(element, value, field.label);
+          ok = dateResult.ok;
           if (!ok) {
-            reason = "DatePicker did not accept value";
+            reason = `Date fill failed (${dateResult.tactic})`;
           }
         } else if (
           field.kind === "select" ||
           element.getAttribute("role") === "combobox"
         ) {
-          ok = await fillAutocomplete(
+          // Pick from the control's real options. A generated sentence such as
+          // "Acme Engineer" is not an option label — passing it used to force
+          // the first row. IFSC is freeSolo and may have an empty master list.
+          const preferGenerated =
+            isIfscLabel(field.label) || isIfscCode(value);
+          const selectResult = await fillAutocomplete(
             element as HTMLInputElement | HTMLSelectElement,
-            value,
+            preferGenerated ? value : undefined,
             {
-              allowTypedValue:
-                isIfscLabel(field.label) || isIfscCode(value),
+              allowTypedValue: preferGenerated,
             },
           );
+          ok = selectResult.ok;
           if (isIfscLabel(field.label) && ok) {
             await clickNearbyValidate(element);
           }
           if (!ok) {
-            reason = "No Autocomplete option / could not type value";
+            reason = `No listbox option (${selectResult.tactic})`;
           }
         } else if (
           field.kind === "radio" ||
@@ -247,6 +250,16 @@ export async function fillFields(
           ok = true;
         }
 
+        const reportedValue =
+          ok &&
+          (field.kind === "select" ||
+            element.getAttribute("role") === "combobox") &&
+          "value" in element &&
+          typeof element.value === "string" &&
+          element.value
+            ? element.value
+            : value;
+
         if (ok) {
           filledCount += 1;
           entries.push({
@@ -254,7 +267,7 @@ export async function fillFields(
             label: field.label,
             kind: field.kind,
             status: "filled",
-            valuePreview: previewValue(value),
+            valuePreview: previewValue(reportedValue),
           });
         } else {
           failedCount += 1;

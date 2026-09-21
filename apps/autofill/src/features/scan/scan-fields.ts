@@ -2,6 +2,7 @@ import type { ScannedField } from "@/shared/messaging";
 import {
   buildSelectorHint,
   detectFieldKind,
+  FIELD_GROUP_HOST_SELECTOR,
   normalizeLabelText,
 } from "./field-types";
 
@@ -84,7 +85,7 @@ function isSkippableInputType(el: FillableElement): boolean {
 function radioHost(el: Element): Element {
   return (
     el.closest(
-      '.MuiRadio-root, .MuiFormControlLabel-root, [role="radiogroup"]',
+      '.MuiRadio-root, .MuiFormControlLabel-root, .ant-radio-wrapper, .ant-radio, [role="radiogroup"]',
     ) ?? el
   );
 }
@@ -135,10 +136,10 @@ function resolveRadioGroupLabel(element: HTMLInputElement): string {
   }
 
   const formControl = element.closest(
-    ".MuiFormControl-root, .MuiTextField-root, fieldset",
+    ".MuiFormControl-root, .MuiTextField-root, .ant-form-item, fieldset",
   );
   const groupLabel = formControl?.querySelector(
-    "legend, label.MuiFormLabel-root, label.MuiInputLabel-root",
+    "legend, label.MuiFormLabel-root, label.MuiInputLabel-root, .ant-form-item-label label",
   );
   if (groupLabel?.textContent) {
     return normalizeLabelText(groupLabel.textContent);
@@ -163,13 +164,13 @@ export function resolveLabel(element: FillableElement): string {
   }
 
   const formControl = element.closest(
-    ".MuiFormControl-root, .MuiTextField-root",
+    ".MuiFormControl-root, .MuiTextField-root, .ant-form-item",
   );
-  const muiLabel = formControl?.querySelector(
-    "label.MuiInputLabel-root, label.MuiFormLabel-root, label",
+  const groupedLabel = formControl?.querySelector(
+    "label.MuiInputLabel-root, label.MuiFormLabel-root, .ant-form-item-label label, label",
   );
-  if (muiLabel?.textContent) {
-    return normalizeLabelText(muiLabel.textContent);
+  if (groupedLabel?.textContent) {
+    return normalizeLabelText(groupedLabel.textContent);
   }
 
   const aria = element.getAttribute("aria-label");
@@ -366,53 +367,47 @@ function radioGroupPreview(element: FillableElement): string {
   return (checked?.value || "").slice(0, 40);
 }
 
-function outermostFormControls(root: ParentNode): Element[] {
-  const all = Array.from(
-    root.querySelectorAll(".MuiFormControl-root, .MuiTextField-root"),
-  );
+function outermostGroupHosts(root: ParentNode): Element[] {
+  const all = Array.from(root.querySelectorAll(FIELD_GROUP_HOST_SELECTOR));
   return all.filter((control) => {
-    const ancestor = control.parentElement?.closest(
-      ".MuiFormControl-root, .MuiTextField-root",
-    );
+    const ancestor = control.parentElement?.closest(FIELD_GROUP_HOST_SELECTOR);
     return !ancestor || !root.contains(ancestor);
   });
 }
 
 /**
- * One logical UI field — prefer MUI FormControl grouping so phone/date/
- * autocomplete internals do not inflate the count.
+ * One logical UI field. Group hosts (MUI FormControl, Ant Design Form.Item /
+ * Select / Picker) collapse inner extras; native inputs outside those hosts
+ * are still collected so mixed pages fill.
  */
 export function collectElements(root: ParentNode): FillableElement[] {
-  const formControls = outermostFormControls(root);
+  const picked: FillableElement[] = [];
+  const seenInputs = new Set<Element>();
 
-  if (formControls.length >= 2) {
-    const picked: FillableElement[] = [];
-    const seenInputs = new Set<FillableElement>();
-
-    for (const control of formControls) {
-      const primary = pickPrimaryInput(control);
-      if (!primary || seenInputs.has(primary)) {
-        continue;
-      }
-      seenInputs.add(primary);
+  for (const host of outermostGroupHosts(root)) {
+    const primary = pickPrimaryInput(host);
+    if (primary && !seenInputs.has(primary)) {
       picked.push(primary);
+      seenInputs.add(primary);
     }
-
-    // Merge phone country FormControl + national tel FormControl that share a wrapper
-    return mergeRadioGroups(mergePhoneControlPairs(picked), root);
+    host.querySelectorAll("input, textarea, select").forEach((node) => {
+      seenInputs.add(node);
+    });
   }
 
-  // Non-MUI fallback: raw inputs
-  const nodes = root.querySelectorAll("input, textarea, select");
-  const result: FillableElement[] = [];
-  nodes.forEach((node) => {
+  root.querySelectorAll("input, textarea, select").forEach((node) => {
+    if (seenInputs.has(node)) {
+      return;
+    }
     const el = node as FillableElement;
     if (isSkippableInputType(el) || !isVisible(el) || isPageChromeControl(el)) {
       return;
     }
-    result.push(el);
+    seenInputs.add(el);
+    picked.push(el);
   });
-  return mergeRadioGroups(result, root);
+
+  return mergeRadioGroups(mergePhoneControlPairs(picked), root);
 }
 
 /** Country dial UI + national tel often sit as two adjacent FormControls. */

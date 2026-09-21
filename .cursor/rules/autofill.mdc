@@ -1,0 +1,30 @@
+---
+description: Conventions for the Form Autofill Chrome extension (scan, fill, auto-type).
+globs: apps/autofill/**
+alwaysApply: false
+---
+
+# Form Autofill
+
+Chrome MV3 extension (`apps/autofill`, Vite port 9100). Scans forms, fills random or scenario values, and keystroke-types on localhost and `*.thedigitalgroup.com`. Full layout is in `apps/autofill/AGENTS.md`.
+
+## Contexts
+
+Popup, service worker, and content script share `src/shared/messaging.ts`. Only the service worker may call `chrome.storage` (`src/shared/storage.ts`). Content script exposes `globalThis.__FORM_AUTOFILL__.dispatch` and must not remount the FAB if that global already exists.
+
+Do not re-inject content scripts before instant `FILL` or `AUTO_TYPE` — that flashes the tab. Probe/inject only for scan and pick (`shouldPrepareContentScripts`).
+
+## Fill rules
+
+- Scenario override, then persona, then `generateValue`. Default skips non-empty fields.
+- Fill is framework-agnostic: native type / ARIA first; MUI and Ant Design class names are per-control last-resort selectors, never a page-level library switch.
+- Dates fill before other fields. MUI DatePicker commits in the page MAIN world via `fillControlledDateMainWorld`, which Chrome serializes with `toString()` — no imports and no outer closures.
+- `startFillSession` hides listbox/calendar portals and the save overlay only. Do not hide Dialog, Drawer, or Modal.
+
+## Code
+
+- New behavior under `src/features/<kebab-name>/` with an `index.ts` barrel. Import with `@/`.
+- Do not import `@hrms/ui`. Components are `antd` only. Icons are `@ant-design/icons` only. Tailwind prefix `autofill:`.
+- Host gate: `isAllowedPageUrl` / `ALLOWED_HOST_MATCH_PATTERNS`. Do not grant `<all_urls>`.
+- Chrome `commands` come from `getChromeCommandsManifest()` (four suggested keys). Do not hand-edit them in `manifest.config.ts`.
+- Colocate Vitest tests. Run `npm run test --workspace=autofill`.

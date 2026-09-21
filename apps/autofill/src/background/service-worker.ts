@@ -37,6 +37,14 @@ import {
   isAllowedPageUrl,
 } from "@/shared/allowed-hosts";
 import { needsContentScriptInject, shouldPrepareContentScripts } from "./content-inject";
+// Subpath import: the feature barrel also exports the React panel, which must
+// not be pulled into the service worker.
+import {
+  bindNetworkCaptureListeners,
+  getNetworkCapture,
+  startNetworkCapture,
+  stopNetworkCapture,
+} from "@/features/network-timing/capture-controller";
 
 /** In-memory cache of customer UAT hostnames (refreshed from storage). */
 let customHostsCache: string[] = [];
@@ -408,6 +416,7 @@ chrome.runtime.onStartup.addListener(() => {
 
 createContextMenus();
 initHostRestriction();
+bindNetworkCaptureListeners();
 
 // In-page Alt+Shift chords are the fallback when Chrome does not bind these.
 chrome.commands.onCommand.addListener((command, tab) => {
@@ -501,6 +510,32 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     void saveLastFillReport(request.report).then(() =>
       sendResponse({ ok: true }),
     );
+    return true;
+  }
+
+  if (
+    request.type === MESSAGE.START_NETWORK_CAPTURE ||
+    request.type === MESSAGE.STOP_NETWORK_CAPTURE ||
+    request.type === MESSAGE.GET_NETWORK_CAPTURE
+  ) {
+    void (async () => {
+      const tabId = sender.tab?.id ?? (await resolveTabId());
+      if (tabId == null) {
+        sendResponse({ ok: false, error: "No active tab" });
+        return;
+      }
+      if (request.type === MESSAGE.GET_NETWORK_CAPTURE) {
+        sendResponse(getNetworkCapture(tabId));
+        return;
+      }
+      if (request.type === MESSAGE.STOP_NETWORK_CAPTURE) {
+        sendResponse(await stopNetworkCapture(tabId));
+        return;
+      }
+      sendResponse(
+        await startNetworkCapture(tabId, pageUrlAllowed(await getTabUrl(tabId))),
+      );
+    })();
     return true;
   }
 
@@ -650,7 +685,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           response.rootSelector,
         );
       }
-      if (response.ok && "entries" in response && response.entries) {
+      if (
+        response.ok &&
+        "entries" in response &&
+        "filledCount" in response &&
+        response.entries
+      ) {
         const settings = await loadSettings();
         await saveLastFillReport({
           filledCount: response.filledCount,

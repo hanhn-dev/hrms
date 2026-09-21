@@ -15,9 +15,13 @@ describe("fill session", () => {
     const css = document.getElementById("form-autofill-fill-session")!.textContent ?? "";
     expect(css).toMatch(/MuiAutocomplete-popper/);
     expect(css).toMatch(/MuiPickersPopper-root/);
+    expect(css).toMatch(/\[role="listbox"\]/);
+    expect(css).toMatch(/ant-select-dropdown/);
+    expect(css).toMatch(/ant-picker-dropdown/);
     expect(css).toMatch(/save-in-progress-overlay/);
     expect(css).not.toMatch(/MuiDialog-root/);
     expect(css).not.toMatch(/MuiModal-root/);
+    expect(css).not.toMatch(/ant-modal/);
     endFillSession();
     expect(isFillSessionActive()).toBe(false);
   });

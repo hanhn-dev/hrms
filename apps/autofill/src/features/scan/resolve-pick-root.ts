@@ -73,11 +73,14 @@ const PICK_CONTROL_HOST_SELECTOR = [
   "label",
   ".MuiFormControl-root",
   ".MuiTextField-root",
+  ".ant-form-item",
+  ".ant-select",
+  ".ant-picker",
   "[role='radiogroup']",
 ].join(", ");
 
 /**
- * Resolve a single fillable control under the cursor for Pick & type.
+ * Resolve a single fillable control under the cursor (control pick mode).
  * Does not expand to a form section — returns null when the hover is not a field.
  */
 export function resolvePickControl(clicked: Element): FillableElement | null {
