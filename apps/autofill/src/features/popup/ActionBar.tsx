@@ -4,6 +4,7 @@ import {
   FormOutlined,
   FontSizeOutlined,
   ReloadOutlined,
+  StopOutlined,
 } from "@ant-design/icons";
 import { shortcutLabelFor } from "@/features/shortcuts";
 
@@ -23,6 +24,8 @@ export interface ActionBarProps {
   onPickAutoType: () => void;
   /** Keystroke-type all checked fields in order (no pick). */
   onAutoTypeSelected: () => void;
+  /** Stop an in-progress Auto-type selected job. */
+  onCancelAutoType: () => void;
 }
 
 export function ActionBar({
@@ -37,6 +40,7 @@ export function ActionBar({
   onFillSelected,
   onPickAutoType,
   onAutoTypeSelected,
+  onCancelAutoType,
 }: ActionBarProps) {
   const busy = scanning || picking || filling || typing;
 
@@ -99,19 +103,31 @@ export function ActionBar({
         </Tooltip>
       )}
       {hasSelection ? (
-        <Tooltip
-          title={`Keystroke-type all checked fields in order (${shortcutLabelFor("auto-type")})`}
-        >
-          <Button
-            icon={<FontSizeOutlined />}
-            onClick={onAutoTypeSelected}
-            loading={typing}
-            disabled={busy && !typing}
-            aria-keyshortcuts={shortcutLabelFor("auto-type")}
+        typing ? (
+          <Tooltip title="Stop keystroke typing (Esc on the page also cancels)">
+            <Button
+              danger
+              icon={<StopOutlined />}
+              onClick={onCancelAutoType}
+              aria-keyshortcuts="Escape"
+            >
+              Stop typing
+            </Button>
+          </Tooltip>
+        ) : (
+          <Tooltip
+            title={`Keystroke-type all checked fields in order (${shortcutLabelFor("auto-type")})`}
           >
-            Auto-type selected
-          </Button>
-        </Tooltip>
+            <Button
+              icon={<FontSizeOutlined />}
+              onClick={onAutoTypeSelected}
+              disabled={busy}
+              aria-keyshortcuts={shortcutLabelFor("auto-type")}
+            >
+              Auto-type selected
+            </Button>
+          </Tooltip>
+        )
       ) : (
         <Tooltip
           title={`Click a form section, then keystroke-type each field (${shortcutLabelFor("auto-type")})`}

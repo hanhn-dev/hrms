@@ -16,6 +16,11 @@ export const FIELD_GROUP_HOST_SELECTOR = [
   ".ant-form-item",
   ".ant-select",
   ".ant-picker",
+  ".RadComboBox",
+  "[class^='RadComboBox_']",
+  ".RadPicker",
+  "[class^='RadPicker_']",
+  ".RadInput",
 ].join(", ");
 
 function closestFieldHost(element: Element): Element | null {
@@ -38,7 +43,7 @@ function buttonAccessibleName(button: Element): string {
 export function hasCalendarSignal(element: Element): boolean {
   if (
     element.closest(
-      ".ant-picker, .MuiPickersTextField-root, .MuiPickersInputBase-root",
+      ".ant-picker, .MuiPickersTextField-root, .MuiPickersInputBase-root, .RadPicker, [class^='RadPicker_']",
     )
   ) {
     return true;
@@ -47,7 +52,7 @@ export function hasCalendarSignal(element: Element): boolean {
   const host = closestFieldHost(element);
   if (
     host?.querySelector(
-      '.MuiPickersSectionList-root, [role="spinbutton"]',
+      '.MuiPickersSectionList-root, [role="spinbutton"], .rcCalPopup',
     ) != null
   ) {
     return true;
@@ -90,10 +95,86 @@ function looksLikeListboxCombobox(element: Element): boolean {
   if (hasPopup === "listbox") {
     return true;
   }
-  if (element.closest(".ant-select, [class*='Autocomplete']")) {
+  if (
+    element.closest(".ant-select, [class*='Autocomplete']") ||
+    element.classList.contains("rcbInput") ||
+    closestComboHost(element) ||
+    hasTelerikInputArrowPair(element)
+  ) {
+    return true;
+  }
+  if (hasAdjacentListArrow(element)) {
     return true;
   }
   return false;
+}
+
+/** Telerik combo host. Skin class is `RadComboBox_Bootstrap` — not DropDown. */
+function hasTelerikInputArrowPair(element: Element): boolean {
+  if (!element.id.endsWith("_Input")) {
+    return false;
+  }
+  return document.getElementById(`${element.id.slice(0, -6)}_Arrow`) != null;
+}
+
+/** Visible Telerik combo input — host class is optional on some skins. */
+export function looksLikeTelerikCombo(element: Element): boolean {
+  return (
+    closestComboHost(element) != null ||
+    element.classList.contains("rcbInput") ||
+    hasTelerikInputArrowPair(element)
+  );
+}
+
+export function closestComboHost(element: Element): Element | null {
+  let node: Element | null = element;
+  while (node && node !== document.documentElement) {
+    if (node.classList.contains("RadComboBoxDropDown")) {
+      node = node.parentElement;
+      continue;
+    }
+    if (node.classList.contains("RadComboBox")) {
+      return node;
+    }
+    if ([...node.classList].some((cls) => cls.startsWith("RadComboBox_"))) {
+      return node;
+    }
+    node = node.parentElement;
+  }
+  return null;
+}
+
+const LIST_ARROW_SELECTOR =
+  ".rcbArrowCell, .rcbButton, .rcbActionButton, [id$='_Arrow'], .MuiAutocomplete-popupIndicator, .ant-select-arrow";
+
+function isListArrowNode(node: Element | null): boolean {
+  return node != null && node.matches(LIST_ARROW_SELECTOR);
+}
+
+/**
+ * Open/arrow control for *this* field only. Do not search an ancestor that
+ * wraps sibling inputs — that would turn a nearby text box into a select.
+ */
+function hasAdjacentListArrow(element: Element): boolean {
+  const host =
+    closestComboHost(element) ??
+    element.closest(".ant-select, .MuiAutocomplete-root");
+  if (host) {
+    return host.querySelector(LIST_ARROW_SELECTOR) != null;
+  }
+  if (
+    isListArrowNode(element.previousElementSibling) ||
+    isListArrowNode(element.nextElementSibling)
+  ) {
+    return true;
+  }
+  const parent = element.parentElement;
+  if (!parent || parent === document.body || parent === document.documentElement) {
+    return false;
+  }
+  const arrows = parent.querySelectorAll(LIST_ARROW_SELECTOR);
+  const inputs = parent.querySelectorAll("input, textarea, select");
+  return arrows.length > 0 && inputs.length === 1;
 }
 
 /**

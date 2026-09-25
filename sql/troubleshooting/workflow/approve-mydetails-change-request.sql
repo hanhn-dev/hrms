@@ -31,7 +31,7 @@
 
 SET NOCOUNT ON;
 
-DECLARE @ChangeRequestId INT = 10277; -- TODO: TMyDetailsChangeRequests.ChangeRequestId
+DECLARE @ChangeRequestId INT = 10290; -- TODO: TMyDetailsChangeRequests.ChangeRequestId
 DECLARE @LoggedInUser INT = 1433;    -- TODO: pending ManagerId; 0 = auto-pick if unique
 DECLARE @EmployerId INT = 10;      -- TODO: 0 = auto-fill from the change request
 DECLARE @RequestType VARCHAR(250) = 'EmploymentTypeChange';

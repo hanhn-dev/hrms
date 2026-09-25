@@ -24,7 +24,7 @@
 
 SET NOCOUNT ON;
 
-DECLARE @ChangeRequestId INT = 11260; -- TODO: e.g. 11260
+DECLARE @ChangeRequestId INT = 10288; -- TODO: e.g. 11260
 DECLARE @LoggedInUser INT = 0;    -- 0 = auto pending ManagerId
 DECLARE @EmployerId INT = 0;      -- 0 = from change request
 DECLARE @RequestType VARCHAR(250) = 'EmploymentTypeChange';
@@ -393,5 +393,146 @@ BEGIN
             ERROR_NUMBER() AS ErrorNumber,
             ERROR_MESSAGE() AS ErrorMessage,
             'Fix TextValueNew / ChildRowId / DBFieldName, then retry approve.' AS Detail;
+    END CATCH;
+END;
+
+------------------------------------------------------------------------------
+-- 6) Family new-row dynamic INSERT + history snapshot (ROLLBACK)
+------------------------------------------------------------------------------
+IF EXISTS (
+    SELECT 1
+    FROM dbo.TMyDetailsChangeRequestDetails AS Detail
+    INNER JOIN dbo.TMyDetailsChangeRequests AS Header
+        ON Header.ChangeRequestId = Detail.ChangeRequestId
+    WHERE Detail.ChangeRequestId = @ChangeRequestId
+        AND Detail.TableName = N'TEmployeeFamilyDetails'
+        AND Detail.IsNew = 1
+        AND Header.IsApproved IS NULL
+)
+BEGIN
+    DECLARE @FamilySql NVARCHAR(MAX);
+    DECLARE @FamilyId INT;
+
+    SELECT @FamilySql = N'
+' + N'INTO' + N' dbo.TEmployeeFamilyDetails (
+ [EmployeeID],[IsDelete],[CreatedDate],[CreatedBy],[UpdatedBy],[CreatedDateUtc],[UpdatedDateUtc],'
+        + STUFF((
+            SELECT ', [' + Detail.DBFieldName + ']'
+            FROM sys.columns AS Cols
+            INNER JOIN dbo.TMyDetailsChangeRequestDetails AS Detail
+                ON Cols.name = Detail.DBFieldName
+            INNER JOIN dbo.TMyDetailsChangeRequests AS Header
+                ON Header.ChangeRequestId = Detail.ChangeRequestId
+            INNER JOIN sys.types AS Types
+                ON Cols.system_type_id = Types.system_type_id
+            INNER JOIN sys.tables AS Tables
+                ON Cols.object_id = Tables.object_id
+            INNER JOIN sys.schemas AS Schemas
+                ON Schemas.schema_id = Tables.schema_id
+                AND Schemas.name = N'dbo'
+            WHERE Tables.name = N'TEmployeeFamilyDetails'
+                AND Detail.TableName = N'TEmployeeFamilyDetails'
+                AND Types.name NOT IN (N'sysname')
+                AND Detail.IsNew = 1
+                AND Detail.TextValueNew IS NOT NULL
+                AND Header.IsApproved IS NULL
+                AND Header.EmployeeId = @SubjectEmployeeId
+                AND Detail.ChangeRequestId = @ChangeRequestId
+            ORDER BY Detail.ChangeDetailsId
+            FOR XML PATH('')
+        ), 1, 1, '')
+        + N') VALUES ('
+        + CAST(@SubjectEmployeeId AS VARCHAR(20))
+        + N',0,GETDATE(),'
+        + CAST(@SubjectEmployeeId AS VARCHAR(20))
+        + N','
+        + CAST(@SubjectEmployeeId AS VARCHAR(20))
+        + N',GETUTCDATE(),GETUTCDATE(),'
+        + STUFF((
+            SELECT ',' + CASE
+                WHEN Types.name IN (
+                    N'varchar', N'nvarchar', N'char', N'nchar',
+                    N'datetime', N'date', N'varbinary'
+                )
+                    THEN '''' + Detail.TextValueNew + ''''
+                ELSE Detail.TextValueNew
+            END
+            FROM sys.columns AS Cols
+            INNER JOIN dbo.TMyDetailsChangeRequestDetails AS Detail
+                ON Cols.name = Detail.DBFieldName
+            INNER JOIN dbo.TMyDetailsChangeRequests AS Header
+                ON Header.ChangeRequestId = Detail.ChangeRequestId
+            INNER JOIN sys.types AS Types
+                ON Cols.system_type_id = Types.system_type_id
+            INNER JOIN sys.tables AS Tables
+                ON Cols.object_id = Tables.object_id
+            INNER JOIN sys.schemas AS Schemas
+                ON Schemas.schema_id = Tables.schema_id
+                AND Schemas.name = N'dbo'
+            WHERE Tables.name = N'TEmployeeFamilyDetails'
+                AND Detail.TableName = N'TEmployeeFamilyDetails'
+                AND Types.name NOT IN (N'sysname')
+                AND Detail.IsNew = 1
+                AND Detail.TextValueNew IS NOT NULL
+                AND Header.IsApproved IS NULL
+                AND Header.EmployeeId = @SubjectEmployeeId
+                AND Detail.ChangeRequestId = @ChangeRequestId
+            ORDER BY Detail.ChangeDetailsId
+            FOR XML PATH('')
+        ), 1, 1, '')
+        + N'); SET @id = SCOPE_IDENTITY();';
+
+    -- The live apply is an INSERT; prefix is split so this file stays easy to scan.
+    SET @FamilySql = N'INSERT ' + @FamilySql;
+
+    SELECT @FamilySql AS FamilyDynamicInsertPreview;
+
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+        EXEC sys.sp_executesql
+            @FamilySql,
+            N'@id INT OUTPUT',
+            @id = @FamilyId OUTPUT;
+
+        INSERT INTO dbo.TEmployeeFamilyDetails_history
+        (
+            EmployeeFamilyDetailID, EmployeeID, Relation, Student, Name, Insured,
+            DateOfBirth, Occupation, Gender, OtherInsurance, Dependant,
+            GraduationDate, Address, Comments, Minor, SSN, GuardianAddress,
+            GuardianName, Smoker, IsSubmit, IsDelete, CreatedBy, CreatedDate,
+            UpdatedBy, UpdatedDate, AadharNumber, CreatedDateUtc, UpdatedDateUtc,
+            LastmodifiedOn
+        )
+        SELECT
+            EmployeeFamilyDetailID, EmployeeID, Relation, Student, Name, Insured,
+            DateOfBirth, Occupation, Gender, OtherInsurance, Dependant,
+            GraduationDate, Address, Comments, Minor, SSN, GuardianAddress,
+            GuardianName, Smoker, IsSubmit, IsDelete, CreatedBy, CreatedDate,
+            UpdatedBy, UpdatedDate, AadharNumber, CreatedDateUtc, UpdatedDateUtc,
+            GETDATE()
+        FROM dbo.TEmployeeFamilyDetails
+        WHERE EmployeeFamilyDetailID = @FamilyId;
+
+        ROLLBACK TRANSACTION;
+
+        SELECT
+            'PASS' AS FamilyApplyProbe,
+            @FamilyId AS FamilyDetailId,
+            'Family live + history apply succeeded (rolled back). Not the failure point.' AS Detail;
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0
+        BEGIN
+            ROLLBACK TRANSACTION;
+        END;
+
+        SELECT
+            'FAIL' AS FamilyApplyProbe,
+            ERROR_NUMBER() AS ErrorNumber,
+            ERROR_LINE() AS ErrorLine,
+            ERROR_MESSAGE() AS ErrorMessage,
+            @FamilyId AS FamilyDetailId,
+            'This is the real error behind Transaction Fail for Family new-row approve.' AS Detail;
     END CATCH;
 END;

@@ -298,6 +298,105 @@ describe("fillAutocomplete", () => {
     expect(input.value).toBe("India");
   });
 
+  it("uses page-world fill for an rcbInput without a RadComboBox host (positive)", async () => {
+    document.body.innerHTML = `
+      <input id="cboGender_Input" class="rcbInput rcbEmptyMessage" readonly value="Select Gender" />
+      <a id="cboGender_Arrow">select</a>
+    `;
+    const input = document.getElementById("cboGender_Input") as HTMLInputElement;
+    vi.stubGlobal("chrome", {
+      runtime: {
+        sendMessage: vi.fn().mockResolvedValue({ ok: true, text: "Male" }),
+      },
+    });
+    const result = await fillAutocomplete(input);
+    vi.unstubAllGlobals();
+    expect(result.ok).toBe(true);
+    expect(result.tactic).toBe("page-combo");
+    expect(input.value).toBe("Male");
+    expect(input.classList.contains("rcbEmptyMessage")).toBe(false);
+  });
+
+  it("falls back to page-world select when a Telerik list click does not commit (positive)", async () => {
+    document.body.innerHTML = `
+      <div class="RadComboBox_Bootstrap" id="cboNationality">
+        <input id="cboNationality_Input" class="rcbInput" readonly value="Select Nationality" />
+        <a id="cboNationality_Arrow">select</a>
+      </div>
+      <div class="RadComboBoxDropDown" id="cboNationality_DropDown">
+        <ul class="rcbList"><li class="rcbItem">Indian</li></ul>
+      </div>
+    `;
+    const input = document.getElementById(
+      "cboNationality_Input",
+    ) as HTMLInputElement;
+    vi.stubGlobal("chrome", {
+      runtime: {
+        sendMessage: vi.fn().mockResolvedValue({ ok: true, text: "Indian" }),
+      },
+    });
+    const result = await fillAutocomplete(input);
+    vi.unstubAllGlobals();
+    expect(result.ok).toBe(true);
+    expect(result.tactic).toBe("page-combo");
+    expect(input.value).toBe("Indian");
+  });
+
+  it("picks an item from a body-level RadComboBoxDropDown (positive)", async () => {
+    document.body.innerHTML = `
+      <div class="RadComboBox_Bootstrap" id="cboGender">
+        <input id="cboGender_Input" class="rcbInput" readonly value="Select Gender" />
+        <td class="rcbArrowCell"><a id="cboGender_Arrow">select</a></td>
+      </div>
+      <div class="RadComboBoxDropDown" id="cboGender_DropDown">
+        <ul class="rcbList">
+          <li class="rcbItem">Male</li>
+          <li class="rcbItem">Female</li>
+        </ul>
+      </div>
+    `;
+    const input = document.getElementById("cboGender_Input") as HTMLInputElement;
+    document.querySelectorAll(".rcbItem").forEach((node) => {
+      node.addEventListener("click", () => {
+        input.value = (node.textContent || "").trim();
+      });
+    });
+    const random = vi.spyOn(Math, "random").mockReturnValue(0);
+    await fillAutocomplete(input);
+    random.mockRestore();
+    expect(input.value).toBe("Male");
+  });
+
+  it("picks a RadComboBox rcbItem after opening the arrow (positive)", async () => {
+    document.body.innerHTML = `
+      <div class="RadComboBox">
+        <input id="title" class="rcbInput rcbEmptyMessage" value="Select Title" />
+        <a class="rcbButton">v</a>
+        <div class="rcbSlide" style="display:none">
+          <ul class="rcbList">
+            <li class="rcbItem">Mr</li>
+            <li class="rcbItem">Ms</li>
+          </ul>
+        </div>
+      </div>
+    `;
+    const input = document.getElementById("title") as HTMLInputElement;
+    const list = document.querySelector(".rcbSlide") as HTMLElement;
+    document.querySelector(".rcbButton")!.addEventListener("click", () => {
+      list.style.display = "block";
+    });
+    list.querySelectorAll(".rcbItem").forEach((node) => {
+      node.addEventListener("click", () => {
+        input.value = (node.textContent || "").trim();
+        input.classList.remove("rcbEmptyMessage");
+      });
+    });
+    const random = vi.spyOn(Math, "random").mockReturnValue(0);
+    await fillAutocomplete(input);
+    random.mockRestore();
+    expect(input.value).toBe("Mr");
+  });
+
   it("picks an Ant Design Select option from a new dropdown (positive)", async () => {
     document.body.innerHTML = `
       <div class="ant-select">

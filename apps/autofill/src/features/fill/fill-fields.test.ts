@@ -653,6 +653,155 @@ describe("fillFields", () => {
     expect(input.value).toBe("EUR");
   });
 
+  it("fills a readonly Telerik combo that has no RadComboBox host class (positive)", async () => {
+    document.body.innerHTML = `
+      <label for="cboGender_Input">Gender</label>
+      <input id="cboGender_Input" class="rcbInput rcbEmptyMessage" readonly value="Select Gender" />
+      <a id="cboGender_Arrow">select</a>
+    `;
+    const input = document.getElementById("cboGender_Input") as HTMLInputElement;
+    vi.stubGlobal("chrome", {
+      runtime: {
+        sendMessage: vi.fn().mockResolvedValue({ ok: true, text: "Male" }),
+      },
+    });
+    const result = await fillFields();
+    vi.unstubAllGlobals();
+    expect(result.filledCount).toBe(1);
+    expect(result.failedCount).toBe(0);
+    expect(input.value).toBe("Male");
+  });
+
+  it("fills a readonly combo whose EmptyMessage matches the label (positive)", async () => {
+    document.body.innerHTML = `
+      <div class="RadComboBox_Bootstrap" id="cboCountry">
+        <label for="cboCountry_Input">Country of Birth</label>
+        <input id="cboCountry_Input" class="rcbInput" readonly value="Country of Birth" />
+        <a id="cboCountry_Arrow">select</a>
+      </div>
+      <div class="RadComboBoxDropDown" id="cboCountry_DropDown">
+        <ul class="rcbList">
+          <li class="rcbItem">India</li>
+          <li class="rcbItem">Singapore</li>
+        </ul>
+      </div>
+    `;
+    const input = document.getElementById(
+      "cboCountry_Input",
+    ) as HTMLInputElement;
+    document.querySelectorAll(".rcbItem").forEach((node) => {
+      node.addEventListener("click", () => {
+        input.value = (node.textContent || "").trim();
+      });
+    });
+    const random = vi.spyOn(Math, "random").mockReturnValue(0);
+    const result = await fillFields();
+    random.mockRestore();
+    expect(result.filledCount).toBe(1);
+    expect(result.skippedCount).toBe(0);
+    expect(input.value).toBe("India");
+    expect(input.value).not.toBe("Country of Birth");
+  });
+
+  it("fills a Telerik-like text, combo, and date fixture (positive)", async () => {
+    document.body.innerHTML = `
+      <label for="first">First Name</label>
+      <input id="first" class="riTextBox riEmpty" value="Employee First Name" />
+      <div class="RadComboBox">
+        <label for="title">Title</label>
+        <input id="title" class="rcbInput rcbEmptyMessage" value="Select Title" />
+        <a class="rcbButton">v</a>
+        <div class="rcbSlide">
+          <ul class="rcbList">
+            <li class="rcbItem">Mr</li>
+            <li class="rcbItem">Ms</li>
+          </ul>
+        </div>
+      </div>
+      <div class="RadPicker">
+        <label for="dob">Date of Birth</label>
+        <input id="dob" class="riTextBox riEmpty" value="DD-MMM-YYYY" />
+        <a class="rcCalPopup">cal</a>
+      </div>
+    `;
+    const title = document.getElementById("title") as HTMLInputElement;
+    document.querySelectorAll(".rcbItem").forEach((node) => {
+      node.addEventListener("click", () => {
+        title.value = (node.textContent || "").trim();
+        title.classList.remove("rcbEmptyMessage");
+      });
+    });
+    const random = vi.spyOn(Math, "random").mockReturnValue(0);
+    const result = await fillFields();
+    random.mockRestore();
+    expect(result.filledCount).toBe(3);
+    expect(result.failedCount).toBe(0);
+    const first = document.getElementById("first") as HTMLInputElement;
+    const dob = document.getElementById("dob") as HTMLInputElement;
+    expect(first.value).not.toBe("Employee First Name");
+    expect(first.value.length).toBeGreaterThan(0);
+    expect(title.value).toBe("Mr");
+    expect(dob.value).toMatch(/^\d{2}-[A-Za-z]{3}-\d{4}$/);
+  });
+
+  it("skips an already-selected combo by default (negative)", async () => {
+    document.body.innerHTML = `
+      <div class="RadComboBox">
+        <label for="country">Country of Employment</label>
+        <input id="country" class="rcbInput" value="India" />
+        <a class="rcbButton">v</a>
+        <div class="rcbSlide">
+          <ul class="rcbList">
+            <li class="rcbItem">India</li>
+            <li class="rcbItem">Singapore</li>
+          </ul>
+        </div>
+      </div>
+    `;
+    const result = await fillFields();
+    expect(result.filledCount).toBe(0);
+    expect(result.skippedCount).toBeGreaterThanOrEqual(1);
+    expect(
+      result.entries.find((e) => e.status === "skipped")?.reason,
+    ).toBe("Already filled");
+    expect(
+      (document.getElementById("country") as HTMLInputElement).value,
+    ).toBe("India");
+  });
+
+  it("fills AutoPostBack combos after other fields (edge)", async () => {
+    const order: string[] = [];
+    document.body.innerHTML = `
+      <label for="first">First Name</label>
+      <input id="first" type="text" />
+      <div class="RadComboBox">
+        <label for="marital">Marital Status</label>
+        <input id="marital" class="rcbInput rcbEmptyMessage" value="Select Status" />
+        <a class="rcbButton">v</a>
+        <a hidden href="javascript:__doPostBack('cboMarital','')"></a>
+        <div class="rcbSlide">
+          <ul class="rcbList">
+            <li class="rcbItem">Single</li>
+          </ul>
+        </div>
+      </div>
+    `;
+    const first = document.getElementById("first") as HTMLInputElement;
+    const marital = document.getElementById("marital") as HTMLInputElement;
+    first.addEventListener("input", () => {
+      order.push("first");
+    });
+    document.querySelector(".rcbItem")!.addEventListener("click", () => {
+      order.push("marital");
+      marital.value = "Single";
+      marital.classList.remove("rcbEmptyMessage");
+    });
+    const result = await fillFields();
+    expect(result.filledCount).toBe(2);
+    expect(order[0]).toBe("first");
+    expect(order[order.length - 1]).toBe("marital");
+  });
+
   it("reports a tactic reason when the listbox is empty (negative)", async () => {
     document.body.innerHTML = `
       <label for="currency">Currency</label>

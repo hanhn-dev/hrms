@@ -18,6 +18,8 @@ export const MESSAGE = {
   /** Pick a section, then keystroke-type all typeable fields. */
   START_PICK_AUTO_TYPE: "autofill/START_PICK_AUTO_TYPE",
   CANCEL_PICK_SCAN: "autofill/CANCEL_PICK_SCAN",
+  /** Stop an in-progress auto-type job in every frame. */
+  CANCEL_AUTO_TYPE: "autofill/CANCEL_AUTO_TYPE",
   /** Top-frame only: open or close the floating action menu. */
   TOGGLE_FLOAT_MENU: "autofill/TOGGLE_FLOAT_MENU",
   /** Top-frame only: close the floating action menu if it is open. */
@@ -26,6 +28,8 @@ export const MESSAGE = {
   SET_FAB_POSITION: "autofill/SET_FAB_POSITION",
   /** Content → background: run MAIN-world React date fill. */
   FILL_CONTROLLED_DATE: "autofill/FILL_CONTROLLED_DATE",
+  /** Content → background: run MAIN-world combo widget select ($find). */
+  FILL_COMBO_WIDGET: "autofill/FILL_COMBO_WIDGET",
   GET_CUSTOM_HOSTS: "autofill/GET_CUSTOM_HOSTS",
   SET_CUSTOM_HOSTS: "autofill/SET_CUSTOM_HOSTS",
   /** Content → background: persist last fill report. */
@@ -169,6 +173,8 @@ export interface AutoTypeResponse {
   skippedCount: number;
   failedCount: number;
   entries: FillReportEntry[];
+  /** True when the user stopped the job (Esc or Stop typing). */
+  cancelled?: boolean;
   /** Present when exactly one field was typed (toast convenience). */
   fieldId?: string;
   label?: string;
@@ -241,6 +247,10 @@ export interface CancelPickScanRequest {
   type: typeof MESSAGE.CANCEL_PICK_SCAN;
 }
 
+export interface CancelAutoTypeRequest {
+  type: typeof MESSAGE.CANCEL_AUTO_TYPE;
+}
+
 export interface ToggleFloatMenuRequest {
   type: typeof MESSAGE.TOGGLE_FLOAT_MENU;
 }
@@ -263,6 +273,12 @@ export interface FillControlledDateRequest {
   marker: string;
   value: string;
   label?: string;
+}
+
+export interface FillComboWidgetRequest {
+  type: typeof MESSAGE.FILL_COMBO_WIDGET;
+  marker: string;
+  preferred?: string;
 }
 
 export interface GetCustomHostsRequest {
@@ -334,11 +350,13 @@ export type AutofillRequest =
   | StartPickFillRequest
   | StartPickAutoTypeRequest
   | CancelPickScanRequest
+  | CancelAutoTypeRequest
   | ToggleFloatMenuRequest
   | CloseFloatMenuRequest
   | GetFabPositionRequest
   | SetFabPositionRequest
   | FillControlledDateRequest
+  | FillComboWidgetRequest
   | GetCustomHostsRequest
   | SetCustomHostsRequest
   | StartNetworkCaptureRequest

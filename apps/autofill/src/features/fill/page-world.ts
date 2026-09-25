@@ -6,6 +6,7 @@
  */
 
 import { MESSAGE } from "@/shared/messaging";
+import { looksLikePromptText } from "./has-existing-value";
 
 export type MainWorldFillResult = { ok: boolean; error?: string };
 
@@ -431,6 +432,424 @@ export async function fillControlledDateInPageWorld(
     })) as MainWorldFillResult | undefined;
 
     return Boolean(response?.ok);
+  } catch {
+    return false;
+  } finally {
+    element.removeAttribute("data-form-autofill-target");
+  }
+}
+
+type ComboItemLike = {
+  get_text?: () => string;
+  get_value?: () => string;
+  get_isEnabled?: () => boolean;
+  select?: () => void;
+};
+
+type ComboWidgetLike = {
+  get_id?: () => string;
+  get_element?: () => HTMLElement | null;
+  get_inputDomElement?: () => HTMLElement | null;
+  get_inputElement?: () => HTMLElement | null;
+  set_text?: (text: string) => void;
+  set_value?: (value: string) => void;
+  showDropDown?: () => void;
+  hideDropDown?: () => void;
+  findItemByText?: (text: string) => ComboItemLike | null;
+  get_items?: () => {
+    get_count?: () => number;
+    getItem?: (index: number) => ComboItemLike | null;
+  };
+};
+
+type ComboHostNode = HTMLElement & { control?: ComboWidgetLike };
+
+/**
+ * Page-world combo select. Isolated-world clicks do not commit Telerik
+ * EmptyMessage. Self-contained for chrome.scripting.executeScript toString().
+ */
+export async function fillComboWidgetMainWorld(
+  marker: string,
+  preferred?: string,
+): Promise<MainWorldFillResult & { text?: string }> {
+  const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+  try {
+    const escaped =
+      typeof CSS !== "undefined" && typeof CSS.escape === "function"
+        ? CSS.escape(marker)
+        : marker.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+    const found = document.querySelector(
+      `[data-form-autofill-target="${escaped}"]`,
+    );
+    if (!(found instanceof HTMLElement)) {
+      return { ok: false, error: "Target element not found" };
+    }
+    const element: HTMLElement = found;
+
+    function isPrompt(text: string): boolean {
+      const normalized = text.replace(/\s+/g, " ").trim().toLowerCase();
+      if (!normalized) {
+        return true;
+      }
+      return /^(select|choose|please select|enter)(\s+\w[\w\s]*)?\.?$/.test(
+        normalized,
+      );
+    }
+
+    function applyDisplay(text: string, value?: string): void {
+      if (element instanceof HTMLInputElement) {
+        element.value = text;
+        element.classList.remove("rcbEmptyMessage", "riEmpty");
+      }
+      const inputId = element.id || "";
+      const comboId = inputId.endsWith("_Input") ? inputId.slice(0, -6) : "";
+      const state = comboId
+        ? document.getElementById(`${comboId}_ClientState`)
+        : null;
+      if (!(state instanceof HTMLInputElement)) {
+        return;
+      }
+      try {
+        const parsed = state.value
+          ? (JSON.parse(state.value) as Record<string, unknown>)
+          : {};
+        parsed.text = text;
+        parsed.value = value || (typeof parsed.value === "string" ? parsed.value : text);
+        state.value = JSON.stringify(parsed);
+      } catch {
+        state.value = JSON.stringify({
+          enabled: true,
+          logEntries: [],
+          value: value || text,
+          text,
+        });
+      }
+    }
+
+    function looksLikeCombo(
+      candidate: ComboWidgetLike | null | undefined,
+    ): candidate is ComboWidgetLike {
+      return Boolean(
+        candidate &&
+          (typeof candidate.get_items === "function" ||
+            typeof candidate.showDropDown === "function" ||
+            typeof candidate.findItemByText === "function"),
+      );
+    }
+
+    function comboOwnsInput(
+      combo: ComboWidgetLike,
+      input: HTMLElement,
+    ): boolean {
+      try {
+        if (
+          typeof combo.get_inputDomElement === "function" &&
+          combo.get_inputDomElement() === input
+        ) {
+          return true;
+        }
+      } catch {
+        // Telerik getter may throw before init
+      }
+      try {
+        if (
+          typeof combo.get_inputElement === "function" &&
+          combo.get_inputElement() === input
+        ) {
+          return true;
+        }
+      } catch {
+        // same
+      }
+      try {
+        const wrap = combo.get_element?.();
+        if (wrap?.contains?.(input)) {
+          return true;
+        }
+      } catch {
+        // same
+      }
+      const componentId = combo.get_id?.() || combo.get_element?.()?.id || "";
+      return Boolean(
+        componentId &&
+          input.id &&
+          (input.id === componentId || input.id.startsWith(`${componentId}_`)),
+      );
+    }
+
+    const win = window as unknown as {
+      $find?: (id: string) => ComboWidgetLike | null;
+      Sys?: {
+        Application?: {
+          getComponents?: () => ComboWidgetLike[] | Record<string, ComboWidgetLike>;
+          _components?: Record<string, ComboWidgetLike>;
+        };
+      };
+    };
+
+    const inputId = element.id || "";
+    const ids: string[] = [];
+    if (inputId.endsWith("_Input")) {
+      ids.push(inputId.slice(0, -6));
+    }
+    const host = element.closest("[id]");
+    if (host?.id && !ids.includes(host.id)) {
+      ids.push(host.id);
+    }
+    if (inputId && !ids.includes(inputId)) {
+      ids.push(inputId);
+    }
+
+    function listComponents(): ComboWidgetLike[] {
+      const app = win.Sys?.Application;
+      const out: ComboWidgetLike[] = [];
+      const seen = new Set<ComboWidgetLike>();
+      const add = (candidate: ComboWidgetLike | null | undefined) => {
+        if (candidate && !seen.has(candidate)) {
+          seen.add(candidate);
+          out.push(candidate);
+        }
+      };
+      if (app && typeof app.getComponents === "function") {
+        const list = app.getComponents();
+        if (list && typeof (list as ComboWidgetLike[]).length === "number") {
+          Array.from(list as ComboWidgetLike[]).forEach(add);
+        } else if (list && typeof list === "object") {
+          Object.keys(list).forEach((key) =>
+            add((list as Record<string, ComboWidgetLike>)[key]),
+          );
+        }
+      }
+      if (app?._components && typeof app._components === "object") {
+        Object.keys(app._components).forEach((key) => add(app._components?.[key]));
+      }
+      return out;
+    }
+
+    function findCombo(): ComboWidgetLike | null {
+      let node: ComboHostNode | null = element;
+      for (let depth = 0; depth < 10 && node; depth += 1) {
+        if (looksLikeCombo(node.control)) {
+          return node.control;
+        }
+        node = node.parentElement as ComboHostNode | null;
+      }
+
+      if (typeof win.$find === "function") {
+        for (const id of ids) {
+          const found = win.$find(id);
+          if (looksLikeCombo(found)) {
+            return found;
+          }
+        }
+      }
+
+      for (const candidate of listComponents()) {
+        if (looksLikeCombo(candidate) && comboOwnsInput(candidate, element)) {
+          return candidate;
+        }
+      }
+      return null;
+    }
+
+    function collectWidgetItems(combo: ComboWidgetLike): ComboItemLike[] {
+      const collected: ComboItemLike[] = [];
+      if (typeof combo.findItemByText === "function" && preferred?.trim()) {
+        const byText = combo.findItemByText(preferred.trim());
+        if (byText && typeof byText.select === "function") {
+          collected.push(byText);
+        }
+      }
+      const items = combo.get_items?.();
+      const count = items?.get_count?.() ?? 0;
+      if (!items?.getItem || count < 1) {
+        return collected;
+      }
+      for (let i = 0; i < count; i += 1) {
+        const item = items.getItem(i);
+        if (!item || typeof item.select !== "function") {
+          continue;
+        }
+        if (item.get_isEnabled && item.get_isEnabled() === false) {
+          continue;
+        }
+        const text = (item.get_text?.() || "").trim();
+        if (!text || isPrompt(text)) {
+          continue;
+        }
+        collected.push(item);
+      }
+      return collected;
+    }
+
+    function pickWidgetItem(items: ComboItemLike[]): ComboItemLike | undefined {
+      const needle = preferred?.trim().toLowerCase();
+      if (needle) {
+        return (
+          items.find(
+            (item) => (item.get_text?.() || "").trim().toLowerCase() === needle,
+          ) ||
+          items.find((item) =>
+            (item.get_text?.() || "").trim().toLowerCase().includes(needle),
+          )
+        );
+      }
+      return items[Math.floor(Math.random() * items.length)];
+    }
+
+    const combo = findCombo();
+    if (combo) {
+      try {
+        combo.showDropDown?.();
+      } catch {
+        // some skins throw if already open
+      }
+      await wait(60);
+      const collected = collectWidgetItems(combo);
+      const chosen = pickWidgetItem(collected);
+      if (chosen) {
+        const text = (chosen.get_text?.() || preferred || "").trim();
+        const value = (chosen.get_value?.() || "").trim();
+        chosen.select?.();
+        if (text) {
+          combo.set_text?.(text);
+        }
+        if (value) {
+          combo.set_value?.(value);
+        }
+        try {
+          combo.hideDropDown?.();
+        } catch {
+          // ignore
+        }
+        if (text) {
+          applyDisplay(text, value);
+        }
+        const shown =
+          element instanceof HTMLInputElement ? element.value.trim() : text;
+        if (text && !isPrompt(text) && (shown === text || !isPrompt(shown))) {
+          return { ok: true, text };
+        }
+        if (text && !isPrompt(text)) {
+          return { ok: true, text };
+        }
+      }
+    }
+
+    const comboId = inputId.endsWith("_Input") ? inputId.slice(0, -6) : "";
+    const arrow =
+      (comboId ? document.getElementById(`${comboId}_Arrow`) : null) ||
+      element.parentElement?.querySelector(
+        "[id$='_Arrow'], .rcbActionButton, .rcbArrowCell a",
+      );
+    const drop =
+      (comboId ? document.getElementById(`${comboId}_DropDown`) : null) ||
+      (comboId
+        ? document.getElementById(`${comboId}_DropDown`.replace(/\\/g, ""))
+        : null);
+
+    function fireMouse(node: Element): void {
+      for (const type of ["pointerdown", "mousedown", "mouseup", "click"]) {
+        try {
+          node.dispatchEvent(
+            new MouseEvent(type, {
+              bubbles: true,
+              cancelable: true,
+            }),
+          );
+        } catch {
+          // jsdom / older runtimes reject some event types
+        }
+      }
+      if (node instanceof HTMLElement) {
+        node.click();
+      }
+    }
+
+    function usableDomItems(root: ParentNode | Element | null): HTMLElement[] {
+      if (!root) {
+        return [];
+      }
+      return Array.from(
+        root.querySelectorAll(".rcbItem, [role='option']"),
+      ).filter((node): node is HTMLElement => {
+        if (!(node instanceof HTMLElement)) {
+          return false;
+        }
+        if (
+          node.classList.contains("rcbDisabled") ||
+          node.getAttribute("aria-disabled") === "true"
+        ) {
+          return false;
+        }
+        const text = (node.textContent || "").trim();
+        return Boolean(text) && !isPrompt(text);
+      });
+    }
+
+    if (arrow instanceof HTMLElement) {
+      fireMouse(arrow);
+      await wait(80);
+    }
+
+    const domItems = usableDomItems(drop);
+    if (domItems.length === 0) {
+      return { ok: false, error: "No combo items" };
+    }
+
+    const needle = preferred?.trim().toLowerCase();
+    const domChosen = needle
+      ? domItems.find(
+          (node) => (node.textContent || "").trim().toLowerCase() === needle,
+        ) ||
+        domItems.find((node) =>
+          (node.textContent || "").trim().toLowerCase().includes(needle),
+        )
+      : domItems[Math.floor(Math.random() * domItems.length)];
+    if (!domChosen) {
+      return { ok: false, error: "No usable combo items" };
+    }
+
+    fireMouse(domChosen);
+    const text = (domChosen.textContent || "").trim();
+    if (text) {
+      applyDisplay(text);
+    }
+    return { ok: Boolean(text) && !isPrompt(text), text };
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
+
+export async function fillComboInPageWorld(
+  element: HTMLInputElement,
+  preferred?: string,
+): Promise<boolean> {
+  if (typeof chrome === "undefined" || !chrome.runtime?.sendMessage) {
+    return false;
+  }
+
+  const marker = nextMarker();
+  element.setAttribute("data-form-autofill-target", marker);
+
+  try {
+    const response = (await chrome.runtime.sendMessage({
+      type: MESSAGE.FILL_COMBO_WIDGET,
+      marker,
+      preferred,
+    })) as (MainWorldFillResult & { text?: string }) | undefined;
+
+    if (response?.text && !looksLikePromptText(response.text)) {
+      element.value = response.text;
+      element.classList.remove("rcbEmptyMessage", "riEmpty");
+      return Boolean(response.ok);
+    }
+
+    return Boolean(response?.ok) && !looksLikePromptText(element.value);
   } catch {
     return false;
   } finally {

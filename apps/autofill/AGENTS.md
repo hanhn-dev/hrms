@@ -163,6 +163,10 @@ Chrome serializes that function with `toString()`. It must stay **self-contained
 
 `autoTypeFields` walks the same root as fill and skips non-empty fields unless overwrite is on. Selects are skipped (`Select (use Fill)`). Read-only fields are skipped except radios, so a read-only MUI date input is not typed. Context menu **Auto-type into this field** sets `useContextTarget` and uses the element captured on `contextmenu` in that frame.
 
+Pass an `AbortSignal` to `typeKeystroke` / `autoTypeField` / `autoTypeFields` so Esc or **Stop typing** can interrupt a long form. Cancel leaves already-typed fields as they are, blurs the current control, and marks the rest `skipped` with reason `Cancelled` (`cancelled: true` on the result — not a failure). `MESSAGE.CANCEL_AUTO_TYPE` fans out to every frame; the content script keeps one module-level typing session and aborts it. Esc prefers cancel over closing the FAB.
+
+`startTypeHighlight` / `endTypeHighlight` (`type-session.ts`) pin a pick-style blue overlay (`#form-autofill-type-highlight`) on the form/section wrapper for the whole job. Skip `document` / `body`. Always end the highlight in `finally`, including after cancel. Do not reuse `startFillSession` — portals must stay visible for validation QA.
+
 ## Personas and scenarios
 
 Add a persona or scenario by extending the const arrays and the id unions — do not branch on magic strings in the fill loop.

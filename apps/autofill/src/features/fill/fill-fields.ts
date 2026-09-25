@@ -7,7 +7,11 @@ import type { FillReportEntry, ScannedField } from "@/shared/messaging";
 import type { PersonaId } from "@/features/personas";
 import type { ScenarioId } from "@/features/scenarios";
 import { resolveScenarioValue } from "@/features/scenarios";
-import { findElementForField, scanFields } from "@/features/scan";
+import {
+  findElementForField,
+  looksLikeTelerikCombo,
+  scanFields,
+} from "@/features/scan";
 import { fillDatePicker } from "./fill-date-picker";
 import { hasExistingValue } from "./has-existing-value";
 import {
@@ -88,11 +92,24 @@ function skipReason(field: ScannedField): string {
     field.readOnly &&
     !isDateField(field) &&
     field.kind !== "select" &&
-    field.kind !== "radio"
+    field.kind !== "radio" &&
+    !looksLikeTelerikSelector(field)
   ) {
     return "Read-only";
   }
   return "Not fillable";
+}
+
+function looksLikeTelerikSelector(field: ScannedField): boolean {
+  return /_Input(?:$|\s)/.test(field.selectorHint ?? "");
+}
+
+function shouldFillAsCombo(field: ScannedField, element: Element): boolean {
+  return (
+    field.kind === "select" ||
+    element.getAttribute("role") === "combobox" ||
+    looksLikeTelerikCombo(element)
+  );
 }
 
 function isFillable(field: ScannedField): boolean {
@@ -100,12 +117,13 @@ function isFillable(field: ScannedField): boolean {
     return false;
   }
   // Date pickers and MUI Autocomplete often mark the input readOnly
-  // while the popup/calendar remains usable.
+  // while the popup/calendar remains usable. Telerik combos are readonly too.
   if (
     field.readOnly &&
     !isDateField(field) &&
     field.kind !== "select" &&
-    field.kind !== "radio"
+    field.kind !== "radio" &&
+    !looksLikeTelerikSelector(field)
   ) {
     return false;
   }
@@ -118,6 +136,64 @@ function isFillable(field: ScannedField): boolean {
 
 function previewValue(value: string): string {
   return value.length > 40 ? `${value.slice(0, 40)}…` : value;
+}
+
+function nodeLooksLikePostback(node: Element): boolean {
+  const chunks = [
+    node.getAttribute("onchange"),
+    node.getAttribute("onclick"),
+    node.getAttribute("href"),
+  ];
+  const handler = (node as HTMLElement & { onchange?: unknown }).onchange;
+  if (typeof handler === "function") {
+    chunks.push(Function.prototype.toString.call(handler));
+  }
+  return chunks.some(
+    (chunk) =>
+      Boolean(chunk) && /__doPostBack|WebForm_DoPostBack/i.test(chunk as string),
+  );
+}
+
+/** AutoPostBack / WebForms hooks reload the page — fill these last. */
+function triggersPostback(element: Element): boolean {
+  if (nodeLooksLikePostback(element)) {
+    return true;
+  }
+  const host = element.closest(".RadComboBox, .RadPicker, .RadInput");
+  if (!host) {
+    return false;
+  }
+  if (nodeLooksLikePostback(host)) {
+    return true;
+  }
+  return Array.from(host.querySelectorAll("a, input, select, button")).some(
+    (node) => nodeLooksLikePostback(node),
+  );
+}
+
+function orderFillTargets(
+  targets: ScannedField[],
+  root: ParentNode,
+): ScannedField[] {
+  const dates: ScannedField[] = [];
+  const rest: ScannedField[] = [];
+  const postback: ScannedField[] = [];
+
+  for (const field of targets) {
+    const element = findElementForField(field, root);
+    if (element && triggersPostback(element)) {
+      postback.push(field);
+      continue;
+    }
+    if (isDateField(field)) {
+      dates.push(field);
+    } else {
+      rest.push(field);
+    }
+  }
+
+  // Dates first so later focus does not remount an open calendar; postback last.
+  return [...dates, ...rest, ...postback];
 }
 
 /** Instant-fill discoverable fields with persona / scenario-aware values. */
@@ -160,11 +236,7 @@ export async function fillFields(
     let filledCount = 0;
     let failedCount = 0;
 
-    // Fill dates first so later focus moves don't remount an open calendar mid-commit.
-    const ordered = [
-      ...targets.filter((f) => isDateField(f)),
-      ...targets.filter((f) => !isDateField(f)),
-    ];
+    const ordered = orderFillTargets(targets, root);
 
     for (const field of ordered) {
       const element = findElementForField(field, root);
@@ -212,10 +284,7 @@ export async function fillFields(
           if (!ok) {
             reason = `Date fill failed (${dateResult.tactic})`;
           }
-        } else if (
-          field.kind === "select" ||
-          element.getAttribute("role") === "combobox"
-        ) {
+        } else if (shouldFillAsCombo(field, element)) {
           // Pick from the control's real options. A generated sentence such as
           // "Acme Engineer" is not an option label — passing it used to force
           // the first row. IFSC is freeSolo and may have an empty master list.
@@ -252,8 +321,7 @@ export async function fillFields(
 
         const reportedValue =
           ok &&
-          (field.kind === "select" ||
-            element.getAttribute("role") === "combobox") &&
+          shouldFillAsCombo(field, element) &&
           "value" in element &&
           typeof element.value === "string" &&
           element.value

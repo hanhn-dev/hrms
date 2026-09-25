@@ -49,6 +49,19 @@ describe("findOpenPickerButton", () => {
     expect(findOpenPickerButton(input)).toBeNull();
   });
 
+  it("finds a RadPicker calendar popup (positive)", () => {
+    document.body.innerHTML = `
+      <div class="RadPicker">
+        <input id="dob" class="riTextBox" />
+        <a class="rcCalPopup" id="open">cal</a>
+      </div>
+    `;
+    const input = document.getElementById("dob") as HTMLInputElement;
+    expect(findOpenPickerButton(input)?.classList.contains("rcCalPopup")).toBe(
+      true,
+    );
+  });
+
   it("falls back to InputAdornment button without aria-label (edge)", () => {
     document.body.innerHTML = `
       <div class="MuiFormControl-root">
@@ -177,6 +190,38 @@ describe("fillDatePicker", () => {
       `;
       document.body.appendChild(grid);
       grid.querySelectorAll('[role="gridcell"]').forEach((node) => {
+        node.addEventListener("click", () => {
+          input.value = `0${(node.textContent || "").trim()}-Jan-2020`;
+        });
+      });
+    });
+    const promise = fillDatePicker(input, "05-Jan-2020");
+    await vi.runAllTimersAsync();
+    await promise;
+    expect(input.value).toBe("05-Jan-2020");
+  });
+
+  it("clicks a RadCalendar day cell (positive)", async () => {
+    document.body.innerHTML = `
+      <div class="RadPicker">
+        <input id="dob" class="riTextBox" readonly />
+        <a class="rcCalPopup" id="open">cal</a>
+      </div>
+    `;
+    const input = document.getElementById("dob") as HTMLInputElement;
+    document.getElementById("open")!.addEventListener("click", () => {
+      const calendar = document.createElement("div");
+      calendar.className = "RadCalendar";
+      calendar.innerHTML = `
+        <table>
+          <tr>
+            <td><a class="rcCalDate">5</a></td>
+            <td><a class="rcCalDate">6</a></td>
+          </tr>
+        </table>
+      `;
+      document.body.appendChild(calendar);
+      calendar.querySelectorAll(".rcCalDate").forEach((node) => {
         node.addEventListener("click", () => {
           input.value = `0${(node.textContent || "").trim()}-Jan-2020`;
         });

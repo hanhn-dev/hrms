@@ -20,7 +20,13 @@ import {
   countFillableControls,
 } from "@/features/scan";
 import { fillFields } from "@/features/fill";
-import { autoTypeField, autoTypeFields } from "@/features/auto-type";
+import {
+  autoTypeField,
+  autoTypeFields,
+  endTypeHighlight,
+  isAutoTypeCancelled,
+  startTypeHighlight,
+} from "@/features/auto-type";
 import {
   startElementPicker,
   cancelElementPicker,
@@ -40,6 +46,32 @@ let lastContextTarget: Element | null = null;
 let lastRootSelector: string | undefined;
 /** Extra hosts from SW (customer UAT). Refreshed on start. */
 let extraAllowedHosts: string[] = [];
+/** Active keystroke job; replaced when a new AUTO_TYPE starts. */
+let typingSession: AbortController | null = null;
+
+function beginTypingSession(): AbortController {
+  typingSession?.abort();
+  typingSession = new AbortController();
+  return typingSession;
+}
+
+function cancelTypingSession(): boolean {
+  if (!typingSession || typingSession.signal.aborted) {
+    return false;
+  }
+  typingSession.abort();
+  return true;
+}
+
+function finishTypingSession(controller: AbortController): void {
+  if (typingSession === controller) {
+    typingSession = null;
+  }
+}
+
+function isTypingSessionActive(): boolean {
+  return typingSession != null && !typingSession.signal.aborted;
+}
 
 function trackContextTarget(): void {
   document.addEventListener(
@@ -242,15 +274,22 @@ async function handleStartPickAutoType(
     });
 
     const root = getMarkedScanRoot() ?? resolveScanRoot(result.rootSelector);
-    const typed = await autoTypeFields({
-      root,
-      typingDelayMs: request.typingDelayMs,
-      startWithInvalid: request.startWithInvalid,
-      overwriteExistingValues: request.overwriteExistingValues,
-    });
-    toastAutoTypeResult(typed);
-    const fields = scanFields({ root });
-    notifyFieldsUpdated(fields, result.rootSelector);
+    const controller = beginTypingSession();
+    showPageToast("Typing… Esc to cancel", "info");
+    try {
+      const typed = await autoTypeFields({
+        root,
+        typingDelayMs: request.typingDelayMs,
+        startWithInvalid: request.startWithInvalid,
+        overwriteExistingValues: request.overwriteExistingValues,
+        signal: controller.signal,
+      });
+      toastAutoTypeResult(typed);
+      const fields = scanFields({ root });
+      notifyFieldsUpdated(fields, result.rootSelector);
+    } finally {
+      finishTypingSession(controller);
+    }
   })();
 
   showPageToast(
@@ -262,6 +301,11 @@ async function handleStartPickAutoType(
 
 async function handleCancelPickScan(): Promise<AutofillResponse> {
   cancelElementPicker();
+  return { ok: true, cancelled: true };
+}
+
+async function handleCancelAutoType(): Promise<AutofillResponse> {
+  cancelTypingSession();
   return { ok: true, cancelled: true };
 }
 
@@ -319,21 +363,28 @@ async function handleAutoType(
       root = scopeRootFromTarget(lastContextTarget);
     }
 
-    const result = await autoTypeFields({
-      root,
-      fieldIds: request.fieldIds,
-      typingDelayMs: request.typingDelayMs,
-      startWithInvalid: request.startWithInvalid,
-      overwriteExistingValues: request.overwriteExistingValues,
-    });
-    toastAutoTypeResult(result);
-    const typedEntries = result.entries.filter((e) => e.status === "filled");
-    return {
-      ok: true,
-      ...result,
-      fieldId: typedEntries[0]?.fieldId,
-      label: typedEntries[0]?.label,
-    };
+    const controller = beginTypingSession();
+    showPageToast("Typing… Esc to cancel", "info");
+    try {
+      const result = await autoTypeFields({
+        root,
+        fieldIds: request.fieldIds,
+        typingDelayMs: request.typingDelayMs,
+        startWithInvalid: request.startWithInvalid,
+        overwriteExistingValues: request.overwriteExistingValues,
+        signal: controller.signal,
+      });
+      toastAutoTypeResult(result);
+      const typedEntries = result.entries.filter((e) => e.status === "filled");
+      return {
+        ok: true,
+        ...result,
+        fieldId: typedEntries[0]?.fieldId,
+        label: typedEntries[0]?.label,
+      };
+    } finally {
+      finishTypingSession(controller);
+    }
   }
 
   const root = scopeRootFromTarget(lastContextTarget);
@@ -385,6 +436,9 @@ async function handleAutoType(
     return { ok: false, error: "No editable field found for auto-type" };
   }
 
+  const controller = beginTypingSession();
+  const highlightId = startTypeHighlight(root);
+  showPageToast("Typing… Esc to cancel", "info");
   try {
     const result = await autoTypeField({
       field,
@@ -392,6 +446,7 @@ async function handleAutoType(
       element,
       typingDelayMs: request.typingDelayMs,
       startWithInvalid: request.startWithInvalid,
+      signal: controller.signal,
     });
     showPageToast(`Autofill: typed into ${result.label}`, "success");
     return {
@@ -411,10 +466,39 @@ async function handleAutoType(
       label: result.label,
     };
   } catch (error) {
+    if (isAutoTypeCancelled(error)) {
+      toastAutoTypeResult({
+        typedCount: 0,
+        skippedCount: 1,
+        failedCount: 0,
+        cancelled: true,
+      });
+      return {
+        ok: true,
+        typedCount: 0,
+        skippedCount: 1,
+        failedCount: 0,
+        cancelled: true,
+        entries: [
+          {
+            fieldId: field.id,
+            label: field.label,
+            kind: field.kind,
+            status: "skipped",
+            reason: "Cancelled",
+          },
+        ],
+        fieldId: field.id,
+        label: field.label,
+      };
+    }
     const messageText =
       error instanceof Error ? error.message : "Auto-type failed";
     showPageToast(`Autofill: ${messageText}`, "error");
     return { ok: false, error: messageText };
+  } finally {
+    endTypeHighlight(highlightId);
+    finishTypingSession(controller);
   }
 }
 
@@ -447,6 +531,8 @@ export async function dispatchAutofillMessage(
       return handleStartPickAutoType(message);
     case MESSAGE.CANCEL_PICK_SCAN:
       return handleCancelPickScan();
+    case MESSAGE.CANCEL_AUTO_TYPE:
+      return handleCancelAutoType();
     case MESSAGE.TOGGLE_FLOAT_MENU:
       return handleToggleFloatMenu();
     case MESSAGE.CLOSE_FLOAT_MENU:
@@ -533,6 +619,13 @@ function mountContentRuntime(): void {
       }
     },
     onEscape: (event) => {
+      const typing = isTypingSessionActive();
+      void chrome.runtime.sendMessage({ type: MESSAGE.CANCEL_AUTO_TYPE });
+      if (typing) {
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
       const closed = host.__FORM_AUTOFILL__?.closeMenu?.() === true;
       if (closed) {
         event.preventDefault();

@@ -45,8 +45,12 @@ Approver acts
 | Find My Details `ChangeRequestId` + eligible approvers | `find-mydetails-change-requests.sql` | (read-only) |
 | Inspect any pending request | `diagnose-pending-request.sql` | (read-only) |
 | Approve SP returns generic Transaction Fail | `diagnose-mydetails-approve-failure.sql` | (read-only probes; surfaces real ERROR_MESSAGE) |
+| DEV only: Clone schema breaks Family/Bank new-row approve | `dev-patch-approve-reject-mydetails-dbo-schema.sql` | `CREATE OR ALTER` `Sp_ApproveRejectMyDetailsReview` (already applied on DEV) |
+| DEV only: undo the Clone-schema patch after testing | `dev-revert-approve-reject-mydetails-dbo-schema.sql` | restores the pre-patch DEV procedure |
 | Approved but Past History empty / wrong section | `diagnose-mydetails-history-after-approve.sql` | (read-only) |
 | Education approve applied live row but no Past History | `backfill-education-history-after-approve.sql` | WRITE `TEducationHistoryDetails` |
+| Family / Nomination / Passport new-row Past History empty | Redeploy `Sp_ApproveRejectMyDetailsReview` (history insert after live apply). Already-approved rows still need a one-off history backfill. | |
+| Family edit approved (live Brother) but Past History still Added Mother | Redeploy `Sp_ApproveRejectMyDetailsReview` (edit snapshot is now after live UPDATE). Already-approved rows: `backfill-family-history-after-approve.sql` | |
 | Leave, WFH, AR, OH, CompOff, Resignation, Recruitment, PMS, most ESS | `approve-cm-workflow-request.sql` | `SP_CM_ApproveWorkFlowRequest` |
 | My Details field change requests | `approve-mydetails-change-request.sql` | `Sp_ApproveRejectMyDetailsReview` |
 | Admin master-data change requests | `approve-admin-changes-request.sql` | `SP_CM_ApproveAdminChangesRequest` |

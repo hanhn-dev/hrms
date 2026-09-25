@@ -20,6 +20,7 @@ function mount(
     onFillSelected: vi.fn(),
     onPickAutoType: vi.fn(),
     onAutoTypeSelected: vi.fn(),
+    onCancelAutoType: vi.fn(),
     ...props,
   };
   act(() => {
@@ -131,6 +132,31 @@ describe("ActionBar", () => {
         el.textContent?.includes("Pick & type"),
       ),
     ).toBe(false);
+  });
+
+  it("shows Stop typing while auto-type is running (positive)", () => {
+    const onCancelAutoType = vi.fn();
+    const onAutoTypeSelected = vi.fn();
+    ({ container, root } = mount({
+      typing: true,
+      hasSelection: true,
+      onCancelAutoType,
+      onAutoTypeSelected,
+    }));
+    const button = Array.from(container.querySelectorAll("button")).find((el) =>
+      el.textContent?.includes("Stop typing"),
+    );
+    expect(button).toBeTruthy();
+    expect(
+      Array.from(container.querySelectorAll("button")).some((el) =>
+        el.textContent?.includes("Auto-type selected"),
+      ),
+    ).toBe(false);
+    act(() => {
+      button!.click();
+    });
+    expect(onCancelAutoType).toHaveBeenCalledTimes(1);
+    expect(onAutoTypeSelected).not.toHaveBeenCalled();
   });
 
   it("disables Scan page while picking (edge)", () => {

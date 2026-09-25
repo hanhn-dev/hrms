@@ -1,6 +1,7 @@
 import {
   fillControlledDateMainWorld,
   fillControlledDateInPageWorld,
+  fillComboWidgetMainWorld,
 } from "./page-world";
 import { MESSAGE } from "@/shared/messaging";
 
@@ -202,5 +203,135 @@ describe("fillControlledDateInPageWorld", () => {
     expect(await fillControlledDateInPageWorld(input, "01-Mar-2019")).toBe(
       false,
     );
+  });
+});
+
+describe("fillComboWidgetMainWorld", () => {
+  afterEach(() => {
+    delete (window as unknown as { $find?: unknown }).$find;
+    delete (window as unknown as { Sys?: unknown }).Sys;
+    document.body.innerHTML = "";
+  });
+
+  it("selects a combo item via $find (positive)", async () => {
+    document.body.innerHTML = `<input id="cboTitle_Input" data-form-autofill-target="m1" />`;
+    const selected: string[] = [];
+    const items = [
+      {
+        get_text: () => "Select Title",
+        get_isEnabled: () => true,
+        select: () => selected.push("prompt"),
+      },
+      {
+        get_text: () => "Mr",
+        get_isEnabled: () => true,
+        select: () => selected.push("Mr"),
+      },
+    ];
+    (window as unknown as { $find: (id: string) => unknown }).$find = (
+      id: string,
+    ) => {
+      expect(id).toBe("cboTitle");
+      return {
+        get_items: () => ({
+          get_count: () => items.length,
+          getItem: (index: number) => items[index] ?? null,
+        }),
+      };
+    };
+    const result = await fillComboWidgetMainWorld("m1");
+    expect(result.ok).toBe(true);
+    expect(selected).toEqual(["Mr"]);
+  });
+
+  it("finds the widget by get_inputDomElement when $find ids miss (positive)", async () => {
+    document.body.innerHTML = `<input id="cboGender_Input" data-form-autofill-target="m1" class="rcbEmptyMessage" value="Select Gender" />`;
+    const input = document.getElementById("cboGender_Input") as HTMLInputElement;
+    const selected: string[] = [];
+    const items = [
+      {
+        get_text: () => "Male",
+        get_isEnabled: () => true,
+        select: () => {
+          selected.push("Male");
+          input.value = "Male";
+          input.classList.remove("rcbEmptyMessage");
+        },
+      },
+    ];
+    (window as unknown as { $find: () => null }).$find = () => null;
+    (window as unknown as { Sys: { Application: { getComponents: () => unknown[] } } }).Sys =
+      {
+        Application: {
+          getComponents: () => [
+            {
+              get_id: () => "other",
+              get_inputDomElement: () => input,
+              get_items: () => ({
+                get_count: () => items.length,
+                getItem: (index: number) => items[index] ?? null,
+              }),
+            },
+          ],
+        },
+      };
+    const result = await fillComboWidgetMainWorld("m1");
+    expect(result.ok).toBe(true);
+    expect(selected).toEqual(["Male"]);
+    expect(input.value).toBe("Male");
+  });
+
+  it("selects after showDropDown loads items (positive)", async () => {
+    document.body.innerHTML = `<input id="cboTitle_Input" data-form-autofill-target="m1" />`;
+    const selected: string[] = [];
+    const items: Array<{
+      get_text: () => string;
+      get_isEnabled: () => boolean;
+      select: () => void;
+    }> = [];
+    (window as unknown as { $find: () => unknown }).$find = () => ({
+      showDropDown: () => {
+        items.push({
+          get_text: () => "Ms",
+          get_isEnabled: () => true,
+          select: () => selected.push("Ms"),
+        });
+      },
+      get_items: () => ({
+        get_count: () => items.length,
+        getItem: (index: number) => items[index] ?? null,
+      }),
+    });
+    const result = await fillComboWidgetMainWorld("m1");
+    expect(result.ok).toBe(true);
+    expect(selected).toEqual(["Ms"]);
+  });
+
+  it("clicks a visible rcbItem when $find is missing (positive)", async () => {
+    document.body.innerHTML = `
+      <input id="cboGender_Input" data-form-autofill-target="m1" class="rcbEmptyMessage" value="Select Gender" />
+      <a id="cboGender_Arrow">select</a>
+      <div id="cboGender_DropDown">
+        <ul class="rcbList"><li class="rcbItem">Male</li></ul>
+      </div>
+    `;
+    const input = document.getElementById("cboGender_Input") as HTMLInputElement;
+    document.querySelector(".rcbItem")!.addEventListener("click", () => {
+      input.value = "Male";
+      input.classList.remove("rcbEmptyMessage");
+    });
+    const result = await fillComboWidgetMainWorld("m1");
+    expect(result.ok).toBe(true);
+    expect(input.value).toBe("Male");
+  });
+
+  it("returns false when $find is missing and there are no list items (negative)", async () => {
+    document.body.innerHTML = `<input id="cboTitle_Input" data-form-autofill-target="m1" />`;
+    expect((await fillComboWidgetMainWorld("m1")).ok).toBe(false);
+  });
+
+  it("returns false when the marker is missing (edge)", async () => {
+    (window as unknown as { $find: () => null }).$find = () => null;
+    expect((await fillComboWidgetMainWorld("missing")).ok).toBe(false);
   });
 });

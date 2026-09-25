@@ -3,6 +3,7 @@ import {
   type AutofillRequest,
   type AutofillResponse,
   type FieldsUpdatedMessage,
+  type FillComboWidgetRequest,
   type FillControlledDateRequest,
   type FillReportUpdatedMessage,
   type FillRequest,
@@ -28,6 +29,7 @@ import {
 import { buildRequestForAction } from "@/features/float-menu/float-menu-logic";
 import { actionFromChromeCommand } from "@/features/shortcuts";
 import {
+  fillComboWidgetMainWorld,
   fillControlledDateMainWorld,
   type MainWorldFillResult,
 } from "@/features/fill/page-world";
@@ -618,6 +620,43 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  if (request.type === MESSAGE.FILL_COMBO_WIDGET) {
+    void (async () => {
+      const tabId = sender.tab?.id;
+      if (tabId == null) {
+        sendResponse({ ok: false, error: "No active tab" } satisfies MainWorldFillResult);
+        return;
+      }
+
+      const fillRequest = request as FillComboWidgetRequest;
+      const frameId = sender.frameId;
+      const target: chrome.scripting.InjectionTarget =
+        frameId != null && frameId >= 0
+          ? { tabId, frameIds: [frameId] }
+          : { tabId, allFrames: false };
+
+      try {
+        const results = await chrome.scripting.executeScript({
+          target,
+          world: "MAIN",
+          func: fillComboWidgetMainWorld,
+          args: [fillRequest.marker, fillRequest.preferred],
+        });
+        const result = results[0]?.result as MainWorldFillResult | undefined;
+        sendResponse(result ?? { ok: false, error: "No MAIN-world result" });
+      } catch (error) {
+        sendResponse({
+          ok: false,
+          error:
+            error instanceof Error
+              ? error.message
+              : "MAIN-world combo fill failed",
+        } satisfies MainWorldFillResult);
+      }
+    })();
+    return true;
+  }
+
   if (request.type === MESSAGE.FILL_CONTROLLED_DATE) {
     void (async () => {
       const tabId = sender.tab?.id;
@@ -667,6 +706,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     request.type === MESSAGE.START_PICK_FILL ||
     request.type === MESSAGE.START_PICK_AUTO_TYPE ||
     request.type === MESSAGE.CANCEL_PICK_SCAN ||
+    request.type === MESSAGE.CANCEL_AUTO_TYPE ||
     request.type === MESSAGE.TOGGLE_FLOAT_MENU ||
     request.type === MESSAGE.CLOSE_FLOAT_MENU
   ) {

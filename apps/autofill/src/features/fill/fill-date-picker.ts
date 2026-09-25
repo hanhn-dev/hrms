@@ -63,6 +63,7 @@ function formControlFor(element: HTMLElement): Element | null {
       ".MuiPickersInputBase-root",
       ".ant-picker",
       ".ant-form-item",
+      ".RadPicker",
     ].join(", "),
   );
 }
@@ -110,6 +111,7 @@ export function findOpenPickerButton(
         ".MuiPickersInputAdornment-root button",
         ".MuiPickersOutlinedInput-endAdornment button",
         ".ant-picker-suffix",
+        ".rcCalPopup",
       ].join(", "),
     );
     if (adornment instanceof HTMLElement) {
@@ -133,6 +135,7 @@ export function findPickerSurface(): HTMLElement | null {
         ".MuiPickersLayout-root",
         ".MuiDateCalendar-root",
         ".ant-picker-dropdown",
+        ".RadCalendar",
         "[role='grid']",
         "[role='dialog']",
       ].join(", "),
@@ -157,6 +160,8 @@ export function findPickerSurface(): HTMLElement | null {
           ".MuiPickersMonth-monthButton",
           "[role='gridcell']",
           ".ant-picker-cell",
+          ".RadCalendar td a",
+          ".rcCalDate",
         ].join(", "),
       )
     ) {
@@ -274,10 +279,19 @@ function dayCandidates(root: ParentNode): HTMLElement[] {
   if (gridCells.length > 0) {
     return gridCells;
   }
-  return Array.from(
+  const ant = Array.from(
     root.querySelectorAll(
       ".ant-picker-cell:not(.ant-picker-cell-disabled), .ant-picker-cell-inner",
     ),
+  ).filter(
+    (node): node is HTMLElement =>
+      node instanceof HTMLElement && !isDisabled(node),
+  );
+  if (ant.length > 0) {
+    return ant;
+  }
+  return Array.from(
+    root.querySelectorAll(".RadCalendar td a, .rcCalDate"),
   ).filter(
     (node): node is HTMLElement =>
       node instanceof HTMLElement && !isDisabled(node),

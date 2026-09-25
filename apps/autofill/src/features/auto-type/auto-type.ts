@@ -8,6 +8,21 @@ import {
   hasExistingValue,
   setNativeValue,
 } from "@/features/fill";
+import { endTypeHighlight, startTypeHighlight } from "./type-session";
+
+export class AutoTypeCancelledError extends Error {
+  constructor(message = "Auto-type cancelled") {
+    super(message);
+    this.name = "AutoTypeCancelledError";
+  }
+}
+
+export function isAutoTypeCancelled(error: unknown): boolean {
+  return (
+    error instanceof AutoTypeCancelledError ||
+    (error instanceof Error && error.name === "AutoTypeCancelledError")
+  );
+}
 
 export interface AutoTypeOptions {
   field: ScannedField;
@@ -18,6 +33,8 @@ export interface AutoTypeOptions {
   startWithInvalid?: boolean;
   /** Override the element (e.g. context-menu target). */
   element?: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | null;
+  /** When aborted, stop mid-keystroke and leave the partial value. */
+  signal?: AbortSignal;
 }
 
 export interface AutoTypeFieldsOptions {
@@ -28,17 +45,44 @@ export interface AutoTypeFieldsOptions {
   startWithInvalid?: boolean;
   /** When true, replace non-empty values. Default skips already-filled. */
   overwriteExistingValues?: boolean;
+  /** When aborted, stop the field loop and mark the rest Cancelled. */
+  signal?: AbortSignal;
 }
 
 export interface AutoTypeFieldsResult {
   typedCount: number;
   skippedCount: number;
   failedCount: number;
+  cancelled?: boolean;
   entries: FillReportEntry[];
 }
 
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+function throwIfAborted(signal?: AbortSignal): void {
+  if (signal?.aborted) {
+    throw new AutoTypeCancelledError();
+  }
+}
+
+function sleep(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(new AutoTypeCancelledError());
+      return;
+    }
+    if (ms <= 0) {
+      resolve();
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      signal?.removeEventListener("abort", onAbort);
+      resolve();
+    }, ms);
+    const onAbort = (): void => {
+      window.clearTimeout(timer);
+      reject(new AutoTypeCancelledError());
+    };
+    signal?.addEventListener("abort", onAbort, { once: true });
+  });
 }
 
 function fireKeyEvents(
@@ -64,37 +108,47 @@ export async function typeKeystroke(
   element: HTMLInputElement | HTMLTextAreaElement,
   text: string,
   typingDelayMs = 60,
+  signal?: AbortSignal,
 ): Promise<void> {
+  throwIfAborted(signal);
   element.focus();
   clearNativeValue(element);
 
   let buffer = "";
-  for (const char of text) {
-    fireKeyEvents(element, char, "keydown");
-    buffer += char;
-    setNativeValue(element, buffer);
+  try {
+    for (const char of text) {
+      throwIfAborted(signal);
+      fireKeyEvents(element, char, "keydown");
+      buffer += char;
+      setNativeValue(element, buffer);
 
-    // Prefer InputEvent when available (jsdom may only support Event)
-    try {
-      element.dispatchEvent(
-        new InputEvent("input", {
-          bubbles: true,
-          data: char,
-          inputType: "insertText",
-        }),
-      );
-    } catch {
-      element.dispatchEvent(new Event("input", { bubbles: true }));
+      // Prefer InputEvent when available (jsdom may only support Event)
+      try {
+        element.dispatchEvent(
+          new InputEvent("input", {
+            bubbles: true,
+            data: char,
+            inputType: "insertText",
+          }),
+        );
+      } catch {
+        element.dispatchEvent(new Event("input", { bubbles: true }));
+      }
+
+      fireKeyEvents(element, char, "keyup");
+      if (typingDelayMs > 0) {
+        await sleep(typingDelayMs, signal);
+      }
     }
 
-    fireKeyEvents(element, char, "keyup");
-    if (typingDelayMs > 0) {
-      await sleep(typingDelayMs);
+    element.dispatchEvent(new Event("change", { bubbles: true }));
+    dispatchBlur(element);
+  } catch (error) {
+    if (isAutoTypeCancelled(error)) {
+      dispatchBlur(element);
     }
+    throw error;
   }
-
-  element.dispatchEvent(new Event("change", { bubbles: true }));
-  dispatchBlur(element);
 }
 
 /** Test helper: prefixes produced while typing (no DOM). */
@@ -116,7 +170,10 @@ export async function autoTypeField(
     root = document,
     typingDelayMs = 60,
     startWithInvalid = false,
+    signal,
   } = options;
+
+  throwIfAborted(signal);
 
   const element =
     options.element ?? findElementForField(field, root);
@@ -153,8 +210,8 @@ export async function autoTypeField(
       invalid: true,
     });
     // Even empty invalid still blurs to surface required errors
-    await typeKeystroke(element, invalid || "x", typingDelayMs);
-    await sleep(Math.max(typingDelayMs * 3, 150));
+    await typeKeystroke(element, invalid || "x", typingDelayMs, signal);
+    await sleep(Math.max(typingDelayMs * 3, 150), signal);
   }
 
   const valid = generateValue({
@@ -164,7 +221,7 @@ export async function autoTypeField(
     invalid: false,
   });
 
-  await typeKeystroke(element, valid, typingDelayMs);
+  await typeKeystroke(element, valid, typingDelayMs, signal);
 
   return { fieldId: field.id, label: field.label };
 }
@@ -201,6 +258,30 @@ function skipReason(field: ScannedField): string {
   return "Not typeable";
 }
 
+function cancelledEntry(field: ScannedField): FillReportEntry {
+  return {
+    fieldId: field.id,
+    label: field.label,
+    kind: field.kind,
+    status: "skipped",
+    reason: "Cancelled",
+  };
+}
+
+function toCancelledResult(
+  entries: FillReportEntry[],
+  typedCount: number,
+  failedCount: number,
+): AutoTypeFieldsResult {
+  return {
+    typedCount,
+    skippedCount: entries.filter((e) => e.status === "skipped").length,
+    failedCount,
+    cancelled: true,
+    entries,
+  };
+}
+
 /**
  * Sequentially keystroke-type each typeable field under a form section
  * (or a checked subset), mirroring fillFields' multi-field loop.
@@ -211,111 +292,145 @@ export async function autoTypeFields(
   const root = options.root ?? document;
   const typingDelayMs = options.typingDelayMs ?? 60;
   const startWithInvalid = options.startWithInvalid ?? false;
-  const fields = scanFields({ root });
-  const allCandidates = options.fieldIds?.length
-    ? fields.filter((f) => options.fieldIds!.includes(f.id))
-    : fields;
+  const signal = options.signal;
+  const highlightId = startTypeHighlight(root);
 
-  const entries: FillReportEntry[] = [];
-  const targets = allCandidates.filter(isTypeable);
+  try {
+    throwIfAborted(signal);
 
-  for (const field of allCandidates) {
-    if (!isTypeable(field)) {
-      entries.push({
-        fieldId: field.id,
-        label: field.label,
-        kind: field.kind,
-        status: "skipped",
-        reason: skipReason(field),
-      });
+    const fields = scanFields({ root });
+    const allCandidates = options.fieldIds?.length
+      ? fields.filter((f) => options.fieldIds!.includes(f.id))
+      : fields;
+
+    const entries: FillReportEntry[] = [];
+    const targets = allCandidates.filter(isTypeable);
+
+    for (const field of allCandidates) {
+      if (!isTypeable(field)) {
+        entries.push({
+          fieldId: field.id,
+          label: field.label,
+          kind: field.kind,
+          status: "skipped",
+          reason: skipReason(field),
+        });
+      }
     }
-  }
 
-  if (targets.length === 0) {
+    if (targets.length === 0) {
+      return {
+        typedCount: 0,
+        skippedCount: entries.length,
+        failedCount: 0,
+        entries,
+      };
+    }
+
+    let typedCount = 0;
+    let failedCount = 0;
+    const betweenDelay =
+      typingDelayMs <= 0 ? 0 : Math.max(typingDelayMs * 3, 150);
+
+    for (let i = 0; i < targets.length; i += 1) {
+      if (signal?.aborted) {
+        for (const remaining of targets.slice(i)) {
+          entries.push(cancelledEntry(remaining));
+        }
+        return toCancelledResult(entries, typedCount, failedCount);
+      }
+
+      const field = targets[i]!;
+      const element = findElementForField(field, root);
+
+      if (!element) {
+        entries.push({
+          fieldId: field.id,
+          label: field.label,
+          kind: field.kind,
+          status: "skipped",
+          reason: "Element not found",
+        });
+        continue;
+      }
+
+      if (
+        !options.overwriteExistingValues &&
+        hasExistingValue(element, field)
+      ) {
+        entries.push({
+          fieldId: field.id,
+          label: field.label,
+          kind: field.kind,
+          status: "skipped",
+          reason: "Already filled",
+        });
+        continue;
+      }
+
+      try {
+        await autoTypeField({
+          field,
+          root,
+          element:
+            element instanceof HTMLInputElement ||
+            element instanceof HTMLTextAreaElement ||
+            element instanceof HTMLSelectElement
+              ? element
+              : null,
+          typingDelayMs,
+          startWithInvalid,
+          signal,
+        });
+        typedCount += 1;
+        entries.push({
+          fieldId: field.id,
+          label: field.label,
+          kind: field.kind,
+          status: "filled",
+        });
+      } catch (error) {
+        if (isAutoTypeCancelled(error)) {
+          entries.push(cancelledEntry(field));
+          for (const remaining of targets.slice(i + 1)) {
+            entries.push(cancelledEntry(remaining));
+          }
+          return toCancelledResult(entries, typedCount, failedCount);
+        }
+        failedCount += 1;
+        entries.push({
+          fieldId: field.id,
+          label: field.label,
+          kind: field.kind,
+          status: "failed",
+          reason: error instanceof Error ? error.message : "Auto-type failed",
+        });
+      }
+
+      if (i < targets.length - 1 && betweenDelay > 0) {
+        try {
+          await sleep(betweenDelay, signal);
+        } catch (error) {
+          if (isAutoTypeCancelled(error)) {
+            for (const remaining of targets.slice(i + 1)) {
+              entries.push(cancelledEntry(remaining));
+            }
+            return toCancelledResult(entries, typedCount, failedCount);
+          }
+          throw error;
+        }
+      }
+    }
+
+    const skippedCount = entries.filter((e) => e.status === "skipped").length;
+
     return {
-      typedCount: 0,
-      skippedCount: entries.length,
-      failedCount: 0,
+      typedCount,
+      skippedCount,
+      failedCount,
       entries,
     };
+  } finally {
+    endTypeHighlight(highlightId);
   }
-
-  let typedCount = 0;
-  let failedCount = 0;
-  const betweenDelay =
-    typingDelayMs <= 0 ? 0 : Math.max(typingDelayMs * 3, 150);
-
-  for (let i = 0; i < targets.length; i += 1) {
-    const field = targets[i]!;
-    const element = findElementForField(field, root);
-
-    if (!element) {
-      entries.push({
-        fieldId: field.id,
-        label: field.label,
-        kind: field.kind,
-        status: "skipped",
-        reason: "Element not found",
-      });
-      continue;
-    }
-
-    if (
-      !options.overwriteExistingValues &&
-      hasExistingValue(element, field)
-    ) {
-      entries.push({
-        fieldId: field.id,
-        label: field.label,
-        kind: field.kind,
-        status: "skipped",
-        reason: "Already filled",
-      });
-      continue;
-    }
-
-    try {
-      await autoTypeField({
-        field,
-        root,
-        element:
-          element instanceof HTMLInputElement ||
-          element instanceof HTMLTextAreaElement ||
-          element instanceof HTMLSelectElement
-            ? element
-            : null,
-        typingDelayMs,
-        startWithInvalid,
-      });
-      typedCount += 1;
-      entries.push({
-        fieldId: field.id,
-        label: field.label,
-        kind: field.kind,
-        status: "filled",
-      });
-    } catch (error) {
-      failedCount += 1;
-      entries.push({
-        fieldId: field.id,
-        label: field.label,
-        kind: field.kind,
-        status: "failed",
-        reason: error instanceof Error ? error.message : "Auto-type failed",
-      });
-    }
-
-    if (i < targets.length - 1 && betweenDelay > 0) {
-      await sleep(betweenDelay);
-    }
-  }
-
-  const skippedCount = entries.filter((e) => e.status === "skipped").length;
-
-  return {
-    typedCount,
-    skippedCount,
-    failedCount,
-    entries,
-  };
 }

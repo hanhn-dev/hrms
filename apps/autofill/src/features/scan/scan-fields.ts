@@ -1,6 +1,7 @@
 import type { ScannedField } from "@/shared/messaging";
 import {
   buildSelectorHint,
+  closestComboHost,
   detectFieldKind,
   FIELD_GROUP_HOST_SELECTOR,
   normalizeLabelText,
@@ -252,7 +253,7 @@ export function pickPrimaryInput(control: Element): FillableElement | null {
     return radio;
   }
 
-  if (isSectionedDateField(control)) {
+  if (isSectionedDateField(control) || isComboFieldHost(control)) {
     const hiddenInput = candidates.find(
       (el) =>
         el instanceof HTMLInputElement &&
@@ -265,6 +266,17 @@ export function pickPrimaryInput(control: Element): FillableElement | null {
   }
 
   return null;
+}
+
+function isComboFieldHost(control: Element): boolean {
+  if (closestComboHost(control) === control || closestComboHost(control)) {
+    return true;
+  }
+  return (
+    control.querySelector(
+      ".rcbInput, .rcbArrowCell, .rcbActionButton, [id$='_Arrow']",
+    ) != null
+  );
 }
 
 function collectRadioGroupPrimaries(root: ParentNode): HTMLInputElement[] {

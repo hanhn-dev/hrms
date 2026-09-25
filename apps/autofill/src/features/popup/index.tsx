@@ -23,6 +23,7 @@ import {
   NetworkTimingPanel,
   type NetworkTimingRow,
 } from "@/features/network-timing";
+import { formatFillOutcome } from "@/shared/page-toast";
 
 async function sendMessage<T>(payload: unknown): Promise<T> {
   return (await chrome.runtime.sendMessage(payload)) as T;
@@ -177,11 +178,7 @@ export function PopupPanel() {
       url,
     };
     setFillReport(report);
-    message.success(
-      `Filled ${response.filledCount}, skipped ${response.skippedCount}${
-        report.failedCount ? `, failed ${report.failedCount}` : ""
-      }`,
-    );
+    message.success(formatFillOutcome(report));
   };
 
   const handleScanPage = async () => {
@@ -346,7 +343,11 @@ export function PopupPanel() {
         return;
       }
       if ("typedCount" in response) {
-        if (response.typedCount === 0) {
+        if (response.cancelled) {
+          message.info(
+            `Typing cancelled (typed ${response.typedCount} field(s))`,
+          );
+        } else if (response.typedCount === 0) {
           message.warning(
             `No fields typed (skipped ${response.skippedCount}${response.failedCount ? `, failed ${response.failedCount}` : ""})`,
           );
@@ -369,6 +370,10 @@ export function PopupPanel() {
     } finally {
       setTyping(false);
     }
+  };
+
+  const handleCancelAutoType = async () => {
+    await sendMessage<AutofillResponse>({ type: MESSAGE.CANCEL_AUTO_TYPE });
   };
 
   const handleSettingsChange = async (patch: Partial<AutofillSettings>) => {
@@ -503,6 +508,7 @@ export function PopupPanel() {
         onFillSelected={() => void handleFillSelected()}
         onPickAutoType={() => void handlePickAutoType()}
         onAutoTypeSelected={() => void handleAutoType()}
+        onCancelAutoType={() => void handleCancelAutoType()}
       />
 
       <Divider className="autofill:!my-3" />

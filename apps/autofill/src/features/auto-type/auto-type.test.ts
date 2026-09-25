@@ -5,6 +5,7 @@ import {
   typeKeystroke,
 } from "./auto-type";
 import { scanFields } from "@/features/scan";
+import { endTypeHighlight } from "./type-session";
 
 describe("buildTypedPrefixes", () => {
   it("builds cumulative prefixes (positive)", () => {
@@ -39,6 +40,20 @@ describe("typeKeystroke", () => {
     const promise = typeKeystroke(input, "a", 0);
     await promise;
     expect(input.value).toBe("a");
+    vi.useRealTimers();
+  });
+
+  it("stops mid-string when the signal aborts (negative)", async () => {
+    vi.useFakeTimers();
+    const input = document.createElement("input");
+    document.body.appendChild(input);
+    const controller = new AbortController();
+    const promise = typeKeystroke(input, "hello", 50, controller.signal);
+    await vi.advanceTimersByTimeAsync(50);
+    controller.abort();
+    await expect(promise).rejects.toThrow(/cancelled/i);
+    expect(input.value.length).toBeGreaterThan(0);
+    expect(input.value.length).toBeLessThan(5);
     vi.useRealTimers();
   });
 });
@@ -128,7 +143,9 @@ describe("autoTypeField radio", () => {
 
 describe("autoTypeFields", () => {
   afterEach(() => {
+    endTypeHighlight();
     document.body.innerHTML = "";
+    vi.useRealTimers();
   });
 
   it("types two text inputs in order (positive)", async () => {
@@ -235,5 +252,57 @@ describe("autoTypeFields", () => {
         (e) => e.status === "skipped" && e.reason === "Already filled",
       ),
     ).toBe(true);
+  });
+
+  it("marks remaining fields Cancelled when aborted between fields (negative)", async () => {
+    document.body.innerHTML = `
+      <form>
+        <label for="first">First Name</label>
+        <input id="first" type="text" />
+        <label for="last">Last Name</label>
+        <input id="last" type="text" />
+      </form>
+    `;
+    vi.useFakeTimers();
+    const controller = new AbortController();
+    const first = document.getElementById("first") as HTMLInputElement;
+    first.addEventListener("blur", () => {
+      controller.abort();
+    });
+
+    const promise = autoTypeFields({
+      typingDelayMs: 20,
+      signal: controller.signal,
+    });
+    await vi.runAllTimersAsync();
+    const result = await promise;
+
+    expect(result.cancelled).toBe(true);
+    expect(result.typedCount).toBe(1);
+    expect(result.failedCount).toBe(0);
+    expect(first.value.length).toBeGreaterThan(0);
+    expect((document.getElementById("last") as HTMLInputElement).value).toBe(
+      "",
+    );
+    expect(
+      result.entries.some(
+        (e) =>
+          e.status === "skipped" &&
+          e.reason === "Cancelled" &&
+          e.label === "Last Name",
+      ),
+    ).toBe(true);
+  });
+
+  it("completes when signal is omitted (edge)", async () => {
+    document.body.innerHTML = `
+      <form>
+        <label for="only">Only</label>
+        <input id="only" type="text" />
+      </form>
+    `;
+    const result = await autoTypeFields({ typingDelayMs: 0 });
+    expect(result.cancelled).toBeUndefined();
+    expect(result.typedCount).toBe(1);
   });
 });

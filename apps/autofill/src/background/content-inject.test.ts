@@ -37,6 +37,7 @@ describe("shouldPrepareContentScripts", () => {
   it("does not prepare for unknown types (edge)", () => {
     expect(shouldPrepareContentScripts("")).toBe(false);
     expect(shouldPrepareContentScripts(MESSAGE.AUTO_TYPE)).toBe(false);
+    expect(shouldPrepareContentScripts(MESSAGE.CANCEL_AUTO_TYPE)).toBe(false);
     expect(shouldPrepareContentScripts(MESSAGE.TOGGLE_FLOAT_MENU)).toBe(false);
     expect(shouldPrepareContentScripts(MESSAGE.CLOSE_FLOAT_MENU)).toBe(false);
   });

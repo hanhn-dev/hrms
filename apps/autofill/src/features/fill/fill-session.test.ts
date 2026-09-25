@@ -18,6 +18,8 @@ describe("fill session", () => {
     expect(css).toMatch(/\[role="listbox"\]/);
     expect(css).toMatch(/ant-select-dropdown/);
     expect(css).toMatch(/ant-picker-dropdown/);
+    expect(css).not.toMatch(/rcbSlide/);
+    expect(css).not.toMatch(/RadComboBoxDropDown/);
     expect(css).toMatch(/save-in-progress-overlay/);
     expect(css).not.toMatch(/MuiDialog-root/);
     expect(css).not.toMatch(/MuiModal-root/);

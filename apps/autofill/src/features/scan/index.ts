@@ -11,6 +11,8 @@ export {
   buildSelectorHint,
   hasCalendarSignal,
   hasDatePickerAdornment,
+  closestComboHost,
+  looksLikeTelerikCombo,
   FIELD_GROUP_HOST_SELECTOR,
 } from "./field-types";
 export {

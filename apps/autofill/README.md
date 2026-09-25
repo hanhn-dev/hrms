@@ -40,7 +40,7 @@ Load the unpacked extension:
 5. **Pick & fill** uses the same inspector: click a section, then that area is scanned and filled immediately.
 6. With fields checked in the popup, **Fill selected** fills only those fields (no new pick).
 7. Context-menu fill still uses the last marked section / context target.
-8. **Pick & type** uses the same inspector as Pick & fill: click a **form section**, then each typeable field is keystroke-typed in order (Esc cancels before typing starts). In the popup, checking fields swaps this button to **Auto-type selected**, which types all checked fields sequentially.
+8. **Pick & type** uses the same inspector as Pick & fill: click a **form section**, then each typeable field is keystroke-typed in order. The chosen section stays highlighted while typing runs. **Esc** cancels pick or stops typing in progress (already-typed fields are kept). In the popup, checking fields swaps this button to **Auto-type selected**, which types all checked fields sequentially — click **Stop typing** to cancel.
 9. Right-click an editable field → **Auto-type into this field** still types into that single context target.
 
 ## Keyboard shortcuts
@@ -55,6 +55,7 @@ Shortcuts work on allowed pages (including inside form iframes) and in the exten
 | Pick & type (or **Auto-type selected** in the popup when fields are checked) | `Alt+Shift+T` |
 | Toggle floating menu | `Alt+Shift+M` |
 | Close floating menu | `Esc` |
+| Stop auto-type (or cancel pick) | `Esc` |
 
 On macOS, Alt is the Option key (`⌥⇧P`, …).
 

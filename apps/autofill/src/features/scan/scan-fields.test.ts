@@ -104,6 +104,71 @@ describe("detectFieldKind", () => {
     expect(detectFieldKind(input, "Hired")).toBe("date");
   });
 
+  it("detects a skin-only RadComboBox_Bootstrap host as select (positive)", () => {
+    document.body.innerHTML = `
+      <div class="RadComboBox_Bootstrap">
+        <input id="cboTitle_Input" class="rcbInput" readonly />
+        <a id="cboTitle_Arrow">select</a>
+      </div>
+    `;
+    const input = document.getElementById("cboTitle_Input") as HTMLInputElement;
+    expect(detectFieldKind(input, "Title")).toBe("select");
+  });
+
+  it("detects a Telerik _Input + _Arrow pair without a host class as select (positive)", () => {
+    document.body.innerHTML = `
+      <input id="ctl00_cboGender_Input" readonly value="Select Gender" />
+      <a id="ctl00_cboGender_Arrow">select</a>
+    `;
+    const input = document.getElementById(
+      "ctl00_cboGender_Input",
+    ) as HTMLInputElement;
+    expect(detectFieldKind(input, "Gender")).toBe("select");
+  });
+
+  it("detects a RadComboBox host as select (positive)", () => {
+    document.body.innerHTML = `
+      <div class="RadComboBox">
+        <input id="title" class="rcbInput" />
+        <a class="rcbButton">v</a>
+      </div>
+    `;
+    const input = document.getElementById("title") as HTMLInputElement;
+    expect(detectFieldKind(input, "Title")).toBe("select");
+  });
+
+  it("detects a RadPicker host as date (positive)", () => {
+    document.body.innerHTML = `
+      <div class="RadPicker">
+        <input id="dob" class="riTextBox" />
+        <a class="rcCalPopup">cal</a>
+      </div>
+    `;
+    const input = document.getElementById("dob") as HTMLInputElement;
+    expect(detectFieldKind(input, "Date of Birth")).toBe("date");
+  });
+
+  it("does not treat a plain text field as select (negative)", () => {
+    const input = document.createElement("input");
+    input.type = "text";
+    input.value = "Employee First Name";
+    expect(detectFieldKind(input, "First Name")).toBe("text");
+  });
+
+  it("does not treat a text input as select because a sibling combo has an arrow (negative)", () => {
+    document.body.innerHTML = `
+      <input id="first" type="text" />
+      <div class="RadComboBox">
+        <input id="title" class="rcbInput" />
+        <a class="rcbButton">v</a>
+      </div>
+    `;
+    const first = document.getElementById("first") as HTMLInputElement;
+    expect(detectFieldKind(first, "First Name")).toBe("text");
+    const title = document.getElementById("title") as HTMLInputElement;
+    expect(detectFieldKind(title, "Title")).toBe("select");
+  });
+
   it("detects an ARIA combobox without library classes as select (positive)", () => {
     const input = document.createElement("input");
     input.setAttribute("role", "combobox");

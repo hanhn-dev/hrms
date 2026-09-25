@@ -6,6 +6,9 @@
 --           TMyDetailsChangeRequests. It diffs section history tables:
 --             Personal  → TEmployeeHistory
 --             Education → TEducationHistoryDetails
+--             Family    → TEmployeeFamilyDetails_history
+--             Nomination→ TEmployeeNominationHistory
+--             Passport  → TEmployeePassportDetailsHistory
 --           (then SP_Mydetails_Enhanced_GetEmpHistoryDetails, TypeOfData='History').
 --
 -- When to use: approve-mydetails-change-request.sql ran, IsApproved = 1, but
@@ -121,6 +124,89 @@ BEGIN
 
     SELECT
         N'Past History for Education diffs TEducationHistoryDetails and drops OldValue = NewValue. A 10-Sep Removed card is an older IsDelete=1 snapshot, not this approve.' AS EducationNote;
+END;
+
+------------------------------------------------------------------------------
+-- 2b) Family / Nomination / Passport snapshots (new-row approve writes these)
+------------------------------------------------------------------------------
+IF EXISTS (
+    SELECT 1
+    FROM dbo.TMyDetailsChangeRequestDetails AS Detail
+    WHERE Detail.ChangeRequestId = @ChangeRequestId
+        AND Detail.TableName = 'TEmployeeFamilyDetails'
+)
+BEGIN
+    SELECT TOP (20)
+        History.EmployeeFamilyDetailhistoryID,
+        History.EmployeeFamilyDetailID,
+        History.Name,
+        History.Relation,
+        History.UpdatedBy,
+        History.UpdatedDateUtc,
+        History.LastmodifiedOn,
+        Editor.FName + N' ' + Editor.LName AS EditorName
+    FROM dbo.TEmployeeFamilyDetails_history AS History
+    LEFT JOIN dbo.TEmployee AS Editor
+        ON Editor.EmployeeId = History.UpdatedBy
+    WHERE History.EmployeeId = @SubjectEmployeeId
+    ORDER BY
+        History.LastmodifiedOn DESC,
+        History.EmployeeFamilyDetailhistoryID DESC;
+
+    SELECT
+        N'Family approve (new-row and edit) must insert TEmployeeFamilyDetails_history AFTER the live apply. A before-apply snapshot keeps the old Relation / UpdatedDateUtc, so history-only Past History still shows Added Mother after live is Brother.' AS FamilyNote;
+END;
+
+IF EXISTS (
+    SELECT 1
+    FROM dbo.TMyDetailsChangeRequestDetails AS Detail
+    WHERE Detail.ChangeRequestId = @ChangeRequestId
+        AND Detail.TableName = 'TEmployeeNomination'
+)
+BEGIN
+    SELECT TOP (20)
+        History.EmployeeNominationHistoryId,
+        History.EmployeeNominationId,
+        History.Name,
+        History.UpdatedBy,
+        History.UpdatedDateUtc,
+        History.LastModifiedOn,
+        Editor.FName + N' ' + Editor.LName AS EditorName
+    FROM dbo.TEmployeeNominationHistory AS History
+    LEFT JOIN dbo.TEmployee AS Editor
+        ON Editor.EmployeeId = History.UpdatedBy
+    WHERE History.EmployeeId = @SubjectEmployeeId
+    ORDER BY
+        History.LastModifiedOn DESC,
+        History.EmployeeNominationHistoryId DESC;
+
+    SELECT
+        N'Nomination new-row approve must insert TEmployeeNominationHistory after the live row.' AS NominationNote;
+END;
+
+IF EXISTS (
+    SELECT 1
+    FROM dbo.TMyDetailsChangeRequestDetails AS Detail
+    WHERE Detail.ChangeRequestId = @ChangeRequestId
+        AND Detail.TableName = 'TEmployeePassportDetails'
+)
+BEGIN
+    SELECT TOP (20)
+        History.HistoryTransId,
+        History.EmployeeId,
+        History.PassportNo,
+        History.LastUpdatedBy,
+        History.LastUpdatedOnUtcTime,
+        Editor.FName + N' ' + Editor.LName AS EditorName
+    FROM dbo.TEmployeePassportDetailsHistory AS History
+    LEFT JOIN dbo.TEmployee AS Editor
+        ON Editor.EmployeeId = History.LastUpdatedBy
+    WHERE History.EmployeeId = @SubjectEmployeeId
+    ORDER BY
+        History.HistoryTransId DESC;
+
+    SELECT
+        N'Passport approve must insert TEmployeePassportDetailsHistory after the live delete/insert + merge.' AS PassportNote;
 END;
 
 ------------------------------------------------------------------------------

@@ -1,3 +1,7 @@
+import { closestComboHost, looksLikeTelerikCombo } from "@/features/scan";
+import { looksLikePromptText } from "./has-existing-value";
+import { fillComboInPageWorld } from "./page-world";
+
 /** Set a value on a React-controlled input/textarea and notify listeners. */
 
 type FillableElement =
@@ -85,6 +89,9 @@ const PICKER_OVERLAY_SELECTOR = [
   ".MuiPopover-root:has(.MuiPickersLayout-root)",
   ".ant-select-dropdown",
   ".ant-picker-dropdown",
+  ".rcbSlide",
+  ".rcbPopup",
+  ".RadComboBoxDropDown",
 ].join(", ");
 
 /**
@@ -122,7 +129,8 @@ function isUsableOption(el: Element): el is HTMLElement {
   if (
     el.getAttribute("aria-disabled") === "true" ||
     el.classList.contains("Mui-disabled") ||
-    el.classList.contains("ant-select-item-option-disabled")
+    el.classList.contains("ant-select-item-option-disabled") ||
+    el.classList.contains("rcbDisabled")
   ) {
     return false;
   }
@@ -136,7 +144,7 @@ function optionsIn(root: ParentNode | Element | null): HTMLElement[] {
   const seen = new Set<HTMLElement>();
   const collected: HTMLElement[] = [];
   const nodes = root.querySelectorAll(
-    '[role="option"], .ant-select-item-option',
+    '[role="option"], .ant-select-item-option, .rcbItem',
   );
   nodes.forEach((node) => {
     if (!isUsableOption(node) || seen.has(node)) {
@@ -168,6 +176,10 @@ const LIST_PORTAL_SELECTOR = [
   ".MuiAutocomplete-popper",
   ".MuiPopover-root",
   ".ant-select-dropdown",
+  ".rcbSlide",
+  ".rcbPopup",
+  ".rcbList",
+  ".RadComboBoxDropDown",
 ].join(", ");
 
 /**
@@ -188,7 +200,38 @@ function collectListOptionsFor(
       return fromPopper;
     }
   }
-  return [];
+  const fromTelerik = optionsFromTelerikDropDown(element);
+  if (fromTelerik.length > 0) {
+    return fromTelerik;
+  }
+  return optionsFromWidgetHost(element);
+}
+
+/** `{comboId}_DropDown` is often appended to document.body, not the widget. */
+function telerikDropDownFor(element: HTMLElement): Element | null {
+  if (element.id.endsWith("_Input")) {
+    const drop = document.getElementById(`${element.id.slice(0, -6)}_DropDown`);
+    if (drop) {
+      return drop;
+    }
+  }
+  const host = closestComboHost(element);
+  if (host?.id) {
+    return document.getElementById(`${host.id}_DropDown`);
+  }
+  return null;
+}
+
+function optionsFromTelerikDropDown(element: HTMLElement): HTMLElement[] {
+  return optionsIn(telerikDropDownFor(element));
+}
+
+/** In-DOM lists (Telerik RadComboBox) live under the widget, not a new portal. */
+function optionsFromWidgetHost(element: HTMLElement): HTMLElement[] {
+  const host =
+    closestComboHost(element) ??
+    element.closest(".ant-select, .MuiAutocomplete-root");
+  return host ? optionsIn(host) : [];
 }
 
 function snapshotPoppers(): Set<Element> {
@@ -210,11 +253,7 @@ function pickRandom<T>(items: T[]): T | undefined {
 
 /** Prompt rows such as "Select country" — skip these when choosing at random. */
 function looksLikePlaceholder(text: string): boolean {
-  const normalized = text.replace(/\s+/g, " ").trim().toLowerCase();
-  return (
-    normalized.length === 0 ||
-    /^(select|choose|please select)(\s+\w[\w\s]*)?\.?$/.test(normalized)
-  );
+  return looksLikePromptText(text);
 }
 
 function pickRandomChoice<T>(
@@ -254,7 +293,17 @@ function looksLikeOpenControl(node: Element): boolean {
   if (
     node.classList.contains("MuiAutocomplete-popupIndicator") ||
     node.classList.contains("ant-select-arrow") ||
-    node.classList.contains("ant-select-selector")
+    node.classList.contains("ant-select-selector") ||
+    node.classList.contains("rcbButton") ||
+    node.classList.contains("rcbActionButton") ||
+    node.classList.contains("rcbArrowCell") ||
+    node.id.endsWith("_Arrow")
+  ) {
+    return true;
+  }
+  if (
+    node.closest(".rcbArrowCell") &&
+    (node.tagName === "A" || node.tagName === "BUTTON")
   ) {
     return true;
   }
@@ -266,6 +315,7 @@ function looksLikeOpenControl(node: Element): boolean {
 
 function findPopupIndicator(element: HTMLElement): HTMLElement | null {
   const roots: Array<Element | null> = [
+    closestComboHost(element),
     element.closest(
       ".MuiAutocomplete-root, .MuiFormControl-root, .ant-select, .ant-form-item",
     ),
@@ -277,7 +327,7 @@ function findPopupIndicator(element: HTMLElement): HTMLElement | null {
     }
     const candidates = Array.from(
       root.querySelectorAll(
-        "button, .MuiAutocomplete-popupIndicator, .ant-select-arrow, .ant-select-selector",
+        "button, .MuiAutocomplete-popupIndicator, .ant-select-arrow, .ant-select-selector, .rcbArrowCell, .rcbButton, .rcbActionButton, .rcbArrowCell a, [id$='_Arrow']",
       ),
     );
     const match = candidates.find((node) => looksLikeOpenControl(node));
@@ -351,6 +401,13 @@ export async function fillAutocomplete(
     };
   }
 
+  if (element instanceof HTMLInputElement && looksLikeTelerikCombo(element)) {
+    const viaWidget = await fillComboInPageWorld(element, preferred);
+    if (viaWidget) {
+      return { ok: true, tactic: "page-combo" };
+    }
+  }
+
   const beforePoppers = snapshotPoppers();
   const indicator = findPopupIndicator(element);
   if (indicator) {
@@ -409,7 +466,20 @@ export async function fillAutocomplete(
     }
     option.click();
     await sleep(40);
-    return { ok: true, tactic: "listbox-option" };
+    if (
+      looksLikeTelerikCombo(element) &&
+      looksLikePromptText(element.value)
+    ) {
+      const viaWidget = await fillComboInPageWorld(
+        element,
+        preferred || (option.textContent || "").trim(),
+      );
+      if (viaWidget) {
+        return { ok: true, tactic: "page-combo" };
+      }
+    } else {
+      return { ok: true, tactic: "listbox-option" };
+    }
   }
 
   if (
@@ -422,6 +492,13 @@ export async function fillAutocomplete(
     setNativeValue(element, preferred);
     dispatchBlur(element);
     return { ok: true, tactic: "typed-value" };
+  }
+
+  if (element instanceof HTMLInputElement && looksLikeTelerikCombo(element)) {
+    const viaWidget = await fillComboInPageWorld(element, preferred);
+    if (viaWidget) {
+      return { ok: true, tactic: "page-combo" };
+    }
   }
 
   return { ok: false, tactic: "listbox-option" };
