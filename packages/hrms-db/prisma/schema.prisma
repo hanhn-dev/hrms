@@ -1,0 +1,324 @@
+generator client {
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  moduleFormat        = "esm"
+  importFileExtension = "ts"
+}
+
+datasource db {
+  provider = "sqlserver"
+}
+
+model TEmployee {
+  employeeId      Int      @id @map("EmployeeId") @default(autoincrement())
+  fName           String?  @map("FName") @db.VarChar(100)
+  middleName      String?  @map("MiddleName") @db.VarChar(100)
+  lName           String?  @map("LName") @db.VarChar(100)
+  emailId         String   @map("EmailID") @db.VarChar(50)
+  personalEmailId String?  @map("PersonalEmailId") @db.VarChar(100)
+  cellNumber      String?  @map("CellNumber") @db.VarChar(15)
+  isActive        String?  @map("IsActive") @db.Char(1)
+  employerId      Int?     @map("Employerid")
+
+  @@map("TEmployee")
+}
+
+model TEmployeeInfo {
+  id                 Int       @id @map("Id") @default(autoincrement())
+  employeeId         Int?      @map("EmployeeId")
+  employmentNumber   String?   @map("EmploymentNumber") @db.NVarChar(20)
+  employerId         Int?      @map("EmployerID")
+  title              Int?      @map("Title")
+  employmentTypeId   Int?      @map("EmploymentTypeID")
+  locationId         Int?      @map("LocationId")
+  businessUnitId     Int?      @map("BusinessUnitId")
+  functionalManager  Int?      @map("FunctionalManager")
+  grade              Int?      @map("Grade")
+  doj                DateTime? @map("DOJ")
+  dot                DateTime? @map("DOT")
+  lastWorkingDate    DateTime? @map("LastWorkingDate") @db.Date
+
+  @@map("TEmployeeInfo")
+}
+
+model TUserEmployee {
+  userId     Int @map("UserID")
+  employeeId Int @map("EmployeeID")
+
+  @@id([userId, employeeId])
+  @@map("TUserEmployee")
+}
+
+model TUsers {
+  userId                   Int       @id @map("UserID") @default(autoincrement())
+  userName                 String?   @map("UserName") @db.VarChar(200)
+  passwordStr              String?   @map("PasswordStr") @db.VarChar(200)
+  roleId                   Int?      @map("RoleID")
+  userEmail                String?   @map("UserEmail") @db.VarChar(100)
+  isActive                 String?   @map("IsActive") @db.VarChar(1)
+  winLoginName             String?   @map("WinLoginName") @db.VarChar(200)
+  employerId               Int?      @map("Employerid")
+  userType                 String    @default("E") @map("UserType") @db.Char(1)
+  createdBy                Int?      @map("CreatedBy")
+  createdDate              DateTime? @map("CreatedDate")
+  modifiedBy               Int?      @map("ModifiedBy")
+  modifiedDate             DateTime? @map("ModifiedDate")
+  passwordChangedDate      DateTime? @map("PasswordChangedDate")
+  invalidLoginAttemptCount Int?      @map("InvalidLoginAttemptCount")
+  isUserIdLocked           String?   @map("IsUserIDLocked") @db.Char(1)
+  isForceToChangePassword  String?   @map("IsForceToChangePassword") @db.Char(1)
+  isGlobalAccess           String?   @map("IsGlobalAccess") @db.Char(1)
+  reportingType            Int?      @map("ReportingType")
+  employerIds              String?   @map("EmployerIds") @db.VarChar(500)
+
+  @@map("TUsers")
+}
+
+model TUsersHistory {
+  historyTransId     BigInt    @id @default(autoincrement()) @map("HistoryTransID")
+  userId             Int?      @map("UserID")
+  userName           String?   @map("UserName") @db.VarChar(200)
+  passwordStr        String?   @map("PasswordStr") @db.VarChar(200)
+  roleId             Int?      @map("RoleID")
+  userEmail          String?   @map("UserEmail") @db.VarChar(100)
+  isActive           String?   @map("IsActive") @db.VarChar(1)
+  changedOn          DateTime? @map("ChangedOn") @db.Date
+  changedBy          Int?      @map("ChangedBy")
+  employerId         Int?      @map("Employerid")
+  isGlobalAccess     String?   @map("IsGlobalAccess") @db.Char(1)
+  employerIds        String?   @map("EmployerIds") @db.VarChar(500)
+  historyCreatedBy   Int?      @map("HistoryCreatedBy")
+  historyCreatedDate DateTime? @map("HistoryCreatedDate")
+  actionType         String?   @map("ActionType") @db.VarChar(10)
+
+  @@map("TUsersHistory")
+}
+
+model TRoles {
+  roleId        Int     @id @map("RoleID") @default(autoincrement())
+  roleName      String? @map("RoleName") @db.VarChar(100)
+  isDefault     Boolean @default(false) @map("IsDefault")
+  employerId    Int?    @map("Employerid")
+  isActive      String? @map("IsActive") @db.Char(1)
+  reportingType Int?    @map("ReportingType")
+  roleType      String? @map("RoleType") @db.VarChar(100)
+
+  @@map("TRoles")
+}
+
+model TEmployerDetails {
+  employerId          Int      @id @map("Employerid")
+  employerName        String   @map("EmployerName") @db.VarChar(100)
+  isActive            Boolean? @map("IsActive")
+  licenseCount        String?  @map("LicenseCount") @db.VarChar(100)
+  failedAttempts      Int?     @map("FailedAttempts")
+  timeZone            String?  @map("TimeZone") @db.VarChar(500)
+  parentEmployerId    Int?     @map("ParentEmployerid")
+  rootEmployerId      Int?     @map("RootEmployerId")
+  passwordExpires     Int?     @map("PasswordExpires")
+  passwordChangeLimit Int?     @map("PasswordChangelimit")
+  preventPasswords    Int?     @map("PreventPasswords")
+  uiCulture           String?  @map("UICulture") @db.NVarChar(10)
+
+  @@map("TEmployerDetails")
+}
+
+model TTitle {
+  id         Int     @id @map("ID") @default(autoincrement())
+  title      String? @map("Title") @db.VarChar(200)
+  employerId Int?    @map("Employerid")
+
+  @@map("TTitle")
+}
+
+model TMEmploymentTypes {
+  employmentTypeId Int     @id @map("EmploymentTypeID") @default(autoincrement())
+  employmentType   String? @map("EmploymentType") @db.VarChar(50)
+
+  @@map("TMEmploymentTypes")
+}
+
+model TLocation {
+  locationId   Int     @id @map("LocationId") @default(autoincrement())
+  locationName String? @map("LocationName") @db.NVarChar(200)
+
+  @@map("TLocation")
+}
+
+model TOrgHierarchyDetails {
+  unitId     Int     @map("UnitID")
+  unitName   String? @map("UnitName") @db.VarChar(500)
+  employerId Int     @default(0) @map("Employerid")
+
+  @@id([unitId, employerId])
+  @@map("TOrgHierarchyDetails")
+}
+
+model TOrgChart {
+  id         Int  @id @map("Id") @default(autoincrement())
+  employeeId Int? @map("EmployeeID")
+  reportsTo  Int? @map("ReportsTo")
+
+  @@map("TORGChart")
+}
+
+model TMenuHierarchy {
+  menuId       Int  @map("MenuId")
+  employerId   Int  @map("Employerid")
+  parentMenuId Int? @map("ParentMenuId")
+  parentSeq    Int? @map("parentseq")
+
+  @@id([menuId, employerId])
+  @@map("TMenuHierarchy")
+}
+
+model TMenuDetails {
+  menuId     Int     @map("MenuId")
+  employerId Int     @map("Employerid")
+  menuName   String? @map("MenuName") @db.VarChar(200)
+  pageName   String? @map("PageName") @db.VarChar(200)
+  isActive   Boolean @default(true) @map("ISActive")
+
+  @@id([menuId, employerId])
+  @@map("tMenuDetails")
+}
+
+model TRolePagesMapping {
+  transId    BigInt @id @default(autoincrement()) @map("TransId")
+  roleId     Int    @map("RoleID")
+  pageId     Int    @map("PageId")
+  createdBy  Int    @map("CreatedBy")
+  employerId Int?   @map("Employerid")
+
+  @@map("TRolePagesMapping")
+}
+
+model TUserPagesMapping {
+  transId             BigInt    @id @default(autoincrement()) @map("TransId")
+  userId              Int       @map("UserID")
+  pageId              Int       @map("PageId")
+  createdBy           Int       @map("CreatedBy")
+  creationDate        DateTime? @map("CreationDate")
+  employerId          Int?      @map("Employerid")
+  creationDateUtcTime DateTime? @map("CreationDateUtcTime")
+  roleId              Int?      @map("roleid")
+  locationIds         String?   @map("LocationIds") @db.VarChar(500)
+  businessUnitIds     String?   @map("BusinessUnitIds") @db.VarChar(500)
+
+  @@map("TUSerPagesMapping")
+}
+
+model TUserPagesMappingHistory {
+  userId          Int       @map("UserID")
+  pageId          Int       @map("PageId")
+  modifiedBy      Int?      @map("ModifiedBy")
+  modifiedOn      DateTime? @map("Modifiedon")
+  transId         Int       @default(0) @map("transid")
+  employerId      Int       @default(0) @map("Employerid")
+  modifiedUtcTime DateTime? @map("ModifiedUtcTime")
+  roleId          Int?      @map("roleid")
+  locationIds     String?   @map("LocationIds") @db.VarChar(500)
+  businessUnitIds String?   @map("BusinessUnitIds") @db.VarChar(500)
+
+  @@id([userId, pageId, transId, employerId])
+  @@map("TUSerPagesMappingHistory")
+}
+
+model TTabDetails {
+  tabId      Int     @id @map("Tabid")
+  menuId     Int?    @map("MenuId")
+  tabName    String? @map("TabName") @db.VarChar(500)
+  employerId Int?    @map("Employerid")
+  isActive   String? @map("IsActive") @db.Char(1)
+
+  @@map("TTabDetails")
+}
+
+model TUserTabDetails {
+  userTabId  Int       @id @default(autoincrement()) @map("UserTabid")
+  userId     Int?      @map("UserId")
+  menuId     Int?      @map("MenuId")
+  tabId      Int?      @map("TabId")
+  employerId Int?      @map("Employerid")
+  isEditable String?   @map("IsEditable") @db.Char(1)
+  createdBy  Int?      @map("CreatedBy")
+  createdDate DateTime? @map("CreatedDate") @db.Date
+
+  @@map("TUserTabDetails")
+}
+
+model TUserTabDetailsHistory {
+  userId             Int       @map("UserId")
+  menuId             Int       @map("MenuId")
+  tabId              Int       @default(0) @map("TabId")
+  employerId         Int       @default(0) @map("Employerid")
+  isEditable         String?   @map("IsEditable") @db.Char(1)
+  modifyBy           Int?      @map("ModifyBy")
+  modifyDate         DateTime? @map("ModifyDate") @db.Date
+  transId            Int       @default(0) @map("TransId")
+  historyCreatedBy   Int?      @map("HistoryCreatedBy")
+  historyCreatedDate DateTime? @map("HistoryCreatedDate")
+  actionType         String?   @map("ActionType") @db.VarChar(10)
+
+  @@id([userId, menuId, tabId, employerId, transId])
+  @@map("TUserTabDetailsHistory")
+}
+
+model TRoleTabDetails {
+  roleTabId  Int     @id @default(autoincrement()) @map("RoleTabid")
+  roleId     Int?    @map("RoleId")
+  menuId     Int?    @map("MenuId")
+  tabId      Int?    @map("TabId")
+  employerId Int?    @map("Employerid")
+  isEditable String? @map("IsEditable") @db.Char(1)
+
+  @@map("TRoleTabDetails")
+}
+
+model TLeaveBalance {
+  transId        Int      @id @default(autoincrement()) @map("transid")
+  empId          Int?     @map("empid")
+  leaveType      String?  @map("leavetype") @db.Char(4)
+  balanceDays    Decimal? @map("balancedays") @db.Decimal(10, 4)
+  lastUpdateDate DateTime? @map("lastupdatedate")
+  employerId     Int?     @map("Employerid")
+
+  @@map("tLeaveBalance")
+}
+
+model TLeaveTypeMaster {
+  leaveTransactionId Int    @id @default(autoincrement()) @map("LeaveTransactionId")
+  leaveCode          String @map("LeaveCode") @db.Char(4)
+  leaveName          String @map("LeaveName") @db.VarChar(100)
+  employerId         Int?   @map("Employerid")
+
+  @@map("TLeaveTypeMaster")
+}
+
+model TDeviceInvalidLoginAttemptDetails {
+  deviceLoginAttemptId Int      @id @default(autoincrement()) @map("DeviceLoginAttemptId")
+  employerId           Int      @map("EmployerId")
+  employeeId           Int      @map("EmployeeId")
+  deviceId             String   @map("DeviceId") @db.VarChar(150)
+  loginAttemptedAt     DateTime @map("LoginAttemptedAt")
+  reason               String?  @map("Reason") @db.VarChar(500)
+
+  @@map("TDeviceInvalidLoginAttemptDetails")
+}
+
+model THrmsModules {
+  moduleId   Int     @id @default(autoincrement()) @map("ModuleId")
+  moduleName String  @map("ModuleName") @db.NVarChar(100)
+  isActive   Boolean @default(false) @map("IsActive")
+
+  @@map("THrmsModules")
+}
+
+model TEmployerModule {
+  employerModuleId Int     @id @default(autoincrement()) @map("EmployerModuleID")
+  hrmsModuleId     Int     @map("HrmsModuleID")
+  employerId       Int     @map("EmployerId")
+  isActive         Boolean @default(true) @map("IsActive")
+
+  @@map("TEmployerModule")
+}

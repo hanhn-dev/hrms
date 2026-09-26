@@ -1,0 +1,36 @@
+{
+  "name": "@hrms/db",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./tree": {
+      "types": "./src/access/tree.ts",
+      "default": "./src/access/tree.ts"
+    }
+  },
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "generate": "prisma generate",
+    "postinstall": "prisma generate",
+    "build": "prisma generate && tsc",
+    "lint": "prisma generate && tsc --noEmit",
+    "test": "node --experimental-strip-types --test src/access/tree.test.ts"
+  },
+  "dependencies": {
+    "@prisma/adapter-mssql": "^7.10.0",
+    "@prisma/client": "^7.10.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@hrms/typescript-config": "*",
+    "@types/node": "^26.1.2",
+    "prisma": "^7.10.0",
+    "typescript": "^6.0.3"
+  }
+}

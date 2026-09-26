@@ -4,6 +4,8 @@ Ad-hoc SQL scripts for diagnosing PROD (and other environment) issues.
 
 These scripts are **not** part of the database deployment surface. Do not add them to `hrms-sql.sqlproj`. Prefer read-only `SELECT` diagnostics; any script that writes data must say so clearly in the header and require explicit variable confirmation before running.
 
+For the common cases (employer inspect, employee 360, assign role, grant/revoke user pages/tabs, unlock account) use the Troubleshooter app at `apps/troubleshooter` (`npm run troubleshooter`, port 5100). These scripts remain the SSMS source of truth for everything else.
+
 ## Layout
 
 Organized by feature area (same idea as top-level modules / `seeding/`). **Folders and script file names use kebab-case.**
@@ -17,6 +19,7 @@ troubleshooting/
   authentication/         # Login, users, roles, sessions
   leave-and-attendance/   # Leave balances, attendance anomalies
   menu/                   # Menu visibility, hierarchy, role/page mapping
+  access-right-management/ # RoleManagement.aspx: roles, user assignment, extra grants
   travel-and-expense/     # Claims, advances, expense requests
   fields/                 # TEmployeeDetail_Fields dynamic dropdown query failures
 ```

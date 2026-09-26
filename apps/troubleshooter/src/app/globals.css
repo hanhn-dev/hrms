@@ -1,0 +1,22 @@
+@layer theme, base, antd, components, utilities;
+@import "tailwindcss";
+
+@layer components {
+  .ant-table-wrapper {
+    max-width: 100%;
+  }
+
+  .ant-table-thead > tr > th {
+    white-space: nowrap;
+  }
+
+  .ant-table-measure-row,
+  .ant-table-measure-row td {
+    height: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    overflow: hidden !important;
+    font-size: 0 !important;
+    line-height: 0 !important;
+  }
+}

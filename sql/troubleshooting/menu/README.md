@@ -24,3 +24,9 @@ README, scripts, and any RCA doc).
    hierarchy link, a stale admin-tab XML cache, and missing role/user
    grants) can each produce this symptom on their own.
    → [`menu-created-but-not-visible/`](menu-created-but-not-visible/README.md)
+
+To **grant or change** Access Right Management data (roles, user-role
+assignment, extra user page/tab grants, employee-summary permissions, or
+adding a tenant menu without wiping the hierarchy), use
+[`../access-right-management/`](../access-right-management/README.md)
+instead of the replace-all `SP_AdminRoleM_*` procedures.

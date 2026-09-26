@@ -48,8 +48,8 @@
 --           the end) - no permanent objects.
 -- =============================================================================
 
-DECLARE @EmployeeId       INT           = 1431;      -- <<< REQUIRED unless @EmploymentNumber is set
-DECLARE @EmploymentNumber NVARCHAR(20)  = NULL;       -- <<< or set this instead, e.g. 'E0001'
+DECLARE @EmployeeId       INT           = NULL;      -- <<< REQUIRED unless @EmploymentNumber is set
+DECLARE @EmploymentNumber NVARCHAR(20)  = '00006';       -- <<< or set this instead, e.g. 'E0001'
 DECLARE @EmployerId       INT           = NULL;       -- <<< optional: leave NULL to use the employee's own employer
 DECLARE @MenuName         VARCHAR(200)  = NULL;       -- <<< optional: e.g. '%Leave%'
 DECLARE @TabName          VARCHAR(500)  = NULL;       -- <<< optional: e.g. '%Approval%'

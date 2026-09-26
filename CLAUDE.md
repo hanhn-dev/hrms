@@ -39,6 +39,7 @@ npm run start --workspace=apps/db-mcp   # Run db-mcp directly after build
 | `apps/az-mcp` | Node MCP server | stdio | Azure DevOps integration for AI tooling |
 | `apps/db-mcp` | Node MCP server | stdio | Database schema inspection/mutation for AI tooling |
 | `apps/autofill` | Vite 8 + React 19 (MV3) | 9100 | Chrome extension — form scan / random fill / auto-type |
+| `apps/troubleshooter` | Next.js 16 + React 19 | 5100 | Internal HRMS data/access operator console |
 
 ### Packages
 
@@ -102,9 +103,20 @@ npm run test --workspace=autofill
 
 Popup and content script talk to the service worker through `src/shared/messaging.ts`. Do not call `chrome.storage` outside `src/shared/storage.ts`. Do not import `@hrms/ui` here: components are `antd` only, icons are `@ant-design/icons` only. Tailwind utilities use the `autofill:` prefix.
 
+### troubleshooter
+
+Internal operator console for HRMS data and access diagnostics. Port **5100**. Full layout is in `apps/troubleshooter/AGENTS.md`.
+
+```bash
+npm run troubleshooter                              # from repo root
+npm run dev --workspace=apps/troubleshooter         # same
+```
+
+Import app modules with `@/` (`@/features/employer/picker`, `@/features/employee/access`). Do not use parent-relative `../` paths. Do not import `@hrms/ui`.
+
 ## Key conventions
 
-- **`@hrms/ui` first**: Before creating any new UI component, check `packages/ui`. A net-new component is only allowed if `@hrms/ui` cannot satisfy the requirement, and the new component ships to `@hrms/ui` in the same PR. Backstage does **not** use `@hrms/ui`. Form Autofill must not import `@hrms/ui` either — its components are `antd` only and its icons are `@ant-design/icons` only.
+- **`@hrms/ui` first**: Before creating any new UI component, check `packages/ui`. A net-new component is only allowed if `@hrms/ui` cannot satisfy the requirement, and the new component ships to `@hrms/ui` in the same PR. Backstage does **not** use `@hrms/ui`. Form Autofill and Troubleshooter must not import `@hrms/ui` either — their components are `antd` only and their icons are `@ant-design/icons` only.
 - **Caret dependency ranges**: All `dependencies` use `^` ranges, matching `devDependencies`.
 - **Zod at boundaries**: All external inputs — API responses, IndexedDB reads, file uploads, MCP tool arguments — are Zod-validated.
 - **postinstall**: `npm install` runs `patch-package`, `fix-next-postcss.mjs`, and `npm dedupe` automatically. Do not skip `postinstall` when troubleshooting Next.js PostCSS issues.

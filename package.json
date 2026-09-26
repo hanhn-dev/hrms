@@ -15,6 +15,7 @@
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
     "postinstall": "patch-package && node scripts/fix-next-postcss.mjs && npm dedupe --ignore-scripts",
     "backstage": "npm run dev --workspace=apps/backstage",
+    "troubleshooter": "npm run dev --workspace=apps/troubleshooter",
     "autofill": "npm run build --workspace=apps/autofill"
   },
   "devDependencies": {

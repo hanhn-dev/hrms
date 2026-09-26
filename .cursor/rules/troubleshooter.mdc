@@ -1,0 +1,47 @@
+---
+description: Conventions for the Troubleshooter operator console (Next.js, Ant Design).
+globs: apps/troubleshooter/**
+alwaysApply: false
+---
+
+# Troubleshooter
+
+Internal HRMS data/access operator console (`apps/troubleshooter`, port 5100). Next.js 16 App Router + React 19 + Ant Design 6 + Tailwind 4. Full layout is in `apps/troubleshooter/AGENTS.md`.
+
+Do **not** import `@hrms/ui`. Components are `antd` only. Icons are `@ant-design/icons` only.
+
+## Feature folders
+
+`src/app/` is a thin route map. Feature code is `src/features/<domain>/<capability>/` with a leaf `index.ts`. Domain folders are singular. Do not prefix the capability with the domain.
+
+```text
+# ❌ BAD
+features/employee-access/employee-access-screen.tsx
+features/employer-settings/
+features/roles/
+
+# ✅ GOOD
+features/employee/access/access-screen.tsx
+features/employer/settings/settings-screen.tsx
+features/employer/roles/roles-screen.tsx
+```
+
+- No domain-level barrel. Import `@/features/employee/access`, not `@/features/employee`.
+- Same capability on two domains = two folders (`employer/roles` vs future `employee/roles`).
+- App-wide login stays `features/auth/`. Cross-cutting resolve stays `shared/employee/`.
+- URL routes stay nested under `/employers/[id]/...`. Do not flatten features to match URLs.
+
+Import with `@/`. No parent-relative `../`. Same-directory `./` is allowed.
+
+## Server Components
+
+- Do not use dotted Ant Design subcomponents (`Typography.Title`). Import `Title` / `Text` / `Paragraph` from `@/shared/ui` or `antd/es/...`.
+- Pass a serializable `items` array to `Descriptions`. Do not use `Descriptions.Item` children.
+- Do not pass `render` (or other functions) in Table `columns` from a Server Component. Put the table in a `"use client"` file.
+- Use Alert `title`, not deprecated `message`.
+
+## Data and writes
+
+Queries go through `@hrms/db`. Do not use `mssql` or raw SQL strings. Do not call HRMS stored procedures (`SP_AdminRoleM_*`, `SP_InsertRolePageMapping`, `sp_InsertDynamicMenuHierarchy`).
+
+Every query includes `Employerid`. Writes require `TROUBLESHOOTER_WRITES_ENABLED=1`, non-production `NODE_ENV`, and the selected env in `TROUBLESHOOTER_WRITES_ENVS`. Preview → HMAC confirm → `BEGIN TRAN` / `COMMIT`.
