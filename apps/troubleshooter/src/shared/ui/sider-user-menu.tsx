@@ -3,6 +3,7 @@
 import { LogoutOutlined } from "@ant-design/icons";
 import { Avatar, Dropdown, Tooltip } from "antd";
 import { signOut } from "next-auth/react";
+import { CollapsedEnvironmentPicker } from "@/shared/ui/collapsed-environment-picker";
 import { EnvironmentSelect } from "@/shared/ui/environment-select";
 
 function initialsFromName(name: string): string {
@@ -36,10 +37,18 @@ export function SiderUserMenu({
 
   return (
     <div
-      className={`mx-2 mb-2 flex w-[calc(100%-1rem)] items-center gap-1 rounded-full p-1.5 hover:bg-slate-100 ${
-        collapsed ? "justify-center" : ""
-      }`}
+      className={
+        collapsed
+          ? "mb-2 flex w-full flex-col items-center gap-1 px-1"
+          : "mx-2 mb-2 flex w-[calc(100%-1rem)] items-center gap-1 rounded-full p-1.5 hover:bg-slate-100"
+      }
     >
+      {collapsed ? (
+        <CollapsedEnvironmentPicker
+          environment={environment}
+          environments={environments}
+        />
+      ) : null}
       <Dropdown
         placement={collapsed ? "rightBottom" : "topLeft"}
         trigger={["click"]}
@@ -70,21 +79,20 @@ export function SiderUserMenu({
                 </div>
                 <div className="truncate text-xs text-slate-500">{roleLabel}</div>
               </div>
-              <EnvironmentSelect
-                className="shrink-0"
-                environment={environment}
-                environments={environments}
-              />
+              {collapsed ? null : (
+                <EnvironmentSelect
+                  className="shrink-0"
+                  environment={environment}
+                  environments={environments}
+                />
+              )}
             </div>
             <div className="border-t border-slate-100" />
             {menus}
           </div>
         )}
       >
-        <Tooltip
-          placement="right"
-          title={collapsed ? `${userName} · ${environment}` : undefined}
-        >
+        <Tooltip placement="right" title={collapsed ? userName : undefined}>
           <button
             className="flex shrink-0 items-center border-0 bg-transparent p-0"
             type="button"

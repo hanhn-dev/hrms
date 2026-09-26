@@ -4,6 +4,18 @@ import { Select } from "antd";
 import { useRouter } from "next/navigation";
 import { setTroubleshooterEnvironment } from "@/shared/db/set-environment";
 
+export function useSwitchEnvironment(current: string): (next: string) => void {
+  const router = useRouter();
+  return (next: string) => {
+    if (next === current) {
+      return;
+    }
+    void setTroubleshooterEnvironment(next).then(() => {
+      router.refresh();
+    });
+  };
+}
+
 export function EnvironmentSelect({
   environment,
   environments,
@@ -13,7 +25,7 @@ export function EnvironmentSelect({
   environments: string[];
   className?: string;
 }): React.JSX.Element | null {
-  const router = useRouter();
+  const switchEnvironment = useSwitchEnvironment(environment);
   if (environments.length === 0) {
     return null;
   }
@@ -29,14 +41,7 @@ export function EnvironmentSelect({
       onClick={(event) => {
         event.stopPropagation();
       }}
-      onChange={(next: string) => {
-        if (next === environment) {
-          return;
-        }
-        void setTroubleshooterEnvironment(next).then(() => {
-          router.refresh();
-        });
-      }}
+      onChange={switchEnvironment}
     />
   );
 }

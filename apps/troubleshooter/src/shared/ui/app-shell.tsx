@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   IdcardOutlined,
   MenuFoldOutlined,
@@ -73,7 +73,34 @@ export function AppShell({
   const pathname = usePathname();
   const router = useRouter();
   const [collapsed, setCollapsed] = useState(false);
+  const [shortcutLabel, setShortcutLabel] = useState("Ctrl+B");
   const base = `/employers/${employerId}`;
+
+  useEffect(() => {
+    if (/Mac|iPhone|iPad/.test(navigator.userAgent)) {
+      setShortcutLabel("⌘B");
+    }
+
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (
+        event.repeat ||
+        event.altKey ||
+        event.shiftKey ||
+        !(event.ctrlKey || event.metaKey) ||
+        event.key.toLowerCase() !== "b"
+      ) {
+        return;
+      }
+      event.preventDefault();
+      setCollapsed((current) => !current);
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, []);
+
   const selectedKey = pathname.startsWith(`${base}/roles`)
     ? "roles"
     : pathname.startsWith(`${base}/employees`)
@@ -117,9 +144,10 @@ export function AppShell({
             )}
             <Tooltip
               placement="right"
-              title={collapsed ? "Expand menu" : "Collapse menu"}
+              title={`${collapsed ? "Expand menu" : "Collapse menu"} (${shortcutLabel})`}
             >
               <Button
+                aria-keyshortcuts="Control+B Meta+B"
                 aria-label={collapsed ? "Expand menu" : "Collapse menu"}
                 icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
                 type="text"
