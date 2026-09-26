@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import {
+  FormOutlined,
   IdcardOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
@@ -31,6 +32,9 @@ function moduleTitle(
 ): string {
   if (pathname.startsWith(`${base}/roles`)) {
     return "Roles";
+  }
+  if (pathname.startsWith(`${base}/fields`)) {
+    return "Fields";
   }
   if (pathname.startsWith(`${base}/employees/`)) {
     if (pathname.endsWith("/leave")) {
@@ -103,9 +107,11 @@ export function AppShell({
 
   const selectedKey = pathname.startsWith(`${base}/roles`)
     ? "roles"
-    : pathname.startsWith(`${base}/employees`)
-      ? "employees"
-      : "overview";
+    : pathname.startsWith(`${base}/fields`)
+      ? "fields"
+      : pathname.startsWith(`${base}/employees`)
+        ? "employees"
+        : "overview";
   const title = moduleTitle(pathname, base, employers, employerId);
 
   return (
@@ -179,6 +185,12 @@ export function AppShell({
                 icon: <TeamOutlined />,
                 title: "Roles",
                 label: <Link href={`${base}/roles`}>Roles</Link>,
+              },
+              {
+                key: "fields",
+                icon: <FormOutlined />,
+                title: "Fields",
+                label: <Link href={`${base}/fields`}>Fields</Link>,
               },
             ]}
           />

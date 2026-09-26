@@ -1,7 +1,7 @@
 "use client";
 
 import { App, Button, Modal, Table, Typography } from "antd";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type PreviewResult = {
   token: string;
@@ -23,6 +23,9 @@ export function ConfirmWriteModal({
   commitAction,
   successMessage,
   onDone,
+  open: openProp,
+  onOpenChange,
+  hideTrigger,
 }: {
   title: string;
   buttonLabel: string;
@@ -32,14 +35,22 @@ export function ConfirmWriteModal({
   commitAction: (token: string) => Promise<CommitResult>;
   successMessage: string;
   onDone?: () => void;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  hideTrigger?: boolean;
 }): React.JSX.Element {
   const { message } = App.useApp();
-  const [open, setOpen] = useState(false);
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
   const [token, setToken] = useState<string | null>(null);
   const [preview, setPreview] = useState<Array<Record<string, unknown>>>([]);
   const [note, setNote] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const previewActionRef = useRef(previewAction);
+  previewActionRef.current = previewAction;
+
+  const controlled = openProp !== undefined;
+  const open = controlled ? openProp : uncontrolledOpen;
 
   function reset(): void {
     setToken(null);
@@ -48,17 +59,23 @@ export function ConfirmWriteModal({
     setError(null);
   }
 
+  function setOpen(next: boolean): void {
+    if (!controlled) {
+      setUncontrolledOpen(next);
+    }
+    onOpenChange?.(next);
+  }
+
   function close(): void {
     setOpen(false);
     reset();
   }
 
-  async function openPreview(): Promise<void> {
+  async function runPreview(): Promise<void> {
     reset();
-    setOpen(true);
     setLoading(true);
     try {
-      const result = await previewAction();
+      const result = await previewActionRef.current();
       setToken(result.token);
       setPreview(result.preview);
       setNote(result.note ?? null);
@@ -72,6 +89,55 @@ export function ConfirmWriteModal({
       setLoading(false);
     }
   }
+
+  async function openPreview(): Promise<void> {
+    setOpen(true);
+    if (controlled) {
+      return;
+    }
+    await runPreview();
+  }
+
+  useEffect(() => {
+    if (!controlled) {
+      return;
+    }
+    if (!open) {
+      reset();
+      return;
+    }
+    let cancelled = false;
+    async function load(): Promise<void> {
+      reset();
+      setLoading(true);
+      try {
+        const result = await previewActionRef.current();
+        if (cancelled) {
+          return;
+        }
+        setToken(result.token);
+        setPreview(result.preview);
+        setNote(result.note ?? null);
+      } catch (previewError) {
+        if (cancelled) {
+          return;
+        }
+        setError(
+          previewError instanceof Error
+            ? previewError.message
+            : "Preview failed.",
+        );
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    }
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [controlled, open]);
 
   async function commit(): Promise<void> {
     if (!token || loading) {
@@ -104,16 +170,18 @@ export function ConfirmWriteModal({
 
   return (
     <>
-      <Button
-        disabled={disabled}
-        title={disabledReason}
-        type="primary"
-        onClick={() => {
-          void openPreview();
-        }}
-      >
-        {buttonLabel}
-      </Button>
+      {hideTrigger ? null : (
+        <Button
+          disabled={disabled}
+          title={disabledReason}
+          type="primary"
+          onClick={() => {
+            void openPreview();
+          }}
+        >
+          {buttonLabel}
+        </Button>
+      )}
       <Modal
         confirmLoading={loading}
         destroyOnHidden

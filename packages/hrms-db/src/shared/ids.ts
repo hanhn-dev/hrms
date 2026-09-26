@@ -7,6 +7,7 @@ export const roleIdSchema = z.number().int().positive();
 export const employmentNumberSchema = z.string().trim().min(1);
 export const menuIdSchema = z.number().int().positive();
 export const tabIdSchema = z.number().int().nonnegative();
+export const fieldIdSchema = z.number().int().positive();
 
 export function parseEmployerId(value: number): number {
   return employerIdSchema.parse(value);

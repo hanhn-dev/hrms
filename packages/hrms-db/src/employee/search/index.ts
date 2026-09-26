@@ -1,6 +1,6 @@
-import { Prisma } from "../generated/prisma/client";
-import type { HrmsDb } from "../client";
-import { parseEmployerId } from "../ids";
+import { Prisma } from "../../generated/prisma/client";
+import type { HrmsDb } from "../../shared/client";
+import { parseEmployerId } from "../../shared/ids";
 
 export type EmployeeSearchHit = {
   employeeId: number;

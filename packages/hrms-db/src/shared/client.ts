@@ -1,5 +1,5 @@
 import { PrismaMssql } from "@prisma/adapter-mssql";
-import { PrismaClient } from "./generated/prisma/client";
+import { PrismaClient } from "../generated/prisma/client";
 import { type HrmsDbConfig, toMssqlConfig } from "./config";
 
 export type HrmsDb = PrismaClient;

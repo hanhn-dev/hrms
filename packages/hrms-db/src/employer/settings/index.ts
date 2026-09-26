@@ -1,5 +1,5 @@
-import type { HrmsDb } from "../client";
-import { parseEmployerId } from "../ids";
+import type { HrmsDb } from "../../shared/client";
+import { parseEmployerId } from "../../shared/ids";
 
 export type EmployerSettings = {
   employerId: number;

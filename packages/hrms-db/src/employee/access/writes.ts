@@ -1,6 +1,6 @@
-import { Prisma } from "../generated/prisma/client";
-import type { HrmsDb } from "../client";
-import { menuIdSchema, parseEmployerId, tabIdSchema, userIdSchema } from "../ids";
+import { Prisma } from "../../generated/prisma/client";
+import type { HrmsDb } from "../../shared/client";
+import { menuIdSchema, parseEmployerId, tabIdSchema, userIdSchema } from "../../shared/ids";
 import { ancestorMenuIds, type MenuAccessRow } from "./tree";
 
 export type TabRight = {

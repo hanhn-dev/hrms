@@ -1,6 +1,6 @@
-export { createHrmsDb, checkDatabase, type HrmsDb } from "./client";
-export { hrmsDbConfigSchema, toMssqlConfig, type HrmsDbConfig } from "./config";
-export { asIso } from "./iso";
+export { createHrmsDb, checkDatabase, type HrmsDb } from "./shared/client";
+export { hrmsDbConfigSchema, toMssqlConfig, type HrmsDbConfig } from "./shared/config";
+export { asIso } from "./shared/iso";
 
 export {
   ancestorMenuIds,
@@ -16,14 +16,10 @@ export {
   type GrantFlag,
   type MenuAccessRow,
   type TabAccessRow,
-} from "./access/tree";
-export {
   loadEmployeeAccess,
   type EmployeeAccess,
   type TabMasterCheck,
   type TenantRoleOption,
-} from "./access/load";
-export {
   assignUserRole,
   grantRevokeUserAccess,
   listUserPageRows,
@@ -31,13 +27,13 @@ export {
   menuIdsForGrant,
   type GrantRevokeMode,
   type TabRight,
-} from "./access/writes";
+} from "./employee/access";
 
 export {
   requireResolvedEmployee,
   resolveEmployee,
   type ResolvedEmployee,
-} from "./employee/resolve";
+} from "./shared/employee";
 export { searchEmployees, type EmployeeSearchHit } from "./employee/search";
 export { getEmployeeProfile, type EmployeeProfile } from "./employee/profile";
 export {
@@ -56,17 +52,31 @@ export {
   getDatabaseHealth,
   listEmployers,
   type EmployerListItem,
-} from "./employers/list";
+} from "./employer/picker";
 export {
   getEmployerSettings,
   listLicensedModules,
   type EmployerSettings,
   type LicensedModule,
-} from "./employers/settings";
+} from "./employer/settings";
+export {
+  compareEmployerFieldsToTemplate,
+  listEmployerFields,
+  listFieldTemplate,
+  getEmployerFieldValidationPreview,
+  updateEmployerFieldValidationRule,
+  VALIDATION_RULE_MAX_LENGTH,
+  parseValidationRuleJson,
+  validateValidationRuleValue,
+  type FieldCatalogRow,
+  type FieldCompareRow,
+  type FieldCompareStatus,
+  type ValidationRuleParseResult,
+} from "./employer/fields";
 
 export {
   listRolePageGrants,
   listRoles,
   type RolePageGrant,
   type RoleRow,
-} from "./roles/list";
+} from "./employer/roles";

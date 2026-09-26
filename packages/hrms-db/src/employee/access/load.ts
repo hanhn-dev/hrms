@@ -1,6 +1,6 @@
-import type { HrmsDb } from "../client";
-import { asYesNo } from "../iso";
-import { parseEmployerId } from "../ids";
+import type { HrmsDb } from "../../shared/client";
+import { asYesNo } from "../../shared/iso";
+import { parseEmployerId } from "../../shared/ids";
 import {
   attachTabsToMenuTree,
   buildMenuAccessTree,

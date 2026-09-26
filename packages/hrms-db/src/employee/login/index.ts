@@ -1,7 +1,7 @@
-import type { HrmsDb } from "../client";
-import { asIso } from "../iso";
-import { parseEmployerId } from "../ids";
-import { requireResolvedEmployee } from "./resolve";
+import type { HrmsDb } from "../../shared/client";
+import { asIso } from "../../shared/iso";
+import { parseEmployerId } from "../../shared/ids";
+import { requireResolvedEmployee } from "../../shared/employee";
 
 export type EmployeeLoginInfo = {
   userId: number | null;
