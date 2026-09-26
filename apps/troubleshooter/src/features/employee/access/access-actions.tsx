@@ -51,6 +51,7 @@ export function AccessActions({
             writesEnabled ? "Select a role." : "Writes are disabled."
           }
           title="Assign role"
+          successMessage="Role assigned."
           previewAction={() =>
             previewAssignRole({
               employerId,

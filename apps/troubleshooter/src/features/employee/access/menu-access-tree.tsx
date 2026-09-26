@@ -2,7 +2,7 @@
 
 import { Button, Form, Input, Select, Space, Tag, Tree, Typography } from "antd";
 import type { TreeDataNode, TreeProps } from "antd";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   commitGrantRevokeUserPages,
@@ -57,8 +57,12 @@ function filterAccessTree(nodes: AccessNode[], search: string): AccessNode[] {
   }
   const kept: AccessNode[] = [];
   for (const node of nodes) {
+    if (matchesSearch(node, search)) {
+      kept.push(node);
+      continue;
+    }
     const children = filterAccessTree(node.children, search);
-    if (matchesSearch(node, search) || children.length > 0) {
+    if (children.length > 0) {
       kept.push({ ...node, children });
     }
   }
@@ -101,6 +105,60 @@ function checkedKeyList(value: Parameters<NonNullable<TreeProps["onCheck"]>>[0])
   return value.checked.map(String);
 }
 
+function isAssignedRow(row: AccessRow): boolean {
+  return row.roleGrant === "Y" || row.userGrant === "Y";
+}
+
+function assignedKeysFromRows(rows: Iterable<AccessRow>): string[] {
+  const keys: string[] = [];
+  for (const row of rows) {
+    if (isAssignedRow(row)) {
+      keys.push(row.key);
+    }
+  }
+  return keys;
+}
+
+function collectDescendantKeys(node: AccessNode): string[] {
+  const keys: string[] = [];
+  const walk = (nodes: AccessNode[]): void => {
+    for (const child of nodes) {
+      keys.push(child.key);
+      walk(child.children);
+    }
+  };
+  walk(node.children);
+  return keys;
+}
+
+function halfCheckedAncestorKeys(
+  nodes: AccessNode[],
+  selected: ReadonlySet<string>,
+): string[] {
+  const half: string[] = [];
+  const walk = (node: AccessNode): { selectedCount: number; total: number } => {
+    let selectedCount = 0;
+    let total = 0;
+    for (const child of node.children) {
+      total += 1;
+      if (selected.has(child.key)) {
+        selectedCount += 1;
+      }
+      const nested = walk(child);
+      selectedCount += nested.selectedCount;
+      total += nested.total;
+    }
+    if (!selected.has(node.key) && total > 0 && selectedCount > 0 && selectedCount < total) {
+      half.push(node.key);
+    }
+    return { selectedCount, total };
+  };
+  for (const node of nodes) {
+    walk(node);
+  }
+  return half;
+}
+
 export function MenuAccessTree({
   employerId,
   employmentNumber,
@@ -118,11 +176,10 @@ export function MenuAccessTree({
   const [searchInput, setSearchInput] = useState("");
   const search = useDebouncedValue(searchInput.trim().toLowerCase(), SEARCH_DEBOUNCE_MS);
   const [mode, setMode] = useState<"GRANT" | "REVOKE">("GRANT");
-  const [selectedKeys, setSelectedKeys] = useState<string[]>([]);
   const [tabRightsDet, setTabRightsDet] = useState("");
 
   const rowsByKey = useMemo(() => {
-    const map = new Map<string, AccessRow>();
+    const map = new Map<string, AccessNode>();
     const walk = (nodes: AccessNode[]): void => {
       for (const node of nodes) {
         map.set(node.key, node);
@@ -132,6 +189,15 @@ export function MenuAccessTree({
     walk(tree);
     return map;
   }, [tree]);
+  const assignedKeys = useMemo(() => assignedKeysFromRows(rowsByKey.values()), [rowsByKey]);
+  const assignedFingerprint = useMemo(() => [...assignedKeys].sort().join("\0"), [assignedKeys]);
+  const assignedKeysRef = useRef(assignedKeys);
+  assignedKeysRef.current = assignedKeys;
+  const [selectedKeys, setSelectedKeys] = useState<string[]>(assignedKeys);
+
+  useEffect(() => {
+    setSelectedKeys(assignedKeysRef.current);
+  }, [assignedFingerprint]);
 
   const filteredTree = useMemo(() => filterAccessTree(tree, search), [tree, search]);
   const treeData = useMemo(() => toTreeData(filteredTree), [filteredTree]);
@@ -204,9 +270,27 @@ export function MenuAccessTree({
     };
   }
 
+  const selectedKeySet = useMemo(() => new Set(selectedKeys), [selectedKeys]);
+  const halfCheckedKeys = useMemo(
+    () => halfCheckedAncestorKeys(tree, selectedKeySet),
+    [tree, selectedKeySet],
+  );
+
   const onCheck: TreeProps["onCheck"] = useCallback(
-    (checked) => {
-      setSelectedKeys(checkedKeyList(checked).filter((key) => rowsByKey.has(key)));
+    (checked, info) => {
+      const next = new Set(checkedKeyList(checked).filter((key) => rowsByKey.has(key)));
+      const node = rowsByKey.get(String(info.node.key));
+      const descendantKeys = node ? collectDescendantKeys(node) : [];
+      if (info.checked) {
+        for (const key of descendantKeys) {
+          next.add(key);
+        }
+      } else {
+        for (const key of descendantKeys) {
+          next.delete(key);
+        }
+      }
+      setSelectedKeys([...next]);
     },
     [rowsByKey],
   );
@@ -254,8 +338,9 @@ export function MenuAccessTree({
         <Tag color="green">User extra {userCount}</Tag>
         <Tag>Assigned {assignedCount}</Tag>
         <Typography.Text type="secondary">
-          Check a parent to select every nested item, including tabs. Grant still
-          includes parents of a checked child so the left menu can show.
+          Checkboxes start from current Role/User grants. Check a parent to
+          select every nested item, including tabs. Grant still includes parents
+          of a checked child so the left menu can show.
         </Typography.Text>
       </Space>
       <Space wrap>
@@ -286,6 +371,13 @@ export function MenuAccessTree({
         </Button>
         <Button
           onClick={() => {
+            setSelectedKeys(assignedKeys);
+          }}
+        >
+          Select assigned
+        </Button>
+        <Button
+          onClick={() => {
             setSelectedKeys(
               [...rowsByKey.values()]
                 .filter((row) => row.userGrant === "Y")
@@ -307,8 +399,9 @@ export function MenuAccessTree({
         <Tree
           blockNode
           checkable
+          checkStrictly
           autoExpandParent={autoExpandParent}
-          checkedKeys={selectedKeys}
+          checkedKeys={{ checked: selectedKeys, halfChecked: halfCheckedKeys }}
           expandedKeys={expandedKeys}
           height={TREE_VIEWPORT_HEIGHT}
           selectable={false}
@@ -348,6 +441,9 @@ export function MenuAccessTree({
               writesEnabled ? "Select at least one menu or tab." : "Writes are disabled."
             }
             title={`${mode} user pages and tabs`}
+            successMessage={
+              mode === "GRANT" ? "Access granted." : "Access revoked."
+            }
             previewAction={() =>
               previewGrantRevokeUserPages({
                 employerId,
@@ -359,7 +455,6 @@ export function MenuAccessTree({
             }
             commitAction={commitGrantRevokeUserPages}
             onDone={() => {
-              setSelectedKeys([]);
               router.refresh();
             }}
           />

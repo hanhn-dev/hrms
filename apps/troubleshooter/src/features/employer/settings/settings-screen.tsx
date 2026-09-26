@@ -1,9 +1,10 @@
 import { Alert, Card, Descriptions, Table } from "antd";
-import { WritesBanner } from "@/shared/ui/writes-banner";
 import {
   getEmployerSettings,
   listLicensedModules,
 } from "@/features/employer/settings/queries";
+import { HintIcon } from "@/shared/ui";
+import { WritesBanner } from "@/shared/ui/writes-banner";
 
 export async function EmployerSettingsScreen({
   employerId,
@@ -22,12 +23,6 @@ export async function EmployerSettingsScreen({
   return (
     <>
       <WritesBanner />
-      <Alert
-        className="mb-4"
-        showIcon
-        type={settings.tabDetailsRowCount === 0 ? "warning" : "success"}
-        title={settings.tabMasterNote}
-      />
       <Card className="mb-4" title="Employer settings">
         <Descriptions
           bordered
@@ -78,7 +73,15 @@ export async function EmployerSettingsScreen({
             },
             {
               key: "tabDetailsRowCount",
-              label: "TTabDetails rows",
+              label: (
+                <span className="inline-flex items-center gap-1">
+                  TTabDetails rows
+                  <HintIcon
+                    title={settings.tabMasterNote}
+                    tone={settings.tabDetailsRowCount === 0 ? "warning" : "success"}
+                  />
+                </span>
+              ),
               children: settings.tabDetailsRowCount,
             },
             {

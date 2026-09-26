@@ -25,6 +25,7 @@ export function UnlockAccountButton({
       disabled={disabled}
       disabledReason={disabledReason}
       title="Unlock account"
+      successMessage="Account unlocked."
       previewAction={() =>
         previewUnlockAccount({ employerId, employmentNumber })
       }

@@ -1,6 +1,6 @@
-import { Alert, Card } from "antd";
+import { Card } from "antd";
 import { AccessActions } from "@/features/employee/access/access-actions";
-import { MenuAccessTree } from "@/features/employee/access/menu-access-tree";
+import { AccessTreesTabs } from "@/features/employee/access/access-trees-tabs";
 import { getEmployeeAccess } from "@/features/employee/access/queries";
 import { areWritesEnabled } from "@/shared/auth";
 import { getSelectedEnvironment } from "@/shared/db";
@@ -22,14 +22,6 @@ export async function EmployeeAccessScreen({
         employerId={employerId}
         employmentNumber={employmentNumber}
       />
-      {access.tabMaster ? (
-        <Alert
-          className="mb-4"
-          showIcon
-          type={access.tabMaster.tabMasterRows === 0 ? "warning" : "success"}
-          title={access.tabMaster.likelyCause}
-        />
-      ) : null}
       <Card className="mb-4" title={`Role: ${access.roleName ?? "none"}`}>
         <AccessActions
           currentRoleId={access.roleId}
@@ -39,20 +31,16 @@ export async function EmployeeAccessScreen({
           writesEnabled={writesEnabled}
         />
       </Card>
-      <Card className="mb-4" title="Left menu and page tabs">
-        <MenuAccessTree
+      <Card>
+        <AccessTreesTabs
           employerId={employerId}
           employmentNumber={employmentNumber}
+          tabMasterNote={access.tabMaster?.likelyCause}
+          tabMasterTone={
+            access.tabMaster?.tabMasterRows === 0 ? "warning" : "success"
+          }
           tree={access.tree}
-          writesEnabled={writesEnabled}
-        />
-      </Card>
-      <Card title="Page tabs (TTabDetails — tenant or Employerid 0)">
-        <MenuAccessTree
-          defaultExpandAll={false}
-          employerId={employerId}
-          employmentNumber={employmentNumber}
-          tree={access.tabTree}
+          tabTree={access.tabTree}
           writesEnabled={writesEnabled}
         />
       </Card>

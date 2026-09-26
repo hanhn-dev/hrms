@@ -1,7 +1,7 @@
 "use client";
 
-import { Button, Modal, Table, Typography } from "antd";
-import { useState, useTransition } from "react";
+import { App, Button, Modal, Table, Typography } from "antd";
+import { useState } from "react";
 
 type PreviewResult = {
   token: string;
@@ -21,6 +21,7 @@ export function ConfirmWriteModal({
   disabledReason,
   previewAction,
   commitAction,
+  successMessage,
   onDone,
 }: {
   title: string;
@@ -29,59 +30,66 @@ export function ConfirmWriteModal({
   disabledReason?: string;
   previewAction: () => Promise<PreviewResult>;
   commitAction: (token: string) => Promise<CommitResult>;
+  successMessage: string;
   onDone?: () => void;
 }): React.JSX.Element {
+  const { message } = App.useApp();
   const [open, setOpen] = useState(false);
   const [token, setToken] = useState<string | null>(null);
   const [preview, setPreview] = useState<Array<Record<string, unknown>>>([]);
-  const [after, setAfter] = useState<Array<Record<string, unknown>>>([]);
   const [note, setNote] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [pending, startTransition] = useTransition();
+  const [loading, setLoading] = useState(false);
 
   function reset(): void {
     setToken(null);
     setPreview([]);
-    setAfter([]);
     setNote(null);
     setError(null);
   }
 
-  function openPreview(): void {
+  function close(): void {
+    setOpen(false);
     reset();
-    setOpen(true);
-    startTransition(async () => {
-      try {
-        const result = await previewAction();
-        setToken(result.token);
-        setPreview(result.preview);
-        setNote(result.note ?? null);
-      } catch (previewError) {
-        setError(
-          previewError instanceof Error
-            ? previewError.message
-            : "Preview failed.",
-        );
-      }
-    });
   }
 
-  function commit(): void {
-    if (!token) {
+  async function openPreview(): Promise<void> {
+    reset();
+    setOpen(true);
+    setLoading(true);
+    try {
+      const result = await previewAction();
+      setToken(result.token);
+      setPreview(result.preview);
+      setNote(result.note ?? null);
+    } catch (previewError) {
+      setError(
+        previewError instanceof Error
+          ? previewError.message
+          : "Preview failed.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function commit(): Promise<void> {
+    if (!token || loading) {
       return;
     }
-    startTransition(async () => {
-      try {
-        const result = await commitAction(token);
-        setAfter(result.after);
-        setNote(result.note ?? null);
-        onDone?.();
-      } catch (commitError) {
-        setError(
-          commitError instanceof Error ? commitError.message : "Commit failed.",
-        );
-      }
-    });
+    setLoading(true);
+    try {
+      await commitAction(token);
+      setLoading(false);
+      close();
+      message.success(successMessage);
+      onDone?.();
+    } catch (commitError) {
+      setError(
+        commitError instanceof Error ? commitError.message : "Commit failed.",
+      );
+      setLoading(false);
+    }
   }
 
   const columns =
@@ -92,14 +100,7 @@ export function ConfirmWriteModal({
           key,
           render: (value: unknown) => String(value ?? ""),
         }))
-      : after[0] != null
-        ? Object.keys(after[0]).map((key) => ({
-            title: key,
-            dataIndex: key,
-            key,
-            render: (value: unknown) => String(value ?? ""),
-          }))
-        : [];
+      : [];
 
   return (
     <>
@@ -107,22 +108,29 @@ export function ConfirmWriteModal({
         disabled={disabled}
         title={disabledReason}
         type="primary"
-        onClick={openPreview}
+        onClick={() => {
+          void openPreview();
+        }}
       >
         {buttonLabel}
       </Button>
       <Modal
-        confirmLoading={pending}
-        okButtonProps={{ disabled: !token || after.length > 0 }}
+        confirmLoading={loading}
+        destroyOnHidden
+        okButtonProps={{ disabled: !token }}
         okText="Commit"
         open={open}
         title={title}
         width={880}
         onCancel={() => {
-          setOpen(false);
-          reset();
+          if (loading) {
+            return;
+          }
+          close();
         }}
-        onOk={commit}
+        onOk={() => {
+          void commit();
+        }}
       >
         {error ? (
           <Typography.Paragraph type="danger">{error}</Typography.Paragraph>
@@ -132,12 +140,11 @@ export function ConfirmWriteModal({
         ) : null}
         <Table
           columns={columns}
-          dataSource={(after.length > 0 ? after : preview).map((row, index) => ({
+          dataSource={preview.map((row, index) => ({
             key: index,
             ...row,
           }))}
           pagination={false}
-          scroll={{ x: "max-content" }}
           size="small"
         />
       </Modal>
