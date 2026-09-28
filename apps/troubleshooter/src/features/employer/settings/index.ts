@@ -1,2 +1,6 @@
 export { EmployerSettingsScreen } from "./settings-screen";
-export { getEmployerSettings, listLicensedModules } from "./queries";
+export {
+  getCustomerSettings,
+  getEmployerSettings,
+  listLicensedModules,
+} from "./queries";
