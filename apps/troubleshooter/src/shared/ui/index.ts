@@ -1,7 +1,16 @@
 export { AppProviders } from "./app-providers";
 export { AppShell, Employee360Nav, type ShellEmployer } from "./app-shell";
 export { Paragraph, Text, Title } from "./antd-rsc";
-export { ConfirmWriteModal } from "./confirm-write-modal";
+export {
+  ConfirmWriteModal,
+  type CommitResult,
+  type PreviewResult,
+} from "./confirm-write-modal";
+export { EditableTable } from "./editable-table";
+export type {
+  ConfirmWriteConfig,
+  EditableColumn,
+} from "./editable-table";
 export { JsonEditorModal } from "./json-editor-modal";
 export { JsonTextCell } from "./json-text-cell";
 export { compactJson, formatJsonForEdit, parseJsonText } from "./json-text";

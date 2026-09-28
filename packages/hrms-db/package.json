@@ -32,7 +32,7 @@
     "postinstall": "prisma generate",
     "build": "prisma generate && tsc",
     "lint": "prisma generate && tsc --noEmit",
-    "test": "node --experimental-strip-types --test src/employee/access/tree.test.ts src/employer/fields/fields.test.ts src/employer/fields/validation-rule.test.ts src/employer/uploads/classify.test.ts src/employer/workflows/tree.test.ts src/employer/workflows/change-request-apply.test.ts"
+    "test": "node --experimental-strip-types --test src/employee/access/tree.test.ts src/employer/fields/fields.test.ts src/employer/fields/field-patch.test.ts src/employer/fields/validation-rule.test.ts src/employer/uploads/classify.test.ts src/employer/workflows/tree.test.ts src/employer/workflows/change-request-apply.test.ts"
   },
   "dependencies": {
     "@prisma/adapter-mssql": "^7.10.0",

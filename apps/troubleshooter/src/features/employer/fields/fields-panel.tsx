@@ -4,15 +4,21 @@ import { useMemo, useState } from "react";
 import { Collapse, Input, Select, Table, Tabs, Tag } from "antd";
 import { usePathname, useRouter } from "next/navigation";
 import type { FieldSource } from "@/features/employer/fields/fields-source";
+import {
+  commitUpdateFieldRow,
+  previewUpdateFieldRow,
+} from "@/features/employer/fields/mutations";
 import type {
   FieldCatalogRow,
   FieldCompareRow,
   FieldCompareStatus,
+  FieldTypeOption,
 } from "@/features/employer/fields/queries";
 import {
   ValidationRuleCell,
   ValidationRuleViewCell,
 } from "@/features/employer/fields/validation-rule-cell";
+import { EditableTable, type EditableColumn } from "@/shared/ui";
 
 const DEFAULT_ENTITIES = ["System", "Country", "Custom"];
 const KNOWN_ENTITIES = [
@@ -29,6 +35,7 @@ export function FieldsPanel({
   compared,
   source,
   employerId,
+  fieldTypes,
   writesEnabled,
 }: {
   employerFields: FieldCatalogRow[];
@@ -36,6 +43,7 @@ export function FieldsPanel({
   compared: FieldCompareRow[];
   source: FieldSource;
   employerId: number;
+  fieldTypes: FieldTypeOption[];
   writesEnabled: boolean;
 }): React.JSX.Element {
   const router = useRouter();
@@ -98,6 +106,7 @@ export function FieldsPanel({
               <SectionedFields
                 emptyText="No employer fields match the current filters."
                 employerId={employerId}
+                fieldTypes={fieldTypes}
                 fields={visibleEmployer}
                 writesEnabled={writesEnabled}
               />
@@ -133,11 +142,13 @@ function SectionedFields({
   fields,
   emptyText,
   employerId,
+  fieldTypes,
   writesEnabled,
 }: {
   fields: FieldCatalogRow[];
   emptyText: string;
   employerId?: number;
+  fieldTypes?: FieldTypeOption[];
   writesEnabled?: boolean;
 }): React.JSX.Element {
   const sections = groupBySection(fields);
@@ -152,6 +163,7 @@ function SectionedFields({
         children: (
           <FieldsTable
             employerId={employerId}
+            fieldTypes={fieldTypes}
             fields={section.fields}
             writesEnabled={writesEnabled}
           />
@@ -186,98 +198,156 @@ function SectionedCompare({
 function FieldsTable({
   fields,
   employerId,
+  fieldTypes = [],
   writesEnabled,
 }: {
   fields: FieldCatalogRow[];
   employerId?: number;
+  fieldTypes?: FieldTypeOption[];
   writesEnabled?: boolean;
 }): React.JSX.Element {
+  const router = useRouter();
+  const entityOptions = entitySelectOptions(fields);
+  const typeOptions = fieldTypeSelectOptions(fieldTypes, fields);
+  const columns: Array<EditableColumn<FieldCatalogRow>> = [
+    {
+      title: "FieldName",
+      dataIndex: "fieldName",
+      width: 180,
+      editable: true,
+      required: true,
+      editorProps: { maxLength: 255 },
+    },
+    {
+      title: "DisplayText",
+      dataIndex: "displayText",
+      width: 200,
+      editable: true,
+      required: true,
+      editorProps: { maxLength: 255 },
+    },
+    {
+      title: "FieldEntity",
+      dataIndex: "fieldEntity",
+      width: 130,
+      editable: true,
+      editor: "select",
+      required: true,
+      editorProps: { options: entityOptions },
+      render: (value: string | null) => <EntityTag entity={value} />,
+    },
+    {
+      title: "FieldType",
+      dataIndex: "fieldType",
+      formItemName: "fieldTypeId",
+      width: 150,
+      editable: true,
+      editor: "select",
+      required: true,
+      editorProps: { options: typeOptions },
+      render: (value: string | null) => value ?? "—",
+    },
+    {
+      title: "IsMandatory",
+      dataIndex: "isMandatory",
+      width: 120,
+      editable: (row) => !asFlag(row.isDefault),
+      editor: "switch",
+      render: (value: unknown, row: FieldCatalogRow) =>
+        asFlag(row.isDefault) ? (
+          <Tag color="blue">System Mandatory</Tag>
+        ) : (
+          <FlagTag value={value} />
+        ),
+    },
+    {
+      title: "IsValidate",
+      dataIndex: "isValidate",
+      width: 110,
+      editable: true,
+      editor: "switch",
+      render: (value: unknown) => <FlagTag value={value} />,
+    },
+    {
+      title: "ValidationRule",
+      dataIndex: "validationRule",
+      width: 220,
+      render: (value: string | null, row: FieldCatalogRow) =>
+        employerId != null ? (
+          <ValidationRuleCell
+            employerId={employerId}
+            fieldId={row.fieldId}
+            fieldName={row.fieldName}
+            value={value}
+            writesEnabled={writesEnabled === true}
+          />
+        ) : (
+          <ValidationRuleViewCell value={value} />
+        ),
+    },
+    {
+      title: "Hidden",
+      dataIndex: "isHidden",
+      width: 90,
+      editable: true,
+      editor: "switch",
+      render: (value: unknown) => <FlagTag value={value} />,
+    },
+    {
+      title: "Active",
+      dataIndex: "isActive",
+      width: 90,
+      editable: true,
+      editor: "switch",
+      render: (value: unknown) => <FlagTag value={value} />,
+    },
+    {
+      title: "Country",
+      key: "country",
+      width: 140,
+      render: (_: unknown, row: FieldCatalogRow) => countryLabel(row),
+    },
+    {
+      title: "Persist",
+      key: "persist",
+      width: 220,
+      render: (_: unknown, row: FieldCatalogRow) => persistPath(row),
+    },
+    { title: "FieldID", dataIndex: "fieldId", width: 90 },
+  ];
+
   return (
-    <Table
+    <EditableTable<FieldCatalogRow>
       rowKey="fieldId"
+      columns={columns}
+      confirmWrite={
+        employerId == null
+          ? undefined
+          : {
+              title: (row) =>
+                row.fieldName ? `Update ${row.fieldName}` : "Update field",
+              previewAction: (row, values) =>
+                previewUpdateFieldRow({
+                  employerId,
+                  fieldId: row.fieldId,
+                  values,
+                }),
+              commitAction: commitUpdateFieldRow,
+              successMessage: "Field updated.",
+              onDone: () => {
+                router.refresh();
+              },
+            }
+      }
       dataSource={fields}
-      size="small"
-      scroll={{ x: "max-content" }}
       pagination={
         fields.length > 20
           ? { pageSize: 20, showSizeChanger: true, showTotal: (total) => `${total} fields` }
           : false
       }
-      columns={[
-        { title: "FieldName", dataIndex: "fieldName", width: 180 },
-        { title: "DisplayText", dataIndex: "displayText", width: 200 },
-        {
-          title: "FieldEntity",
-          dataIndex: "fieldEntity",
-          width: 130,
-          render: (value: string | null) => <EntityTag entity={value} />,
-        },
-        {
-          title: "FieldType",
-          dataIndex: "fieldType",
-          width: 150,
-          render: (value: string | null) => value ?? "—",
-        },
-        {
-          title: "IsMandatory",
-          dataIndex: "isMandatory",
-          width: 120,
-          render: (value: unknown, row: FieldCatalogRow) =>
-            asFlag(row.isDefault) ? (
-              <Tag color="blue">System Mandatory</Tag>
-            ) : (
-              <FlagTag value={value} />
-            ),
-        },
-        {
-          title: "IsValidate",
-          dataIndex: "isValidate",
-          width: 110,
-          render: (value: unknown) => <FlagTag value={value} />,
-        },
-        {
-          title: "ValidationRule",
-          dataIndex: "validationRule",
-          width: 220,
-          render: (value: string | null, row: FieldCatalogRow) =>
-            employerId != null ? (
-              <ValidationRuleCell
-                employerId={employerId}
-                fieldId={row.fieldId}
-                fieldName={row.fieldName}
-                value={value}
-                writesEnabled={writesEnabled === true}
-              />
-            ) : (
-              <ValidationRuleViewCell value={value} />
-            ),
-        },
-        {
-          title: "Hidden",
-          dataIndex: "isHidden",
-          width: 90,
-          render: (value: unknown) => <FlagTag value={value} />,
-        },
-        {
-          title: "Active",
-          dataIndex: "isActive",
-          width: 90,
-          render: (value: unknown) => <FlagTag value={value} />,
-        },
-        {
-          title: "Country",
-          key: "country",
-          width: 140,
-          render: (_: unknown, row: FieldCatalogRow) => countryLabel(row),
-        },
-        {
-          title: "Persist",
-          key: "persist",
-          width: 220,
-          render: (_: unknown, row: FieldCatalogRow) => persistPath(row),
-        },
-        { title: "FieldID", dataIndex: "fieldId", width: 90 },
-      ]}
+      scroll={{ x: "max-content" }}
+      size="small"
+      writesEnabled={employerId != null && writesEnabled === true}
     />
   );
 }
@@ -448,6 +518,45 @@ function filterCompareRows(
       (row.template?.displayText ?? "").toLowerCase().includes(query)
     );
   });
+}
+
+function entitySelectOptions(
+  fields: FieldCatalogRow[],
+): Array<{ label: string; value: string }> {
+  const seen = new Map<string, string>();
+  for (const name of KNOWN_ENTITIES) {
+    seen.set(name.toLowerCase(), name);
+  }
+  for (const row of fields) {
+    const entity = row.fieldEntity?.trim();
+    if (entity && !seen.has(entity.toLowerCase())) {
+      seen.set(entity.toLowerCase(), entity);
+    }
+  }
+  return [...seen.values()].map((value) => ({ label: value, value }));
+}
+
+function fieldTypeSelectOptions(
+  fieldTypes: FieldTypeOption[],
+  fields: FieldCatalogRow[],
+): Array<{ label: string; value: number }> {
+  const seen = new Map<number, { label: string; value: number }>();
+  for (const type of fieldTypes) {
+    seen.set(type.fieldTypeId, {
+      label: type.fieldType,
+      value: type.fieldTypeId,
+    });
+  }
+  for (const row of fields) {
+    if (row.fieldTypeId == null || seen.has(row.fieldTypeId)) {
+      continue;
+    }
+    seen.set(row.fieldTypeId, {
+      label: row.fieldType?.trim() || String(row.fieldTypeId),
+      value: row.fieldTypeId,
+    });
+  }
+  return [...seen.values()];
 }
 
 function entityFilterOptions(

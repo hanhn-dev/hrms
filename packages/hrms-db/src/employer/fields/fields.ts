@@ -114,6 +114,30 @@ export async function listFieldTemplate(db: HrmsDb): Promise<FieldCatalogRow[]> 
   return rows.map(mapFieldRow);
 }
 
+export type FieldTypeOption = {
+  fieldTypeId: number;
+  fieldType: string;
+};
+
+export async function listFieldTypes(db: HrmsDb): Promise<FieldTypeOption[]> {
+  const rows = await db.$queryRaw<
+    Array<{ FieldTypeID: number; FieldType: string | null }>
+  >`
+    SELECT
+        FieldType.FieldTypeID,
+        FieldType.FieldType
+    FROM dbo.TFieldType_LookUp AS FieldType
+    WHERE ISNULL(FieldType.IsActive, 0) = 1
+    ORDER BY FieldType.FieldType, FieldType.FieldTypeID
+  `;
+  return rows
+    .filter((row) => row.FieldType != null && row.FieldType.trim() !== "")
+    .map((row) => ({
+      fieldTypeId: row.FieldTypeID,
+      fieldType: row.FieldType?.trim() ?? "",
+    }));
+}
+
 function mapFieldRow(row: FieldQueryRow): FieldCatalogRow {
   return {
     fieldId: row.FieldID,

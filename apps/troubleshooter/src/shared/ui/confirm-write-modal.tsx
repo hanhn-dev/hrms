@@ -1,17 +1,19 @@
 "use client";
 
-import { App, Button, Modal, Table, Typography } from "antd";
+import { App, Button, Input, Modal, Space, Table, Typography } from "antd";
 import { useEffect, useRef, useState } from "react";
 
-type PreviewResult = {
+export type PreviewResult = {
   token: string;
   preview: Array<Record<string, unknown>>;
   note?: string;
+  sql?: string;
 };
 
-type CommitResult = {
+export type CommitResult = {
   after: Array<Record<string, unknown>>;
   note?: string;
+  sql?: string;
 };
 
 export function ConfirmWriteModal({
@@ -44,6 +46,8 @@ export function ConfirmWriteModal({
   const [token, setToken] = useState<string | null>(null);
   const [preview, setPreview] = useState<Array<Record<string, unknown>>>([]);
   const [note, setNote] = useState<string | null>(null);
+  const [sql, setSql] = useState<string | null>(null);
+  const [committed, setCommitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const previewActionRef = useRef(previewAction);
@@ -56,6 +60,8 @@ export function ConfirmWriteModal({
     setToken(null);
     setPreview([]);
     setNote(null);
+    setSql(null);
+    setCommitted(false);
     setError(null);
   }
 
@@ -71,14 +77,19 @@ export function ConfirmWriteModal({
     reset();
   }
 
+  function applyPreview(result: PreviewResult): void {
+    setToken(result.token);
+    setPreview(result.preview);
+    setNote(result.note ?? null);
+    setSql(result.sql ?? null);
+    setCommitted(false);
+  }
+
   async function runPreview(): Promise<void> {
     reset();
     setLoading(true);
     try {
-      const result = await previewActionRef.current();
-      setToken(result.token);
-      setPreview(result.preview);
-      setNote(result.note ?? null);
+      applyPreview(await previewActionRef.current());
     } catch (previewError) {
       setError(
         previewError instanceof Error
@@ -115,9 +126,7 @@ export function ConfirmWriteModal({
         if (cancelled) {
           return;
         }
-        setToken(result.token);
-        setPreview(result.preview);
-        setNote(result.note ?? null);
+        applyPreview(result);
       } catch (previewError) {
         if (cancelled) {
           return;
@@ -140,21 +149,41 @@ export function ConfirmWriteModal({
   }, [controlled, open]);
 
   async function commit(): Promise<void> {
-    if (!token || loading) {
+    if (!token || loading || committed) {
       return;
     }
     setLoading(true);
     try {
-      await commitAction(token);
+      const result = await commitAction(token);
+      const nextSql = result.sql ?? sql;
+      setNote(result.note ?? note);
+      setSql(nextSql);
       setLoading(false);
-      close();
       message.success(successMessage);
       onDone?.();
+      if (nextSql) {
+        setCommitted(true);
+        setToken(null);
+        return;
+      }
+      close();
     } catch (commitError) {
       setError(
         commitError instanceof Error ? commitError.message : "Commit failed.",
       );
       setLoading(false);
+    }
+  }
+
+  async function copySql(): Promise<void> {
+    if (!sql) {
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(sql);
+      message.success("SQL copied.");
+    } catch {
+      message.error("Could not copy SQL.");
     }
   }
 
@@ -184,6 +213,15 @@ export function ConfirmWriteModal({
       <Modal
         confirmLoading={loading}
         destroyOnHidden
+        footer={
+          committed
+            ? [
+                <Button key="close" type="primary" onClick={close}>
+                  Close
+                </Button>,
+              ]
+            : undefined
+        }
         okButtonProps={{ disabled: !token }}
         okText="Commit"
         open={open}
@@ -195,9 +233,13 @@ export function ConfirmWriteModal({
           }
           close();
         }}
-        onOk={() => {
-          void commit();
-        }}
+        onOk={
+          committed
+            ? undefined
+            : () => {
+                void commit();
+              }
+        }
       >
         {error ? (
           <Typography.Paragraph type="danger">{error}</Typography.Paragraph>
@@ -214,6 +256,26 @@ export function ConfirmWriteModal({
           pagination={false}
           size="small"
         />
+        {sql ? (
+          <div className="mt-4">
+            <Space className="mb-2 w-full justify-between">
+              <Typography.Text strong>
+                {committed
+                  ? "Replay SQL for other environments"
+                  : "Replay SQL (copy after commit, or now)"}
+              </Typography.Text>
+              <Button size="small" onClick={() => void copySql()}>
+                Copy
+              </Button>
+            </Space>
+            <Input.TextArea
+              readOnly
+              autoSize={{ minRows: 8, maxRows: 16 }}
+              className="font-mono text-xs"
+              value={sql}
+            />
+          </div>
+        ) : null}
       </Modal>
     </>
   );
