@@ -9,6 +9,10 @@ export const menuIdSchema = z.number().int().positive();
 export const tabIdSchema = z.number().int().nonnegative();
 export const fieldIdSchema = z.number().int().positive();
 export const uploadIdSchema = z.number().int().positive();
+export const workflowIdSchema = z.number().int().positive();
+export const changeRequestIdSchema = z.number().int().positive();
+export const modulePageIdSchema = z.number().int().positive();
+export const moduleIdSchema = z.number().int().positive();
 
 export function parseEmployerId(value: number): number {
   return employerIdSchema.parse(value);

@@ -14,6 +14,7 @@ In Server Components:
 - Do not use `Descriptions.Item` / `DescriptionsItem` children in Server Components. Pass a serializable `items` array to `Descriptions` instead.
 - Do not pass `render` (or other functions) in Ant Design `Table` `columns` from a Server Component. Put the table in a `"use client"` file that owns the column renderers.
 - Use Alert `title`, not deprecated `message`.
+- Helper / explainer copy (write-mode, how a page works, config caveats) goes in `PageHelp`, not a full-width `Alert` banner. `AppShell` already adds the write-mode note. Feature notes: `<PageHelp source="workflows" notes={[...]} />`. The header title shows an info icon that opens a modal. Errors and in-flow status stay as `Alert`s. Pages outside `AppShell` pass `notes` to `PageHeader`. Do not put server-only modules (`@/shared/db`, `next/headers`) on the `@/shared/ui` barrel — client files import that barrel.
 
 ## Layout
 
@@ -27,7 +28,7 @@ src/
     employee/
       access|leave|login|profile|search
     employer/
-      picker|settings|roles|fields|uploads
+      picker|settings|roles|fields|uploads|workflows
   shared/auth|db|ui|theme|employee
 ```
 
@@ -52,6 +53,8 @@ features/employer/roles/roles-screen.tsx
 - New area: add `features/<domain>/<capability>/` plus a thin `src/app/` route.
 
 Import with `@/` (`@/features/employee/access`, `@/shared/db`). No parent-relative `../`. Same-directory `./` is allowed.
+
+Display dates through `@/shared/format-date`. Date-only values are `DD-MMM-YYYY` (for example `25-Sep-2026`). Values with a clock time include the time: `DD-MMM-YYYY HH:mm:ss`. Do not render raw ISO strings.
 
 ## Auth and writes
 

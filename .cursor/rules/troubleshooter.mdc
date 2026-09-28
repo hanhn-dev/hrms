@@ -33,12 +33,15 @@ features/employer/roles/roles-screen.tsx
 
 Import with `@/`. No parent-relative `../`. Same-directory `./` is allowed.
 
+Display dates through `@/shared/format-date`. Date-only values are `DD-MMM-YYYY`. Values with a clock time use `DD-MMM-YYYY HH:mm:ss`. Do not render raw ISO strings.
+
 ## Server Components
 
 - Do not use dotted Ant Design subcomponents (`Typography.Title`). Import `Title` / `Text` / `Paragraph` from `@/shared/ui` or `antd/es/...`.
 - Pass a serializable `items` array to `Descriptions`. Do not use `Descriptions.Item` children.
 - Do not pass `render` (or other functions) in Table `columns` from a Server Component. Put the table in a `"use client"` file.
 - Use Alert `title`, not deprecated `message`.
+- Helper / explainer copy belongs in `PageHelp` (header info icon → modal), never a full-width banner. `AppShell` already adds the write-mode note. Feature notes: `<PageHelp source="feature-name" notes={[...]} />`. Errors and in-flow status stay as `Alert`s. Pages outside `AppShell` pass `notes` to `PageHeader`. Do not export server-only modules from the `@/shared/ui` barrel.
 
 ## Data and writes
 

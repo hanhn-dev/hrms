@@ -106,7 +106,7 @@ export async function EmployeeLoginScreen({
           size="small"
           scroll={{ x: "max-content" }}
           columns={[
-            { title: "When (IST)", dataIndex: "loginAttemptedAt" },
+            { title: "When", dataIndex: "loginAttemptedAt" },
             { title: "Device", dataIndex: "deviceId" },
             { title: "Reason", dataIndex: "reason" },
           ]}

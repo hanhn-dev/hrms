@@ -10,6 +10,7 @@ import { ValidationRuleViewCell } from "@/features/employer/fields/validation-ru
 import { StatusTag } from "@/features/employer/uploads/jobs-table";
 import { UploadEmployeeModal } from "@/features/employer/uploads/upload-employee-modal";
 import { uploadDetailHref } from "@/features/employer/uploads/uploads-source";
+import { formatDate } from "@/shared/format-date";
 import type {
   CreationFinalize,
   CreationStagingRow,
@@ -162,10 +163,10 @@ export function JobPanel({
             {
               key: "created",
               label: "Created",
-              children: `${upload.createdDate ?? "—"}${upload.createdByName ? ` · ${upload.createdByName}` : ""}`,
+              children: `${formatDate(upload.createdDate)}${upload.createdByName ? ` · ${upload.createdByName}` : ""}`,
             },
-            { key: "validated", label: "ValidatedOn", children: upload.validatedOn ?? "—" },
-            { key: "processed", label: "ProcessedOn", children: upload.processedOn ?? "—" },
+            { key: "validated", label: "ValidatedOn", children: formatDate(upload.validatedOn) },
+            { key: "processed", label: "ProcessedOn", children: formatDate(upload.processedOn) },
             { key: "valid", label: "Valid", children: upload.valid },
             { key: "invalid", label: "Invalid", children: upload.invalid },
             { key: "processedCount", label: "Processed", children: upload.processed },
@@ -411,7 +412,12 @@ export function JobPanel({
           columns={[
             { title: "Batch", dataIndex: "batchNumber", width: 90 },
             { title: "Status", dataIndex: "status", width: 110, render: dash },
-            { title: "Created", dataIndex: "createdDate", width: 180, render: dash },
+            {
+              title: "Created",
+              dataIndex: "createdDate",
+              width: 180,
+              render: (value: string | null) => formatDate(value),
+            },
             { title: "UploadSectionID", dataIndex: "uploadSectionId", width: 140 },
             {
               title: "Preview",
@@ -886,7 +892,12 @@ function ExecutionTable({
           "No execution-log ERROR rows. This database may not have TBulkUpdateProfile_ExecutionLog / TBulkCreationProfile_ExecutionLog.",
       }}
       columns={[
-        { title: "When", dataIndex: "createdDate", width: 180, render: dash },
+        {
+          title: "When",
+          dataIndex: "createdDate",
+          width: 180,
+          render: (value: string | null) => formatDate(value),
+        },
         { title: "Procedure", dataIndex: "procedureName", width: 240, ellipsis: true },
         { title: "Batch", dataIndex: "batchNumber", width: 80 },
         { title: "Section", dataIndex: "sectionId", width: 90 },

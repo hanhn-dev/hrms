@@ -158,15 +158,14 @@ export function ConfirmWriteModal({
     }
   }
 
-  const columns =
-    preview[0] != null
-      ? Object.keys(preview[0]).map((key) => ({
-          title: key,
-          dataIndex: key,
-          key,
-          render: (value: unknown) => String(value ?? ""),
-        }))
-      : [];
+  const columns = [
+    ...new Set(preview.flatMap((row) => Object.keys(row))),
+  ].map((key) => ({
+    title: key,
+    dataIndex: key,
+    key,
+    render: (value: unknown) => String(value ?? ""),
+  }));
 
   return (
     <>

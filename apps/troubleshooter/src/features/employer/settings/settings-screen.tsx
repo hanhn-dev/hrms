@@ -4,7 +4,6 @@ import {
   listLicensedModules,
 } from "@/features/employer/settings/queries";
 import { HintIcon } from "@/shared/ui";
-import { WritesBanner } from "@/shared/ui/writes-banner";
 
 export async function EmployerSettingsScreen({
   employerId,
@@ -22,7 +21,6 @@ export async function EmployerSettingsScreen({
 
   return (
     <>
-      <WritesBanner />
       <Card className="mb-4" title="Employer settings">
         <Descriptions
           bordered

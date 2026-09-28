@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import {
+  ApartmentOutlined,
   CloudUploadOutlined,
   FormOutlined,
   IdcardOutlined,
@@ -15,10 +16,13 @@ import { Breadcrumb, Button, Layout, Menu, Select, Tooltip, Typography } from "a
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { SiderUserMenu } from "@/shared/ui/sider-user-menu";
+import { PageHelpTrigger } from "@/shared/ui/page-help";
 import {
   ShellHeaderProvider,
   useShellEmployeeLabel,
+  useShellHelpNotes,
 } from "@/shared/ui/shell-header-context";
+import { writesHelpNote } from "@/shared/ui/writes-help-note";
 
 export type ShellEmployer = {
   employerId: number;
@@ -36,6 +40,9 @@ function moduleTitle(
   }
   if (pathname.startsWith(`${base}/fields`)) {
     return "Fields";
+  }
+  if (pathname.startsWith(`${base}/workflows`)) {
+    return "Workflows";
   }
   if (pathname.startsWith(`${base}/uploads`)) {
     return "Bulk Uploads";
@@ -113,11 +120,13 @@ export function AppShell({
     ? "roles"
     : pathname.startsWith(`${base}/fields`)
       ? "fields"
-      : pathname.startsWith(`${base}/uploads`)
-        ? "uploads"
-        : pathname.startsWith(`${base}/employees`)
-          ? "employees"
-          : "overview";
+      : pathname.startsWith(`${base}/workflows`)
+        ? "workflows"
+        : pathname.startsWith(`${base}/uploads`)
+          ? "uploads"
+          : pathname.startsWith(`${base}/employees`)
+            ? "employees"
+            : "overview";
   const title = moduleTitle(pathname, base, employers, employerId);
 
   return (
@@ -199,6 +208,12 @@ export function AppShell({
                 label: <Link href={`${base}/fields`}>Fields</Link>,
               },
               {
+                key: "workflows",
+                icon: <ApartmentOutlined />,
+                title: "Workflows",
+                label: <Link href={`${base}/workflows`}>Workflows</Link>,
+              },
+              {
                 key: "uploads",
                 icon: <CloudUploadOutlined />,
                 title: "Bulk Uploads",
@@ -215,7 +230,7 @@ export function AppShell({
           />
         </Layout.Sider>
         <Layout className="min-h-0 min-w-0 flex-1 overflow-hidden">
-          <ShellHeader title={title} />
+          <ShellHeader title={title} writesEnabled={writesEnabled} />
           <Layout.Content
             className="min-h-0 overflow-auto p-6"
             style={{ minHeight: 0, overflow: "auto" }}
@@ -228,11 +243,19 @@ export function AppShell({
   );
 }
 
-function ShellHeader({ title }: { title: string }): React.JSX.Element {
+function ShellHeader({
+  title,
+  writesEnabled,
+}: {
+  title: string;
+  writesEnabled: boolean;
+}): React.JSX.Element {
   const employeeLabel = useShellEmployeeLabel();
+  const helpNotes = useShellHelpNotes();
+  const notes = [writesHelpNote(writesEnabled), ...helpNotes];
 
   return (
-    <div className="flex h-14 shrink-0 items-center border-b border-slate-200 bg-white px-6">
+    <div className="flex h-14 shrink-0 items-center gap-1 border-b border-slate-200 bg-white px-6">
       {employeeLabel ? (
         <Breadcrumb
           className="text-base font-medium [&_.ant-breadcrumb-link]:text-inherit"
@@ -243,6 +266,7 @@ function ShellHeader({ title }: { title: string }): React.JSX.Element {
           {title}
         </Typography.Text>
       )}
+      <PageHelpTrigger notes={notes} title={title} />
     </div>
   );
 }

@@ -9,6 +9,7 @@ import {
   uploadsHref,
 } from "@/features/employer/uploads/uploads-source";
 import type { UploadListItem, UploadTypeKey } from "@/features/employer/uploads/queries";
+import { formatDate } from "@/shared/format-date";
 import { UPLOAD_TYPE_LABELS } from "@hrms/db/uploads";
 
 export function JobsTable({
@@ -149,8 +150,4 @@ export function StatusTag({
 
 function dash(value: string | null | undefined): string {
   return value?.trim() ? value : "—";
-}
-
-function formatDate(value: string): string {
-  return value.replace("T", " ").replace(/\.\d+Z$/, "Z");
 }
