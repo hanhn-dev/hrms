@@ -48,6 +48,9 @@ function moduleTitle(
     return "Bulk Uploads";
   }
   if (pathname.startsWith(`${base}/employees/`)) {
+    if (pathname.endsWith("/business-unit")) {
+      return "Business unit";
+    }
     if (pathname.endsWith("/leave")) {
       return "Leave";
     }
@@ -230,7 +233,11 @@ export function AppShell({
           />
         </Layout.Sider>
         <Layout className="min-h-0 min-w-0 flex-1 overflow-hidden">
-          <ShellHeader title={title} writesEnabled={writesEnabled} />
+          <ShellHeader
+            employerId={employerId}
+            title={title}
+            writesEnabled={writesEnabled}
+          />
           <Layout.Content
             className="min-h-0 overflow-auto p-6"
             style={{ minHeight: 0, overflow: "auto" }}
@@ -244,9 +251,11 @@ export function AppShell({
 }
 
 function ShellHeader({
+  employerId,
   title,
   writesEnabled,
 }: {
+  employerId: number;
   title: string;
   writesEnabled: boolean;
 }): React.JSX.Element {
@@ -259,7 +268,17 @@ function ShellHeader({
       {employeeLabel ? (
         <Breadcrumb
           className="text-base font-medium [&_.ant-breadcrumb-link]:text-inherit"
-          items={[{ title }, { title: employeeLabel }]}
+          items={[
+            {
+              title: (
+                <Link href={`/employers/${employerId}/employees`}>
+                  Employees
+                </Link>
+              ),
+            },
+            { title },
+            { title: employeeLabel },
+          ]}
         />
       ) : (
         <Typography.Text className="text-base font-medium">
@@ -280,13 +299,15 @@ export function Employee360Nav({
 }): React.JSX.Element {
   const pathname = usePathname();
   const base = `/employers/${employerId}/employees/${encodeURIComponent(employmentNumber)}`;
-  const selectedKey = pathname.endsWith("/leave")
-    ? "leave"
-    : pathname.endsWith("/access")
-      ? "access"
-      : pathname.endsWith("/login")
-        ? "login"
-        : "profile";
+  const selectedKey = pathname.endsWith("/business-unit")
+    ? "business-unit"
+    : pathname.endsWith("/leave")
+      ? "leave"
+      : pathname.endsWith("/access")
+        ? "access"
+        : pathname.endsWith("/login")
+          ? "login"
+          : "profile";
 
   return (
     <Menu
@@ -298,6 +319,11 @@ export function Employee360Nav({
           key: "profile",
           icon: <IdcardOutlined />,
           label: <Link href={base}>Profile</Link>,
+        },
+        {
+          key: "business-unit",
+          icon: <ApartmentOutlined />,
+          label: <Link href={`${base}/business-unit`}>Business unit</Link>,
         },
         {
           key: "login",

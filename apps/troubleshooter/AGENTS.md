@@ -26,7 +26,7 @@ src/
   features/
     auth/                           app-wide (operator login) — no domain
     employee/
-      access|leave|login|profile|search
+      access|business-unit|leave|login|profile|search
     employer/
       picker|settings|roles|fields|uploads|workflows
   shared/auth|db|ui|theme|employee

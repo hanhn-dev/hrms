@@ -8,6 +8,7 @@ Layout mirrors Troubleshooter `features/<domain>/<capability>/`. Domain folders 
 src/
   employee/
     access/          load, tree, writes
+    business-unit/
     leave/
     login/
     profile/

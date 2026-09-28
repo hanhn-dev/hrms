@@ -35,6 +35,11 @@ export {
   type ResolvedEmployee,
 } from "./shared/employee";
 export { searchEmployees, type EmployeeSearchHit } from "./employee/search";
+export {
+  listBusinessUnitEmployees,
+  type BusinessUnitEmployee,
+  type BusinessUnitEmployees,
+} from "./employee/business-unit";
 export { getEmployeeProfile, type EmployeeProfile } from "./employee/profile";
 export {
   getEmployeeLoginInfo,
