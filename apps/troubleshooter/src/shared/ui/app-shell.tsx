@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import {
+  CloudUploadOutlined,
   FormOutlined,
   IdcardOutlined,
   MenuFoldOutlined,
@@ -35,6 +36,9 @@ function moduleTitle(
   }
   if (pathname.startsWith(`${base}/fields`)) {
     return "Fields";
+  }
+  if (pathname.startsWith(`${base}/uploads`)) {
+    return "Bulk Uploads";
   }
   if (pathname.startsWith(`${base}/employees/`)) {
     if (pathname.endsWith("/leave")) {
@@ -109,9 +113,11 @@ export function AppShell({
     ? "roles"
     : pathname.startsWith(`${base}/fields`)
       ? "fields"
-      : pathname.startsWith(`${base}/employees`)
-        ? "employees"
-        : "overview";
+      : pathname.startsWith(`${base}/uploads`)
+        ? "uploads"
+        : pathname.startsWith(`${base}/employees`)
+          ? "employees"
+          : "overview";
   const title = moduleTitle(pathname, base, employers, employerId);
 
   return (
@@ -191,6 +197,12 @@ export function AppShell({
                 icon: <FormOutlined />,
                 title: "Fields",
                 label: <Link href={`${base}/fields`}>Fields</Link>,
+              },
+              {
+                key: "uploads",
+                icon: <CloudUploadOutlined />,
+                title: "Bulk Uploads",
+                label: <Link href={`${base}/uploads`}>Bulk Uploads</Link>,
               },
             ]}
           />

@@ -8,6 +8,7 @@ export const employmentNumberSchema = z.string().trim().min(1);
 export const menuIdSchema = z.number().int().positive();
 export const tabIdSchema = z.number().int().nonnegative();
 export const fieldIdSchema = z.number().int().positive();
+export const uploadIdSchema = z.number().int().positive();
 
 export function parseEmployerId(value: number): number {
   return employerIdSchema.parse(value);
@@ -15,4 +16,8 @@ export function parseEmployerId(value: number): number {
 
 export function parseEmploymentNumber(value: string): string {
   return employmentNumberSchema.parse(value);
+}
+
+export function parseUploadId(value: number): number {
+  return uploadIdSchema.parse(value);
 }

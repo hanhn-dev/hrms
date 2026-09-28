@@ -17,6 +17,7 @@ src/
     settings/
     fields/
     roles/
+    uploads/
   shared/
     employee/        resolve (used by several employee leaves)
     client.ts

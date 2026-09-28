@@ -27,7 +27,7 @@ src/
     employee/
       access|leave|login|profile|search
     employer/
-      picker|settings|roles
+      picker|settings|roles|fields|uploads
   shared/auth|db|ui|theme|employee
 ```
 
@@ -72,3 +72,13 @@ Resolve path: `EmploymentNumber` → `TEmployeeInfo` → `TEmployee` → `TUserE
 The Access tree composes `TMenuHierarchy` (left nav, as stored) plus `TTabDetails` under each `MenuId`. Tab masters resolve with `Employerid IN (tenant, 0)`.
 
 All queries are parameterized and server-only. Every query includes `Employerid`.
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+# This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->

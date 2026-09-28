@@ -15,6 +15,10 @@
     "./validation-rule": {
       "types": "./src/employer/fields/validation-rule.ts",
       "default": "./src/employer/fields/validation-rule.ts"
+    },
+    "./uploads": {
+      "types": "./src/employer/uploads/classify.ts",
+      "default": "./src/employer/uploads/classify.ts"
     }
   },
   "main": "./src/index.ts",
@@ -24,7 +28,7 @@
     "postinstall": "prisma generate",
     "build": "prisma generate && tsc",
     "lint": "prisma generate && tsc --noEmit",
-    "test": "node --experimental-strip-types --test src/employee/access/tree.test.ts src/employer/fields/fields.test.ts src/employer/fields/validation-rule.test.ts"
+    "test": "node --experimental-strip-types --test src/employee/access/tree.test.ts src/employer/fields/fields.test.ts src/employer/fields/validation-rule.test.ts src/employer/uploads/classify.test.ts"
   },
   "dependencies": {
     "@prisma/adapter-mssql": "^7.10.0",
