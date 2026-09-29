@@ -1,8 +1,9 @@
+@layer theme, base, antd, components, utilities;
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";
 @custom-variant dark (&:where(.dark, .dark *));
 
-/* Feature-article read mode: hide site chrome before React hydrates
+/* Guide-article read mode: hide site chrome before React hydrates
    (see READ_MODE_INIT_SCRIPT in app/layout.tsx). */
 html[data-read-mode] body > header {
   display: none;
@@ -14,6 +15,43 @@ html[data-read-mode] [data-feature-nav] {
 
 html[data-read-mode] [data-feature-toc] {
   display: none;
+}
+
+/* Operator console (antd) table helpers */
+@layer components {
+  .ant-table-wrapper {
+    max-width: 100%;
+  }
+
+  .ant-table-thead > tr > th {
+    white-space: nowrap;
+  }
+
+  .ant-table-measure-row,
+  .ant-table-measure-row td {
+    height: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    overflow: hidden !important;
+    font-size: 0 !important;
+    line-height: 0 !important;
+  }
+
+  .ant-table-tbody > tr.upload-row-invalid > td {
+    background: var(--ant-color-error-bg, #fff2f0);
+  }
+
+  .ant-table-tbody > tr.upload-row-invalid:hover > td {
+    background: var(--ant-color-error-bg-hover, #ffccc7);
+  }
+
+  .ant-table-tbody > tr.upload-row-expired > td {
+    background: var(--ant-color-warning-bg, #fffbe6);
+  }
+
+  .ant-table-tbody > tr.upload-row-expired:hover > td {
+    background: var(--ant-color-warning-bg-hover, #fff1b8);
+  }
 }
 
 /* transform-origin must be 0 0 to match the zoom-toward-cursor math in

@@ -1,9 +1,25 @@
+import { timingSafeEqual } from "node:crypto";
 import NextAuth, { type NextAuthResult } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import MicrosoftEntraID from "next-auth/providers/microsoft-entra-id";
 import type { Provider } from "next-auth/providers";
+import { z } from "zod";
 
 const ADMIN_ROLE = "Backstage.Admin";
+
+const opsCredentialsSchema = z.object({
+  username: z.string().min(1),
+  password: z.string().min(1),
+});
+
+function safeEqual(left: string, right: string): boolean {
+  const leftBuffer = Buffer.from(left);
+  const rightBuffer = Buffer.from(right);
+  if (leftBuffer.length !== rightBuffer.length) {
+    return false;
+  }
+  return timingSafeEqual(leftBuffer, rightBuffer);
+}
 
 export function isEntraConfigured(): boolean {
   return Boolean(
@@ -20,14 +36,29 @@ export function isDevAuthEnabled(): boolean {
   );
 }
 
-export function isAuthConfigured(): boolean {
-  return Boolean(process.env.AUTH_SECRET) && (isEntraConfigured() || isDevAuthEnabled());
+export function isOpsCredentialsConfigured(): boolean {
+  return Boolean(
+    process.env.AUTH_SECRET &&
+      process.env.TROUBLESHOOTER_ADMIN_USERNAME &&
+      process.env.TROUBLESHOOTER_ADMIN_PASSWORD,
+  );
 }
 
-export function getAuthProviders(): Array<"microsoft-entra-id" | "dev"> {
-  const providers: Array<"microsoft-entra-id" | "dev"> = [];
+/** Docs/wiki/proposals: Entra or local Backstage dev mock. */
+export function isAuthConfigured(): boolean {
+  return (
+    Boolean(process.env.AUTH_SECRET) &&
+    (isEntraConfigured() || isDevAuthEnabled())
+  );
+}
+
+export function getAuthProviders(): Array<
+  "microsoft-entra-id" | "dev" | "credentials"
+> {
+  const providers: Array<"microsoft-entra-id" | "dev" | "credentials"> = [];
   if (isEntraConfigured()) providers.push("microsoft-entra-id");
   if (isDevAuthEnabled()) providers.push("dev");
+  if (isOpsCredentialsConfigured()) providers.push("credentials");
   return providers;
 }
 
@@ -79,7 +110,43 @@ function buildProviders(): Provider[] {
           oid: "dev-oid",
           roles:
             process.env.BACKSTAGE_DEV_ADMIN === "1" ? [ADMIN_ROLE] : [],
+          isRootAdmin: false,
         }),
+      }),
+    );
+  }
+  if (isOpsCredentialsConfigured()) {
+    providers.push(
+      Credentials({
+        id: "credentials",
+        name: "Local root admin",
+        credentials: {
+          username: { label: "Username", type: "text" },
+          password: { label: "Password", type: "password" },
+        },
+        authorize: (credentials) => {
+          const parsed = opsCredentialsSchema.safeParse(credentials);
+          if (!parsed.success) {
+            return null;
+          }
+          const expectedUser = process.env.TROUBLESHOOTER_ADMIN_USERNAME ?? "";
+          const expectedPassword =
+            process.env.TROUBLESHOOTER_ADMIN_PASSWORD ?? "";
+          if (
+            !safeEqual(parsed.data.username, expectedUser) ||
+            !safeEqual(parsed.data.password, expectedPassword)
+          ) {
+            return null;
+          }
+          return {
+            id: "root-admin",
+            name: "Root Admin",
+            email: "root@localhost",
+            oid: "root-admin",
+            roles: [ADMIN_ROLE],
+            isRootAdmin: true,
+          };
+        },
       }),
     );
   }
@@ -95,6 +162,7 @@ const nextAuth: NextAuthResult = NextAuth({
       if (user) {
         token.oid = user.oid ?? user.id;
         token.roles = user.roles ?? [];
+        token.isRootAdmin = user.isRootAdmin === true;
       }
       if (account?.id_token) {
         const payload = decodeJwtPayload(account.id_token);
@@ -109,6 +177,7 @@ const nextAuth: NextAuthResult = NextAuth({
       session.user.oid = String(token.oid ?? token.sub ?? "");
       session.user.roles = roles;
       session.user.isAdmin = roles.includes(ADMIN_ROLE);
+      session.user.isRootAdmin = token.isRootAdmin === true;
       return session;
     },
   },

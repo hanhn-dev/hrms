@@ -2,16 +2,16 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 
 import path from "node:path";
 import { z } from "zod";
 import {
-  FEATURES_DIR,
+  GUIDES_DIR,
   PROPOSALS_DIR_NAME,
   featureFileExists,
   hashFeatureRaw,
   isFeatureArchiveSlug,
   parseFeatureFile,
   readFeatureRaw,
-} from "./features";
+} from "./guides";
 
-const PROPOSALS_DIR = path.join(FEATURES_DIR, PROPOSALS_DIR_NAME);
+const PROPOSALS_DIR = path.join(GUIDES_DIR, PROPOSALS_DIR_NAME);
 
 const IsoDateTimeSchema = z.string().datetime({ offset: true });
 

@@ -14,7 +14,7 @@ module.exports = {
           {
             regex: "^\\.\\./",
             message:
-              "Use the `@/` alias (e.g. `@/lib/features`) instead of parent-relative imports.",
+              "Use the `@/` alias (e.g. `@/lib/guides`) instead of parent-relative imports.",
           },
         ],
       },

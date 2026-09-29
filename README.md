@@ -22,7 +22,7 @@ This Turborepo uses [npm](https://www.npmjs.com/) as a packages manager. It incl
 ### Apps and Packages
 
 - `apps/backstage`: internal docs site (Next.js)
-- `apps/troubleshooter`: HRMS data/access operator console (Next.js)
+- `apps/backstage` `/features`: HRMS data/access operator console (merged into Backstage)
 - `apps/autofill`: Chrome MV3 form autofill extension (Vite)
 - `apps/az-mcp` / `apps/db-mcp`: MCP servers for Azure DevOps and database tooling
 - `@hrms/db`: shared SQL Server data access

@@ -30,17 +30,16 @@ npm run start --workspace=apps/db-mcp   # Run db-mcp directly after build
 
 | App | Framework | Port | Purpose |
 |-----|-----------|------|---------|
-| `apps/backstage` | Next.js 16 + React 19 | 5001 | Internal docs site — markdown on disk, Entra proposals |
+| `apps/backstage` | Next.js 16 + React 19 | 5001 | Docs (`/docs`, `/wiki`, `/docs/guides`) + operator console (`/features`) |
 | `apps/az-mcp` | Node MCP server | stdio | Azure DevOps integration for AI tooling |
 | `apps/db-mcp` | Node MCP server | stdio | Database schema inspection/mutation for AI tooling |
 | `apps/autofill` | Vite 8 + React 19 (MV3) | 9100 | Chrome extension — form scan / random fill / auto-type |
-| `apps/troubleshooter` | Next.js 16 + React 19 | 5100 | Internal HRMS data/access operator console |
 
 ### Packages
 
 | Package | Purpose |
 |---------|---------|
-| `packages/hrms-db` (`@hrms/db`) | Shared SQL Server data access for Troubleshooter |
+| `packages/hrms-db` (`@hrms/db`) | Shared SQL Server data access for Backstage `/features` |
 | `packages/integrations/azure-devops` (`@hrms/azure-devops`) | ADO client, work items, PRs, WIQL |
 | `packages/integrations/database-inspector` (`@hrms/database-inspector`) | Multi-engine DB catalog and DDL mutations |
 | `packages/eslint-config` | Shared ESLint configs (`library`, `next`, `react-internal`) |
@@ -58,14 +57,18 @@ Both follow the same pattern: environment config → `StdioServerTransport` → 
 
 ### backstage
 
-Internal documentation site. Full conventions live in `apps/backstage/AGENTS.md` (Claude: `apps/backstage/CLAUDE.md` includes that file).
+Internal documentation site and operator console. Full conventions live in `apps/backstage/AGENTS.md` (Claude: `apps/backstage/CLAUDE.md` includes that file).
 
 ```bash
 npm run backstage                          # from repo root
+npm run troubleshooter                     # alias → backstage
 npm run dev --workspace=apps/backstage     # same
 ```
 
-Import app modules with `@/` (`@/lib/features`). Do not use parent-relative `../` paths.
+Import app modules with `@/` (`@/lib/guides`, `@/features/employer/picker`). Do not use parent-relative `../` paths.
+
+- **Docs / wiki / guides**: Tailwind 4 + `@tailwindcss/typography`
+- **Operator `/features`**: `antd` + `@ant-design/icons` (former Troubleshooter app)
 
 ### autofill
 
@@ -79,20 +82,9 @@ npm run test --workspace=autofill
 
 Popup and content script talk to the service worker through `src/shared/messaging.ts`. Do not call `chrome.storage` outside `src/shared/storage.ts`. Components are `antd` only; icons are `@ant-design/icons` only. Tailwind utilities use the `autofill:` prefix.
 
-### troubleshooter
-
-Internal operator console for HRMS data and access diagnostics. Port **5100**. Full layout is in `apps/troubleshooter/AGENTS.md`.
-
-```bash
-npm run troubleshooter                              # from repo root
-npm run dev --workspace=apps/troubleshooter         # same
-```
-
-Import app modules with `@/` (`@/features/employer/picker`, `@/features/employee/access`). Do not use parent-relative `../` paths. Components are `antd` only; icons are `@ant-design/icons` only.
-
 ## Key conventions
 
-- **UI libraries**: Form Autofill and Troubleshooter use `antd` + `@ant-design/icons`. Backstage uses Tailwind 4 + `@tailwindcss/typography` (no component library package).
+- **UI libraries**: Form Autofill and Backstage `/features` use `antd` + `@ant-design/icons`. Backstage docs/wiki/guides use Tailwind 4 + `@tailwindcss/typography`.
 - **Caret dependency ranges**: All `dependencies` use `^` ranges, matching `devDependencies`.
 - **Zod at boundaries**: All external inputs — API responses, IndexedDB reads, file uploads, MCP tool arguments — are Zod-validated.
 - **postinstall**: `npm install` runs `patch-package`, `fix-next-postcss.mjs`, and `npm dedupe` automatically. Do not skip `postinstall` when troubleshooting Next.js PostCSS issues.

@@ -79,7 +79,7 @@ export function MermaidAwarePre({
   return <pre>{children}</pre>;
 }
 
-// Ids must line up with lib/features.ts's extractSections(), which slugifies
+// Ids must line up with lib/guides.ts's extractSections(), which slugifies
 // the same heading text (in the same document order) independently — create a
 // fresh instance per document render so ids don't leak across documents.
 export function createHeadingComponents(): {

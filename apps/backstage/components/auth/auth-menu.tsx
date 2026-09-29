@@ -52,7 +52,7 @@ export function AuthMenu({
       {isAdmin ? (
         <Link
           className="text-sm text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
-          href="/features/proposals"
+          href="/docs/guides/proposals"
         >
           Proposals
         </Link>

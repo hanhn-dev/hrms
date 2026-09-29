@@ -1,6 +1,6 @@
 ---
 name: document-feature
-description: Explore a module/feature across SourceCode and TDG HRMS DB, and write a developer-facing guide (workflow + request-journey + table-relationship mermaid diagrams) into apps/backstage/content/features/.
+description: Explore a module/feature across SourceCode and TDG HRMS DB, and write a developer-facing guide (workflow + request-journey + table-relationship mermaid diagrams) into apps/backstage/content/guides/.
 argument-hint: <module or feature name>
 ---
 
@@ -44,9 +44,9 @@ makes that chain visible, plus the three diagrams readers actually want
 (a workflow flowchart, a request journey from start to end, and a table ER
 diagram), and drop it where developers already browse docs.
 
-Output home: `apps/backstage/content/features/<menu-folder>/<slug>.md`, served at
-`/features/<menu-folder>/<slug>` by the Next.js app (`apps/backstage/lib/features.ts` +
-`apps/backstage/app/features/`). `<menu-folder>` is the kebab-case `menu` value
+Output home: `apps/backstage/content/guides/<menu-folder>/<slug>.md`, served at
+`/docs/guides/<menu-folder>/<slug>` by the Next.js app (`apps/backstage/lib/guides.ts` +
+`apps/backstage/app/docs/guides/`). `<menu-folder>` is the kebab-case `menu` value
 (`Leave & Attendance` → `leave-and-attendance`; login/session use `platform`).
 That app renders ```mermaid``` fences natively (see `lib/mermaid-diagram.tsx`) —
 write diagrams as standard mermaid code blocks, nothing app-specific needed.
@@ -123,22 +123,22 @@ table-relationship diagram.
      `"TransId (no FK declared)"`, rather than inventing a relationship).
 
 5. **Write the guide** to
-   `apps/backstage/content/features/<menu-folder>/<kebab-case-slug>.md`,
+   `apps/backstage/content/guides/<menu-folder>/<kebab-case-slug>.md`,
    creating `<menu-folder>` if needed. Derive the folder from the `menu`
    frontmatter value: lowercase, `&` → `and`, other non-alphanumerics → `-`
    (`Leave & Attendance` → `leave-and-attendance`, `Admin Configuration` →
    `admin-configuration`, `Platform` → `platform`).
    Before writing:
-   - If `content/features/_proposals/*.json` has `"status": "pending"` and
+   - If `content/guides/_proposals/*.json` has `"status": "pending"` and
      `"slug"` equal to `<menu-folder>/<kebab-case-slug>`, **stop**. An in-app
      proposal is awaiting Admin review; do not overwrite.
    - If the current file exists, read its `last-analyzed`. When that date is
      a valid `YYYY-MM-DD` **and is not today**, copy the file to
-     `content/features/<menu-folder>/<slug>/<last-analyzed>.md` unless that
+     `content/guides/<menu-folder>/<slug>/<last-analyzed>.md` unless that
      archive already exists (leave existing archives immutable). Same-day
      regen overwrites current only.
    Then overwrite the nested current path (and remove a leftover flat
-   `content/features/<slug>.md` if present). Call out in your final report
+   `content/guides/<slug>.md` if present). Call out in your final report
    the archive path written (if any) and what changed versus the previous
    version.
    Structure:

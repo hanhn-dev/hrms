@@ -40,4 +40,4 @@ yarn-error.log*
 .memsearch/memory/*.md
 
 # Backstage in-app feature proposals (unpublished)
-apps/backstage/content/features/_proposals/
+apps/backstage/content/guides/_proposals/

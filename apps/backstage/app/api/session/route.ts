@@ -12,9 +12,13 @@ export async function GET(): Promise<NextResponse> {
   }
 
   const session = await auth();
+  const providers = getAuthProviders().filter(
+    (provider): provider is "microsoft-entra-id" | "dev" =>
+      provider === "microsoft-entra-id" || provider === "dev",
+  );
   return NextResponse.json({
     configured: true,
-    providers: getAuthProviders(),
+    providers,
     user: session?.user
       ? {
           name: session.user.name ?? session.user.email ?? undefined,

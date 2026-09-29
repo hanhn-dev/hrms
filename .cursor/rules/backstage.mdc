@@ -1,29 +1,60 @@
 ---
-description: Conventions for the Backstage docs app (Next.js) and its markdown content.
+description: Conventions for the Backstage feature-based app (docs + operator console).
 globs: apps/backstage/**
 alwaysApply: false
 ---
 
 # Backstage
 
-Internal HRMS docs site (`apps/backstage`, port 5001). Next.js 16 App Router. Published guides are markdown on disk; Entra auth and feature proposals use Next.js route handlers. Full layout is in `apps/backstage/AGENTS.md`.
+Internal HRMS docs + operator console (`apps/backstage`, port 5001). Next.js 16 App Router. **Feature-based architecture** — interactive code lives under `features/<domain>/<capability>/`; `app/` is a thin route map. Full layout is in `apps/backstage/AGENTS.md`.
+
+## Architecture (follow for new work)
+
+```text
+app/           thin routes only
+features/      interactive capabilities — features/<domain>/<capability>/
+shared/        cross-cutting (auth, db, ui, theme, resolve)
+components/    docs chrome only (header, guides article UI, auth menu)
+lib/           markdown/content loaders (docs, wiki, guides)
+content/       on-disk markdown trees
+```
+
+```text
+# ❌ BAD
+features/employee-access/employee-access-screen.tsx
+features/employer-settings/
+lib/queries/getAccess.ts
+features/roles/
+
+# ✅ GOOD
+features/employee/access/access-screen.tsx
+features/employer/settings/settings-screen.tsx
+features/employer/roles/roles-screen.tsx
+```
+
+- Leaf barrel `index.ts` per capability. No domain-level barrel. Import `@/features/employee/access`.
+- App-wide login: `features/auth/`. Cross-cutting resolve: `shared/employee/`.
+- New interactive area: add `features/<domain>/<capability>/` + thin `app/` route. Do not dump screens into `components/` or `lib/`.
+- Import with `@/`. No parent-relative `../`. Same-directory `./` is allowed.
+- **Docs/wiki/guides** (Tailwind + `prose`, markdown on disk) vs **operator `/features`** (antd 6 + `@hrms/db`) — do not mix stacks casually.
+- Product guide markdown ≠ Features code: guides are `content/guides` → `/docs/guides`; ops capabilities are `features/` → `/features`.
 
 ## Content trees
 
 | Folder | Served at | Edit how |
 |---|---|---|
-| `content/features/<menu-folder>/<slug>.md` | `/features/<menu-folder>/<slug>` | `/document-feature` (freeze previous date first) or Admin-approved in-app proposal |
-| `content/features/<menu-folder>/<slug>/YYYY-MM-DD.md` | `/features/<menu-folder>/<slug>/YYYY-MM-DD` | Immutable snapshot — do not edit |
-| `content/features/_proposals/` | Admin queue only | In-app Edit; gitignored |
+| `content/guides/<menu-folder>/<slug>.md` | `/docs/guides/<menu-folder>/<slug>` | `/document-feature` (freeze previous date first) or Admin-approved in-app proposal |
+| `content/guides/<menu-folder>/<slug>/YYYY-MM-DD.md` | `/docs/guides/<menu-folder>/<slug>/YYYY-MM-DD` | Immutable snapshot — do not edit |
+| `content/guides/_proposals/` | Admin queue only | In-app Edit; gitignored |
 | `content/llm-wiki/**` | `/wiki/<path>` | `/sync-llm-wiki` (mirror). `/track-db-updates` may patch pages contradicted by this run's SQL delta |
 | `content/wiki/database-changelog.md` | `/docs/database-changelog` | `/track-db-updates` only |
 | `content/wiki/*.md` | `/docs/<slug>` | Hand-authored; wiki-sync must not touch |
 
-Adding a `.md` file is enough. Slugs come from `readdirSync` in `lib/docs.ts`, `lib/llm-wiki.ts`, `lib/features.ts`. Do not hardcode route lists.
+Adding a `.md` file is enough. Slugs come from `readdirSync` in `lib/docs.ts`, `lib/llm-wiki.ts`, `lib/guides.ts`. Do not hardcode route lists.
 
 ## Feature guide shape
 
-YAML may contain `confidence`, `last-analyzed`, `menu`, and optional `submenu`. `menu`/`submenu` match the HRMS left-nav; use `menu: Platform` when the feature is not in the sidebar. On disk, put the file in `content/features/<menu-folder>/` (`Leave & Attendance` → `leave-and-attendance`). `last-analyzed` is parsed (CRLF-safe) and shown under the H1 as `Last analyzed: YYYY-MM-DD`. Put sources in a trailing `## Reference` section, not in frontmatter — leftover `---` renders as a horizontal rule.
+YAML may contain `confidence`, `last-analyzed`, `menu`, and optional `submenu`. `menu`/`submenu` match the HRMS left-nav; use `menu: Platform` when the feature is not in the sidebar. On disk, put the file in `content/guides/<menu-folder>/` (`Leave & Attendance` → `leave-and-attendance`). `last-analyzed` is parsed (CRLF-safe) and shown under the H1 as `Last analyzed: YYYY-MM-DD`. Put sources in a trailing `## Reference` section, not in frontmatter — leftover `---` renders as a horizontal rule.
 
 Section order: Overview → Workflow (mermaid flowchart) → Request journey (mermaid `sequenceDiagram`, request start → end) → Entry points → call chain → API endpoints → procs/tables → Table relationships (mermaid `erDiagram`) → Known gaps → Reference.
 
@@ -31,16 +62,16 @@ Write standard ```` ```mermaid ```` fences. `MermaidAwarePre` renders them; no a
 
 ## Code
 
-- Tailwind 4 + `prose`.
-- Server Components by default; `"use client"` only for theme, nav, TOC, mermaid zoom, version select, editor, and proposal review.
+- Docs/wiki: Tailwind 4 + `prose`. Operator `/features`: antd 6.
+- Server Components by default; `"use client"` only for theme, nav, TOC, mermaid zoom, version select, editor, proposal review, and operator interactivity.
 - `params` is a `Promise` — `await params`. `generateStaticParams` on every dynamic page.
 - Explicit `): React.JSX.Element`. Fresh `createSlugger()` per document (TOC ids must match heading ids).
-- Import with `@/` (`@/lib/features`, `@/components/...`). No parent-relative `../`. Same-directory `./` is allowed.
+- Import with `@/` (`@/lib/guides`, `@/components/...`, `@/features/...`). No parent-relative `../`. Same-directory `./` is allowed.
 
 ```yaml
 # ❌ BAD
 sources:
-  - lib/features.ts
+  - lib/guides.ts
 # ✅ GOOD
 ---
 confidence: high

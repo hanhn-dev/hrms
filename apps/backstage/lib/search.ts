@@ -1,5 +1,5 @@
 import { getAllWikiDocs } from "./docs";
-import { getCurrentFeatureDocs } from "./features";
+import { getCurrentFeatureDocs } from "./guides";
 import { getAllWikiPages, prettifyWikiSegment } from "./llm-wiki";
 import type { SearchHit } from "./search-types";
 
@@ -53,8 +53,8 @@ function searchableBody(content: string): string {
 
 function buildIndex(): SearchRecord[] {
   const features = getCurrentFeatureDocs().map((doc) => ({
-    href: `/features/${doc.slug}`,
-    crumbs: uniqueCrumbs(["Features", doc.menu, doc.submenu ?? "", doc.title]),
+    href: `/docs/guides/${doc.slug}`,
+    crumbs: uniqueCrumbs(["Docs", "Guides", doc.menu, doc.submenu ?? "", doc.title]),
     title: doc.title,
     headings: extractHeadings(doc.content),
     body: searchableBody(doc.content),
