@@ -1,11 +1,17 @@
 "use client";
 
-import { Table } from "antd";
+import { Table, Typography } from "antd";
+import Link from "next/link";
+import { isCrudSectionId } from "@hrms/db/sections-registry";
 import type { EmployeeSectionCount } from "@/features/employee/sections/queries";
 
 export function SectionsPanel({
+  employerId,
+  employmentNumber,
   rows,
 }: {
+  employerId: number;
+  employmentNumber: string;
   rows: EmployeeSectionCount[];
 }): React.JSX.Element {
   return (
@@ -20,6 +26,23 @@ export function SectionsPanel({
           dataIndex: "label",
           sorter: (a, b) => a.label.localeCompare(b.label),
           defaultSortOrder: "ascend",
+          render: (label: string, row) => {
+            if (!isCrudSectionId(row.sectionId)) {
+              return (
+                <Typography.Text>
+                  {label}{" "}
+                  <Typography.Text type="secondary">(counts only)</Typography.Text>
+                </Typography.Text>
+              );
+            }
+            return (
+              <Link
+                href={`/employers/${employerId}/employees/${encodeURIComponent(employmentNumber)}/sections/${row.sectionId}`}
+              >
+                {label}
+              </Link>
+            );
+          },
         },
         {
           title: "Records",

@@ -1,6 +1,13 @@
+import { Prisma } from "../../generated/prisma/client";
 import type { HrmsDb } from "../../shared/client";
 import { parseEmployerId } from "../../shared/ids";
 import { asBool } from "./helpers";
+
+export type WorkflowGroupMember = {
+  employeeId: number;
+  name: string;
+  employmentNumber: string | null;
+};
 
 export type WorkflowGroupRow = {
   roleId: number;
@@ -10,6 +17,7 @@ export type WorkflowGroupRow = {
   isDefault: boolean;
   isActive: boolean;
   memberCount: number;
+  members: WorkflowGroupMember[];
   locationCount: number;
   businessUnitCount: number;
   referencedByWorkflowCount: number;
@@ -23,10 +31,16 @@ type GroupRow = {
   Employerid: number | null;
   IsDefault: string | boolean | number | null;
   isactive: string | boolean | number | null;
-  MemberCount: number;
   LocationCount: number;
   BusinessUnitCount: number;
   ReferencedByWorkflowCount: number;
+};
+
+type MemberRow = {
+  Roleid: number;
+  Employeeid: number;
+  FullName: string | null;
+  EmploymentNumber: string | null;
 };
 
 export async function listWorkflowGroups(
@@ -42,11 +56,6 @@ export async function listWorkflowGroups(
         RoleGroup.Employerid,
         RoleGroup.IsDefault,
         RoleGroup.isactive,
-        (
-            SELECT COUNT(*)
-            FROM dbo.tRoleEmployeeMapping AS Mapping
-            WHERE Mapping.Roleid = RoleGroup.RoleId
-        ) AS MemberCount,
         (
             SELECT COUNT(*)
             FROM dbo.tRoleLocationMapping AS Mapping
@@ -90,7 +99,6 @@ export async function listWorkflowGroups(
     if (unique.has(row.RoleId)) {
       continue;
     }
-    const memberCount = Number(row.MemberCount);
     const referencedByWorkflowCount = Number(row.ReferencedByWorkflowCount);
     unique.set(row.RoleId, {
       roleId: row.RoleId,
@@ -99,13 +107,49 @@ export async function listWorkflowGroups(
       employerId: row.Employerid,
       isDefault: asBool(row.IsDefault) || row.IsDefault === "Y",
       isActive: row.isactive === "Y" || asBool(row.isactive),
-      memberCount,
+      memberCount: 0,
+      members: [],
       locationCount: Number(row.LocationCount),
       businessUnitCount: Number(row.BusinessUnitCount),
       referencedByWorkflowCount,
-      isEmptyReferenced: referencedByWorkflowCount > 0 && memberCount === 0,
+      isEmptyReferenced: referencedByWorkflowCount > 0,
     });
   }
+
+  const roleIds = [...unique.keys()];
+  if (roleIds.length > 0) {
+    const memberRows = await db.$queryRaw<MemberRow[]>`
+      SELECT
+          Mapping.Roleid,
+          Mapping.Employeeid,
+          LTRIM(RTRIM(CONCAT_WS(' ', Employee.FName, Employee.MiddleName, Employee.LName))) AS FullName,
+          EmployeeInfo.EmploymentNumber
+      FROM dbo.tRoleEmployeeMapping AS Mapping
+      INNER JOIN dbo.TEmployee AS Employee
+          ON Employee.EmployeeId = Mapping.Employeeid
+      LEFT JOIN dbo.TEmployeeInfo AS EmployeeInfo
+          ON EmployeeInfo.EmployeeId = Employee.EmployeeId
+      WHERE Mapping.Roleid IN (${Prisma.join(roleIds)})
+      ORDER BY FullName, Mapping.Employeeid
+    `;
+    for (const member of memberRows) {
+      const group = unique.get(member.Roleid);
+      if (!group) {
+        continue;
+      }
+      group.members.push({
+        employeeId: member.Employeeid,
+        name: member.FullName?.trim() || `Employee ${member.Employeeid}`,
+        employmentNumber: member.EmploymentNumber,
+      });
+    }
+  }
+
+  for (const group of unique.values()) {
+    group.memberCount = group.members.length;
+    group.isEmptyReferenced = group.referencedByWorkflowCount > 0 && group.memberCount === 0;
+  }
+
   return [...unique.values()];
 }
 

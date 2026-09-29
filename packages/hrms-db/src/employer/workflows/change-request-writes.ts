@@ -11,8 +11,11 @@ import {
   PK_FALLBACK,
   assertSqlIdent,
   buildApplyPlan,
+  forceShowOneOnInsert,
   groupApplyWrites,
   isApplyTable,
+  omitIsDeleteOnInsert,
+  type ApplyColumnTypes,
   type ApplyTableName,
   type ApplyWrite,
 } from "./change-request-apply";
@@ -34,6 +37,7 @@ type ColumnRow = {
   TableName: string;
   ColumnName: string;
   IsIdentity: boolean | number;
+  TypeName: string;
 };
 
 export type ChangeRequestDecision = "Approved" | "Rejected";
@@ -121,12 +125,15 @@ async function loadColumns(db: HrmsDb | Tx, tables: string[]): Promise<ColumnRow
     SELECT
         Tables.name AS TableName,
         Columns.name AS ColumnName,
-        Columns.is_identity AS IsIdentity
+        Columns.is_identity AS IsIdentity,
+        Types.name AS TypeName
     FROM sys.columns AS Columns
     INNER JOIN sys.tables AS Tables
         ON Tables.object_id = Columns.object_id
     INNER JOIN sys.schemas AS Schemas
         ON Schemas.schema_id = Tables.schema_id
+    INNER JOIN sys.types AS Types
+        ON Types.user_type_id = Columns.user_type_id
     WHERE Schemas.name = 'dbo'
         AND Tables.name IN (${Prisma.join(allowed.map((table) => Prisma.sql`${table}`))})
   `;
@@ -137,6 +144,16 @@ function columnsByTable(rows: ColumnRow[]): Map<string, Set<string>> {
   for (const row of rows) {
     const current = map.get(row.TableName) ?? new Set<string>();
     current.add(row.ColumnName);
+    map.set(row.TableName, current);
+  }
+  return map;
+}
+
+function typesByTable(rows: ColumnRow[]): Map<string, ApplyColumnTypes> {
+  const map = new Map<string, ApplyColumnTypes>();
+  for (const row of rows) {
+    const current = map.get(row.TableName) ?? new Map<string, string>();
+    current.set(row.ColumnName, row.TypeName);
     map.set(row.TableName, current);
   }
   return map;
@@ -315,6 +332,7 @@ async function applyInserts(
   subjectEmployeeId: number,
   approverEmployeeId: number,
   changeRequestId: number,
+  employerId: number,
   notes: string[],
 ): Promise<void> {
   for (const [table, group] of writes) {
@@ -331,7 +349,8 @@ async function applyInserts(
       values.push(Prisma.sql`${subjectEmployeeId}`);
     }
     const deleteCol = pickColumn(columns, ["IsDelete", "IsDeleted"]);
-    if (deleteCol) {
+    // Bank Details GET requires IsDelete IS NULL (Core approve inserts NULL, not 0).
+    if (deleteCol && !omitIsDeleteOnInsert(table)) {
       names.push(deleteCol);
       values.push(Prisma.sql`${0}`);
     }
@@ -371,6 +390,14 @@ async function applyInserts(
       values.push(Prisma.sql`GETUTCDATE()`);
     }
     const used = new Set(names);
+    if (forceShowOneOnInsert(table)) {
+      const showCol = pickColumn(columns, ["Show"]);
+      if (showCol && !used.has(showCol)) {
+        used.add(showCol);
+        names.push(showCol);
+        values.push(Prisma.sql`${1}`);
+      }
+    }
     for (const write of group) {
       if (used.has(write.column)) {
         continue;
@@ -392,10 +419,72 @@ async function applyInserts(
       UPDATE dbo.TMyDetailsChangeRequestDetails
       SET CustDetailId = ${String(newId)}
       WHERE ChangeRequestId = ${changeRequestId}
-          AND CustDetailId = ${String(changeRequestId)}
+          AND TableName = ${table}
+          AND ISNULL(IsNew, 0) = 1
+          AND (
+              CustDetailId = ${String(changeRequestId)}
+              OR CustDetailId IS NULL
+          )
     `;
+    if (table === "TEmployeeBankDetails") {
+      await resolveBankBranchId(tx, newId, group, employerId, notes);
+    }
     await snapshotHistory(tx, table, pk, newId, notes);
   }
+}
+
+/**
+ * Mirrors Sp_ApproveRejectMyDetailsReview: map submitted BranchCode (+ BankName) to
+ * TBankBranchDetails.ID on the new TEmployeeBankDetails row.
+ */
+async function resolveBankBranchId(
+  tx: Tx,
+  bankDetailId: number,
+  group: ApplyWrite[],
+  employerId: number,
+  notes: string[],
+): Promise<void> {
+  const branchCode = group
+    .find((write) => write.column.toLowerCase() === "branchcode")
+    ?.value.trim();
+  if (!branchCode) {
+    notes.push("Bank insert has no BranchCode; skipped branch ID resolve.");
+    return;
+  }
+  const bankName = group
+    .find((write) => write.column.toLowerCase() === "bankname")
+    ?.value.trim();
+  const matched = bankName
+    ? await tx.$queryRaw<Array<{ Id: number }>>`
+        SELECT TOP 1 Branch.ID AS Id
+        FROM dbo.TBankBranchDetails AS Branch
+        INNER JOIN dbo.Tbank AS Bank
+            ON Bank.BankID = Branch.BankID
+            AND Bank.Employerid = Branch.Employerid
+        WHERE UPPER(LTRIM(RTRIM(Branch.BankIdentifier))) = UPPER(LTRIM(RTRIM(${branchCode})))
+            AND Branch.Employerid = ${employerId}
+            AND Branch.IsActive = 'Y'
+            AND UPPER(LTRIM(RTRIM(Bank.BankName))) = UPPER(LTRIM(RTRIM(${bankName})))
+      `
+    : await tx.$queryRaw<Array<{ Id: number }>>`
+        SELECT TOP 1 Branch.ID AS Id
+        FROM dbo.TBankBranchDetails AS Branch
+        WHERE UPPER(LTRIM(RTRIM(Branch.BankIdentifier))) = UPPER(LTRIM(RTRIM(${branchCode})))
+            AND Branch.Employerid = ${employerId}
+            AND Branch.IsActive = 'Y'
+      `;
+  const branchId = matched[0]?.Id;
+  if (branchId == null) {
+    notes.push(
+      `No TBankBranchDetails match for BranchCode=${branchCode}; left TEmployeeBankDetails.ID null.`,
+    );
+    return;
+  }
+  await tx.$executeRaw`
+    UPDATE dbo.TEmployeeBankDetails
+    SET ID = ${branchId}
+    WHERE BankDetailId = ${bankDetailId}
+  `;
 }
 
 async function closeRequest(
@@ -494,6 +583,7 @@ export async function getChangeRequestWritePreview(
       childRowId: row.ChildRowId,
     })),
     columnsByTable(columnRows),
+    typesByTable(columnRows),
   );
   for (const write of writes) {
     preview.push({
@@ -542,6 +632,7 @@ export async function decideChangeRequest(
           childRowId: row.ChildRowId,
         })),
         columnSets,
+        typesByTable(columnRows),
       );
       const grouped = groupApplyWrites(writes);
       const parentUpdates = new Map(
@@ -573,6 +664,7 @@ export async function decideChangeRequest(
         header.EmployeeId,
         parsed.approverEmployeeId,
         parsed.changeRequestId,
+        parsed.employerId,
         notes,
       );
       await applyUpdates(
@@ -591,6 +683,7 @@ export async function decideChangeRequest(
         header.EmployeeId,
         parsed.approverEmployeeId,
         parsed.changeRequestId,
+        parsed.employerId,
         notes,
       );
     }

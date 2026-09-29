@@ -119,18 +119,20 @@ export function WorkflowPanel({
       options.set(role.name, { value: role.name, label: role.name });
     }
     for (const group of groups) {
+      const label = formatGroupActorLabel(group);
+      const empty = group.members.length === 0;
       if (options.has(group.roleName)) {
         const current = options.get(group.roleName);
         if (current) {
-          current.empty = current.empty || group.memberCount === 0;
-          current.label = `${group.roleName} (${group.memberCount} members)`;
+          current.empty = current.empty || empty;
+          current.label = label;
         }
         continue;
       }
       options.set(group.roleName, {
         value: group.roleName,
-        label: `${group.roleName} (${group.memberCount} members)`,
-        empty: group.memberCount === 0,
+        label,
+        empty,
       });
     }
     return [...options.values()];
@@ -564,6 +566,22 @@ function ActorSelect({
       ) : null}
     </label>
   );
+}
+
+function formatGroupActorLabel(group: WorkflowGroupRow): string {
+  if (group.members.length === 0) {
+    return `${group.roleName} (no members)`;
+  }
+  const names = group.members.map(formatGroupMemberLabel).join(", ");
+  return `${group.roleName} — ${names}`;
+}
+
+function formatGroupMemberLabel(member: {
+  name: string;
+  employmentNumber: string | null;
+}): string {
+  const employmentNumber = member.employmentNumber?.trim();
+  return employmentNumber ? `${member.name} (${employmentNumber})` : member.name;
 }
 
 function SwitchRow({

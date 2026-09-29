@@ -108,3 +108,17 @@ SELECT @sql
 INSERT INTO TEmployeeFamilyDetails ( [EmployeeID],[IsDelete],[CreatedDate],[CreatedBy],[UpdatedBy],[CreatedDateUtc],[UpdatedDateUtc], [Address], [Address], [DateOfBirth], [DateOfBirth], [Dependant], [Dependant], [Insured], [Insured], [Minor], [Minor], [Name], [Name], [Relation], [Relation], [AadharNumber], [AadharNumber]) VALUES (1431,0,GETDATE(),1431,1431,GETUTCDATE(),GETUTCDATE(),'70 Acme Street, Chennai','27-Sep-2018',1,0,1,'Hanh Nguyen','33288','27-Sep-2018');                                      set @id=scope_identity();                     
 
 sp_helptext 'Sp_ApproveRejectMyDetailsReview'
+
+UPDATE dbo.TEmployeeBankDetails
+SET Show = 1, IsDelete = NULL
+WHERE BankDetailId = 11370 AND EmployeeId = 1434;
+
+-- optional: resolve branch ID like Core does
+UPDATE TEBD
+SET TEBD.ID = BBD.ID
+FROM dbo.TEmployeeBankDetails TEBD
+JOIN dbo.TBankBranchDetails BBD
+  ON UPPER(LTRIM(RTRIM(BBD.BankIdentifier))) = UPPER(LTRIM(RTRIM(TEBD.BranchCode)))
+ AND BBD.Employerid = 10
+ AND BBD.IsActive = 'Y'
+WHERE TEBD.BankDetailId = 11370;

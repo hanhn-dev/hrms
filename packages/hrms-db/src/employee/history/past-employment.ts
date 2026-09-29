@@ -462,7 +462,7 @@ export async function loadEmploymentHistory(
       timeStamp,
       editorEmployeeId: asNumber(curr.ModifiedBy),
       change: {
-        field: INFO_LABELS.ReportsToName,
+        field: INFO_LABELS.ReportsToName ?? "Reports To",
         oldValue: displayOrNotSet(oldValue),
         newValue: displayOrNotSet(newValue),
         changeType: !prev || oldValue === "" ? "ADDED" : newValue === "" ? "REMOVED" : "MODIFIED",

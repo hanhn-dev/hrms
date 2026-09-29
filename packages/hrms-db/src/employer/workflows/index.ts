@@ -14,6 +14,7 @@ export {
   listWorkflowBusinessUnits,
   listWorkflowGroups,
   listWorkflowLocations,
+  type WorkflowGroupMember,
   type WorkflowGroupRow,
   type WorkflowScopeOption,
 } from "./groups";
@@ -40,7 +41,10 @@ export {
   CHANGE_REQUEST_STATUSES,
   buildApplyPlan,
   changeRequestStatus,
+  coerceBitApplyValue,
+  forceShowOneOnInsert,
   isApplyTable,
+  omitIsDeleteOnInsert,
   pendingApproverFlag,
   resolveApplyValue,
   type ChangeRequestStatus,

@@ -31,7 +31,7 @@ Write standard ```` ```mermaid ```` fences. `MermaidAwarePre` renders them; no a
 
 ## Code
 
-- Tailwind 4 + `prose`; **not** `@hrms/ui`.
+- Tailwind 4 + `prose`.
 - Server Components by default; `"use client"` only for theme, nav, TOC, mermaid zoom, version select, editor, and proposal review.
 - `params` is a `Promise` — `await params`. `generateStaticParams` on every dynamic page.
 - Explicit `): React.JSX.Element`. Fresh `createSlugger()` per document (TOC ids must match heading ids).

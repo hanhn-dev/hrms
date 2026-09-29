@@ -6,7 +6,8 @@
     "dev": "next dev --port 5100",
     "build": "next build",
     "start": "next start --port 5100",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "test": "node --experimental-strip-types --test src/features/employee/sections/validation/runner.test.ts"
   },
   "dependencies": {
     "@ant-design/cssinjs": "^2.1.2",

@@ -69,7 +69,13 @@ export function WorkflowsPanel({
   );
   const visibleGroups = useMemo(
     () =>
-      groups.filter((row) => matchesQuery(query, [row.roleName, row.roleDescription])),
+      groups.filter((row) =>
+        matchesQuery(query, [
+          row.roleName,
+          row.roleDescription,
+          ...row.members.flatMap((member) => [member.name, member.employmentNumber]),
+        ]),
+      ),
     [groups, query],
   );
 
@@ -217,7 +223,13 @@ export function WorkflowsPanel({
                     dataIndex: "isDefault",
                     render: (value: boolean) => (value ? "Yes" : ""),
                   },
-                  { title: "Members", dataIndex: "memberCount", width: 90 },
+                  {
+                    title: "Members",
+                    render: (_: unknown, row: WorkflowGroupRow) =>
+                      row.members.length === 0
+                        ? "—"
+                        : row.members.map(formatGroupMemberLabel).join(", "),
+                  },
                   { title: "Locations", dataIndex: "locationCount", width: 100 },
                   { title: "Business units", dataIndex: "businessUnitCount", width: 130 },
                   {
@@ -260,4 +272,12 @@ function matchesQuery(query: string, values: Array<string | null | undefined>): 
     return true;
   }
   return values.some((value) => value?.toLowerCase().includes(query));
+}
+
+function formatGroupMemberLabel(member: {
+  name: string;
+  employmentNumber: string | null;
+}): string {
+  const employmentNumber = member.employmentNumber?.trim();
+  return employmentNumber ? `${member.name} (${employmentNumber})` : member.name;
 }

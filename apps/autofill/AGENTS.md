@@ -1,6 +1,6 @@
 # Form Autofill
 
-Chrome Manifest V3 extension in the HRMS Turborepo (`apps/autofill`). It scans form fields on allowed pages, fills random or scenario values, and keystroke-types so QA can exercise validation UI. It is **not** classic My Details or the Core API. UI is Ant Design only — do not import `@hrms/ui`. User-facing usage is in `README.md`; this file is the map for changing the code.
+Chrome Manifest V3 extension in the HRMS Turborepo (`apps/autofill`). It scans form fields on allowed pages, fills random or scenario values, and keystroke-types so QA can exercise validation UI. It is **not** classic My Details or the Core API. UI is Ant Design only. User-facing usage is in `README.md`; this file is the map for changing the code.
 
 ```bash
 npm run dev --workspace=autofill      # Vite + CRX HMR on port 9100
@@ -194,13 +194,9 @@ Chrome allows **four** `suggested_key` entries. Those four are Pick & scan (`P`)
 
 ## UI
 
-Do **not** use `@hrms/ui` (or `@tdg/component-library`) in this app. Components come from `antd`. Icons come from `@ant-design/icons`. Nothing else.
+Components come from `antd`. Icons come from `@ant-design/icons`. Nothing else.
 
 ```tsx
-// ❌ BAD
-import { Button } from "@hrms/ui";
-
-// ✅ GOOD
 import { Button, Space, Tooltip } from "antd";
 import { AimOutlined, FormOutlined } from "@ant-design/icons";
 ```

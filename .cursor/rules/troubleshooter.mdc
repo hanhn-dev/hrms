@@ -8,7 +8,7 @@ alwaysApply: false
 
 Internal HRMS data/access operator console (`apps/troubleshooter`, port 5100). Next.js 16 App Router + React 19 + Ant Design 6 + Tailwind 4. Full layout is in `apps/troubleshooter/AGENTS.md`.
 
-Do **not** import `@hrms/ui`. Components are `antd` only. Icons are `@ant-design/icons` only.
+Components are `antd` only. Icons are `@ant-design/icons` only.
 
 ## Feature folders
 

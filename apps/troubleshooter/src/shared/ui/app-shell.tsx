@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import {
   ApartmentOutlined,
   CloudUploadOutlined,
+  DatabaseOutlined,
   FormOutlined,
   HistoryOutlined,
   IdcardOutlined,
@@ -48,6 +49,9 @@ function moduleTitle(
   }
   if (pathname.startsWith(`${base}/uploads`)) {
     return "Bulk Uploads";
+  }
+  if (pathname.startsWith(`${base}/explore`)) {
+    return "Data explorer";
   }
   if (pathname.startsWith(`${base}/employees/`)) {
     if (pathname.endsWith("/business-unit")) {
@@ -135,9 +139,11 @@ export function AppShell({
         ? "workflows"
         : pathname.startsWith(`${base}/uploads`)
           ? "uploads"
-          : pathname.startsWith(`${base}/employees`)
-            ? "employees"
-            : "overview";
+          : pathname.startsWith(`${base}/explore`)
+            ? "explore"
+            : pathname.startsWith(`${base}/employees`)
+              ? "employees"
+              : "overview";
   const title = moduleTitle(pathname, base, employers, employerId);
 
   return (
@@ -229,6 +235,12 @@ export function AppShell({
                 icon: <CloudUploadOutlined />,
                 title: "Bulk Uploads",
                 label: <Link href={`${base}/uploads`}>Bulk Uploads</Link>,
+              },
+              {
+                key: "explore",
+                icon: <DatabaseOutlined />,
+                title: "Data explorer",
+                label: <Link href={`${base}/explore`}>Data explorer</Link>,
               },
             ]}
           />

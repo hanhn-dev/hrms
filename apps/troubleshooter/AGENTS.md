@@ -7,7 +7,7 @@ npm run troubleshooter                     # from repo root
 npm run dev --workspace=apps/troubleshooter
 ```
 
-Do **not** import `@hrms/ui`. Components are `antd` only. Icons are `@ant-design/icons` only.
+Components are `antd` only. Icons are `@ant-design/icons` only.
 
 In Server Components:
 - Do not use dotted Ant Design subcomponents (`Typography.Title`). Import them from `@/shared/ui` (`Title`, `Text`, `Paragraph`) or the `antd/es/...` path. Dotted names are fine in `"use client"` files.

@@ -99,7 +99,7 @@ All three surfaces use `react-markdown` + `remark-gfm`. Shared pieces live in `l
 
 ## UI / code conventions
 
-Backstage does **not** use `@hrms/ui`. Styling is Tailwind 4 + `@tailwindcss/typography` (`prose prose-slate dark:prose-invert`) and the `dark` class on `<html>`. Dark mode: `ThemeToggle` + inline boot script in `app/layout.tsx`.
+Styling is Tailwind 4 + `@tailwindcss/typography` (`prose prose-slate dark:prose-invert`) and the `dark` class on `<html>`. Dark mode: `ThemeToggle` + inline boot script in `app/layout.tsx`.
 
 - Server Components by default. `"use client"` only for interactivity (`theme-toggle`, `feature-nav`, `table-of-contents`, `mermaid-diagram`, editor/review, version select).
 - Explicit return types: `): React.JSX.Element`.

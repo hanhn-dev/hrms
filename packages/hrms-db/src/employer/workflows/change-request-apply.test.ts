@@ -5,7 +5,10 @@ import {
   assertSqlIdent,
   buildApplyPlan,
   changeRequestStatus,
+  coerceBitApplyValue,
+  forceShowOneOnInsert,
   isApplyTable,
+  omitIsDeleteOnInsert,
   pendingApproverFlag,
   resolveApplyValue,
 } from "./change-request-apply.ts";
@@ -35,6 +38,29 @@ describe("isApplyTable", () => {
     assert.equal(isApplyTable("TEmployeeFamilyDetails"), true);
     assert.equal(isApplyTable("TUsers"), false);
     assert.equal(APPLY_TABLES.includes("TEmployee"), true);
+  });
+});
+
+describe("bank insert visibility defaults", () => {
+  it("omits IsDelete and forces Show=1 only for TEmployeeBankDetails", () => {
+    assert.equal(omitIsDeleteOnInsert("TEmployeeBankDetails"), true);
+    assert.equal(omitIsDeleteOnInsert("TEmployeeFamilyDetails"), false);
+    assert.equal(forceShowOneOnInsert("TEmployeeBankDetails"), true);
+    assert.equal(forceShowOneOnInsert("TEducationDetails"), false);
+  });
+});
+
+describe("coerceBitApplyValue", () => {
+  it("prefers 0/1 TextValueNew and coerces Y/N NewValue when Text is null", () => {
+    assert.equal(coerceBitApplyValue("1", "Y"), "1");
+    assert.equal(coerceBitApplyValue("0", "N"), "0");
+    assert.equal(coerceBitApplyValue(null, "N"), "0");
+    assert.equal(coerceBitApplyValue(null, "Y"), "1");
+    assert.equal(coerceBitApplyValue("N", "1"), "1");
+    assert.equal(coerceBitApplyValue("yes", null), "1");
+    assert.equal(coerceBitApplyValue("no", null), "0");
+    assert.throws(() => coerceBitApplyValue(null, null), /Cannot coerce bit/);
+    assert.throws(() => coerceBitApplyValue("maybe", null), /Cannot coerce bit/);
   });
 });
 
@@ -69,6 +95,29 @@ describe("resolveApplyValue", () => {
       /encrypted/,
     );
   });
+
+  it("coerces Y/N to 0/1 for bit columns (bank isDefault null → NewValue N)", () => {
+    assert.equal(
+      resolveApplyValue({
+        tableName: "TEmployeeBankDetails",
+        dbFieldName: "isDefault",
+        textValueNew: null,
+        newValue: "N",
+        dataType: "bit",
+      }).value,
+      "0",
+    );
+    assert.equal(
+      resolveApplyValue({
+        tableName: "TEmployeeBankDetails",
+        dbFieldName: "Payroll",
+        textValueNew: "1",
+        newValue: "Y",
+        dataType: "bit",
+      }).value,
+      "1",
+    );
+  });
 });
 
 describe("pendingApproverFlag", () => {
@@ -82,6 +131,17 @@ describe("buildApplyPlan", () => {
   const columns = new Map<string, Set<string>>([
     ["TEmployee", new Set(["FName", "CellNumber"])],
     ["TEmployeeFamilyDetails", new Set(["Name", "Relation"])],
+    ["TEmployeeBankDetails", new Set(["isDefault", "Payroll", "AccountNo"])],
+  ]);
+  const types = new Map([
+    [
+      "TEmployeeBankDetails",
+      new Map([
+        ["isDefault", "bit"],
+        ["Payroll", "bit"],
+        ["AccountNo", "nvarchar"],
+      ]),
+    ],
   ]);
 
   it("builds update and insert writes from allowlisted columns", () => {
@@ -116,6 +176,42 @@ describe("buildApplyPlan", () => {
     });
     assert.equal(writes[1]?.kind, "insert");
     assert.equal(writes[1]?.table, "TEmployeeFamilyDetails");
+  });
+
+  it("coerces bank bit fields when TextValueNew is null and NewValue is Y/N", () => {
+    const writes = buildApplyPlan(
+      [
+        {
+          tableName: "TEmployeeBankDetails",
+          dbFieldName: "isDefault",
+          textValueNew: null,
+          newValue: "N",
+          isNew: 1,
+          childRowId: null,
+        },
+        {
+          tableName: "TEmployeeBankDetails",
+          dbFieldName: "Payroll",
+          textValueNew: "1",
+          newValue: "Y",
+          isNew: 1,
+          childRowId: null,
+        },
+        {
+          tableName: "TEmployeeBankDetails",
+          dbFieldName: "AccountNo",
+          textValueNew: "11242125251",
+          newValue: "11242125251",
+          isNew: 1,
+          childRowId: null,
+        },
+      ],
+      columns,
+      types,
+    );
+    assert.equal(writes.find((w) => w.column === "isDefault")?.value, "0");
+    assert.equal(writes.find((w) => w.column === "Payroll")?.value, "1");
+    assert.equal(writes.find((w) => w.column === "AccountNo")?.value, "11242125251");
   });
 
   it("rejects unknown tables, unknown columns, and edits without ChildRowId", () => {

@@ -24,7 +24,7 @@ Do not re-inject content scripts before instant `FILL` or `AUTO_TYPE` — that f
 ## Code
 
 - New behavior under `src/features/<kebab-name>/` with an `index.ts` barrel. Import with `@/`.
-- Do not import `@hrms/ui`. Components are `antd` only. Icons are `@ant-design/icons` only. Tailwind prefix `autofill:`.
+- Components are `antd` only. Icons are `@ant-design/icons` only. Tailwind prefix `autofill:`.
 - Host gate: `isAllowedPageUrl` / `ALLOWED_HOST_MATCH_PATTERNS`. Do not grant `<all_urls>`.
 - Chrome `commands` come from `getChromeCommandsManifest()` (four suggested keys). Do not hand-edit them in `manifest.config.ts`.
 - Colocate Vitest tests. Run `npm run test --workspace=autofill`.

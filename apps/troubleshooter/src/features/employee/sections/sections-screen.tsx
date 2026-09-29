@@ -22,7 +22,7 @@ export async function EmployeeSectionsScreen({
             type: "info",
             title: "Live active My Details rows",
             description:
-              "Counts are current section rows for this employee, using the same soft-delete and Show filters as My Details Get loaders. Soft-deleted rows and hidden bank accounts are excluded. This is not history change-event volume.",
+              "Counts are current section rows for this employee, using the same soft-delete and Show filters as Troubleshooter count SQL (not HRMS Get SPs). Soft-deleted rows and hidden bank accounts are excluded. This is not history change-event volume.",
           },
           {
             id: "passport-visa",
@@ -31,6 +31,13 @@ export async function EmployeeSectionsScreen({
             description:
               "Passport & Visa Details is the sum of active passport rows plus active visa rows, matching the History section grouping.",
           },
+          {
+            id: "crud",
+            type: "info",
+            title: "Multi-record CRUD",
+            description:
+              "Click a multi-record section to list, add, update, or soft-delete rows. Forms are built from employer field catalog (Segment excluded). Personal and Employment Details stay count-only in v1. Writes use custom @hrms/db SQL under the Troubleshooter write gate.",
+          },
         ]}
       />
       <Employee360Nav
@@ -38,7 +45,11 @@ export async function EmployeeSectionsScreen({
         employmentNumber={employmentNumber}
       />
       <Card title="Section summary">
-        <SectionsPanel rows={rows} />
+        <SectionsPanel
+          employerId={employerId}
+          employmentNumber={employmentNumber}
+          rows={rows}
+        />
       </Card>
     </>
   );

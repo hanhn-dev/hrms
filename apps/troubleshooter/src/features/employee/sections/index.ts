@@ -1,2 +1,3 @@
 export { EmployeeSectionsScreen } from "./sections-screen";
-export { getEmployeeSectionCounts } from "./queries";
+export { SectionRecordsScreen } from "./section-records-screen";
+export { getEmployeeSectionCounts, getSectionRecordsPage } from "./queries";

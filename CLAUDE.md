@@ -12,12 +12,8 @@ npm run lint           # Lint all packages
 npm run format         # Prettier across all TS/TSX/MD files
 
 # Workspace-scoped (substitute any app or package name)
-npm run test --workspace=apps/ui-editor          # Vitest, run once
-npm run test:watch --workspace=apps/ui-editor     # Vitest, watch mode
-npm run test:e2e --workspace=apps/ui-editor       # Playwright E2E
-
-# Run a single Vitest test file
-npx vitest run apps/ui-editor/src/features/editor/__tests__/editor-workflow.test.tsx
+npm run test --workspace=apps/autofill          # Vitest, run once
+npm run test:watch --workspace=apps/autofill     # Vitest, watch mode
 
 # MCP servers (must build first; require .env in the app directory)
 npm run inspect:az     # Build az-mcp then open MCP Inspector
@@ -34,7 +30,6 @@ npm run start --workspace=apps/db-mcp   # Run db-mcp directly after build
 
 | App | Framework | Port | Purpose |
 |-----|-----------|------|---------|
-| `apps/ui-editor` | Vite 8 + React 19 | 9000 | Primary product — local-first UI design editor |
 | `apps/backstage` | Next.js 16 + React 19 | 5001 | Internal docs site — markdown on disk, Entra proposals |
 | `apps/az-mcp` | Node MCP server | stdio | Azure DevOps integration for AI tooling |
 | `apps/db-mcp` | Node MCP server | stdio | Database schema inspection/mutation for AI tooling |
@@ -45,30 +40,11 @@ npm run start --workspace=apps/db-mcp   # Run db-mcp directly after build
 
 | Package | Purpose |
 |---------|---------|
-| `packages/ui` (`@hrms/ui`) | Shared React component library — all UI surfaces must source from here |
+| `packages/hrms-db` (`@hrms/db`) | Shared SQL Server data access for Troubleshooter |
 | `packages/integrations/azure-devops` (`@hrms/azure-devops`) | ADO client, work items, PRs, WIQL |
 | `packages/integrations/database-inspector` (`@hrms/database-inspector`) | Multi-engine DB catalog and DDL mutations |
 | `packages/eslint-config` | Shared ESLint configs (`library`, `next`, `react-internal`) |
 | `packages/typescript-config` | Shared `tsconfig` base files |
-
-### ui-editor (primary active development)
-
-The editor is a client-only SPA — no backend. All persistence is **IndexedDB**.
-
-**Route layout** (`src/app/router.tsx`):
-- `/` — Landing page: HTML snapshot or screenshot upload
-- `/projects/:projectId` — Editor workspace
-- `/projects/:projectId/revisions/:revisionId/preview` — Read-only prototype preview
-
-**State management**: `React Context + useReducer` — `EditorProvider` in `src/app/providers/editor-provider.tsx` wraps the app and exposes `EditorContext`. The reducer in `src/state/editor-reducer.ts` handles all canvas mutations (select, move, resize, text edit, style updates). No external state library.
-
-**Import pipeline** (`src/lib/import/`): HTML snapshot or screenshot upload → normalizer → component-tree builder → `manual-review.ts` flags low-confidence regions → stored as a `ProjectSnapshot` in IndexedDB.
-
-**Storage** (`src/lib/storage/`): `project-store.ts` manages IndexedDB stores for `projectSnapshots` (keyed by project ID) and `prototypeBundles` (keyed by `projectId:revisionId`).
-
-**Zod schemas** (`src/schemas/design-project.ts`): All data structures — `CanvasBounds`, `EditableComponentNode`, `DraftScreen`, `DesignProject`, `PrototypeRevision`, `EditableContent` (discriminated union) — are Zod-validated at every boundary.
-
-**Test setup**: Vitest + `jsdom` + `fake-indexeddb` for unit/integration. Playwright for E2E (`tests/e2e/playwright.config.ts`).
 
 ### MCP apps (az-mcp, db-mcp)
 
@@ -101,7 +77,7 @@ npm run build --workspace=autofill
 npm run test --workspace=autofill
 ```
 
-Popup and content script talk to the service worker through `src/shared/messaging.ts`. Do not call `chrome.storage` outside `src/shared/storage.ts`. Do not import `@hrms/ui` here: components are `antd` only, icons are `@ant-design/icons` only. Tailwind utilities use the `autofill:` prefix.
+Popup and content script talk to the service worker through `src/shared/messaging.ts`. Do not call `chrome.storage` outside `src/shared/storage.ts`. Components are `antd` only; icons are `@ant-design/icons` only. Tailwind utilities use the `autofill:` prefix.
 
 ### troubleshooter
 
@@ -112,11 +88,11 @@ npm run troubleshooter                              # from repo root
 npm run dev --workspace=apps/troubleshooter         # same
 ```
 
-Import app modules with `@/` (`@/features/employer/picker`, `@/features/employee/access`). Do not use parent-relative `../` paths. Do not import `@hrms/ui`.
+Import app modules with `@/` (`@/features/employer/picker`, `@/features/employee/access`). Do not use parent-relative `../` paths. Components are `antd` only; icons are `@ant-design/icons` only.
 
 ## Key conventions
 
-- **`@hrms/ui` first**: Before creating any new UI component, check `packages/ui`. A net-new component is only allowed if `@hrms/ui` cannot satisfy the requirement, and the new component ships to `@hrms/ui` in the same PR. Backstage does **not** use `@hrms/ui`. Form Autofill and Troubleshooter must not import `@hrms/ui` either — their components are `antd` only and their icons are `@ant-design/icons` only.
+- **UI libraries**: Form Autofill and Troubleshooter use `antd` + `@ant-design/icons`. Backstage uses Tailwind 4 + `@tailwindcss/typography` (no component library package).
 - **Caret dependency ranges**: All `dependencies` use `^` ranges, matching `devDependencies`.
 - **Zod at boundaries**: All external inputs — API responses, IndexedDB reads, file uploads, MCP tool arguments — are Zod-validated.
 - **postinstall**: `npm install` runs `patch-package`, `fix-next-postcss.mjs`, and `npm dedupe` automatically. Do not skip `postinstall` when troubleshooting Next.js PostCSS issues.

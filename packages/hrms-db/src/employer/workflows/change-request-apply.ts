@@ -24,7 +24,25 @@ export type ApplyTableName = (typeof APPLY_TABLES)[number];
 export const HISTORY_TABLE_BY_SOURCE: Partial<Record<ApplyTableName, string>> = {
   TEmployee: "TEmployeeHistory",
   TEmployeeFamilyDetails: "TEmployeeFamilyDetails_history",
+  /** Core Sp_ApproveRejectMyDetailsReview snapshots bank rows after approve-insert. */
+  TEmployeeBankDetails: "TEmployeeBankDetails_History",
 };
+
+/**
+ * My Details bank GET (section 7) filters `Isdelete IS NULL` — Core approve inserts NULL, not 0.
+ * Other child tables allow `IsDelete = 0 OR NULL`.
+ */
+export function omitIsDeleteOnInsert(table: ApplyTableName): boolean {
+  return table === "TEmployeeBankDetails";
+}
+
+/**
+ * Core bank approve hardcodes `[show] = 1`. Pending adds store Show=0 only on the CR path;
+ * the live row must be visible after Troubleshooter apply.
+ */
+export function forceShowOneOnInsert(table: ApplyTableName): boolean {
+  return table === "TEmployeeBankDetails";
+}
 
 export const PK_FALLBACK: Record<ApplyTableName, string> = {
   TEmployee: "EmployeeId",
@@ -62,6 +80,9 @@ export type ApplyWrite = {
   value: string;
 };
 
+/** Column name → SQL type name (e.g. bit, nvarchar) for one table. */
+export type ApplyColumnTypes = Map<string, string>;
+
 export function changeRequestStatus(isApproved: unknown): ChangeRequestStatus {
   if (isApproved == null) {
     return "pending";
@@ -87,12 +108,59 @@ export function assertSqlIdent(name: string): string {
   return name;
 }
 
+export function isBitSqlType(typeName: string | null | undefined): boolean {
+  return (typeName ?? "").trim().toLowerCase() === "bit";
+}
+
+/**
+ * My Details bank add stores display Y/N in NewValue and Cast(@bit) in TextValueNew.
+ * When @bit is NULL, TextValueNew is null and NewValue is still 'N' — coerce before bit INSERT.
+ */
+export function coerceBitApplyValue(
+  textValueNew: string | null,
+  newValue: string | null,
+): string {
+  const candidates = [textValueNew, newValue];
+  for (const candidate of candidates) {
+    if (candidate == null) {
+      continue;
+    }
+    const trimmed = candidate.trim();
+    if (/^[01]$/.test(trimmed)) {
+      return trimmed;
+    }
+  }
+  for (const candidate of candidates) {
+    if (candidate == null) {
+      continue;
+    }
+    const trimmed = candidate.trim();
+    if (trimmed.length === 0) {
+      continue;
+    }
+    const normalized = trimmed.toLowerCase();
+    if (normalized === "true" || normalized === "y" || normalized === "yes") {
+      return "1";
+    }
+    if (normalized === "false" || normalized === "n" || normalized === "no") {
+      return "0";
+    }
+  }
+  throw new Error(
+    `Cannot coerce bit value from TextValueNew=${JSON.stringify(textValueNew)} NewValue=${JSON.stringify(newValue)}.`,
+  );
+}
+
 export function resolveApplyValue(input: {
   tableName: string;
   dbFieldName: string;
   textValueNew: string | null;
   newValue: string | null;
+  dataType?: string | null;
 }): { value: string } {
+  if (isBitSqlType(input.dataType)) {
+    return { value: coerceBitApplyValue(input.textValueNew, input.newValue) };
+  }
   const text = input.textValueNew;
   if (text != null && text.includes("Fn_EncryptData")) {
     if (input.newValue == null || input.newValue.length === 0) {
@@ -114,6 +182,7 @@ export function resolveApplyValue(input: {
 export function buildApplyPlan(
   details: ApplyDetailInput[],
   columnsByTable: Map<string, Set<string>>,
+  typesByTable: Map<string, ApplyColumnTypes> = new Map(),
 ): ApplyWrite[] {
   const writes: ApplyWrite[] = [];
   for (const detail of details) {
@@ -138,6 +207,7 @@ export function buildApplyPlan(
       dbFieldName,
       textValueNew: detail.textValueNew,
       newValue: detail.newValue,
+      dataType: typesByTable.get(tableName)?.get(dbFieldName) ?? null,
     });
     writes.push({
       table: tableName,
