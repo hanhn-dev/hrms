@@ -193,6 +193,7 @@ export function ConfirmWriteModal({
     title: key,
     dataIndex: key,
     key,
+    ellipsis: true,
     render: (value: unknown) => String(value ?? ""),
   }));
 
@@ -254,6 +255,7 @@ export function ConfirmWriteModal({
             ...row,
           }))}
           pagination={false}
+          scroll={{ x: "max-content" }}
           size="small"
         />
         {sql ? (

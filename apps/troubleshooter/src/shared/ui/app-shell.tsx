@@ -5,9 +5,11 @@ import {
   ApartmentOutlined,
   CloudUploadOutlined,
   FormOutlined,
+  HistoryOutlined,
   IdcardOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
+  ProfileOutlined,
   SettingOutlined,
   TeamOutlined,
   UserOutlined,
@@ -50,6 +52,12 @@ function moduleTitle(
   if (pathname.startsWith(`${base}/employees/`)) {
     if (pathname.endsWith("/business-unit")) {
       return "Business unit";
+    }
+    if (pathname.endsWith("/history")) {
+      return "History";
+    }
+    if (pathname.endsWith("/sections")) {
+      return "Sections";
     }
     if (pathname.endsWith("/leave")) {
       return "Leave";
@@ -307,7 +315,11 @@ export function Employee360Nav({
         ? "access"
         : pathname.endsWith("/login")
           ? "login"
-          : "profile";
+          : pathname.endsWith("/sections")
+            ? "sections"
+            : pathname.endsWith("/history")
+              ? "history"
+              : "profile";
 
   return (
     <Menu
@@ -319,6 +331,16 @@ export function Employee360Nav({
           key: "profile",
           icon: <IdcardOutlined />,
           label: <Link href={base}>Profile</Link>,
+        },
+        {
+          key: "history",
+          icon: <HistoryOutlined />,
+          label: <Link href={`${base}/history`}>History</Link>,
+        },
+        {
+          key: "sections",
+          icon: <ProfileOutlined />,
+          label: <Link href={`${base}/sections`}>Sections</Link>,
         },
         {
           key: "business-unit",

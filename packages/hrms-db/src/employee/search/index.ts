@@ -1,6 +1,11 @@
 import { Prisma } from "../../generated/prisma/client";
 import type { HrmsDb } from "../../shared/client";
 import { parseEmployerId } from "../../shared/ids";
+import {
+  employeeListSectionCountJoins,
+  employeeListSectionCountSelect,
+} from "../sections/list-joins";
+import type { EmployeeSectionCountFields } from "../sections/list-columns";
 
 export type EmployeeSearchHit = {
   employeeId: number;
@@ -9,6 +14,27 @@ export type EmployeeSearchHit = {
   workEmail: string | null;
   isActive: string | boolean | null;
   roleName: string | null;
+} & EmployeeSectionCountFields;
+
+type SearchRow = {
+  EmployeeId: number;
+  EmploymentNumber: string;
+  FullName: string;
+  WorkEmail: string | null;
+  IsActive: string | boolean | null;
+  RoleName: string | null;
+  SkillCount: number;
+  DomainCount: number;
+  PassportVisaCount: number;
+  PastEmploymentCount: number;
+  BankCount: number;
+  NominationCount: number;
+  EducationCount: number;
+  FamilyCount: number;
+  NomineeCount: number;
+  ContactCount: number;
+  EmergencyCount: number;
+  CertificationCount: number;
 };
 
 export async function searchEmployees(
@@ -27,23 +53,15 @@ export async function searchEmployees(
             OR Employee.LName LIKE ${`%${trimmed}%`}
             OR Employee.EmailID LIKE ${`%${trimmed}%`}
         )`;
-  const rows = await db.$queryRaw<
-    Array<{
-      EmployeeId: number;
-      EmploymentNumber: string;
-      FullName: string;
-      WorkEmail: string | null;
-      IsActive: string | boolean | null;
-      RoleName: string | null;
-    }>
-  >`
+  const rows = await db.$queryRaw<SearchRow[]>`
     SELECT
         Employee.EmployeeId,
         EmployeeInfo.EmploymentNumber,
         LTRIM(RTRIM(CONCAT_WS(' ', Employee.FName, Employee.MiddleName, Employee.LName))) AS FullName,
         Employee.EmailID AS WorkEmail,
         Employee.IsActive,
-        Roles.RoleName
+        Roles.RoleName,
+        ${employeeListSectionCountSelect}
     FROM dbo.TEmployee AS Employee
     INNER JOIN dbo.TEmployeeInfo AS EmployeeInfo
         ON EmployeeInfo.EmployeeId = Employee.EmployeeId
@@ -59,6 +77,7 @@ export async function searchEmployees(
         AND Users.Employerid = ${tenantId}
     LEFT JOIN dbo.TRoles AS Roles
         ON Roles.RoleID = Users.RoleID
+    ${employeeListSectionCountJoins(tenantId)}
     WHERE Employee.Employerid = ${tenantId}
         ${nameFilter}
     ORDER BY Employee.EmployeeId ASC
@@ -70,5 +89,17 @@ export async function searchEmployees(
     workEmail: row.WorkEmail,
     isActive: row.IsActive,
     roleName: row.RoleName,
+    skillCount: Number(row.SkillCount),
+    domainCount: Number(row.DomainCount),
+    passportVisaCount: Number(row.PassportVisaCount),
+    pastEmploymentCount: Number(row.PastEmploymentCount),
+    bankCount: Number(row.BankCount),
+    nominationCount: Number(row.NominationCount),
+    educationCount: Number(row.EducationCount),
+    familyCount: Number(row.FamilyCount),
+    nomineeCount: Number(row.NomineeCount),
+    contactCount: Number(row.ContactCount),
+    emergencyCount: Number(row.EmergencyCount),
+    certificationCount: Number(row.CertificationCount),
   }));
 }

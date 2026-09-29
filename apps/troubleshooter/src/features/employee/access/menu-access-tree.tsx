@@ -2,7 +2,7 @@
 
 import { Button, Form, Input, Select, Space, Tag, Tree, Typography } from "antd";
 import type { TreeDataNode, TreeProps } from "antd";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   commitGrantRevokeUserPages,
@@ -191,12 +191,10 @@ export function MenuAccessTree({
   }, [tree]);
   const assignedKeys = useMemo(() => assignedKeysFromRows(rowsByKey.values()), [rowsByKey]);
   const assignedFingerprint = useMemo(() => [...assignedKeys].sort().join("\0"), [assignedKeys]);
-  const assignedKeysRef = useRef(assignedKeys);
-  assignedKeysRef.current = assignedKeys;
-  const [selectedKeys, setSelectedKeys] = useState<string[]>(assignedKeys);
+  const [selectedKeys, setSelectedKeys] = useState<string[]>([]);
 
   useEffect(() => {
-    setSelectedKeys(assignedKeysRef.current);
+    setSelectedKeys([]);
   }, [assignedFingerprint]);
 
   const filteredTree = useMemo(() => filterAccessTree(tree, search), [tree, search]);
@@ -338,9 +336,10 @@ export function MenuAccessTree({
         <Tag color="green">User extra {userCount}</Tag>
         <Tag>Assigned {assignedCount}</Tag>
         <Typography.Text type="secondary">
-          Checkboxes start from current Role/User grants. Check a parent to
-          select every nested item, including tabs. Grant still includes parents
-          of a checked child so the left menu can show.
+          Check only menus/tabs to grant or revoke. Role/User tags show current
+          access; use Select assigned or Select user extras when needed. Check a
+          parent to select every nested item, including tabs. Grant still includes
+          parents of a checked child so the left menu can show.
         </Typography.Text>
       </Space>
       <Space wrap>

@@ -18,6 +18,10 @@ function compareNumber(left: number | null, right: number | null): number {
   return (left ?? Number.NEGATIVE_INFINITY) - (right ?? Number.NEGATIVE_INFINITY);
 }
 
+function isActiveFlag(value: unknown): boolean {
+  return value === true || value === 1 || value === "1" || value === "Y";
+}
+
 export function EmployerPickerTable({
   employers,
 }: {
@@ -28,12 +32,20 @@ export function EmployerPickerTable({
 
   const filteredEmployers = useMemo(() => {
     const needle = nameQuery.trim().toLowerCase();
-    if (!needle) {
-      return employers;
-    }
-    return employers.filter((employer) =>
-      employer.employerName.toLowerCase().includes(needle),
-    );
+    const list = !needle
+      ? employers
+      : employers.filter((employer) =>
+          employer.employerName.toLowerCase().includes(needle),
+        );
+
+    return [...list].sort((a, b) => {
+      const aActive = isActiveFlag(a.isActive);
+      const bActive = isActiveFlag(b.isActive);
+      if (aActive !== bActive) {
+        return aActive ? -1 : 1;
+      }
+      return a.employerId - b.employerId;
+    });
   }, [employers, nameQuery]);
 
   return (
@@ -83,7 +95,6 @@ export function EmployerPickerTable({
           title: "Id",
           dataIndex: "employerId",
           width: 90,
-          defaultSortOrder: "ascend",
           sorter: (a: EmployerListItem, b: EmployerListItem) =>
             a.employerId - b.employerId,
         },
@@ -99,15 +110,9 @@ export function EmployerPickerTable({
           dataIndex: "isActive",
           width: 100,
           sorter: (a: EmployerListItem, b: EmployerListItem) =>
-            compareText(String(a.isActive ?? ""), String(b.isActive ?? "")),
+            Number(isActiveFlag(a.isActive)) - Number(isActiveFlag(b.isActive)),
           render: (value: unknown) => (
-            <Tag
-              color={
-                String(value) === "1" || value === true || value === "Y"
-                  ? "green"
-                  : "default"
-              }
-            >
+            <Tag color={isActiveFlag(value) ? "green" : "default"}>
               {String(value ?? "")}
             </Tag>
           ),

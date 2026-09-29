@@ -48,6 +48,13 @@ export async function WorkflowsScreen({
                   "A tree missing approvers or notifications is treated as not defined unless AllowPartialWorkflow is enabled.",
               },
           {
+            id: "deactivate-workflow",
+            type: "info",
+            title: "Deactivate a workflow",
+            description:
+              "Enabled cannot be changed on this list. Open the workflow name, turn Enabled off, then Preview header save and confirm. That sets TWorkflowManagement.isenable for future routing only.",
+          },
+          {
             id: "change-request-apply",
             type: "info",
             title: "Change-request approve",

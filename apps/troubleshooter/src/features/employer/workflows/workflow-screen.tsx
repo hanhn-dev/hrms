@@ -38,6 +38,13 @@ export async function WorkflowScreen({
         source="workflows"
         notes={[
           {
+            id: "deactivate-workflow",
+            type: "info",
+            title: "Deactivate this workflow",
+            description:
+              "Turn the Enabled switch off, click Preview header save, then confirm the write. Writes must be enabled for the selected environment. This updates TWorkflowManagement.isenable only.",
+          },
+          {
             id: "config-only",
             type: "info",
             title: "Configuration only",
