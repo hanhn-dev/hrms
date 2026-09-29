@@ -110,7 +110,7 @@ export function employeeHref(
   if (!employmentNumber) {
     return null;
   }
-  return `/features/employers/${employerId}/employees/${encodeURIComponent(employmentNumber)}`;
+  return `/employers/${employerId}/employees/${encodeURIComponent(employmentNumber)}`;
 }
 
 export function EmployeeNameLink({

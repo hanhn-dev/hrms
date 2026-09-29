@@ -99,7 +99,7 @@ export function JobPanel({
   return (
     <>
       <div className="mb-4">
-        <Link href={`/features/employers/${employerId}/uploads`}>Back to uploads</Link>
+        <Link href={`/employers/${employerId}/uploads`}>Back to uploads</Link>
       </div>
       {upload.stuck ? (
         <Alert
@@ -350,7 +350,7 @@ export function JobPanel({
                   label: "EmploymentNumber",
                   children: liveRow.employmentNumber ? (
                     <Link
-                      href={`/features/employers/${employerId}/employees/${encodeURIComponent(liveRow.employmentNumber)}`}
+                      href={`/employers/${employerId}/employees/${encodeURIComponent(liveRow.employmentNumber)}`}
                     >
                       {liveRow.employmentNumber}
                     </Link>
@@ -550,7 +550,7 @@ export function JobPanel({
       {catalog ? (
         <div className="text-sm">
           <Link
-            href={`/features/employers/${employerId}/uploads?type=${catalog.type}${catalog.countryId ? `&countryId=${catalog.countryId}` : ""}`}
+            href={`/employers/${employerId}/uploads?type=${catalog.type}${catalog.countryId ? `&countryId=${catalog.countryId}` : ""}`}
           >
             Open the catalog for this upload type
           </Link>
@@ -814,7 +814,7 @@ function RowErrorsTable({
             render: (value: string | null) =>
               value ? (
                 <Link
-                  href={`/features/employers/${employerId}/employees/${encodeURIComponent(value)}`}
+                  href={`/employers/${employerId}/employees/${encodeURIComponent(value)}`}
                 >
                   {value}
                 </Link>

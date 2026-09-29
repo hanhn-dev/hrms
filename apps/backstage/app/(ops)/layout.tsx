@@ -1,6 +1,6 @@
 import { AppProviders } from "@/shared/ui/app-providers";
 
-export default function FeaturesLayout({
+export default function OpsLayout({
   children,
 }: {
   children: React.ReactNode;

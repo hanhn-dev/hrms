@@ -10,7 +10,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 # Backstage
 
-Internal documentation site **and** operator console for HRMS. Next.js 16 App Router + React 19. Docs/wiki/guides are markdown on disk; Entra (or local-dev) auth and proposal APIs live as Next.js route handlers. Operator tools (former Troubleshooter) live under `/features` with Ant Design + `@hrms/db`. Port **5001**. Must run as a Node server with a writable `content/` tree (`next start` / `next dev`) — not a static export.
+Internal documentation site **and** operator console for HRMS. Next.js 16 App Router + React 19. Docs/wiki/guides are markdown on disk; Entra (or local-dev) auth and proposal APIs live as Next.js route handlers. Operator tools (former Troubleshooter) live under `/employers` with Ant Design + `@hrms/db`. Port **5001**. Must run as a Node server with a writable `content/` tree (`next start` / `next dev`) — not a static export.
 
 ```bash
 npm run backstage                          # from repo root
@@ -29,7 +29,9 @@ apps/backstage/
   app/                         thin route map only (URL shape ≠ folder shape)
     docs/                      docs + product guides (markdown surfaces)
     wiki/
-    features/                  operator console routes (/features/...)
+    (ops)/                     shared antd layout (no URL segment)
+      employers/               operator console routes (/employers/...)
+      login/                   root-admin login (/login)
     api/
   features/                    interactive capabilities (domain / capability)
     auth/                      app-wide (ops login) — no domain
@@ -67,7 +69,7 @@ Rules:
 - App-wide concerns stay top-level under `features/` (`auth`) or in `shared/` (`shared/employee` is resolve helpers, not a screen).
 - `app/` stays thin: import a screen from `@/features/...` and render it. Do not put business logic in route files.
 - Do not flatten feature folders to match URL segments. Do not grow a global `lib/queries` dump for ops data.
-- **New interactive area:** add `features/<domain>/<capability>/` plus a thin `app/...` route (under `/features/...` for ops). Prefer extending this tree over placing new screens in `components/` or `lib/`.
+- **New interactive area:** add `features/<domain>/<capability>/` plus a thin `app/(ops)/...` route (under `/employers/...` for ops). Prefer extending this tree over placing new screens in `components/` or `lib/`.
 
 Import with `@/` (`@/features/employer/picker`, `@/shared/db`, `@/lib/guides`). No parent-relative `../`. Same-directory `./` is allowed.
 
@@ -76,14 +78,14 @@ Import with `@/` (`@/features/employer/picker`, `@/shared/db`, `@/lib/guides`). 
 | Surface | URL prefix | UI | Data |
 |---|---|---|---|
 | Docs / Wiki / Guides | `/docs`, `/wiki`, `/docs/guides` | Tailwind 4 + `prose` | Markdown on disk via `lib/*` |
-| Operator Features | `/features` | antd 6 + `@ant-design/icons` | `@hrms/db` only |
+| Operator console | `/employers`, `/login` | antd 6 + `@ant-design/icons` | `@hrms/db` only |
 
-Ops screens: antd only (no `@hrms/ui`). Docs chrome stays Tailwind. Mount antd providers only under the `/features` segment.
+Ops screens: antd only (no `@hrms/ui`). Docs chrome stays Tailwind. Mount antd providers only under the `app/(ops)` route group.
 
 ### Docs content vs Features code
 
 - **Product guides** (markdown about HRMS modules) live under `content/guides` and URLs `/docs/guides/...` — documentation, not the `features/` code tree.
-- **Features** in the app sense means interactive operator capabilities under `features/` and routes `/features/...`.
+- **Features** in the app sense means interactive operator capabilities under `features/` and routes `/employers/...`.
 
 ## Routes
 
@@ -95,8 +97,8 @@ Ops screens: antd only (no `@hrms/ui`). Docs chrome stays Tailwind. Mount antd p
 | `/docs/guides`, `/docs/guides/[...slug]` | Published product guides (latest + dated archives) | `lib/guides.ts` ← `content/guides/**/*.md` |
 | `/docs/guides/edit/[...slug]` | In-app editor (signed-in) | writes a proposal, does not overwrite latest |
 | `/docs/guides/proposals`, `/docs/guides/proposals/[id]` | Admin review queue | `content/guides/_proposals/` |
-| `/features`, `/features/login` | Operator console home + root-admin login | `features/employer/picker`, `features/auth` |
-| `/features/employers/[employerId]/...` | Employer/employee diagnostics and gated writes | `features/employee/*`, `features/employer/*` |
+| `/employers`, `/login` | Operator console home + root-admin login | `features/employer/picker`, `features/auth` |
+| `/employers/[employerId]/...` | Employer/employee diagnostics and gated writes | `features/employee/*`, `features/employer/*` |
 
 Adding a markdown file under the matching `content/` folder is enough — slugs are discovered with `readdirSync`. Do not register routes by hand.
 
@@ -107,15 +109,15 @@ Adding a markdown file under the matching `content/` folder is enough — slugs 
 - **`content/llm-wiki/`** — **byte-for-byte mirror** of `d:\TDG HRMS DB\llm-wiki\` when that folder exists. Sync with `/sync-llm-wiki`. Cursor: `apps/backstage/.llm-wiki-sync-state.json`. `/track-db-updates` may patch catalog/domain pages for objects in *this run's* SQL delta (edit the DB-repo wiki when it exists, otherwise this tree). Do not hand-edit otherwise.
 - **`content/wiki/`** — hand-authored Docs pages (baselines, liquibase notes). `/track-db-updates` owns `database-changelog.md` only. Wiki-sync must not touch this folder. Cursor: `apps/backstage/.db-updates-state.json`.
 
-## Operator console (`/features`)
+## Operator console (`/employers`)
 
-Uses the feature-based layout above. `app/features/` is the thin route map; domain code is `features/<domain>/<capability>/`.
+Uses the feature-based layout above. `app/(ops)/` is the thin route map (antd providers); domain code is `features/<domain>/<capability>/`.
 
 - Components are `antd` only; icons are `@ant-design/icons` only.
 - Data access goes through `@hrms/db`. Do not use raw `mssql` or HRMS stored procedures.
 - Ops auth: `TROUBLESHOOTER_ADMIN_*` Credentials provider (session `isRootAdmin`). Docs edit/proposals use Entra / `Backstage.Admin` (`isAdmin`).
 - Writes require `TROUBLESHOOTER_WRITES_ENABLED=1`, non-production `NODE_ENV`, and the cookie-selected env in `TROUBLESHOOTER_WRITES_ENVS`.
-- Site chrome (Docs/Wiki/Features header) is hidden on `/features/*`; the antd `AppShell` provides ops navigation.
+- Site chrome (Docs/Wiki/Console header) is hidden on `/employers/*` and `/login`; the antd `AppShell` provides ops navigation.
 - Display dates through `@/shared/format-date` (`DD-MMM-YYYY`, plus `HH:mm:ss` when timed). Do not render raw ISO strings.
 - Server Components: no dotted Ant Design subcomponents (`Typography.Title`) — import `Title` / `Text` / `Paragraph` from `@/shared/ui` or `antd/es/...`. Pass serializable `items` to `Descriptions`. Table `columns` with `render` belong in `"use client"` files. Use Alert `title`, not `message`. Helper copy goes in `PageHelp`, not full-width banners.
 

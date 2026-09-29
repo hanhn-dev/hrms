@@ -1,12 +1,12 @@
 ---
-description: Conventions for the Backstage operator console (former Troubleshooter) under /features.
-globs: apps/backstage/features/**,apps/backstage/shared/**,apps/backstage/app/features/**
+description: Conventions for the Backstage operator console (former Troubleshooter) under /employers.
+globs: apps/backstage/features/**,apps/backstage/shared/**,apps/backstage/app/(ops)/**
 alwaysApply: false
 ---
 
-# Features (operator console)
+# Operator console
 
-Internal HRMS data/access operator console — mounted in Backstage at `/features` (port **5001**). Next.js 16 App Router + React 19 + Ant Design 6 + Tailwind 4. Full layout is in `apps/backstage/AGENTS.md`.
+Internal HRMS data/access operator console — mounted in Backstage at `/employers` (port **5001**). Next.js 16 App Router + React 19 + Ant Design 6 + Tailwind 4. Full layout is in `apps/backstage/AGENTS.md`.
 
 ```bash
 npm run backstage                          # from repo root
@@ -17,7 +17,7 @@ Components are `antd` only. Icons are `@ant-design/icons` only.
 
 ## Feature folders
 
-`app/features/` is a thin route map. Feature code is `features/<domain>/<capability>/` with a leaf `index.ts`. Domain folders are singular. Do not prefix the capability with the domain.
+`app/(ops)/` is a thin route map (antd providers + `/employers` / `/login` pages). Feature code is `features/<domain>/<capability>/` with a leaf `index.ts`. Domain folders are singular. Do not prefix the capability with the domain.
 
 ```text
 # ❌ BAD
@@ -34,7 +34,7 @@ features/employer/roles/roles-screen.tsx
 - No domain-level barrel. Import `@/features/employee/access`, not `@/features/employee`.
 - Same capability on two domains = two folders (`employer/roles` vs future `employee/roles`).
 - App-wide login stays `features/auth/`. Cross-cutting resolve stays `shared/employee/`.
-- URL routes stay nested under `/features/employers/[id]/...`. Do not flatten features to match URLs.
+- URL routes stay nested under `/employers/[id]/...`. Do not flatten features to match URLs.
 
 Import with `@/`. No parent-relative `../`. Same-directory `./` is allowed.
 

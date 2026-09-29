@@ -49,7 +49,7 @@ export function BusinessUnitTable({
           width: 160,
           render: (value: string) => (
             <Link
-              href={`/features/employers/${employerId}/employees/${encodeURIComponent(value)}`}
+              href={`/employers/${employerId}/employees/${encodeURIComponent(value)}`}
             >
               {value}
             </Link>

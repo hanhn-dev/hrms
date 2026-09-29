@@ -8,7 +8,12 @@ import { ThemeToggle } from "@/components/theme-toggle";
 
 export function SiteHeader(): React.JSX.Element | null {
   const pathname = usePathname();
-  if (pathname === "/features" || pathname.startsWith("/features/")) {
+  if (
+    pathname === "/employers" ||
+    pathname.startsWith("/employers/") ||
+    pathname === "/login" ||
+    pathname.startsWith("/login/")
+  ) {
     return null;
   }
 
@@ -32,9 +37,9 @@ export function SiteHeader(): React.JSX.Element | null {
         </Link>
         <Link
           className="shrink-0 text-sm text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
-          href="/features"
+          href="/employers"
         >
-          Features
+          Console
         </Link>
         <div className="ml-auto flex min-w-0 flex-1 items-center justify-end gap-3">
           <SiteSearch />

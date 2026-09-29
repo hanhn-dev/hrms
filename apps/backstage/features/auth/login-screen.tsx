@@ -42,7 +42,7 @@ export function LoginScreen({
                   setError("Invalid username or password.");
                   return;
                 }
-                window.location.assign("/features");
+                window.location.assign("/employers");
               });
             }}
           >

@@ -88,7 +88,7 @@ export function EmployerPickerTable({
           sorter: (a: EmployerListItem, b: EmployerListItem) =>
             compareText(a.employerName, b.employerName),
           render: (name: string, row: EmployerListItem) => (
-            <Link href={`/features/employers/${row.employerId}`}>{name}</Link>
+            <Link href={`/employers/${row.employerId}`}>{name}</Link>
           ),
         },
         {

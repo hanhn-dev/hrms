@@ -104,7 +104,7 @@ export function AppShell({
   const router = useRouter();
   const [collapsed, setCollapsed] = useState(false);
   const [shortcutLabel, setShortcutLabel] = useState("Ctrl+B");
-  const base = `/features/employers/${employerId}`;
+  const base = `/employers/${employerId}`;
 
   useEffect(() => {
     if (/Mac|iPhone|iPad/.test(navigator.userAgent)) {
@@ -176,7 +176,7 @@ export function AppShell({
                   value: employer.employerId,
                 }))}
                 onChange={(nextId: number) => {
-                  router.push(`/features/employers/${nextId}`);
+                  router.push(`/employers/${nextId}`);
                 }}
               />
             )}
@@ -291,7 +291,7 @@ function ShellHeader({
           items={[
             {
               title: (
-                <Link href={`/features/employers/${employerId}/employees`}>
+                <Link href={`/employers/${employerId}/employees`}>
                   Employees
                 </Link>
               ),
@@ -318,7 +318,7 @@ export function Employee360Nav({
   employmentNumber: string;
 }): React.JSX.Element {
   const pathname = usePathname();
-  const base = `/features/employers/${employerId}/employees/${encodeURIComponent(employmentNumber)}`;
+  const base = `/employers/${employerId}/employees/${encodeURIComponent(employmentNumber)}`;
   const selectedKey = pathname.endsWith("/business-unit")
     ? "business-unit"
     : pathname.endsWith("/leave")

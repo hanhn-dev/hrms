@@ -16,7 +16,7 @@ export default async function EmployerLayout({
 }): Promise<React.JSX.Element> {
   const session = await auth();
   if (!session?.user?.isRootAdmin) {
-    redirect("/features/login");
+    redirect("/login");
   }
   const { employerId: rawId } = await params;
   const employerId = parsePositiveInt(rawId);

@@ -109,7 +109,7 @@ export function SectionRecordsPanel({
     <>
       <Space style={{ marginBottom: 12 }} wrap>
         <Link
-          href={`/features/employers/${employerId}/employees/${encodeURIComponent(employmentNumber)}/sections`}
+          href={`/employers/${employerId}/employees/${encodeURIComponent(employmentNumber)}/sections`}
         >
           ← Sections
         </Link>

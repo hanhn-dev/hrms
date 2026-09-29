@@ -215,7 +215,7 @@ function FieldDrawer({
               value={field.fieldTypeJsonSql}
             />
           </div>
-          <Link href={`/features/employers/${employerId}/fields`}>Open Fields catalog</Link>
+          <Link href={`/employers/${employerId}/fields`}>Open Fields catalog</Link>
         </Space>
       ) : null}
     </Drawer>

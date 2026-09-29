@@ -14,9 +14,9 @@ export function workflowsHref(
   tab: WorkflowsTab = "workflows",
 ): string {
   const search = tab === "workflows" ? "" : `?tab=${tab}`;
-  return `/features/employers/${employerId}/workflows${search}`;
+  return `/employers/${employerId}/workflows${search}`;
 }
 
 export function workflowHref(employerId: number, workflowId: number | "new"): string {
-  return `/features/employers/${employerId}/workflows/${workflowId}`;
+  return `/employers/${employerId}/workflows/${workflowId}`;
 }

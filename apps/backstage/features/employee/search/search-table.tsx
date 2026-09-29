@@ -99,7 +99,7 @@ export function EmployeeSearchTable({
             a.employmentNumber.localeCompare(b.employmentNumber),
           render: (value: string) => (
             <Link
-              href={`/features/employers/${employerId}/employees/${encodeURIComponent(value)}`}
+              href={`/employers/${employerId}/employees/${encodeURIComponent(value)}`}
             >
               {value}
             </Link>

@@ -30,7 +30,7 @@ npm run start --workspace=apps/db-mcp   # Run db-mcp directly after build
 
 | App | Framework | Port | Purpose |
 |-----|-----------|------|---------|
-| `apps/backstage` | Next.js 16 + React 19 | 5001 | Docs (`/docs`, `/wiki`, `/docs/guides`) + operator console (`/features`) |
+| `apps/backstage` | Next.js 16 + React 19 | 5001 | Docs (`/docs`, `/wiki`, `/docs/guides`) + operator console (`/employers`) |
 | `apps/az-mcp` | Node MCP server | stdio | Azure DevOps integration for AI tooling |
 | `apps/db-mcp` | Node MCP server | stdio | Database schema inspection/mutation for AI tooling |
 | `apps/autofill` | Vite 8 + React 19 (MV3) | 9100 | Chrome extension — form scan / random fill / auto-type |
@@ -39,7 +39,7 @@ npm run start --workspace=apps/db-mcp   # Run db-mcp directly after build
 
 | Package | Purpose |
 |---------|---------|
-| `packages/hrms-db` (`@hrms/db`) | Shared SQL Server data access for Backstage `/features` |
+| `packages/hrms-db` (`@hrms/db`) | Shared SQL Server data access for Backstage `/employers` |
 | `packages/integrations/azure-devops` (`@hrms/azure-devops`) | ADO client, work items, PRs, WIQL |
 | `packages/integrations/database-inspector` (`@hrms/database-inspector`) | Multi-engine DB catalog and DDL mutations |
 | `packages/eslint-config` | Shared ESLint configs (`library`, `next`, `react-internal`) |
@@ -68,7 +68,7 @@ npm run dev --workspace=apps/backstage     # same
 Import app modules with `@/` (`@/lib/guides`, `@/features/employer/picker`). Do not use parent-relative `../` paths.
 
 - **Docs / wiki / guides**: Tailwind 4 + `@tailwindcss/typography`
-- **Operator `/features`**: `antd` + `@ant-design/icons` (former Troubleshooter app)
+- **Operator `/employers`**: `antd` + `@ant-design/icons` (former Troubleshooter app)
 
 ### autofill
 
@@ -84,7 +84,7 @@ Popup and content script talk to the service worker through `src/shared/messagin
 
 ## Key conventions
 
-- **UI libraries**: Form Autofill and Backstage `/features` use `antd` + `@ant-design/icons`. Backstage docs/wiki/guides use Tailwind 4 + `@tailwindcss/typography`.
+- **UI libraries**: Form Autofill and Backstage `/employers` use `antd` + `@ant-design/icons`. Backstage docs/wiki/guides use Tailwind 4 + `@tailwindcss/typography`.
 - **Caret dependency ranges**: All `dependencies` use `^` ranges, matching `devDependencies`.
 - **Zod at boundaries**: All external inputs — API responses, IndexedDB reads, file uploads, MCP tool arguments — are Zod-validated.
 - **postinstall**: `npm install` runs `patch-package`, `fix-next-postcss.mjs`, and `npm dedupe` automatically. Do not skip `postinstall` when troubleshooting Next.js PostCSS issues.

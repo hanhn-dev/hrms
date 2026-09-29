@@ -36,7 +36,7 @@ export function UploadEmployeeModal({
   const employmentNumber =
     profile?.employmentNumber ?? liveRow?.employmentNumber ?? null;
   const employeeHref = employmentNumber
-    ? `/features/employers/${employerId}/employees/${encodeURIComponent(employmentNumber)}`
+    ? `/employers/${employerId}/employees/${encodeURIComponent(employmentNumber)}`
     : null;
 
   return (

@@ -5,7 +5,7 @@ import { auth } from "@/shared/auth";
 export default async function HomePage(): Promise<React.JSX.Element> {
   const session = await auth();
   if (!session?.user?.isRootAdmin) {
-    redirect("/features/login");
+    redirect("/login");
   }
   return <EmployerPickerScreen userName={session.user.name ?? "Root Admin"} />;
 }

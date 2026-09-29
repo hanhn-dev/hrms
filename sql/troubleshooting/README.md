@@ -4,7 +4,7 @@ Ad-hoc SQL scripts for diagnosing PROD (and other environment) issues.
 
 These scripts are **not** part of the database deployment surface. Do not add them to `hrms-sql.sqlproj`. Prefer read-only `SELECT` diagnostics; any script that writes data must say so clearly in the header and require explicit variable confirmation before running.
 
-For the common cases (employer inspect, employee 360, assign role, grant/revoke user pages/tabs, unlock account) use the operator console at `apps/backstage` `/features` (`npm run backstage`, port 5001). These scripts remain the SSMS source of truth for everything else.
+For the common cases (employer inspect, employee 360, assign role, grant/revoke user pages/tabs, unlock account) use the operator console at `apps/backstage` `/employers` (`npm run backstage`, port 5001). These scripts remain the SSMS source of truth for everything else.
 
 ## Layout
 

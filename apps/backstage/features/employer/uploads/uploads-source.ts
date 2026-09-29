@@ -91,7 +91,7 @@ export function uploadsHref(
     search.set("uploadId", String(params.uploadId));
   }
   const query = search.toString();
-  return `/features/employers/${employerId}/uploads${query ? `?${query}` : ""}`;
+  return `/employers/${employerId}/uploads${query ? `?${query}` : ""}`;
 }
 
 export function uploadDetailHref(
@@ -126,5 +126,5 @@ export function uploadDetailHref(
     search.set("batchId", String(params.batchId));
   }
   const query = search.toString();
-  return `/features/employers/${employerId}/uploads/${uploadId}${query ? `?${query}` : ""}`;
+  return `/employers/${employerId}/uploads/${uploadId}${query ? `?${query}` : ""}`;
 }

@@ -1,8 +1,9 @@
 "use client";
 
-import { LogoutOutlined } from "@ant-design/icons";
+import { HomeOutlined, LogoutOutlined } from "@ant-design/icons";
 import { Avatar, Dropdown, Tooltip } from "antd";
 import { signOut } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import { CollapsedEnvironmentPicker } from "@/shared/ui/collapsed-environment-picker";
 import { EnvironmentSelect } from "@/shared/ui/environment-select";
 
@@ -32,6 +33,7 @@ export function SiderUserMenu({
   environment: string;
   environments: string[];
 }): React.JSX.Element {
+  const router = useRouter();
   const initials = initialsFromName(userName);
   const roleLabel = writesEnabled ? "Writes on" : "Read-only";
 
@@ -56,14 +58,23 @@ export function SiderUserMenu({
           className: "!border-0 !bg-transparent !p-1 !shadow-none",
           items: [
             {
+              key: "home",
+              icon: <HomeOutlined />,
+              label: "All employers",
+            },
+            {
               key: "signout",
               icon: <LogoutOutlined />,
               label: "Sign out",
             },
           ],
           onClick: ({ key }) => {
+            if (key === "home") {
+              router.push("/employers");
+              return;
+            }
             if (key === "signout") {
-              void signOut({ callbackUrl: "/features/login" });
+              void signOut({ callbackUrl: "/login" });
             }
           },
         }}
@@ -94,29 +105,35 @@ export function SiderUserMenu({
       >
         <Tooltip placement="right" title={collapsed ? userName : undefined}>
           <button
-            className="flex shrink-0 items-center border-0 bg-transparent p-0"
+            className={
+              collapsed
+                ? "flex shrink-0 items-center border-0 bg-transparent p-0"
+                : "flex min-w-0 flex-1 cursor-pointer items-center gap-1.5 border-0 bg-transparent p-0 text-left"
+            }
             type="button"
           >
             <Avatar size={28} style={{ backgroundColor: "#fa8c16", flexShrink: 0 }}>
               {initials}
             </Avatar>
+            {collapsed ? null : (
+              <div className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-medium text-slate-900">
+                  {userName}
+                </span>
+                <span className="block truncate text-xs text-slate-500">
+                  {roleLabel}
+                </span>
+              </div>
+            )}
           </button>
         </Tooltip>
       </Dropdown>
       {collapsed ? null : (
-        <>
-          <div className="min-w-0 flex-1">
-            <span className="block truncate text-sm font-medium text-slate-900">
-              {userName}
-            </span>
-            <span className="block truncate text-xs text-slate-500">{roleLabel}</span>
-          </div>
-          <EnvironmentSelect
-            className="shrink-0"
-            environment={environment}
-            environments={environments}
-          />
-        </>
+        <EnvironmentSelect
+          className="shrink-0"
+          environment={environment}
+          environments={environments}
+        />
       )}
     </div>
   );

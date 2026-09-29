@@ -23,7 +23,7 @@ export function EmployeeSearchForm({
         }
         const query = params.toString();
         router.push(
-          `/features/employers/${employerId}/employees${query ? `?${query}` : ""}`,
+          `/employers/${employerId}/employees${query ? `?${query}` : ""}`,
         );
       }}
     >

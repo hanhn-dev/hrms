@@ -37,7 +37,7 @@ export function SectionsPanel({
             }
             return (
               <Link
-                href={`/features/employers/${employerId}/employees/${encodeURIComponent(employmentNumber)}/sections/${row.sectionId}`}
+                href={`/employers/${employerId}/employees/${encodeURIComponent(employmentNumber)}/sections/${row.sectionId}`}
               >
                 {label}
               </Link>

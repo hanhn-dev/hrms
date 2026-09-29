@@ -24,7 +24,7 @@ module.exports = {
   },
   async redirects() {
     // Old guide URLs lived under /features; guides now live under /docs/guides.
-    // Do not catch-all /features — that path is the operator console.
+    // Old operator console URLs also lived under /features; ops now at /employers and /login.
     const guideMenus = [
       "admin-configuration",
       "asset-management",
@@ -97,6 +97,21 @@ module.exports = {
         permanent: true,
       },
       ...menuRedirects,
+      {
+        source: "/features/login",
+        destination: "/login",
+        permanent: true,
+      },
+      {
+        source: "/features/employers/:path*",
+        destination: "/employers/:path*",
+        permanent: true,
+      },
+      {
+        source: "/features",
+        destination: "/employers",
+        permanent: true,
+      },
     ];
   },
 };

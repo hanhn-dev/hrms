@@ -5,7 +5,7 @@ import { auth, isAuthConfigured } from "@/shared/auth";
 export default async function LoginPage(): Promise<React.JSX.Element> {
   const session = await auth();
   if (session?.user?.isRootAdmin) {
-    redirect("/features");
+    redirect("/employers");
   }
   return <LoginScreen configured={isAuthConfigured()} />;
 }

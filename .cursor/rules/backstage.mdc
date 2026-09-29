@@ -36,8 +36,8 @@ features/employer/roles/roles-screen.tsx
 - App-wide login: `features/auth/`. Cross-cutting resolve: `shared/employee/`.
 - New interactive area: add `features/<domain>/<capability>/` + thin `app/` route. Do not dump screens into `components/` or `lib/`.
 - Import with `@/`. No parent-relative `../`. Same-directory `./` is allowed.
-- **Docs/wiki/guides** (Tailwind + `prose`, markdown on disk) vs **operator `/features`** (antd 6 + `@hrms/db`) — do not mix stacks casually.
-- Product guide markdown ≠ Features code: guides are `content/guides` → `/docs/guides`; ops capabilities are `features/` → `/features`.
+- **Docs/wiki/guides** (Tailwind + `prose`, markdown on disk) vs **operator `/employers`** (antd 6 + `@hrms/db`) — do not mix stacks casually.
+- Product guide markdown ≠ Features code: guides are `content/guides` → `/docs/guides`; ops capabilities are `features/` → `/employers`.
 
 ## Content trees
 
@@ -62,7 +62,7 @@ Write standard ```` ```mermaid ```` fences. `MermaidAwarePre` renders them; no a
 
 ## Code
 
-- Docs/wiki: Tailwind 4 + `prose`. Operator `/features`: antd 6.
+- Docs/wiki: Tailwind 4 + `prose`. Operator `/employers`: antd 6.
 - Server Components by default; `"use client"` only for theme, nav, TOC, mermaid zoom, version select, editor, proposal review, and operator interactivity.
 - `params` is a `Promise` — `await params`. `generateStaticParams` on every dynamic page.
 - Explicit `): React.JSX.Element`. Fresh `createSlugger()` per document (TOC ids must match heading ids).

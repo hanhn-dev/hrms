@@ -24,7 +24,7 @@ export function BusinessUnitSearchForm({
           params.set("q", values.search.trim());
         }
         const query = params.toString();
-        const base = `/features/employers/${employerId}/employees/${encodeURIComponent(employmentNumber)}/business-unit`;
+        const base = `/employers/${employerId}/employees/${encodeURIComponent(employmentNumber)}/business-unit`;
         router.push(query ? `${base}?${query}` : base);
       }}
     >
