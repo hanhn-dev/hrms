@@ -1,7 +1,8 @@
 "use client";
 
-import { Form, Input, Select, Switch } from "antd";
+import { Form, Input, Switch } from "antd";
 import type { EditableEditorProps, EditorKind } from "./types";
+import { SearchSelect } from "@/shared/ui/search-select";
 
 export type EditableCellProps = React.TdHTMLAttributes<HTMLTableCellElement> & {
   editing?: boolean;
@@ -32,12 +33,11 @@ export function EditableCell({
     editor === "switch" ? (
       <Switch size="small" />
     ) : editor === "select" ? (
-      <Select
+      <SearchSelect
         allowClear={false}
         className="w-full"
         options={editorProps?.options}
         optionFilterProp="label"
-        showSearch
       />
     ) : (
       <Input maxLength={editorProps?.maxLength} />

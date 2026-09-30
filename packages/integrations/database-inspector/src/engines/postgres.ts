@@ -3,6 +3,7 @@ import { Client as PgClient } from 'pg';
 import {
   asNumber,
   buildObjectId,
+  emptyObjectStructure,
   normalizeDefinition,
   normalizeRoutineParameterMode,
 } from './shared.js';
@@ -141,6 +142,7 @@ export async function getPostgresObjectDetails(
         dependencies,
         dependents,
         relationships: relationshipRows,
+        ...emptyObjectStructure(),
         warnings: [],
       };
     }
@@ -161,6 +163,7 @@ export async function getPostgresObjectDetails(
         dependencies: insight.dependencies,
         dependents: insight.dependents,
         relationships: [],
+        ...emptyObjectStructure(),
         warnings: insight.warnings,
       };
     }
@@ -174,6 +177,7 @@ export async function getPostgresObjectDetails(
       dependencies: [],
       dependents: [],
       relationships: [],
+      ...emptyObjectStructure(),
       warnings: [],
     };
   } finally {

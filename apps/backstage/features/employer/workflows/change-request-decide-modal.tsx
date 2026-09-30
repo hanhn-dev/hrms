@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { App, Input, Modal, Select, Space, Typography } from "antd";
+import { App, Input, Modal, Space, Typography } from "antd";
 import { ChangeRequestSummary } from "@/features/employer/workflows/change-request-summary";
 import {
   commitDecideChangeRequest,
   previewDecideChangeRequest,
 } from "@/features/employer/workflows/mutations";
+import { SearchSelect } from "@/shared/ui";
 import type {
   ChangeRequestDetail,
   ConfiguredApproverGroup,
@@ -155,11 +156,10 @@ export function ChangeRequestDecideModal({
 
         <label className="flex flex-col gap-1">
           <span>Approver</span>
-          <Select
+          <SearchSelect
             optionFilterProp="label"
             options={approverOptions}
             placeholder="Select an approver"
-            showSearch
             value={approverEmployeeId}
             onChange={(value: number) => {
               setApproverEmployeeId(value);

@@ -34,7 +34,11 @@ export {
   resolveEmployee,
   type ResolvedEmployee,
 } from "./shared/employee";
-export { searchEmployees, type EmployeeSearchHit } from "./employee/search";
+export {
+  searchEmployees,
+  type EmployeeSearchHit,
+  type EmployeeSearchResult,
+} from "./employee/search";
 export {
   listBusinessUnitEmployees,
   type BusinessUnitEmployee,
@@ -120,9 +124,19 @@ export {
   type EmployerListItem,
 } from "./employer/picker";
 export {
+  assertSelectOnly,
   listTables,
   listTableColumns,
+  listSearchTargets,
   searchValueInTables,
+  searchValueExistence,
+  listModules,
+  getModuleDefinition,
+  findScriptObject,
+  findScriptObjectKinds,
+  previewTableRows,
+  executeSelect,
+  executeFunction,
   parseQualifiedTable,
   qualifyTableName,
   type ExploreColumn,
@@ -130,7 +144,20 @@ export {
   type ExploreSearchMode,
   type ExploreSearchTableResult,
   type ExploreTable,
-} from "./employer/explore";
+  type SearchTarget,
+  type ExistenceTableResult,
+  type ExistenceSearchInput,
+  type ModuleKind,
+  type ScriptObjectKind,
+  type ModuleSummary,
+  type ModuleDefinition,
+  type PreviewTableRowsInput,
+  type PreviewTableRowsResult,
+  type ExecuteSelectInput,
+  type ExecuteSelectResult,
+  type ExecuteFunctionInput,
+  type ExecuteFunctionResult,
+} from "./dbs";
 export {
   CUSTOMER_SETTING_CATEGORIES,
   CUSTOMER_SETTING_CATEGORY_IDS,
@@ -215,6 +242,7 @@ export {
   compareUploadHeaders,
   creationExcludedFieldNames,
   isMissingObjectError,
+  missingObjectName,
   getCreationFinalize,
   getCreationStagingRow,
   getUpload,
@@ -253,6 +281,32 @@ export {
   type UploadSectionRollup,
   type UploadTypeKey,
 } from "./employer/uploads";
+
+export {
+  EMAIL_MODULE_LABELS,
+  EMAIL_MODULES,
+  EMAIL_PAGE_SIZE,
+  EMAIL_STATUSES,
+  INBOX_PAGE_SIZE,
+  listEmailNotifications,
+  listPendingInbox,
+  normalizeEmailStatus,
+  parseEmailModuleKey,
+  parseEmailStatus,
+  type EmailModuleKey,
+  type EmailNotificationFilters,
+  type EmailNotificationList,
+  type EmailNotificationRow,
+  type EmailStatus,
+  type EmailStatusCount,
+  type InboxPerson,
+  type InboxSide,
+  type PendingInboxCategory,
+  type PendingInboxFilters,
+  type PendingInboxList,
+  type PendingInboxRow,
+  type PendingInboxTypeCount,
+} from "./employer/notifications";
 
 export {
   BUILTIN_WORKFLOW_ROLES,

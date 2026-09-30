@@ -6,6 +6,7 @@ import {
   groupFeaturesByMenu,
   type FeatureNavItem,
 } from "@/lib/feature-menu";
+import { HighlightMatch } from "@/shared/ui";
 
 function SearchIcon(): React.JSX.Element {
   return (
@@ -88,11 +89,11 @@ export function FeatureIndex({
                       href={`/docs/guides/${doc.slug}`}
                     >
                       <span className="text-sm font-medium text-slate-900 dark:text-slate-100">
-                        {doc.title}
+                        <HighlightMatch query={query} text={doc.title} />
                       </span>
                       {doc.submenu ? (
                         <span className="shrink-0 text-xs text-slate-400 dark:text-slate-500">
-                          {doc.submenu}
+                          <HighlightMatch query={query} text={doc.submenu} />
                         </span>
                       ) : null}
                     </Link>

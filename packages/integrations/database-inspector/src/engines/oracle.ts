@@ -2,6 +2,7 @@ import oracledb from 'oracledb';
 
 import {
   buildObjectId,
+  emptyObjectStructure,
   normalizeDefinition,
   normalizeRoutineParameterMode,
 } from './shared.js';
@@ -145,6 +146,7 @@ export async function getOracleObjectDetails(
         dependencies,
         dependents,
         relationships,
+        ...emptyObjectStructure(),
         warnings: [],
       };
     }
@@ -164,6 +166,7 @@ export async function getOracleObjectDetails(
         dependencies: insight.dependencies,
         dependents: insight.dependents,
         relationships: [],
+        ...emptyObjectStructure(),
         warnings: insight.warnings,
       };
     }
@@ -177,6 +180,7 @@ export async function getOracleObjectDetails(
       dependencies: [],
       dependents: [],
       relationships: [],
+      ...emptyObjectStructure(),
       warnings: [],
     };
   } finally {

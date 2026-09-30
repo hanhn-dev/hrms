@@ -28,6 +28,13 @@ import {
 } from "@/features/employer/settings/mutations";
 import { ConfirmWriteModal, JsonEditorModal, JsonTextCell } from "@/shared/ui";
 
+type MissingCustomerSettingColumn = {
+  key: string;
+  label: string;
+  table: string;
+  column: string;
+};
+
 type CustomerSettingsView = {
   employerId: number;
   customerId: string;
@@ -35,6 +42,7 @@ type CustomerSettingsView = {
   hasTneConfig: boolean;
   hasPayrollConfig: boolean;
   values: Record<string, CustomerSettingUiValue>;
+  missingColumns: MissingCustomerSettingColumn[];
 };
 
 export function CustomerSettingsPanel({
@@ -67,12 +75,20 @@ export function CustomerSettingsPanel({
     [categoryId],
   );
 
+  const missingByKey = useMemo(
+    () => new Map((settings?.missingColumns ?? []).map((column) => [column.key, column])),
+    [settings],
+  );
+
   const dirtyPatch = useMemo(() => {
     if (!category || !settings) {
       return {};
     }
     const patch: Record<string, CustomerSettingUiValue> = {};
     for (const key of category.keys) {
+      if (missingByKey.has(key)) {
+        continue;
+      }
       const next = draft[key] ?? null;
       const current = settings.values[key] ?? null;
       if (!settingValuesEqual(current, next)) {
@@ -80,7 +96,7 @@ export function CustomerSettingsPanel({
       }
     }
     return patch;
-  }, [category, draft, settings]);
+  }, [category, draft, missingByKey, settings]);
 
   const dirtyCount = Object.keys(dirtyPatch).length;
   const jsonField =
@@ -141,6 +157,7 @@ export function CustomerSettingsPanel({
         }
         title="Customer settings"
       >
+        <MissingColumnAlert columns={settings.missingColumns} />
         <Tabs
           activeKey={categoryId}
           items={CUSTOMER_SETTING_CATEGORIES.map((item) => ({
@@ -166,6 +183,7 @@ export function CustomerSettingsPanel({
                               disabled={!writesEnabled}
                               draft={draft}
                               field={field}
+                              unavailable={missingByKey.has(key)}
                               value={draft[key] ?? null}
                               onJsonEdit={() => {
                                 setJsonEditorKey(key);
@@ -240,11 +258,41 @@ export function CustomerSettingsPanel({
   );
 }
 
+function MissingColumnAlert({
+  columns,
+}: {
+  columns: readonly MissingCustomerSettingColumn[];
+}): React.JSX.Element | null {
+  const first = columns[0];
+  if (!first) {
+    return null;
+  }
+  return (
+    <Alert
+      className="mb-4"
+      showIcon
+      type="warning"
+      title={
+        columns.length === 1
+          ? `${first.label} is unavailable`
+          : "Some settings are unavailable"
+      }
+      description={columns
+        .map(
+          (column) =>
+            `${column.label} needs dbo.${column.table}.${column.column}, which is not in this database yet.`,
+        )
+        .join(" ")}
+    />
+  );
+}
+
 function SettingFieldRow({
   field,
   value,
   draft,
   disabled,
+  unavailable,
   onChange,
   onJsonEdit,
 }: {
@@ -252,6 +300,7 @@ function SettingFieldRow({
   value: CustomerSettingUiValue;
   draft: Record<string, CustomerSettingUiValue>;
   disabled: boolean;
+  unavailable: boolean;
   onChange: (value: CustomerSettingUiValue) => void;
   onJsonEdit: () => void;
 }): React.JSX.Element {
@@ -274,13 +323,17 @@ function SettingFieldRow({
         ) : null}
       </div>
       <div>
-        <SettingControl
-          disabled={controlDisabled}
-          field={field}
-          value={value}
-          onChange={onChange}
-          onJsonEdit={onJsonEdit}
-        />
+        {unavailable ? (
+          <Typography.Text type="secondary">Not in this database</Typography.Text>
+        ) : (
+          <SettingControl
+            disabled={controlDisabled}
+            field={field}
+            value={value}
+            onChange={onChange}
+            onJsonEdit={onJsonEdit}
+          />
+        )}
       </div>
     </div>
   );

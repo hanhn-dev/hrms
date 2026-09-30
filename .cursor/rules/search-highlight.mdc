@@ -1,0 +1,24 @@
+---
+description: Highlight matched characters in search result lists
+globs: apps/backstage/**/*.tsx
+alwaysApply: false
+---
+
+# Search result highlighting
+
+Every search input that renders a result list marks the matched characters in each result.
+
+- Ant Design selects that can be searched use `SearchSelect` from `@/shared/ui`. It highlights each option label from the current search text.
+- Custom option content and other result lists wrap the visible text with `HighlightMatch` from `@/shared/ui`.
+- Matching is case-insensitive. Each word of at least 2 characters is marked. Overlapping words merge into one mark.
+
+```tsx
+// ❌ BAD — searchable select with plain option text
+<Select showSearch options={options} />
+
+// ✅ GOOD
+<SearchSelect options={options} />
+
+// ✅ GOOD — custom result row
+<HighlightMatch query={query} text={hit.title} />
+```

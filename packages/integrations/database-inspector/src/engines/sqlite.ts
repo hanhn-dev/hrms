@@ -1,5 +1,7 @@
 import { DatabaseSync } from 'node:sqlite';
 
+import { emptyObjectStructure } from './shared.js';
+
 import type {
   CatalogQuery,
   CreateTableColumn,
@@ -116,6 +118,7 @@ export function getSqliteObjectDetails(config: DatabaseMcpConfig, request: Objec
       dependencies: [],
       dependents,
       relationships,
+      ...emptyObjectStructure(),
       warnings: [],
     };
   });

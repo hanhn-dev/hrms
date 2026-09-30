@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import {
   ApartmentOutlined,
   CloudUploadOutlined,
-  DatabaseOutlined,
+  NotificationOutlined,
+  FileSearchOutlined,
   FormOutlined,
   HistoryOutlined,
   IdcardOutlined,
@@ -15,9 +16,10 @@ import {
   TeamOutlined,
   UserOutlined,
 } from "@ant-design/icons";
-import { Breadcrumb, Button, Layout, Menu, Select, Tooltip, Typography } from "antd";
+import { Breadcrumb, Button, Layout, Menu, Tooltip, Typography } from "antd";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { SearchSelect } from "@/shared/ui/search-select";
 import { SiderUserMenu } from "@/shared/ui/sider-user-menu";
 import { PageHelpTrigger } from "@/shared/ui/page-help";
 import {
@@ -38,6 +40,9 @@ function moduleTitle(
   employers: ShellEmployer[],
   employerId: number,
 ): string {
+  if (pathname.startsWith(`${base}/inspector`)) {
+    return "Inspector";
+  }
   if (pathname.startsWith(`${base}/roles`)) {
     return "Roles";
   }
@@ -47,11 +52,11 @@ function moduleTitle(
   if (pathname.startsWith(`${base}/workflows`)) {
     return "Workflows";
   }
+  if (pathname.startsWith(`${base}/notifications`)) {
+    return "Notifications";
+  }
   if (pathname.startsWith(`${base}/uploads`)) {
     return "Bulk Uploads";
-  }
-  if (pathname.startsWith(`${base}/explore`)) {
-    return "Data explorer";
   }
   if (pathname.startsWith(`${base}/employees/`)) {
     if (pathname.endsWith("/business-unit")) {
@@ -131,17 +136,19 @@ export function AppShell({
     };
   }, []);
 
-  const selectedKey = pathname.startsWith(`${base}/roles`)
+  const selectedKey = pathname.startsWith(`${base}/inspector`)
+    ? "inspector"
+    : pathname.startsWith(`${base}/roles`)
     ? "roles"
     : pathname.startsWith(`${base}/fields`)
       ? "fields"
       : pathname.startsWith(`${base}/workflows`)
         ? "workflows"
-        : pathname.startsWith(`${base}/uploads`)
+        : pathname.startsWith(`${base}/notifications`)
+          ? "notifications"
+          : pathname.startsWith(`${base}/uploads`)
           ? "uploads"
-          : pathname.startsWith(`${base}/explore`)
-            ? "explore"
-            : pathname.startsWith(`${base}/employees`)
+          : pathname.startsWith(`${base}/employees`)
               ? "employees"
               : "overview";
   const title = moduleTitle(pathname, base, employers, employerId);
@@ -165,11 +172,10 @@ export function AppShell({
             }`}
           >
             {collapsed ? null : (
-              <Select
+              <SearchSelect
                 className="min-w-0 flex-1"
                 optionFilterProp="label"
                 popupMatchSelectWidth={false}
-                showSearch
                 value={employerId}
                 options={employers.map((employer) => ({
                   label: `${employer.employerName} (${employer.employerId})`,
@@ -231,16 +237,22 @@ export function AppShell({
                 label: <Link href={`${base}/workflows`}>Workflows</Link>,
               },
               {
+                key: "notifications",
+                icon: <NotificationOutlined />,
+                title: "Notifications",
+                label: <Link href={`${base}/notifications`}>Notifications</Link>,
+              },
+              {
                 key: "uploads",
                 icon: <CloudUploadOutlined />,
                 title: "Bulk Uploads",
                 label: <Link href={`${base}/uploads`}>Bulk Uploads</Link>,
               },
               {
-                key: "explore",
-                icon: <DatabaseOutlined />,
-                title: "Data explorer",
-                label: <Link href={`${base}/explore`}>Data explorer</Link>,
+                key: "inspector",
+                icon: <FileSearchOutlined />,
+                title: "Inspector",
+                label: <Link href={`${base}/inspector`}>Inspector</Link>,
               },
             ]}
           />

@@ -109,16 +109,6 @@ INSERT INTO TEmployeeFamilyDetails ( [EmployeeID],[IsDelete],[CreatedDate],[Crea
 
 sp_helptext 'Sp_ApproveRejectMyDetailsReview'
 
-UPDATE dbo.TEmployeeBankDetails
-SET Show = 1, IsDelete = NULL
-WHERE BankDetailId = 11370 AND EmployeeId = 1434;
+SELECT TOP 100 * FROM TEmployeeBankDetails Where AccountNo = '124215112599899'
 
--- optional: resolve branch ID like Core does
-UPDATE TEBD
-SET TEBD.ID = BBD.ID
-FROM dbo.TEmployeeBankDetails TEBD
-JOIN dbo.TBankBranchDetails BBD
-  ON UPPER(LTRIM(RTRIM(BBD.BankIdentifier))) = UPPER(LTRIM(RTRIM(TEBD.BranchCode)))
- AND BBD.Employerid = 10
- AND BBD.IsActive = 'Y'
-WHERE TEBD.BankDetailId = 11370;
+ EXEC SP_GetAccessibleEmployerIds 1431

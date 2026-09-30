@@ -6,6 +6,7 @@ Layout mirrors Troubleshooter `features/<domain>/<capability>/`. Domain folders 
 
 ```text
 src/
+  dbs/               Data Builder Studio (catalog helpers, SELECT guard, row preview)
   employee/
     access/          load, tree, writes
     business-unit/
@@ -29,5 +30,7 @@ src/
   generated/prisma/  Prisma client (do not edit)
   index.ts           public barrel — re-exports leaves only
 ```
+
+`dbs/` is system-scoped (optional `employerId` on data APIs). Do not nest it under `employer/`.
 
 New query code goes in the matching leaf. Register new public names on the root barrel (`src/index.ts`). Apps import `from "@hrms/db"`. The access tree helpers also stay available as `@hrms/db/tree`.

@@ -6,6 +6,7 @@ import {
   isExpiredUpload,
   isMissingObjectError,
   isStuckStatus,
+  missingObjectName,
   parseSectionDataRows,
   parseSectionRows,
   parseUploadTypeKey,
@@ -22,6 +23,19 @@ describe("isMissingObjectError", () => {
 
   it("ignores unrelated query failures", () => {
     assert.equal(isMissingObjectError(new Error("Timeout expired")), false);
+  });
+});
+
+describe("missingObjectName", () => {
+  it("reads the object from a Prisma raw-query failure", () => {
+    const error = new Error(
+      "Invalid `prisma.$queryRaw()` invocation:\n\nRaw query failed. Code: 'EREQUEST'. Message: 'Invalid object name 'dbo.TEmployeeNominee_Details'.'",
+    );
+    assert.equal(missingObjectName(error), "dbo.TEmployeeNominee_Details");
+  });
+
+  it("returns null for unrelated failures", () => {
+    assert.equal(missingObjectName(new Error("Timeout expired")), null);
   });
 });
 

@@ -33,11 +33,11 @@ features/employer/roles/roles-screen.tsx
 ```
 
 - Leaf barrel `index.ts` per capability. No domain-level barrel. Import `@/features/employee/access`.
-- App-wide login: `features/auth/`. Cross-cutting resolve: `shared/employee/`.
+- App-wide login: `features/auth/`. Data Builder Studio: `features/dbs/` (`/dbs`). Cross-cutting resolve: `shared/employee/`.
 - New interactive area: add `features/<domain>/<capability>/` + thin `app/` route. Do not dump screens into `components/` or `lib/`.
 - Import with `@/`. No parent-relative `../`. Same-directory `./` is allowed.
-- **Docs/wiki/guides** (Tailwind + `prose`, markdown on disk) vs **operator `/employers`** (antd 6 + `@hrms/db`) — do not mix stacks casually.
-- Product guide markdown ≠ Features code: guides are `content/guides` → `/docs/guides`; ops capabilities are `features/` → `/employers`.
+- **Docs/wiki/guides** (Tailwind + `prose`, markdown on disk) vs **operator `/employers` + `/dbs`** (antd 6 + `@hrms/db`; dbs may also use `@hrms/database-inspector`) — do not mix stacks casually.
+- Product guide markdown ≠ Features code: guides are `content/guides` → `/docs/guides`; ops capabilities are `features/` → `/employers` / `/dbs`.
 
 ## Content trees
 

@@ -11,40 +11,9 @@ import {
   type KeyboardEvent,
 } from "react";
 import type { SearchHit } from "@/lib/search-types";
+import { HighlightMatch } from "@/shared/ui";
 
 const DEBOUNCE_MS = 180;
-
-function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-function Highlight({
-  text,
-  query,
-}: {
-  text: string;
-  query: string;
-}): React.JSX.Element {
-  const needle = query.trim();
-  if (needle.length < 2) return <>{text}</>;
-  const parts = text.split(new RegExp(`(${escapeRegExp(needle)})`, "ig"));
-  return (
-    <>
-      {parts.map((part, index) =>
-        part.toLowerCase() === needle.toLowerCase() ? (
-          <mark
-            className="rounded-sm bg-amber-200/80 text-inherit dark:bg-amber-400/30"
-            key={`${part}-${index}`}
-          >
-            {part}
-          </mark>
-        ) : (
-          <span key={`${part}-${index}`}>{part}</span>
-        ),
-      )}
-    </>
-  );
-}
 
 function SearchIcon(): React.JSX.Element {
   return (
@@ -254,13 +223,13 @@ export function SiteSearch(): React.JSX.Element {
                             &gt;
                           </span>
                         ) : null}
-                        <Highlight query={query} text={crumb} />
+                        <HighlightMatch query={query} text={crumb} />
                       </span>
                     ))}
                   </p>
                   {hit.snippet ? (
                     <p className="mt-0.5 truncate text-xs text-slate-500 dark:text-slate-400">
-                      <Highlight query={query} text={hit.snippet} />
+                      <HighlightMatch query={query} text={hit.snippet} />
                     </p>
                   ) : null}
                 </Link>

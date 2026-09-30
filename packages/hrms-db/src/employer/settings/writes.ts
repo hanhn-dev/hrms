@@ -83,9 +83,18 @@ export async function updateCustomerSettingsCategory(
       input.patch,
     );
     const changedKeys = preview.map((row) => String(row.Key));
+    const missingByKey = new Map(
+      current.missingColumns.map((column) => [column.key, column]),
+    );
     for (const key of changedKeys) {
       if (!allowedKeys.has(key)) {
         throw new Error(`${key} is not part of ${input.category} settings.`);
+      }
+      const missing = missingByKey.get(key);
+      if (missing) {
+        throw new Error(
+          `${missing.label} needs dbo.${missing.table}.${missing.column}, which is not in this database.`,
+        );
       }
     }
     const changedFields = changedKeys.map(requireSettingField);

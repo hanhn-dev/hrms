@@ -67,11 +67,39 @@ export interface DatabaseColumn {
   readonly dataType: string;
   readonly nullable: boolean;
   readonly primaryKey?: boolean;
+  readonly foreignKey?: boolean;
+}
+
+export interface DatabaseIndex {
+  readonly name: string;
+  readonly type: string;
+  readonly unique: boolean;
+  readonly primaryKey: boolean;
+  readonly columns: readonly string[];
+  readonly includedColumns: readonly string[];
+}
+
+export interface DatabaseTrigger {
+  readonly name: string;
+  readonly disabled: boolean;
+  readonly insteadOf: boolean;
+  readonly events: readonly string[];
+}
+
+export type DatabaseConstraintKind = 'primaryKey' | 'unique' | 'check' | 'foreignKey' | 'default';
+
+export interface DatabaseConstraint {
+  readonly name: string;
+  readonly kind: DatabaseConstraintKind;
+  readonly columns: readonly string[];
+  readonly definition: string | null;
+  readonly referencedObjectId: string | null;
 }
 
 export interface DependencySummary {
   readonly objectId: string;
   readonly operation: 'select' | 'insert' | 'update' | 'delete' | 'execute';
+  readonly kind?: DatabaseObjectKind;
 }
 
 export interface DatabaseObjectDetails {
@@ -83,6 +111,9 @@ export interface DatabaseObjectDetails {
   readonly dependencies: readonly DependencySummary[];
   readonly dependents: readonly DependencySummary[];
   readonly relationships: readonly DatabaseRelationship[];
+  readonly indexes: readonly DatabaseIndex[];
+  readonly triggers: readonly DatabaseTrigger[];
+  readonly constraints: readonly DatabaseConstraint[];
   readonly warnings: readonly string[];
 }
 
@@ -90,7 +121,16 @@ export interface ObjectDetailsRequest {
   readonly schema: string;
   readonly name: string;
   readonly kind: DatabaseObjectKind;
+  /** Opt-in. Default false. */
   readonly includeDependents?: boolean;
+  /** Default true when omitted. */
+  readonly includeRelationships?: boolean;
+  /** Default true when omitted. */
+  readonly includeDefinition?: boolean;
+  /** Default true when omitted. */
+  readonly includeDependencies?: boolean;
+  /** Opt-in. Default false. Tables and views only. */
+  readonly includeStructure?: boolean;
 }
 
 export interface CreateTableColumn {
@@ -162,6 +202,10 @@ export interface StoredProcedureRequest {
   readonly schema: string;
   readonly name: string;
   readonly includeDependents?: boolean;
+  /** Default true when omitted. */
+  readonly includeDefinition?: boolean;
+  /** Default true when omitted. */
+  readonly includeDependencies?: boolean;
 }
 
 export interface ProcedureParameterDescriptor {

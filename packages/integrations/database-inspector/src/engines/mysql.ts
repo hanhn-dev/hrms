@@ -2,6 +2,7 @@ import mysql from 'mysql2/promise';
 
 import {
   buildObjectId,
+  emptyObjectStructure,
   normalizeDefinition,
   normalizeRoutineParameterMode,
 } from './shared.js';
@@ -128,6 +129,7 @@ export async function getMySqlObjectDetails(
         dependencies,
         dependents,
         relationships,
+        ...emptyObjectStructure(),
         warnings: [],
       };
     }
@@ -144,6 +146,7 @@ export async function getMySqlObjectDetails(
         dependencies: insight.dependencies,
         dependents: insight.dependents,
         relationships: [],
+        ...emptyObjectStructure(),
         warnings: insight.warnings,
       };
     }
@@ -157,6 +160,7 @@ export async function getMySqlObjectDetails(
       dependencies: [],
       dependents: [],
       relationships: [],
+      ...emptyObjectStructure(),
       warnings: [],
     };
   } finally {

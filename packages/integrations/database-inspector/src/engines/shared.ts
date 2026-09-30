@@ -1,4 +1,23 @@
-import type { ConnectionValue, DatabaseEngine, OperationResult } from '../types.js';
+import type {
+  ConnectionValue,
+  DatabaseConstraint,
+  DatabaseEngine,
+  DatabaseIndex,
+  DatabaseObjectDetails,
+  DatabaseTrigger,
+  OperationResult,
+} from '../types.js';
+
+export function emptyObjectStructure(): Pick<
+  DatabaseObjectDetails,
+  'indexes' | 'triggers' | 'constraints'
+> {
+  return {
+    indexes: [] as DatabaseIndex[],
+    triggers: [] as DatabaseTrigger[],
+    constraints: [] as DatabaseConstraint[],
+  };
+}
 
 export function asString(value: ConnectionValue): string | undefined {
   if (typeof value !== 'string') {

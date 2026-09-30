@@ -438,11 +438,27 @@ function uniqueStrings(values: string[]): string[] {
   return [...new Set(values.filter((value) => value.trim() !== ""))];
 }
 
-export function isMissingObjectError(error: unknown): boolean {
+function errorMessages(error: unknown): string[] {
   const messages = [error instanceof Error ? error.message : String(error)];
   if (error && typeof error === "object" && "cause" in error) {
     const cause = error.cause;
     messages.push(cause instanceof Error ? cause.message : String(cause ?? ""));
   }
-  return messages.some((message) => /Invalid object name/i.test(message));
+  return messages;
+}
+
+const MISSING_OBJECT_NAME = /Invalid object name '([^']+)'/i;
+
+export function missingObjectName(error: unknown): string | null {
+  for (const message of errorMessages(error)) {
+    const match = MISSING_OBJECT_NAME.exec(message);
+    if (match?.[1]) {
+      return match[1];
+    }
+  }
+  return null;
+}
+
+export function isMissingObjectError(error: unknown): boolean {
+  return errorMessages(error).some((message) => /Invalid object name/i.test(message));
 }

@@ -14,7 +14,7 @@ import {
   type AccessNode,
   type AccessRow,
 } from "@/features/employee/access/menu-tree";
-import { ConfirmWriteModal } from "@/shared/ui";
+import { ConfirmWriteModal, HighlightMatch } from "@/shared/ui";
 
 const SEARCH_DEBOUNCE_MS = 250;
 const TREE_VIEWPORT_HEIGHT = 560;
@@ -79,23 +79,6 @@ function toTreeData(nodes: AccessNode[]): MenuTreeDataNode[] {
     access: node,
     children: node.children.length > 0 ? toTreeData(node.children) : undefined,
   }));
-}
-
-function highlightName(name: string, search: string): React.ReactNode {
-  if (!search) {
-    return name;
-  }
-  const index = name.toLowerCase().indexOf(search);
-  if (index < 0) {
-    return name;
-  }
-  return (
-    <>
-      {name.slice(0, index)}
-      <span className="text-orange-500">{name.slice(index, index + search.length)}</span>
-      {name.slice(index + search.length)}
-    </>
-  );
 }
 
 function checkedKeyList(value: Parameters<NonNullable<TreeProps["onCheck"]>>[0]): string[] {
@@ -308,7 +291,9 @@ export function MenuAccessTree({
         access.kind === "tab" ? `${access.menuId}/${access.tabId}` : String(access.menuId);
       return (
         <Space size={6} wrap>
-          <span>{highlightName(name, search)}</span>
+          <span>
+            <HighlightMatch query={search} text={name} />
+          </span>
           <Typography.Text type="secondary">{idLabel}</Typography.Text>
           {access.kind === "tab" ? <Tag>Tab</Tag> : null}
           {access.roleGrant === "Y" ? <Tag color="blue">Role</Tag> : null}

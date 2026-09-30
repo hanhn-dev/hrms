@@ -1,13 +1,13 @@
 "use client";
 
-import { Form, Select, Space } from "antd";
+import { Form, Space } from "antd";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import {
   commitAssignRole,
   previewAssignRole,
 } from "@/features/employee/access/mutations";
-import { ConfirmWriteModal } from "@/shared/ui";
+import { ConfirmWriteModal, SearchSelect } from "@/shared/ui";
 
 type RoleOption = { roleId: number; roleName: string };
 
@@ -31,11 +31,10 @@ export function AccessActions({
     <Space orientation="vertical" className="w-full" size="middle">
       <Form layout="inline">
         <Form.Item label="Role">
-          <Select
+          <SearchSelect
             className="min-w-64"
             disabled={!writesEnabled}
             optionFilterProp="label"
-            showSearch
             value={roleId ?? undefined}
             options={roles.map((role) => ({
               label: `${role.roleName} (${role.roleId})`,

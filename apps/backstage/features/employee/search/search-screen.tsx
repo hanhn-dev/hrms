@@ -1,8 +1,13 @@
+import { missingObjectName } from "@hrms/db";
 import { Card } from "antd";
 import { EmployeeSearchForm } from "@/features/employee/search/search-form";
 import { EmployeeSearchTable } from "@/features/employee/search/search-table";
-import { searchEmployees } from "@/features/employee/search/queries";
-import { PageHelp } from "@/shared/ui";
+import {
+  searchEmployees,
+  type EmployeeSearchHit,
+  type EmployeeSearchResult,
+} from "@/features/employee/search/queries";
+import { MissingObjectAlert, PageHelp } from "@/shared/ui";
 
 export async function EmployeeSearchScreen({
   employerId,
@@ -11,7 +16,19 @@ export async function EmployeeSearchScreen({
   employerId: number;
   search: string;
 }): Promise<React.JSX.Element> {
-  const results = await searchEmployees(employerId, search);
+  let results: EmployeeSearchHit[] = [];
+  let unavailable: EmployeeSearchResult["unavailable"] = [];
+  let blockedObject: string | null = null;
+  try {
+    const found = await searchEmployees(employerId, search);
+    results = found.hits;
+    unavailable = found.unavailable;
+  } catch (error) {
+    blockedObject = missingObjectName(error);
+    if (!blockedObject) {
+      throw error;
+    }
+  }
 
   return (
     <>
@@ -27,13 +44,23 @@ export async function EmployeeSearchScreen({
           },
         ]}
       />
+      {blockedObject ? (
+        <MissingObjectAlert
+          items={[{ feature: "Employee search", objectName: blockedObject }]}
+        />
+      ) : (
+        <MissingObjectAlert items={unavailable} />
+      )}
       <Card>
         <EmployeeSearchForm employerId={employerId} initialSearch={search} />
-        <EmployeeSearchTable
-          employerId={employerId}
-          results={results}
-          search={search}
-        />
+        {blockedObject ? null : (
+          <EmployeeSearchTable
+            employerId={employerId}
+            results={results}
+            search={search}
+            unavailableFields={unavailable.map((item) => item.field)}
+          />
+        )}
       </Card>
     </>
   );

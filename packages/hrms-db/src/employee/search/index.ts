@@ -1,11 +1,18 @@
 import { Prisma } from "../../generated/prisma/client";
 import type { HrmsDb } from "../../shared/client";
 import { parseEmployerId } from "../../shared/ids";
+import { presentTables } from "../../shared/objects";
 import {
   employeeListSectionCountJoins,
   employeeListSectionCountSelect,
 } from "../sections/list-joins";
-import type { EmployeeSectionCountFields } from "../sections/list-columns";
+import {
+  EMPLOYEE_LIST_SECTION_COLUMNS,
+  sectionCountTableNames,
+  unavailableSectionCounts,
+  type EmployeeSectionCountFields,
+  type UnavailableSection,
+} from "../sections/list-columns";
 
 export type EmployeeSearchHit = {
   employeeId: number;
@@ -16,6 +23,11 @@ export type EmployeeSearchHit = {
   roleName: string | null;
 } & EmployeeSectionCountFields;
 
+export type EmployeeSearchResult = {
+  hits: EmployeeSearchHit[];
+  unavailable: UnavailableSection[];
+};
+
 type SearchRow = {
   EmployeeId: number;
   EmploymentNumber: string;
@@ -23,26 +35,32 @@ type SearchRow = {
   WorkEmail: string | null;
   IsActive: string | boolean | null;
   RoleName: string | null;
-  SkillCount: number;
-  DomainCount: number;
-  PassportVisaCount: number;
-  PastEmploymentCount: number;
-  BankCount: number;
-  NominationCount: number;
-  EducationCount: number;
-  FamilyCount: number;
-  NomineeCount: number;
-  ContactCount: number;
-  EmergencyCount: number;
-  CertificationCount: number;
+  SkillCount: number | null;
+  DomainCount: number | null;
+  PassportVisaCount: number | null;
+  PastEmploymentCount: number | null;
+  BankCount: number | null;
+  NominationCount: number | null;
+  EducationCount: number | null;
+  FamilyCount: number | null;
+  NomineeCount: number | null;
+  ContactCount: number | null;
+  EmergencyCount: number | null;
+  CertificationCount: number | null;
 };
+
+function countValue(value: number | null): number | null {
+  return value == null ? null : Number(value);
+}
 
 export async function searchEmployees(
   db: HrmsDb,
   employerId: number,
   search: string,
-): Promise<EmployeeSearchHit[]> {
+): Promise<EmployeeSearchResult> {
   const tenantId = parseEmployerId(employerId);
+  const present = await presentTables(db, sectionCountTableNames());
+  const unavailable = unavailableSectionCounts(present);
   const trimmed = search.trim();
   const nameFilter =
     trimmed === ""
@@ -61,7 +79,7 @@ export async function searchEmployees(
         Employee.EmailID AS WorkEmail,
         Employee.IsActive,
         Roles.RoleName,
-        ${employeeListSectionCountSelect}
+        ${employeeListSectionCountSelect(present)}
     FROM dbo.TEmployee AS Employee
     INNER JOIN dbo.TEmployeeInfo AS EmployeeInfo
         ON EmployeeInfo.EmployeeId = Employee.EmployeeId
@@ -77,29 +95,27 @@ export async function searchEmployees(
         AND Users.Employerid = ${tenantId}
     LEFT JOIN dbo.TRoles AS Roles
         ON Roles.RoleID = Users.RoleID
-    ${employeeListSectionCountJoins(tenantId)}
+    ${employeeListSectionCountJoins(tenantId, present)}
     WHERE Employee.Employerid = ${tenantId}
         ${nameFilter}
     ORDER BY Employee.EmployeeId ASC
   `;
-  return rows.map((row) => ({
-    employeeId: row.EmployeeId,
-    employmentNumber: row.EmploymentNumber,
-    fullName: row.FullName,
-    workEmail: row.WorkEmail,
-    isActive: row.IsActive,
-    roleName: row.RoleName,
-    skillCount: Number(row.SkillCount),
-    domainCount: Number(row.DomainCount),
-    passportVisaCount: Number(row.PassportVisaCount),
-    pastEmploymentCount: Number(row.PastEmploymentCount),
-    bankCount: Number(row.BankCount),
-    nominationCount: Number(row.NominationCount),
-    educationCount: Number(row.EducationCount),
-    familyCount: Number(row.FamilyCount),
-    nomineeCount: Number(row.NomineeCount),
-    contactCount: Number(row.ContactCount),
-    emergencyCount: Number(row.EmergencyCount),
-    certificationCount: Number(row.CertificationCount),
-  }));
+  const hits = rows.map((row) => {
+    const counts = Object.fromEntries(
+      EMPLOYEE_LIST_SECTION_COLUMNS.map((column) => [
+        column.field,
+        countValue(row[column.countColumn]),
+      ]),
+    ) as EmployeeSectionCountFields;
+    return {
+      employeeId: row.EmployeeId,
+      employmentNumber: row.EmploymentNumber,
+      fullName: row.FullName,
+      workEmail: row.WorkEmail,
+      isActive: row.IsActive,
+      roleName: row.RoleName,
+      ...counts,
+    };
+  });
+  return { hits, unavailable };
 }

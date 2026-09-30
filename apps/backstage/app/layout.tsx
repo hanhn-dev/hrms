@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { InlineScript } from "@/components/inline-script";
 import { SiteHeader } from "@/components/site-header";
 import "./globals.css";
 
@@ -22,8 +23,8 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
-        <script dangerouslySetInnerHTML={{ __html: READ_MODE_INIT_SCRIPT }} />
+        <InlineScript html={THEME_INIT_SCRIPT} />
+        <InlineScript html={READ_MODE_INIT_SCRIPT} />
       </head>
       <body className="flex h-screen flex-col bg-white text-slate-900 antialiased dark:bg-slate-950 dark:text-slate-100">
         <SiteHeader />

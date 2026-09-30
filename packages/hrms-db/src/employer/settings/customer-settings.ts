@@ -1,11 +1,16 @@
 import { Prisma } from "../../generated/prisma/client";
 import type { HrmsDb } from "../../shared/client";
 import { parseEmployerId } from "../../shared/ids";
+import { presentColumns, presentTables } from "../../shared/objects";
 import {
   CUSTOMER_SETTING_FIELDS,
+  CUSTOMER_SETTING_TABLES,
   decodeSettingValue,
+  splitCustomerSettingColumns,
+  type CustomerSettingField,
   type CustomerSettingTable,
   type CustomerSettingUiValue,
+  type MissingCustomerSettingColumn,
 } from "./catalog";
 
 const SQL_IDENT = /^[A-Za-z_][A-Za-z0-9_]*$/;
@@ -17,6 +22,7 @@ export type CustomerSettingsRow = {
   hasTneConfig: boolean;
   hasPayrollConfig: boolean;
   values: Record<string, CustomerSettingUiValue>;
+  missingColumns: MissingCustomerSettingColumn[];
 };
 
 type RawCustomerSettingsRow = Record<string, unknown> & {
@@ -44,8 +50,8 @@ function tableAlias(table: CustomerSettingTable): string {
   return "Payroll";
 }
 
-function settingSelectFragments(): Prisma.Sql[] {
-  return CUSTOMER_SETTING_FIELDS.map((field) => {
+function settingSelectFragments(fields: readonly CustomerSettingField[]): Prisma.Sql[] {
+  return fields.map((field) => {
     const alias = tableAlias(field.table);
     return Prisma.sql`${Prisma.raw(alias)}.${sqlIdent(field.column)} AS ${sqlIdent(field.key)}`;
   });
@@ -56,19 +62,47 @@ export async function getCustomerSettings(
   employerId: number,
 ): Promise<CustomerSettingsRow | null> {
   const tenantId = parseEmployerId(employerId);
+  const [tables, columns] = await Promise.all([
+    presentTables(db, CUSTOMER_SETTING_TABLES),
+    presentColumns(
+      db,
+      CUSTOMER_SETTING_FIELDS.map((field) => ({
+        table: field.table,
+        column: field.column,
+      })),
+    ),
+  ]);
+  const split = splitCustomerSettingColumns(tables, columns);
+  const fragments = settingSelectFragments(split.presentFields);
+  const extraSelect =
+    fragments.length > 0 ? Prisma.sql`, ${Prisma.join(fragments)}` : Prisma.empty;
+  const tneFlag = split.includeTneJoin
+    ? Prisma.sql`CASE WHEN Tne.EmployerID IS NULL THEN 0 ELSE 1 END`
+    : Prisma.sql`CAST(0 AS int)`;
+  const payrollFlag = split.includePayrollJoin
+    ? Prisma.sql`CASE WHEN Payroll.Id IS NULL THEN 0 ELSE 1 END`
+    : Prisma.sql`CAST(0 AS int)`;
+  const tneJoin = split.includeTneJoin
+    ? Prisma.sql`
+    LEFT JOIN dbo.TTNEEmployerConfiguration AS Tne
+        ON Tne.EmployerID = Settings.EmployerId`
+    : Prisma.empty;
+  const payrollJoin = split.includePayrollJoin
+    ? Prisma.sql`
+    LEFT JOIN dbo.TExternal_Payroll_Configuration AS Payroll
+        ON Payroll.CustomerId = Settings.CustomerId`
+    : Prisma.empty;
   const rows = await db.$queryRaw<RawCustomerSettingsRow[]>`
     SELECT
         Settings.EmployerId,
         Settings.CustomerId,
         Settings.CustName,
-        CASE WHEN Tne.EmployerID IS NULL THEN 0 ELSE 1 END AS HasTneConfig,
-        CASE WHEN Payroll.Id IS NULL THEN 0 ELSE 1 END AS HasPayrollConfig,
-        ${Prisma.join(settingSelectFragments())}
+        ${tneFlag} AS HasTneConfig,
+        ${payrollFlag} AS HasPayrollConfig
+        ${extraSelect}
     FROM dbo.TCustomerSettings AS Settings
-    LEFT JOIN dbo.TTNEEmployerConfiguration AS Tne
-        ON Tne.EmployerID = Settings.EmployerId
-    LEFT JOIN dbo.TExternal_Payroll_Configuration AS Payroll
-        ON Payroll.CustomerId = Settings.CustomerId
+    ${tneJoin}
+    ${payrollJoin}
     WHERE Settings.EmployerId = ${tenantId}
   `;
   const row = rows[0];
@@ -76,7 +110,7 @@ export async function getCustomerSettings(
     return null;
   }
   const values: Record<string, CustomerSettingUiValue> = {};
-  for (const field of CUSTOMER_SETTING_FIELDS) {
+  for (const field of split.presentFields) {
     values[field.key] = decodeSettingValue(field, row[field.key]);
   }
   return {
@@ -86,5 +120,6 @@ export async function getCustomerSettings(
     hasTneConfig: row.HasTneConfig === true || row.HasTneConfig === 1,
     hasPayrollConfig: row.HasPayrollConfig === true || row.HasPayrollConfig === 1,
     values,
+    missingColumns: split.missingColumns,
   };
 }

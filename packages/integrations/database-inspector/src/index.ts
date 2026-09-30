@@ -10,7 +10,10 @@ export type {
   CreateTableRequest,
   DatabaseCatalog,
   DatabaseColumn,
+  DatabaseConstraint,
+  DatabaseConstraintKind,
   DatabaseEngine,
+  DatabaseIndex,
   DatabaseMcpConfig,
   DatabaseObjectDetails,
   DatabaseObjectKind,
@@ -29,6 +32,7 @@ export type {
   StoredProcedureRequest,
   StoredProcedureInsight,
   TableConstraintRequest,
+  DatabaseTrigger,
 } from './types.js';
 export { loadConfig } from './config.js';
 export { asBoolean, asNumber, asString, createOperationErrorResult, normalizeErrorMessage } from './engines/shared.js';

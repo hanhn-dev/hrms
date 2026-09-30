@@ -32,13 +32,15 @@ apps/backstage/
     (ops)/                     shared antd layout (no URL segment)
       employers/               operator console routes (/employers/...)
       login/                   root-admin login (/login)
+    dbs/                       Data Builder Studio (/dbs) — own layout, not under (ops)
     api/
   features/                    interactive capabilities (domain / capability)
     auth/                      app-wide (ops login) — no domain
     employee/
       access|business-unit|history|leave|login|profile|search|sections
     employer/
-      explore|fields|picker|roles|settings|uploads|workflows
+      fields|picker|roles|settings|uploads|workflows|notifications
+    dbs/                       Data Builder Studio (standalone /dbs)
   shared/                      cross-cutting only (auth helpers, db, ui, theme, resolve)
   components/                  docs-chrome UI (site header, guides article chrome, auth menu)
   lib/                         content loaders + markdown helpers (docs/wiki/guides)
@@ -66,26 +68,26 @@ Rules:
 
 - Each capability folder has a leaf barrel `index.ts`. No domain-level barrel (`features/employee/index.ts`). Import the leaf: `@/features/employee/access`.
 - Same capability on two domains = two folders (`employer/roles` vs a future `employee/roles`). Do not share one `features/roles`.
-- App-wide concerns stay top-level under `features/` (`auth`) or in `shared/` (`shared/employee` is resolve helpers, not a screen).
+- App-wide concerns stay top-level under `features/` (`auth`, `dbs`) or in `shared/` (`shared/employee` is resolve helpers, not a screen).
 - `app/` stays thin: import a screen from `@/features/...` and render it. Do not put business logic in route files.
 - Do not flatten feature folders to match URL segments. Do not grow a global `lib/queries` dump for ops data.
-- **New interactive area:** add `features/<domain>/<capability>/` plus a thin `app/(ops)/...` route (under `/employers/...` for ops). Prefer extending this tree over placing new screens in `components/` or `lib/`.
+- **New interactive area:** add `features/<domain>/<capability>/` plus a thin `app/` route. Employer ops stay under `app/(ops)/employers/...`; Data Builder Studio uses `app/dbs/` with its own layout. Prefer extending this tree over placing new screens in `components/` or `lib/`.
 
-Import with `@/` (`@/features/employer/picker`, `@/shared/db`, `@/lib/guides`). No parent-relative `../`. Same-directory `./` is allowed.
+Import with `@/` (`@/features/employer/picker`, `@/features/dbs`, `@/shared/db`, `@/lib/guides`). No parent-relative `../`. Same-directory `./` is allowed.
 
 ### Two UI stacks (do not mix casually)
 
 | Surface | URL prefix | UI | Data |
 |---|---|---|---|
 | Docs / Wiki / Guides | `/docs`, `/wiki`, `/docs/guides` | Tailwind 4 + `prose` | Markdown on disk via `lib/*` |
-| Operator console | `/employers`, `/login` | antd 6 + `@ant-design/icons` | `@hrms/db` only |
+| Operator console | `/employers`, `/dbs`, `/login` | antd 6 + `@ant-design/icons` | `@hrms/db` (+ `@hrms/database-inspector` in `features/dbs` only) |
 
 Ops screens: antd only (no `@hrms/ui`). Docs chrome stays Tailwind. Mount antd providers only under the `app/(ops)` route group.
 
 ### Docs content vs Features code
 
 - **Product guides** (markdown about HRMS modules) live under `content/guides` and URLs `/docs/guides/...` — documentation, not the `features/` code tree.
-- **Features** in the app sense means interactive operator capabilities under `features/` and routes `/employers/...`.
+- **Features** in the app sense means interactive operator capabilities under `features/` and routes `/employers/...` / `/dbs`.
 
 ## Routes
 
@@ -98,6 +100,7 @@ Ops screens: antd only (no `@hrms/ui`). Docs chrome stays Tailwind. Mount antd p
 | `/docs/guides/edit/[...slug]` | In-app editor (signed-in) | writes a proposal, does not overwrite latest |
 | `/docs/guides/proposals`, `/docs/guides/proposals/[id]` | Admin review queue | `content/guides/_proposals/` |
 | `/employers`, `/login` | Operator console home + root-admin login | `features/employer/picker`, `features/auth` |
+| `/dbs` | Data Builder Studio (schema canvas, SELECT, gated SP exec, env compare) | `features/dbs` |
 | `/employers/[employerId]/...` | Employer/employee diagnostics and gated writes | `features/employee/*`, `features/employer/*` |
 
 Adding a markdown file under the matching `content/` folder is enough — slugs are discovered with `readdirSync`. Do not register routes by hand.
@@ -109,15 +112,16 @@ Adding a markdown file under the matching `content/` folder is enough — slugs 
 - **`content/llm-wiki/`** — **byte-for-byte mirror** of `d:\TDG HRMS DB\llm-wiki\` when that folder exists. Sync with `/sync-llm-wiki`. Cursor: `apps/backstage/.llm-wiki-sync-state.json`. `/track-db-updates` may patch catalog/domain pages for objects in *this run's* SQL delta (edit the DB-repo wiki when it exists, otherwise this tree). Do not hand-edit otherwise.
 - **`content/wiki/`** — hand-authored Docs pages (baselines, liquibase notes). `/track-db-updates` owns `database-changelog.md` only. Wiki-sync must not touch this folder. Cursor: `apps/backstage/.db-updates-state.json`.
 
-## Operator console (`/employers`)
+## Operator console (`/employers`) and Data Builder Studio (`/dbs`)
 
-Uses the feature-based layout above. `app/(ops)/` is the thin route map (antd providers); domain code is `features/<domain>/<capability>/`.
+Uses the feature-based layout above. `app/(ops)/` is the thin route map for employer ops + login (antd providers). **Data Builder Studio** lives at `app/dbs/` with its **own** layout (auth gate + antd providers) — not under `(ops)`.
 
 - Components are `antd` only; icons are `@ant-design/icons` only.
-- Data access goes through `@hrms/db`. Do not use raw `mssql` or HRMS stored procedures.
+- Data access goes through `@hrms/db`. Do not use raw `mssql` or HRMS stored procedures from employer/employee features.
+- **Exception — Data Builder Studio (`features/dbs`):** may call `@hrms/database-inspector` for catalog/object details and gated procedure execute, plus `@hrms/db` dbs helpers for SELECT-only SQL and row preview. Do not copy that pattern into other ops features.
 - Ops auth: `TROUBLESHOOTER_ADMIN_*` Credentials provider (session `isRootAdmin`). Docs edit/proposals use Entra / `Backstage.Admin` (`isAdmin`).
 - Writes require `TROUBLESHOOTER_WRITES_ENABLED=1`, non-production `NODE_ENV`, and the cookie-selected env in `TROUBLESHOOTER_WRITES_ENVS`.
-- Site chrome (Docs/Wiki/Console header) is hidden on `/employers/*` and `/login`; the antd `AppShell` provides ops navigation.
+- Site chrome (Docs/Wiki/Console header) is hidden on `/employers/*`, `/dbs`, and `/login`; employer pages use `AppShell`, dbs uses `DbsShell`.
 - Display dates through `@/shared/format-date` (`DD-MMM-YYYY`, plus `HH:mm:ss` when timed). Do not render raw ISO strings.
 - Server Components: no dotted Ant Design subcomponents (`Typography.Title`) — import `Title` / `Text` / `Paragraph` from `@/shared/ui` or `antd/es/...`. Pass serializable `items` to `Descriptions`. Table `columns` with `render` belong in `"use client"` files. Use Alert `title`, not `message`. Helper copy goes in `PageHelp`, not full-width banners.
 

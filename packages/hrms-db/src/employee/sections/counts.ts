@@ -1,12 +1,16 @@
+import { Prisma } from "../../generated/prisma/client";
 import type { HrmsDb } from "../../shared/client";
 import { requireResolvedEmployee } from "../../shared/employee";
+import { presentTables } from "../../shared/objects";
+import { EMPLOYEE_LIST_SECTION_COLUMNS, sectionCountTableNames } from "./list-columns";
 import { SECTION_COUNT_SPECS } from "./specs";
 
 export type EmployeeSectionCount = {
   sectionId: number;
   sectionName: string;
   label: string;
-  recordCount: number;
+  recordCount: number | null;
+  missingObjects: string[];
 };
 
 type CountRow = {
@@ -27,14 +31,26 @@ export async function getEmployeeSectionCounts(
 ): Promise<EmployeeSectionCount[]> {
   const identity = await requireResolvedEmployee(db, employerId, employmentNumber);
   const employeeId = identity.employeeId;
+  const present = await presentTables(db, sectionCountTableNames());
+  const branches: Prisma.Sql[] = [];
+  const add = (tables: readonly string[], statement: Prisma.Sql) => {
+    if (tables.every((table) => present.has(table))) {
+      branches.push(statement);
+    }
+  };
 
-  const rows = await db.$queryRaw<CountRow[]>`
+  add(
+    [],
+    Prisma.sql`
     SELECT
         1 AS SectionId,
         N'Personal Details' AS SectionName,
         N'Personal Details' AS Label,
-        CAST(1 AS bigint) AS RecordCount
-    UNION ALL
+        CAST(1 AS bigint) AS RecordCount`,
+  );
+  add(
+    ["TEmployeeSkillDetails"],
+    Prisma.sql`
     SELECT
         2,
         N'Skill Details',
@@ -44,8 +60,11 @@ export async function getEmployeeSectionCounts(
             FROM dbo.TEmployeeSkillDetails AS Skill
             WHERE Skill.EmployeeId = ${employeeId}
                 AND (Skill.Isdeleted IS NULL OR Skill.Isdeleted = N'N')
-        )
-    UNION ALL
+        )`,
+  );
+  add(
+    ["TEmployeeDomainDetails"],
+    Prisma.sql`
     SELECT
         3,
         N'Domain Details',
@@ -55,8 +74,11 @@ export async function getEmployeeSectionCounts(
             FROM dbo.TEmployeeDomainDetails AS Domain
             WHERE Domain.EmployeeId = ${employeeId}
                 AND (Domain.Isdeleted IS NULL OR Domain.Isdeleted = N'N')
-        )
-    UNION ALL
+        )`,
+  );
+  add(
+    ["TEmployeePassportDetails", "TEmployeeVisaInfo"],
+    Prisma.sql`
     SELECT
         4,
         N'Passport Details',
@@ -72,8 +94,11 @@ export async function getEmployeeSectionCounts(
             FROM dbo.TEmployeeVisaInfo AS Visa
             WHERE Visa.EmployeeID = ${employeeId}
                 AND Visa.Isdeleted IS NULL
-        )
-    UNION ALL
+        )`,
+  );
+  add(
+    ["TPastEmploymentDetails"],
+    Prisma.sql`
     SELECT
         6,
         N'Past Employment Details',
@@ -83,8 +108,11 @@ export async function getEmployeeSectionCounts(
             FROM dbo.TPastEmploymentDetails AS Past
             WHERE Past.EmployeeId = ${employeeId}
                 AND (Past.IsDelete IS NULL OR Past.IsDelete = 0)
-        )
-    UNION ALL
+        )`,
+  );
+  add(
+    ["TEmployeeBankDetails"],
+    Prisma.sql`
     SELECT
         7,
         N'Bank Details',
@@ -95,8 +123,11 @@ export async function getEmployeeSectionCounts(
             WHERE Bank.EmployeeId = ${employeeId}
                 AND ISNULL(Bank.Show, 1) = 1
                 AND ISNULL(Bank.IsDelete, 0) = 0
-        )
-    UNION ALL
+        )`,
+  );
+  add(
+    ["TEmployeeNomination"],
+    Prisma.sql`
     SELECT
         8,
         N'Nomination Details',
@@ -106,8 +137,11 @@ export async function getEmployeeSectionCounts(
             FROM dbo.TEmployeeNomination AS Nomination
             WHERE Nomination.EmployeeID = ${employeeId}
                 AND Nomination.IsDelete = 0
-        )
-    UNION ALL
+        )`,
+  );
+  add(
+    ["TEducationDetails"],
+    Prisma.sql`
     SELECT
         9,
         N'Education Details',
@@ -117,8 +151,11 @@ export async function getEmployeeSectionCounts(
             FROM dbo.TEducationDetails AS Education
             WHERE Education.EmployeeId = ${employeeId}
                 AND Education.IsDelete IS NULL
-        )
-    UNION ALL
+        )`,
+  );
+  add(
+    ["TEmployeeFamilyDetails"],
+    Prisma.sql`
     SELECT
         10,
         N'Family Details',
@@ -128,8 +165,11 @@ export async function getEmployeeSectionCounts(
             FROM dbo.TEmployeeFamilyDetails AS Family
             WHERE Family.EmployeeID = ${employeeId}
                 AND Family.IsDelete = 0
-        )
-    UNION ALL
+        )`,
+  );
+  add(
+    ["TEmployeeNominee_Details"],
+    Prisma.sql`
     SELECT
         17,
         N'Nominee Details',
@@ -139,8 +179,11 @@ export async function getEmployeeSectionCounts(
             FROM dbo.TEmployeeNominee_Details AS Nominee
             WHERE Nominee.EmployeeID = ${employeeId}
                 AND ISNULL(Nominee.IsDelete, 0) = 0
-        )
-    UNION ALL
+        )`,
+  );
+  add(
+    ["TEmployeeContactDetails"],
+    Prisma.sql`
     SELECT
         11,
         N'Contact Details',
@@ -149,8 +192,11 @@ export async function getEmployeeSectionCounts(
             SELECT COUNT_BIG(*)
             FROM dbo.TEmployeeContactDetails AS Contact
             WHERE Contact.EmployeeID = ${employeeId}
-        )
-    UNION ALL
+        )`,
+  );
+  add(
+    ["TEmployeeEmergencyContactDetails"],
+    Prisma.sql`
     SELECT
         12,
         N'Emergency Contact Details',
@@ -160,8 +206,11 @@ export async function getEmployeeSectionCounts(
             FROM dbo.TEmployeeEmergencyContactDetails AS Emergency
             WHERE Emergency.EmployeeID = ${employeeId}
                 AND (Emergency.Isdeleted = N'N' OR Emergency.Isdeleted IS NULL)
-        )
-    UNION ALL
+        )`,
+  );
+  add(
+    ["TCertificationDetails"],
+    Prisma.sql`
     SELECT
         13,
         N'Certification Details',
@@ -171,14 +220,24 @@ export async function getEmployeeSectionCounts(
             FROM dbo.TCertificationDetails AS Certification
             WHERE Certification.EmployeeId = ${employeeId}
                 AND Certification.IsDelete IS NULL
-        )
-    UNION ALL
+        )`,
+  );
+  add(
+    [],
+    Prisma.sql`
     SELECT
         14,
         N'Current Employment Details',
         N'Employment Details',
-        CAST(1 AS bigint) AS RecordCount
-  `;
+        CAST(1 AS bigint) AS RecordCount`,
+  );
+
+  const rows =
+    branches.length === 0
+      ? []
+      : await db.$queryRaw<CountRow[]>`
+          ${Prisma.join(branches, " UNION ALL ")}
+        `;
 
   const bySectionId = new Map(
     rows.map((row) => [
@@ -188,11 +247,27 @@ export async function getEmployeeSectionCounts(
         sectionName: row.SectionName,
         label: row.Label,
         recordCount: Number(row.RecordCount),
+        missingObjects: [],
       } satisfies EmployeeSectionCount,
     ]),
   );
 
   return SECTION_COUNT_SPECS.map((spec) => {
+    const tables =
+      EMPLOYEE_LIST_SECTION_COLUMNS.find((column) => column.sectionId === spec.sectionId)
+        ?.tables ?? [];
+    const missingObjects = tables
+      .filter((table) => !present.has(table))
+      .map((table) => `dbo.${table}`);
+    if (missingObjects.length > 0) {
+      return {
+        sectionId: spec.sectionId,
+        sectionName: spec.sectionName,
+        label: spec.label,
+        recordCount: null,
+        missingObjects,
+      };
+    }
     const hit = bySectionId.get(spec.sectionId);
     return (
       hit ?? {
@@ -200,6 +275,7 @@ export async function getEmployeeSectionCounts(
         sectionName: spec.sectionName,
         label: spec.label,
         recordCount: 0,
+        missingObjects: [],
       }
     );
   });

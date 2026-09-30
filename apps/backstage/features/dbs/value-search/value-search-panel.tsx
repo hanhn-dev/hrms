@@ -9,7 +9,6 @@ import {
   Collapse,
   Input,
   Segmented,
-  Select,
   Space,
   Switch,
   Table,
@@ -22,13 +21,18 @@ import {
   type ExploreSearchMode,
   type ExploreSearchTableResult,
   type ExploreTable,
-} from "@/features/employer/explore/queries";
+} from "@/features/dbs/queries";
+import { SCHEMA_CHIP_COLOR } from "@/features/dbs/kind-style";
+import {
+  QUERY_RESULT_ROW_KEY,
+  withRowKeys,
+} from "@/features/dbs/with-row-keys";
 import { formatDate } from "@/shared/format-date";
+import { HighlightMatch, SearchSelect, useSearchQuery } from "@/shared/ui";
 
 const MAX_TABLES = 10;
 const TABLE_SEARCH_DEBOUNCE_MS = 300;
 const MIN_TABLE_SEARCH_LENGTH = 2;
-const SCHEMA_CHIP_COLOR = "geekblue";
 const OBJECT_CHIP_COLOR = "green";
 
 function useDebouncedValue<T>(value: T, delayMs: number): T {
@@ -83,11 +87,12 @@ function QualifiedTableChips({
   closable?: boolean;
   onClose?: (event: React.MouseEvent | React.KeyboardEvent) => void;
 }): React.JSX.Element {
+  const query = useSearchQuery();
   const { schema, name } = parseQualified(qualified);
   return (
     <span className="inline-flex items-center gap-0.5 align-middle">
       <Tag color={SCHEMA_CHIP_COLOR} className="m-0">
-        {schema}
+        <HighlightMatch query={query} text={schema} />
       </Tag>
       <Typography.Text type="secondary" className="text-xs">
         .
@@ -98,7 +103,7 @@ function QualifiedTableChips({
         closable={closable}
         onClose={onClose}
       >
-        {name}
+        <HighlightMatch query={query} text={name} />
       </Tag>
     </span>
   );
@@ -160,18 +165,20 @@ function ResultTable({
         size="small"
         pagination={false}
         scroll={{ x: true }}
-        rowKey={(_, index) => String(index)}
+        rowKey={QUERY_RESULT_ROW_KEY}
         columns={columns}
-        dataSource={result.rows}
+        dataSource={withRowKeys(result.rows)}
       />
     </Space>
   );
 }
 
-export function ExplorePanel({
+export function ValueSearchPanel({
   employerId,
+  onClose,
 }: {
-  employerId: number;
+  employerId: number | null;
+  onClose: () => void;
 }): React.JSX.Element {
   const [selectedTables, setSelectedTables] = useState<string[]>([]);
   const [tableSearch, setTableSearch] = useState("");
@@ -183,12 +190,16 @@ export function ExplorePanel({
   const [tablesLoading, setTablesLoading] = useState(false);
   const [value, setValue] = useState("");
   const [mode, setMode] = useState<ExploreSearchMode>("exact");
-  const [filterByEmployer, setFilterByEmployer] = useState(true);
+  const [filterByEmployer, setFilterByEmployer] = useState(employerId !== null);
   const [results, setResults] = useState<ExploreSearchTableResult[] | null>(
     null,
   );
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+
+  useEffect(() => {
+    setFilterByEmployer(employerId !== null);
+  }, [employerId]);
 
   useEffect(() => {
     if (debouncedTableSearch.length < MIN_TABLE_SEARCH_LENGTH) {
@@ -257,7 +268,7 @@ export function ExplorePanel({
           tables: selectedTables,
           value: value.trim(),
           mode,
-          employerId: filterByEmployer ? employerId : null,
+          employerId: filterByEmployer && employerId !== null ? employerId : null,
         });
         setResults(next);
       } catch (err) {
@@ -268,129 +279,107 @@ export function ExplorePanel({
   }
 
   return (
-    <Space orientation="vertical" className="w-full" size="middle">
-      <Card title="Search">
-        <Space orientation="vertical" className="w-full" size="middle">
-          <div>
-            <Typography.Text strong>Tables</Typography.Text>
-            <Typography.Paragraph type="secondary" className="!mb-2">
-              Type at least {MIN_TABLE_SEARCH_LENGTH} characters to find tables.
-              Schema and object name show as separate chips (up to {MAX_TABLES}
-              ).
-            </Typography.Paragraph>
-            <Select
-              mode="multiple"
-              allowClear
-              showSearch
-              filterOption={false}
-              className="w-full"
-              placeholder="Type to search tables (e.g. TEmployee or dbo.TEmp)"
-              maxCount={MAX_TABLES}
-              value={selectedTables}
-              options={selectOptions}
-              loading={tablesLoading}
-              searchValue={tableSearch}
-              onSearch={setTableSearch}
-              notFoundContent={
-                tablesLoading
-                  ? "Searching…"
-                  : debouncedTableSearch.length < MIN_TABLE_SEARCH_LENGTH
-                    ? `Type at least ${MIN_TABLE_SEARCH_LENGTH} characters`
-                    : "No tables match"
-              }
-              tagRender={(props) => (
-                <QualifiedTableChips
-                  qualified={String(props.value)}
-                  closable={props.closable}
-                  onClose={(event) => {
-                    event.preventDefault();
-                    props.onClose();
-                  }}
-                />
-              )}
-              optionRender={(option) => (
-                <QualifiedTableChips qualified={String(option.value ?? "")} />
-              )}
-              onChange={(next: string[]) => {
-                setSelectedTables(next);
-              }}
-              onOpenChange={(open) => {
-                if (!open) {
-                  setTableSearch("");
-                }
-              }}
-            />
-            {selectedTables.length > 0 ? (
-              <Typography.Paragraph type="secondary" className="!mt-2 !mb-0">
-                {selectedTables.length} / {MAX_TABLES} selected
-              </Typography.Paragraph>
-            ) : null}
-          </div>
-
-          <div className="flex flex-wrap items-end gap-4">
-            <div className="min-w-[240px] flex-1">
-              <Typography.Text strong>Value</Typography.Text>
-              <Input
-                className="mt-1"
+    <div className="absolute inset-4 z-20 overflow-auto rounded-lg bg-white p-4 shadow-lg ring-1 ring-slate-200">
+      <Space orientation="vertical" className="w-full" size="middle">
+        <div className="flex items-center justify-between gap-2">
+          <Typography.Title level={4} className="!mb-0">
+            Value search
+          </Typography.Title>
+          <Button onClick={onClose}>Close</Button>
+        </div>
+        <Card size="small" title="Search">
+          <Space orientation="vertical" className="w-full" size="middle">
+            <div>
+              <Typography.Text strong>Tables</Typography.Text>
+              <SearchSelect
+                mode="multiple"
                 allowClear
-                placeholder="Employment number, ID, DisplayText, …"
-                value={value}
-                onChange={(event) => {
-                  setValue(event.target.value);
-                }}
-                onPressEnter={() => {
-                  runSearch();
+                filterOption={false}
+                className="mt-1 w-full"
+                placeholder="Type to search tables"
+                maxCount={MAX_TABLES}
+                value={selectedTables}
+                options={selectOptions}
+                loading={tablesLoading}
+                searchValue={tableSearch}
+                onSearch={setTableSearch}
+                tagRender={(props) => (
+                  <QualifiedTableChips
+                    qualified={String(props.value)}
+                    closable={props.closable}
+                    onClose={(event) => {
+                      event.preventDefault();
+                      props.onClose();
+                    }}
+                  />
+                )}
+                optionRender={(option) => (
+                  <QualifiedTableChips qualified={String(option.value ?? "")} />
+                )}
+                onChange={(next: string[]) => {
+                  setSelectedTables(next);
                 }}
               />
             </div>
-            <div>
-              <Typography.Text strong>Match</Typography.Text>
-              <div className="mt-1">
-                <Segmented
-                  value={mode}
-                  onChange={(next) => {
-                    setMode(next as ExploreSearchMode);
+            <div className="flex flex-wrap items-end gap-4">
+              <div className="min-w-[240px] flex-1">
+                <Typography.Text strong>Value</Typography.Text>
+                <Input
+                  className="mt-1"
+                  allowClear
+                  value={value}
+                  onChange={(event) => {
+                    setValue(event.target.value);
                   }}
-                  options={[
-                    { label: "Exact", value: "exact" },
-                    { label: "Contains", value: "contains" },
-                  ]}
+                  onPressEnter={runSearch}
                 />
               </div>
-            </div>
-            <div>
-              <Typography.Text strong>Employer filter</Typography.Text>
-              <div className="mt-1 flex items-center gap-2">
-                <Switch
-                  checked={filterByEmployer}
-                  onChange={setFilterByEmployer}
-                />
-                <Typography.Text type="secondary">
-                  {filterByEmployer
-                    ? `Employer ${employerId}`
-                    : "Global (all employers)"}
-                </Typography.Text>
+              <div>
+                <Typography.Text strong>Match</Typography.Text>
+                <div className="mt-1">
+                  <Segmented
+                    value={mode}
+                    onChange={(next) => {
+                      setMode(next as ExploreSearchMode);
+                    }}
+                    options={[
+                      { label: "Exact", value: "exact" },
+                      { label: "Contains", value: "contains" },
+                    ]}
+                  />
+                </div>
               </div>
+              <div>
+                <Typography.Text strong>Employer filter</Typography.Text>
+                <div className="mt-1 flex items-center gap-2">
+                  <Switch
+                    checked={filterByEmployer && employerId !== null}
+                    disabled={employerId === null}
+                    onChange={setFilterByEmployer}
+                  />
+                  <Typography.Text type="secondary">
+                    {employerId === null
+                      ? "Pick an employer in the header"
+                      : filterByEmployer
+                        ? `Employer ${employerId}`
+                        : "Global"}
+                  </Typography.Text>
+                </div>
+              </div>
+              <Button
+                type="primary"
+                loading={pending}
+                disabled={!canSearch || pending}
+                onClick={runSearch}
+              >
+                Search
+              </Button>
             </div>
-            <Button
-              type="primary"
-              loading={pending}
-              disabled={!canSearch || pending}
-              onClick={runSearch}
-            >
-              Search
-            </Button>
-          </div>
-        </Space>
-      </Card>
-
-      {error ? <Alert type="error" showIcon title={error} /> : null}
-
-      {results ? (
-        <Card title="Results">
-          {results.length === 0 ? (
-            <Typography.Text type="secondary">No results.</Typography.Text>
-          ) : (
+          </Space>
+        </Card>
+        {error ? <Alert type="error" showIcon title={error} /> : null}
+        {results ? (
+          <Card size="small" title="Results">
             <Collapse
               items={results.map((result) => ({
                 key: result.table,
@@ -409,9 +398,9 @@ export function ExplorePanel({
                 children: <ResultTable result={result} />,
               }))}
             />
-          )}
-        </Card>
-      ) : null}
-    </Space>
+          </Card>
+        ) : null}
+      </Space>
+    </div>
   );
 }

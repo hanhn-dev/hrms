@@ -16,6 +16,7 @@ import {
   workflowsHref,
   type WorkflowsTab,
 } from "@/features/employer/workflows/workflows-source";
+import { HighlightMatch } from "@/shared/ui";
 
 const STATUS_COLOR: Record<WorkflowListItem["status"], string> = {
   completed: "green",
@@ -124,7 +125,9 @@ export function WorkflowsPanel({
                     title: "Workflow",
                     dataIndex: "workflowName",
                     render: (name: string, row: WorkflowListItem) => (
-                      <Link href={workflowHref(employerId, row.workflowId)}>{name}</Link>
+                      <Link href={workflowHref(employerId, row.workflowId)}>
+                        <HighlightMatch query={search} text={name} />
+                      </Link>
                     ),
                   },
                   { title: "Id", dataIndex: "workflowId", width: 80 },

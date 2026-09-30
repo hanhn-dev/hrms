@@ -1,7 +1,7 @@
 import { Card } from "antd";
 import { SectionsPanel } from "@/features/employee/sections/sections-panel";
 import { getEmployeeSectionCounts } from "@/features/employee/sections/queries";
-import { Employee360Nav, PageHelp } from "@/shared/ui";
+import { Employee360Nav, MissingObjectAlert, PageHelp } from "@/shared/ui";
 
 export async function EmployeeSectionsScreen({
   employerId,
@@ -11,6 +11,12 @@ export async function EmployeeSectionsScreen({
   employmentNumber: string;
 }): Promise<React.JSX.Element> {
   const rows = await getEmployeeSectionCounts(employerId, employmentNumber);
+  const unavailable = rows.flatMap((row) =>
+    row.missingObjects.map((objectName) => ({
+      feature: row.label,
+      objectName,
+    })),
+  );
 
   return (
     <>
@@ -44,6 +50,7 @@ export async function EmployeeSectionsScreen({
         employerId={employerId}
         employmentNumber={employmentNumber}
       />
+      <MissingObjectAlert items={unavailable} />
       <Card title="Section summary">
         <SectionsPanel
           employerId={employerId}

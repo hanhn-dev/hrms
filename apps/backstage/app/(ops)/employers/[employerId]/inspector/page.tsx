@@ -1,11 +1,11 @@
-import { ExploreScreen } from "@/features/employer/explore";
+import { InspectorScreen } from "@/features/employer/inspector";
 import { parsePositiveInt } from "@/shared/routing";
 
-export default async function ExplorePage({
+export default async function InspectorPage({
   params,
 }: {
   params: Promise<{ employerId: string }>;
 }): Promise<React.JSX.Element> {
   const { employerId } = await params;
-  return <ExploreScreen employerId={parsePositiveInt(employerId)} />;
+  return <InspectorScreen employerId={parsePositiveInt(employerId)} />;
 }

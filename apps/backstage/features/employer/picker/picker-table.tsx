@@ -4,6 +4,7 @@ import { Input, Table, Tag } from "antd";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import type { EmployerListItem } from "@/features/employer/picker/queries";
+import { HighlightMatch } from "@/shared/ui";
 
 function compareText(
   left: string | null | undefined,
@@ -88,7 +89,9 @@ export function EmployerPickerTable({
           sorter: (a: EmployerListItem, b: EmployerListItem) =>
             compareText(a.employerName, b.employerName),
           render: (name: string, row: EmployerListItem) => (
-            <Link href={`/employers/${row.employerId}`}>{name}</Link>
+            <Link href={`/employers/${row.employerId}`}>
+              <HighlightMatch query={nameQuery} text={name} />
+            </Link>
           ),
         },
         {

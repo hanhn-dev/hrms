@@ -46,28 +46,41 @@ function matchesCountFilter(count: number, raw: unknown): boolean {
   return true;
 }
 
-function sectionCountColumns(): ColumnsType<EmployeeSearchHit> {
-  return SECTION_COLUMNS.map((section) => ({
-    title: section.label,
-    dataIndex: section.field,
-    key: section.field,
-    width: 120,
-    align: "right" as const,
-    sorter: (a, b) => Number(a[section.field]) - Number(b[section.field]),
-    filters: [...COUNT_FILTERS],
-    onFilter: (value, record) =>
-      matchesCountFilter(Number(record[section.field]), value),
-  }));
+function sectionCountColumns(
+  unavailableFields: ReadonlySet<string>,
+): ColumnsType<EmployeeSearchHit> {
+  return SECTION_COLUMNS.map((section) => {
+    const unavailable = unavailableFields.has(section.field);
+    return {
+      title: section.label,
+      dataIndex: section.field,
+      key: section.field,
+      width: 120,
+      align: "right" as const,
+      sorter: unavailable
+        ? undefined
+        : (a: EmployeeSearchHit, b: EmployeeSearchHit) =>
+            Number(a[section.field]) - Number(b[section.field]),
+      filters: unavailable ? undefined : [...COUNT_FILTERS],
+      onFilter: unavailable
+        ? undefined
+        : (value: unknown, record: EmployeeSearchHit) =>
+            matchesCountFilter(Number(record[section.field]), value),
+      render: unavailable ? () => "—" : undefined,
+    };
+  });
 }
 
 export function EmployeeSearchTable({
   employerId,
   search,
   results,
+  unavailableFields = [],
 }: {
   employerId: number;
   search: string;
   results: EmployeeSearchHit[];
+  unavailableFields?: readonly string[];
 }): React.JSX.Element {
   return (
     <Table
@@ -154,7 +167,7 @@ export function EmployeeSearchTable({
               <Tag color="red">Inactive</Tag>
             ),
         },
-        ...sectionCountColumns(),
+        ...sectionCountColumns(new Set(unavailableFields)),
       ]}
     />
   );

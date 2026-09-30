@@ -1241,3 +1241,49 @@ export function parseCategoryPatch(
   }
   return parsed;
 }
+
+export type MissingCustomerSettingColumn = {
+  key: string;
+  label: string;
+  table: CustomerSettingTable;
+  column: string;
+};
+
+export type CustomerSettingColumnSplit = {
+  presentFields: CustomerSettingField[];
+  missingColumns: MissingCustomerSettingColumn[];
+  includeTneJoin: boolean;
+  includePayrollJoin: boolean;
+};
+
+export function splitCustomerSettingColumns(
+  presentTableNames: ReadonlySet<string>,
+  presentColumnKeys: ReadonlySet<string>,
+): CustomerSettingColumnSplit {
+  const tables = new Set([...presentTableNames].map((name) => name.toLowerCase()));
+  const columns = new Set([...presentColumnKeys].map((key) => key.toLowerCase()));
+  const presentFields: CustomerSettingField[] = [];
+  const missingColumns: MissingCustomerSettingColumn[] = [];
+  for (const field of CUSTOMER_SETTING_FIELDS) {
+    const tablePresent = tables.has(field.table.toLowerCase());
+    const columnPresent = columns.has(
+      `${field.table}.${field.column}`.toLowerCase(),
+    );
+    if (tablePresent && columnPresent) {
+      presentFields.push(field);
+    } else {
+      missingColumns.push({
+        key: field.key,
+        label: field.label,
+        table: field.table,
+        column: field.column,
+      });
+    }
+  }
+  return {
+    presentFields,
+    missingColumns,
+    includeTneJoin: tables.has("ttneemployerconfiguration"),
+    includePayrollJoin: tables.has("texternal_payroll_configuration"),
+  };
+}

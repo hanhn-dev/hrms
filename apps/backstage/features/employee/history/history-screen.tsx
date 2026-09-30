@@ -2,11 +2,12 @@ import { Alert, Card } from "antd";
 import {
   HISTORY_VIEW_TYPES,
   isHistorySectionName,
+  missingObjectName,
   type HistoryViewType,
 } from "@hrms/db";
 import { HistoryPanel } from "@/features/employee/history/history-panel";
 import { getEmployeeHistoryChanges } from "@/features/employee/history/queries";
-import { Employee360Nav, PageHelp } from "@/shared/ui";
+import { Employee360Nav, MissingObjectAlert, PageHelp } from "@/shared/ui";
 
 function parseType(value: string | undefined): HistoryViewType {
   if (value && (HISTORY_VIEW_TYPES as readonly string[]).includes(value)) {
@@ -38,14 +39,23 @@ export async function EmployeeHistoryScreen({
   const pageNumber = Math.max(1, Number(pageRaw ?? "1") || 1);
   const pageSize = 30;
 
-  const result = await getEmployeeHistoryChanges(employerId, employmentNumber, {
-    type,
-    section,
-    from: from ?? null,
-    to: to ?? null,
-    pageNumber,
-    pageSize,
-  });
+  let result: Awaited<ReturnType<typeof getEmployeeHistoryChanges>> = null;
+  let missingObject: string | null = null;
+  try {
+    result = await getEmployeeHistoryChanges(employerId, employmentNumber, {
+      type,
+      section,
+      from: from ?? null,
+      to: to ?? null,
+      pageNumber,
+      pageSize,
+    });
+  } catch (error) {
+    missingObject = missingObjectName(error);
+    if (!missingObject) {
+      throw error;
+    }
+  }
 
   return (
     <>
@@ -72,7 +82,11 @@ export async function EmployeeHistoryScreen({
         employerId={employerId}
         employmentNumber={employmentNumber}
       />
-      {!result ? (
+      {missingObject ? (
+        <MissingObjectAlert
+          items={[{ feature: "History", objectName: missingObject }]}
+        />
+      ) : !result ? (
         <Alert showIcon type="error" title="Employee was not found." />
       ) : (
         <Card title="History changes">

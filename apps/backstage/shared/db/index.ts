@@ -15,14 +15,16 @@ export async function getSelectedEnvironment(): Promise<string> {
   return resolveEnvironment(cookieStore.get(ENVIRONMENT_COOKIE)?.value);
 }
 
-export async function getHrmsDb(): Promise<HrmsDb> {
-  const env = await getSelectedEnvironment();
-  const existing = clients.get(env);
+export async function getHrmsDb(env?: string): Promise<HrmsDb> {
+  const resolved = env
+    ? resolveEnvironment(env)
+    : await getSelectedEnvironment();
+  const existing = clients.get(resolved);
   if (existing) {
     return existing;
   }
-  const client = createHrmsDb(getEnvironmentConfig(env));
-  clients.set(env, client);
+  const client = createHrmsDb(getEnvironmentConfig(resolved));
+  clients.set(resolved, client);
   return client;
 }
 

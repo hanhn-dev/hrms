@@ -35,7 +35,7 @@ import type {
   WorkflowScopeOption,
 } from "@/features/employer/workflows/queries";
 import { workflowHref, workflowsHref } from "@/features/employer/workflows/workflows-source";
-import { ConfirmWriteModal } from "@/shared/ui";
+import { ConfirmWriteModal, SearchSelect } from "@/shared/ui";
 
 type HeaderDraft = {
   workflowName: string;
@@ -249,10 +249,9 @@ export function WorkflowPanel({
           </label>
           <label className="flex flex-col gap-1">
             <span>Module</span>
-            <Select
+            <SearchSelect
               optionFilterProp="label"
               options={moduleOptions}
-              showSearch
               value={header.moduleId}
               onChange={(moduleId: number) => {
                 patchHeader({

@@ -27,6 +27,13 @@ export function SectionsPanel({
           sorter: (a, b) => a.label.localeCompare(b.label),
           defaultSortOrder: "ascend",
           render: (label: string, row) => {
+            if (row.missingObjects.length > 0) {
+              return (
+                <Typography.Text type="secondary">
+                  {label} (unavailable)
+                </Typography.Text>
+              );
+            }
             if (!isCrudSectionId(row.sectionId)) {
               return (
                 <Typography.Text>
@@ -49,7 +56,8 @@ export function SectionsPanel({
           dataIndex: "recordCount",
           width: 120,
           align: "right",
-          sorter: (a, b) => a.recordCount - b.recordCount,
+          sorter: (a, b) => (a.recordCount ?? -1) - (b.recordCount ?? -1),
+          render: (count: number | null) => (count == null ? "—" : count),
         },
       ]}
     />

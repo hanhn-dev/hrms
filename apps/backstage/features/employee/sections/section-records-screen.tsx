@@ -1,8 +1,8 @@
 import { Alert, Card } from "antd";
-import { isCrudSectionId, sectionRecordSpecForId } from "@hrms/db";
+import { isCrudSectionId, missingObjectName, sectionRecordSpecForId } from "@hrms/db";
 import { areWritesEnabled } from "@/shared/auth";
 import { getSelectedEnvironment } from "@/shared/db";
-import { Employee360Nav, PageHelp } from "@/shared/ui";
+import { Employee360Nav, MissingObjectAlert, PageHelp } from "@/shared/ui";
 import { getSectionRecordsPage } from "@/features/employee/sections/queries";
 import { SectionRecordsPanel } from "@/features/employee/sections/section-records-panel";
 
@@ -18,19 +18,28 @@ export async function SectionRecordsScreen({
   const writesEnabled = areWritesEnabled(await getSelectedEnvironment());
   const crud = isCrudSectionId(sectionId);
   const spec = sectionRecordSpecForId(sectionId);
-  const page = crud
-    ? await getSectionRecordsPage({
+  let missingObject: string | null = null;
+  let page = {
+    fields: [] as Awaited<ReturnType<typeof getSectionRecordsPage>>["fields"],
+    records: [] as Awaited<ReturnType<typeof getSectionRecordsPage>>["records"],
+    label: spec?.label ?? `Section ${sectionId}`,
+    sectionName: spec?.sectionName ?? `Section ${sectionId}`,
+    crudSupported: false,
+  };
+  if (crud) {
+    try {
+      page = await getSectionRecordsPage({
         employerId,
         employmentNumber,
         sectionId,
-      })
-    : {
-        fields: [],
-        records: [],
-        label: spec?.label ?? `Section ${sectionId}`,
-        sectionName: spec?.sectionName ?? `Section ${sectionId}`,
-        crudSupported: false,
-      };
+      });
+    } catch (error) {
+      missingObject = missingObjectName(error);
+      if (!missingObject) {
+        throw error;
+      }
+    }
+  }
 
   const tables = Array.from(
     new Set(
@@ -74,7 +83,11 @@ export async function SectionRecordsScreen({
         employerId={employerId}
         employmentNumber={employmentNumber}
       />
-      {!crud ? (
+      {missingObject ? (
+        <MissingObjectAlert
+          items={[{ feature: page.label, objectName: missingObject }]}
+        />
+      ) : !crud ? (
         <Alert
           type="info"
           showIcon

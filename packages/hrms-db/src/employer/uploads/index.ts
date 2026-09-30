@@ -8,6 +8,7 @@ export {
   compareUploadHeaders,
   creationExcludedFieldNames,
   isMissingObjectError,
+  missingObjectName,
   parseUploadTypeKey,
   validationRuleNames,
   type UploadErrorClass,

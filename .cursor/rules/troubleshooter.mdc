@@ -6,7 +6,7 @@ alwaysApply: false
 
 # Operator console
 
-Internal HRMS data/access operator console — mounted in Backstage at `/employers` (port **5001**). Next.js 16 App Router + React 19 + Ant Design 6 + Tailwind 4. Full layout is in `apps/backstage/AGENTS.md`.
+Internal HRMS data/access operator console — mounted in Backstage at `/employers` and `/dbs` (port **5001**). Next.js 16 App Router + React 19 + Ant Design 6 + Tailwind 4. Full layout is in `apps/backstage/AGENTS.md`.
 
 ```bash
 npm run backstage                          # from repo root
@@ -17,7 +17,7 @@ Components are `antd` only. Icons are `@ant-design/icons` only.
 
 ## Feature folders
 
-`app/(ops)/` is a thin route map (antd providers + `/employers` / `/login` pages). Feature code is `features/<domain>/<capability>/` with a leaf `index.ts`. Domain folders are singular. Do not prefix the capability with the domain.
+`app/(ops)/` is a thin route map (antd providers + `/employers` / `/login` pages). Data Builder Studio is **`app/dbs/`** with its own layout — not under `(ops)`. Feature code is `features/<domain>/<capability>/` with a leaf `index.ts`. Domain folders are singular. Do not prefix the capability with the domain.
 
 ```text
 # ❌ BAD
@@ -29,12 +29,13 @@ features/roles/
 features/employee/access/access-screen.tsx
 features/employer/settings/settings-screen.tsx
 features/employer/roles/roles-screen.tsx
+features/dbs/                    # Data Builder Studio (app-wide, not under employer)
 ```
 
 - No domain-level barrel. Import `@/features/employee/access`, not `@/features/employee`.
 - Same capability on two domains = two folders (`employer/roles` vs future `employee/roles`).
-- App-wide login stays `features/auth/`. Cross-cutting resolve stays `shared/employee/`.
-- URL routes stay nested under `/employers/[id]/...`. Do not flatten features to match URLs.
+- App-wide login stays `features/auth/`. Data Builder Studio stays `features/dbs/`. Cross-cutting resolve stays `shared/employee/`.
+- Employer URL routes stay nested under `/employers/[id]/...`. Standalone tools (dbs) use top-level ops routes.
 
 Import with `@/`. No parent-relative `../`. Same-directory `./` is allowed.
 
@@ -50,6 +51,8 @@ Display dates through `@/shared/format-date`. Date-only values are `DD-MMM-YYYY`
 
 ## Data and writes
 
-Queries go through `@hrms/db`. Do not use `mssql` or raw SQL strings. Do not call HRMS stored procedures (`SP_AdminRoleM_*`, `SP_InsertRolePageMapping`, `sp_InsertDynamicMenuHierarchy`).
+Queries go through `@hrms/db`. Do not use `mssql` or raw SQL strings. Do not call HRMS stored procedures (`SP_AdminRoleM_*`, `SP_InsertRolePageMapping`, `sp_InsertDynamicMenuHierarchy`) from employer/employee features.
 
-Every query includes `Employerid`. Writes require `TROUBLESHOOTER_WRITES_ENABLED=1`, non-production `NODE_ENV`, and the selected env in `TROUBLESHOOTER_WRITES_ENVS`. Preview → HMAC confirm → `BEGIN TRAN` / `COMMIT`.
+**Exception — `features/dbs` (Data Builder Studio):** may use `@hrms/database-inspector` for catalog/details and gated SP execute, and `@hrms/db` dbs helpers for SELECT-only SQL / row preview. SELECT runner is root-admin only; SP execute uses the writes gate (preview → HMAC confirm).
+
+Employer-scoped queries include `Employerid`. Writes require `TROUBLESHOOTER_WRITES_ENABLED=1`, non-production `NODE_ENV`, and the selected env in `TROUBLESHOOTER_WRITES_ENVS`. Preview → HMAC confirm → `BEGIN TRAN` / `COMMIT`.
