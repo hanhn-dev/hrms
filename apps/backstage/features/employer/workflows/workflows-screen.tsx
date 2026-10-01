@@ -14,9 +14,15 @@ import { PageHelp } from "@/shared/ui/shell-header-context";
 export async function WorkflowsScreen({
   employerId,
   tab,
+  pageName,
+  groupId,
+  requestId,
 }: {
   employerId: number;
   tab: WorkflowsTab;
+  pageName: string | null;
+  groupId: number | null;
+  requestId: number | null;
 }): Promise<React.JSX.Element> {
   const [workflows, pages, groups, settings, changeRequests] = await Promise.all([
     listWorkflows(employerId),
@@ -66,8 +72,11 @@ export async function WorkflowsScreen({
       <WorkflowsPanel
         changeRequests={changeRequests}
         employerId={employerId}
+        groupId={groupId}
         groups={groups}
+        pageName={pageName}
         pages={pages}
+        requestId={requestId}
         tab={tab}
         workflows={workflows}
         writesEnabled={writesEnabled}

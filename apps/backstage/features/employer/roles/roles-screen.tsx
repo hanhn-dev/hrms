@@ -17,7 +17,7 @@ export async function RolesScreen({
   return (
     <>
       <Card className="mb-4" title="Tenant roles">
-        <RolesTable roles={roles} />
+        <RolesTable employerId={employerId} roles={roles} />
       </Card>
       <Card
         title={

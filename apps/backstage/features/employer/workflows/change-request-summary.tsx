@@ -3,15 +3,13 @@
 import { useMemo } from "react";
 import { Descriptions, Space, Table, Typography } from "antd";
 import {
-  EmployeeNameLink,
   KindChip,
-  NameChips,
-  WorkflowChip,
   changeKindFromRow,
   sectionNamesFrom,
 } from "@/features/employer/workflows/change-request-labels";
 import type { ChangeRequestDetail } from "@/features/employer/workflows/queries";
 import { formatDate } from "@/shared/format-date";
+import { EntityLink } from "@/shared/entity-link";
 
 function personLabel(person: {
   name: string;
@@ -38,22 +36,74 @@ export function ChangeRequestSummary({
         size="small"
         column={2}
         items={[
-          { key: "id", label: "Request", children: detail.header.changeRequestId },
-          { key: "page", label: "Page", children: detail.header.pageName ?? "—" },
+          { key: "id", label: "Request", children: (
+            <EntityLink
+              employerId={employerId}
+              entity={{
+                kind: "changeRequest",
+                changeRequestId: detail.header.changeRequestId,
+              }}
+            >
+              {detail.header.changeRequestId}
+            </EntityLink>
+          ) },
+          {
+            key: "page",
+            label: "Page",
+            children: (
+              <EntityLink
+                employerId={employerId}
+                entity={
+                  detail.header.pageName
+                    ? { kind: "workflowPage", pageName: detail.header.pageName }
+                    : null
+                }
+              >
+                {detail.header.pageName ?? "—"}
+              </EntityLink>
+            ),
+          },
           {
             key: "sections",
             label: "Section",
-            children: <NameChips names={sectionNames} />,
+            children:
+              sectionNames.length === 0 ? (
+                "—"
+              ) : (
+                <Space size={4} wrap>
+                  {sectionNames.map((name) => (
+                    <EntityLink
+                      key={name}
+                      appearance="tag"
+                      color="blue"
+                      employerId={employerId}
+                      entity={{ kind: "fieldSection", section: name }}
+                    >
+                      {name}
+                    </EntityLink>
+                  ))}
+                </Space>
+              ),
           },
           {
             key: "employee",
             label: "Employee",
             children: (
-              <EmployeeNameLink
+              <EntityLink
                 employerId={employerId}
-                name={detail.header.employeeName}
-                employmentNumber={detail.header.employmentNumber}
-              />
+                entity={
+                  detail.header.employmentNumber
+                    ? {
+                        kind: "employee",
+                        employmentNumber: detail.header.employmentNumber,
+                      }
+                    : null
+                }
+              >
+                {detail.header.employmentNumber
+                  ? `${detail.header.employeeName} · ${detail.header.employmentNumber}`
+                  : detail.header.employeeName}
+              </EntityLink>
             ),
           },
           {
@@ -69,7 +119,22 @@ export function ChangeRequestSummary({
           {
             key: "workflow",
             label: "Workflow",
-            children: <WorkflowChip name={detail.header.workflowName} />,
+            children: detail.header.workflowName ? (
+              <EntityLink
+                appearance="tag"
+                color="blue"
+                employerId={employerId}
+                entity={
+                  detail.header.workflowId != null
+                    ? { kind: "workflow", workflowId: detail.header.workflowId }
+                    : null
+                }
+              >
+                {detail.header.workflowName}
+              </EntityLink>
+            ) : (
+              "—"
+            ),
           },
           {
             key: "date",
@@ -87,7 +152,22 @@ export function ChangeRequestSummary({
           pagination={false}
           dataSource={detail.details}
           columns={[
-            { title: "Field", dataIndex: "fieldName" },
+            {
+              title: "Field",
+              dataIndex: "fieldName",
+              render: (fieldName: string | null, row: ChangeRequestDetail["details"][number]) => (
+                <EntityLink
+                  employerId={employerId}
+                  entity={
+                    fieldName && row.sectionName
+                      ? { kind: "field", section: row.sectionName, fieldName }
+                      : null
+                  }
+                >
+                  {fieldName ?? "—"}
+                </EntityLink>
+              ),
+            },
             { title: "Old", dataIndex: "oldValue" },
             { title: "New", dataIndex: "newValue" },
             {

@@ -1,10 +1,16 @@
 "use client";
 
 import { Table } from "antd";
-import Link from "next/link";
 import type { RolePageGrant, RoleRow } from "@/features/employer/roles/queries";
+import { EntityLink } from "@/shared/entity-link";
 
-export function RolesTable({ roles }: { roles: RoleRow[] }): React.JSX.Element {
+export function RolesTable({
+  employerId,
+  roles,
+}: {
+  employerId: number;
+  roles: RoleRow[];
+}): React.JSX.Element {
   return (
     <Table
       rowKey="roleId"
@@ -16,7 +22,9 @@ export function RolesTable({ roles }: { roles: RoleRow[] }): React.JSX.Element {
           title: "Role",
           dataIndex: "roleName",
           render: (name: string, row: RoleRow) => (
-            <Link href={`?roleId=${row.roleId}`}>{name}</Link>
+            <EntityLink employerId={employerId} entity={{ kind: "role", roleId: row.roleId }}>
+              {name}
+            </EntityLink>
           ),
         },
         { title: "Id", dataIndex: "roleId", width: 90 },

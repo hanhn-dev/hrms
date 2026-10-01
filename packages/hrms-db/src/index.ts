@@ -57,6 +57,12 @@ export {
   type LeaveBalanceRow,
 } from "./employee/leave";
 export {
+  listEmployeeApprovers,
+  type EmployeeApproverPerson,
+  type EmployeeApproverRow,
+  type EmployeeApprovers,
+} from "./employee/approvers";
+export {
   EMPLOYEE_LIST_SECTION_COLUMNS,
   getEmployeeSectionCounts,
   SECTION_COUNT_SPECS,
@@ -123,6 +129,30 @@ export {
   listEmployers,
   type EmployerListItem,
 } from "./employer/picker";
+export {
+  MASTER_DATA_CATALOG,
+  MASTER_DATA_GROUPS,
+  commitMasterDataWrite,
+  editableMasterDataColumns,
+  filterMasterDataCatalog,
+  filterMasterDataRows,
+  getMasterDataEntry,
+  listAvailableMasterData,
+  listMasterDataRows,
+  loadMasterDataPage,
+  masterDataEmployerId,
+  parseMasterDataValues,
+  previewMasterDataWrite,
+  requireMasterDataEntry,
+  type MasterDataColumn,
+  type MasterDataEntry,
+  type MasterDataGroupId,
+  type MasterDataLookupOption,
+  type MasterDataPageData,
+  type MasterDataRow,
+  type MasterDataValue,
+  type MasterDataWriteMode,
+} from "./employer/master-data";
 export {
   assertSelectOnly,
   listTables,

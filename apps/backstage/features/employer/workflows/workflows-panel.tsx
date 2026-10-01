@@ -1,7 +1,6 @@
 "use client";
 
-import { Button, Input, Table, Tabs, Tag } from "antd";
-import Link from "next/link";
+import { Alert, Button, Input, Table, Tabs, Tag } from "antd";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ChangeRequestPanel } from "@/features/employer/workflows/change-request-panel";
@@ -16,6 +15,8 @@ import {
   workflowsHref,
   type WorkflowsTab,
 } from "@/features/employer/workflows/workflows-source";
+import { EntityLink } from "@/shared/entity-link";
+import { groupIdMatches, namesMatch } from "@/shared/entity-link/focus";
 import { HighlightMatch } from "@/shared/ui";
 
 const STATUS_COLOR: Record<WorkflowListItem["status"], string> = {
@@ -32,6 +33,9 @@ export function WorkflowsPanel({
   groups,
   changeRequests,
   writesEnabled,
+  pageName,
+  groupId,
+  requestId,
 }: {
   employerId: number;
   tab: WorkflowsTab;
@@ -40,6 +44,9 @@ export function WorkflowsPanel({
   groups: WorkflowGroupRow[];
   changeRequests: ChangeRequestListItem[];
   writesEnabled: boolean;
+  pageName: string | null;
+  groupId: number | null;
+  requestId: number | null;
 }): React.JSX.Element {
   const router = useRouter();
   const [search, setSearch] = useState("");
@@ -56,9 +63,14 @@ export function WorkflowsPanel({
       ),
     [query, workflows],
   );
+  const pageMatched = pageName
+    ? pages.filter((row) => namesMatch(row.modulePageName, pageName))
+    : pages;
+  const pageMissing = pageName != null && pageMatched.length === 0;
+  const pageRows = pageMissing ? pages : pageMatched;
   const visiblePages = useMemo(
     () =>
-      pages.filter((row) =>
+      pageRows.filter((row) =>
         matchesQuery(query, [
           row.modulePageName,
           row.mappedAppPage,
@@ -66,18 +78,21 @@ export function WorkflowsPanel({
           row.mappings.map((mapping) => mapping.workflowName).join(" "),
         ]),
       ),
-    [pages, query],
+    [pageRows, query],
   );
+  const groupMatched = groupId == null ? groups : groups.filter((row) => groupIdMatches(row.roleId, groupId));
+  const groupMissing = groupId != null && groupMatched.length === 0;
+  const groupRows = groupMissing ? groups : groupMatched;
   const visibleGroups = useMemo(
     () =>
-      groups.filter((row) =>
+      groupRows.filter((row) =>
         matchesQuery(query, [
           row.roleName,
           row.roleDescription,
           ...row.members.flatMap((member) => [member.name, member.employmentNumber]),
         ]),
       ),
-    [groups, query],
+    [groupRows, query],
   );
 
   return (
@@ -125,9 +140,12 @@ export function WorkflowsPanel({
                     title: "Workflow",
                     dataIndex: "workflowName",
                     render: (name: string, row: WorkflowListItem) => (
-                      <Link href={workflowHref(employerId, row.workflowId)}>
+                      <EntityLink
+                        employerId={employerId}
+                        entity={{ kind: "workflow", workflowId: row.workflowId }}
+                      >
                         <HighlightMatch query={search} text={name} />
-                      </Link>
+                      </EntityLink>
                     ),
                   },
                   { title: "Id", dataIndex: "workflowId", width: 80 },
@@ -166,13 +184,34 @@ export function WorkflowsPanel({
             key: "pages",
             label: `Pages (${pages.length})`,
             children: (
-              <Table
+              <>
+                <FocusNote
+                  clearLabel="All pages"
+                  missing={pageMissing}
+                  missingTitle={pageName ? `No page named ${pageName}.` : null}
+                  title={pageName && !pageMissing ? `Page: ${pageName}` : null}
+                  onClear={() => {
+                    router.push(workflowsHref(employerId, "pages"));
+                  }}
+                />
+                <Table
                 rowKey={(row) => String(row.modulePageId)}
                 dataSource={visiblePages}
                 size="small"
                 scroll={{ x: "max-content" }}
                 columns={[
-                  { title: "Page", dataIndex: "modulePageName" },
+                  {
+                    title: "Page",
+                    dataIndex: "modulePageName",
+                    render: (name: string) => (
+                      <EntityLink
+                        employerId={employerId}
+                        entity={{ kind: "workflowPage", pageName: name }}
+                      >
+                        <HighlightMatch query={search} text={name} />
+                      </EntityLink>
+                    ),
+                  },
                   { title: "App page", dataIndex: "mappedAppPage" },
                   { title: "Module", dataIndex: "moduleName" },
                   {
@@ -187,14 +226,18 @@ export function WorkflowsPanel({
                         <Tag>none</Tag>
                       ) : (
                         row.mappings.map((mapping) => (
-                          <Link
+                          <span
                             key={`${row.modulePageId}-${mapping.workflowId}`}
                             className="mr-2"
-                            href={workflowHref(employerId, mapping.workflowId)}
                           >
-                            {mapping.workflowName}{" "}
+                            <EntityLink
+                              employerId={employerId}
+                              entity={{ kind: "workflow", workflowId: mapping.workflowId }}
+                            >
+                              {mapping.workflowName}
+                            </EntityLink>{" "}
                             <Tag color={STATUS_COLOR[mapping.status]}>{mapping.status}</Tag>
-                          </Link>
+                          </span>
                         ))
                       ),
                   },
@@ -206,19 +249,41 @@ export function WorkflowsPanel({
                   },
                 ]}
               />
+              </>
             ),
           },
           {
             key: "groups",
             label: `Groups (${groups.length})`,
             children: (
-              <Table
+              <>
+                <FocusNote
+                  clearLabel="All groups"
+                  missing={groupMissing}
+                  missingTitle={groupId != null ? `No group with id ${groupId}.` : null}
+                  title={groupId != null && !groupMissing ? `Group: ${groupId}` : null}
+                  onClear={() => {
+                    router.push(workflowsHref(employerId, "groups"));
+                  }}
+                />
+                <Table
                 rowKey="roleId"
                 dataSource={visibleGroups}
                 size="small"
                 scroll={{ x: "max-content" }}
                 columns={[
-                  { title: "Group", dataIndex: "roleName" },
+                  {
+                    title: "Group",
+                    dataIndex: "roleName",
+                    render: (name: string, row: WorkflowGroupRow) => (
+                      <EntityLink
+                        employerId={employerId}
+                        entity={{ kind: "workflowGroup", roleId: row.roleId }}
+                      >
+                        <HighlightMatch query={search} text={name} />
+                      </EntityLink>
+                    ),
+                  },
                   { title: "Id", dataIndex: "roleId", width: 80 },
                   { title: "Description", dataIndex: "roleDescription" },
                   {
@@ -229,9 +294,28 @@ export function WorkflowsPanel({
                   {
                     title: "Members",
                     render: (_: unknown, row: WorkflowGroupRow) =>
-                      row.members.length === 0
-                        ? "—"
-                        : row.members.map(formatGroupMemberLabel).join(", "),
+                      row.members.length === 0 ? (
+                        "—"
+                      ) : (
+                        <span className="inline-flex flex-wrap gap-x-2">
+                          {row.members.map((member) => (
+                            <EntityLink
+                              key={member.employeeId}
+                              employerId={employerId}
+                              entity={
+                                member.employmentNumber
+                                  ? {
+                                      kind: "employee",
+                                      employmentNumber: member.employmentNumber,
+                                    }
+                                  : null
+                              }
+                            >
+                              {formatGroupMemberLabel(member)}
+                            </EntityLink>
+                          ))}
+                        </span>
+                      ),
                   },
                   { title: "Locations", dataIndex: "locationCount", width: 100 },
                   { title: "Business units", dataIndex: "businessUnitCount", width: 130 },
@@ -251,6 +335,7 @@ export function WorkflowsPanel({
                   },
                 ]}
               />
+              </>
             ),
           },
           {
@@ -259,6 +344,7 @@ export function WorkflowsPanel({
             children: (
               <ChangeRequestPanel
                 employerId={employerId}
+                requestId={requestId}
                 requests={changeRequests}
                 writesEnabled={writesEnabled}
               />
@@ -283,4 +369,34 @@ function formatGroupMemberLabel(member: {
 }): string {
   const employmentNumber = member.employmentNumber?.trim();
   return employmentNumber ? `${member.name} (${employmentNumber})` : member.name;
+}
+
+function FocusNote({
+  title,
+  missing,
+  missingTitle,
+  clearLabel,
+  onClear,
+}: {
+  title: string | null;
+  missing: boolean;
+  missingTitle: string | null;
+  clearLabel: string;
+  onClear: () => void;
+}): React.JSX.Element | null {
+  if (!title && !missing) {
+    return null;
+  }
+  return (
+    <div className="mb-3 flex flex-wrap items-center gap-2">
+      {missing && missingTitle ? (
+        <Alert showIcon type="info" title={missingTitle} />
+      ) : title ? (
+        <Alert showIcon type="info" title={title} />
+      ) : null}
+      <Button type="link" onClick={onClear}>
+        {clearLabel}
+      </Button>
+    </div>
+  );
 }

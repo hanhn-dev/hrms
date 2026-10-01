@@ -1,10 +1,6 @@
 "use client";
 
-import { Space, Tag } from "antd";
-import Link from "next/link";
-
-const SECTION_CHIP = "blue";
-const WORKFLOW_CHIP = "blue";
+import { Tag } from "antd";
 
 const KIND_COLOR = {
   Added: "green",
@@ -40,42 +36,6 @@ export function sectionNamesFrom(
   return fromRows.length > 0 ? fromRows : splitNames(headerNames);
 }
 
-export function NameChips({
-  names,
-  fallback = "—",
-}: {
-  names: string[];
-  fallback?: string;
-}): React.JSX.Element {
-  if (names.length === 0) {
-    return <>{fallback}</>;
-  }
-  return (
-    <Space size={4} wrap>
-      {names.map((name) => (
-        <Tag key={name} color={SECTION_CHIP} className="m-0">
-          {name}
-        </Tag>
-      ))}
-    </Space>
-  );
-}
-
-export function WorkflowChip({
-  name,
-}: {
-  name: string | null;
-}): React.JSX.Element {
-  if (!name) {
-    return <>{"—"}</>;
-  }
-  return (
-    <Tag color={WORKFLOW_CHIP} className="m-0">
-      {name}
-    </Tag>
-  );
-}
-
 function isBlank(value: string | null | undefined): boolean {
   return value == null || value.trim() === "";
 }
@@ -100,36 +60,5 @@ export function KindChip({ kind }: { kind: ChangeKind }): React.JSX.Element {
     <Tag color={KIND_COLOR[kind]} className="m-0">
       {kind}
     </Tag>
-  );
-}
-
-export function employeeHref(
-  employerId: number,
-  employmentNumber: string | null,
-): string | null {
-  if (!employmentNumber) {
-    return null;
-  }
-  return `/employers/${employerId}/employees/${encodeURIComponent(employmentNumber)}`;
-}
-
-export function EmployeeNameLink({
-  employerId,
-  name,
-  employmentNumber,
-}: {
-  employerId: number;
-  name: string;
-  employmentNumber: string | null;
-}): React.JSX.Element {
-  const label = employmentNumber ? `${name} · ${employmentNumber}` : name;
-  const href = employeeHref(employerId, employmentNumber);
-  if (!href) {
-    return <>{label}</>;
-  }
-  return (
-    <Link href={href} onClick={(event) => event.stopPropagation()}>
-      {label}
-    </Link>
   );
 }

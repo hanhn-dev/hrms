@@ -1,3 +1,7 @@
 export { WorkflowsScreen } from "./workflows-screen";
 export { WorkflowScreen } from "./workflow-screen";
-export { parseWorkflowsTab } from "./workflows-source";
+export {
+  parseWorkflowFocus,
+  parseWorkflowGroupId,
+  parseWorkflowsTab,
+} from "./workflows-source";

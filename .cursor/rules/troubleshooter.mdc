@@ -56,3 +56,46 @@ Queries go through `@hrms/db`. Do not use `mssql` or raw SQL strings. Do not cal
 **Exception — `features/dbs` (Data Builder Studio):** may use `@hrms/database-inspector` for catalog/details and gated SP execute, and `@hrms/db` dbs helpers for SELECT-only SQL / row preview. SELECT runner is root-admin only; SP execute uses the writes gate (preview → HMAC confirm).
 
 Employer-scoped queries include `Employerid`. Writes require `TROUBLESHOOTER_WRITES_ENABLED=1`, non-production `NODE_ENV`, and the selected env in `TROUBLESHOOTER_WRITES_ENVS`. Preview → HMAC confirm → `BEGIN TRAN` / `COMMIT`.
+
+## Entity links
+
+A named entity on an operator screen is an `EntityLink` from `@/shared/entity-link`. The click opens the page that already owns that entity, focused so its related rows are on screen. Status, kind, and yes/no chips stay `Tag`.
+
+Link only when the id or name is already on the row. A label with no ref stays plain text. The same display name can be two kinds: **Bank Details** on a change request is `fieldSection` (the field catalog); **Bank Details** on an employee’s Sections list is `employeeSection` (that person’s records). Say which kind the screen means.
+
+A new kind is one new member of `EntityRef`, one branch in `entityHref`, and one row in the table below. The destination is the existing page for that entity, focused by a route segment or query param.
+
+| Kind | URL | What the page shows |
+|---|---|---|
+| `employee` | `/employers/{id}/employees/{employmentNumber}` | Profile, plus the nav to history, sections, access, leave, and approvers |
+| `employeeSection` | `/employers/{id}/employees/{employmentNumber}/sections/{sectionId}` | That person’s records for the section |
+| `fieldSection` | `/employers/{id}/fields?section={name}` | Employer, Template, and Compare rows for that section |
+| `field` | `/employers/{id}/fields?section={name}&field={name}` | That section, with the matching field row in view |
+| `workflow` | `/employers/{id}/workflows/{workflowId}` | Header, routing tree, and scope |
+| `workflowPage` | `/employers/{id}/workflows?tab=pages&page={name}` | That module page and its mapped workflows |
+| `workflowGroup` | `/employers/{id}/workflows?tab=groups&group={roleId}` | Members, locations, and workflows using the group |
+| `role` | `/employers/{id}/roles?roleId={roleId}` | Page grants |
+| `upload` | `/employers/{id}/uploads/{uploadId}` | Sections, rows, and errors |
+| `changeRequest` | `/employers/{id}/workflows?tab=requests&request={id}` | Requests tab with the detail modal open |
+
+```tsx
+// ❌ BAD — a hand-built employer path, or a plain tag for an entity
+<Link href={`/employers/${employerId}/workflows/${workflowId}`}>{name}</Link>
+<Tag>{sectionName}</Tag>
+
+// ✅ GOOD
+<EntityLink employerId={employerId} entity={{ kind: "workflow", workflowId }}>
+  {name}
+</EntityLink>
+<EntityLink
+  appearance="tag"
+  color="blue"
+  employerId={employerId}
+  entity={{ kind: "fieldSection", section: sectionName }}
+>
+  {sectionName}
+</EntityLink>
+
+// ✅ GOOD — Pending, Added, and Yes stay tags
+<Tag color="green">Added</Tag>
+```

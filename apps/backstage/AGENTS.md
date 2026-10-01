@@ -37,7 +37,7 @@ apps/backstage/
   features/                    interactive capabilities (domain / capability)
     auth/                      app-wide (ops login) — no domain
     employee/
-      access|business-unit|history|leave|login|profile|search|sections
+      access|approvers|business-unit|history|leave|login|profile|search|sections
     employer/
       fields|picker|roles|settings|uploads|workflows|notifications
     dbs/                       Data Builder Studio (standalone /dbs)
@@ -123,6 +123,7 @@ Uses the feature-based layout above. `app/(ops)/` is the thin route map for empl
 - Writes require `TROUBLESHOOTER_WRITES_ENABLED=1`, non-production `NODE_ENV`, and the cookie-selected env in `TROUBLESHOOTER_WRITES_ENVS`.
 - Site chrome (Docs/Wiki/Console header) is hidden on `/employers/*`, `/dbs`, and `/login`; employer pages use `AppShell`, dbs uses `DbsShell`.
 - Display dates through `@/shared/format-date` (`DD-MMM-YYYY`, plus `HH:mm:ss` when timed). Do not render raw ISO strings.
+- Named entities use `EntityLink` from `@/shared/entity-link`. Kinds and canonical URLs are in the operator-console rule `troubleshooter.mdc` under **Entity links**.
 - Server Components: no dotted Ant Design subcomponents (`Typography.Title`) — import `Title` / `Text` / `Paragraph` from `@/shared/ui` or `antd/es/...`. Pass serializable `items` to `Descriptions`. Table `columns` with `render` belong in `"use client"` files. Use Alert `title`, not `message`. Helper copy goes in `PageHelp`, not full-width banners.
 
 ## Feature versioning and contributions

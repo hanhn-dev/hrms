@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Alert,
@@ -15,9 +15,8 @@ import { getChangeRequestDetail } from "@/features/employer/workflows/change-req
 import { ChangeRequestDecideModal } from "@/features/employer/workflows/change-request-decide-modal";
 import { ChangeRequestDetailModal } from "@/features/employer/workflows/change-request-detail-modal";
 import {
-  EmployeeNameLink,
-  NameChips,
-  WorkflowChip,
+  changeKindFromRow,
+  sectionNamesFrom,
   splitNames,
 } from "@/features/employer/workflows/change-request-labels";
 import type {
@@ -26,6 +25,8 @@ import type {
   ConfiguredApproverGroup,
 } from "@/features/employer/workflows/queries";
 import { formatDate } from "@/shared/format-date";
+import { EntityLink } from "@/shared/entity-link";
+import { workflowsHref } from "@/features/employer/workflows/workflows-source";
 
 const STATUS_FILTERS = ["pending", "approved", "rejected", "all"] as const;
 
@@ -41,10 +42,12 @@ export function ChangeRequestPanel({
   employerId,
   requests,
   writesEnabled,
+  requestId,
 }: {
   employerId: number;
   requests: ChangeRequestListItem[];
   writesEnabled: boolean;
+  requestId: number | null;
 }): React.JSX.Element {
   const router = useRouter();
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("pending");
@@ -104,7 +107,7 @@ export function ChangeRequestPanel({
     await loadRequest(changeRequestId);
   }
 
-  async function loadRequest(changeRequestId: number): Promise<boolean> {
+  const loadRequest = useCallback(async (changeRequestId: number): Promise<boolean> => {
     setSelectedId(changeRequestId);
     setDetail(null);
     setApprovers([]);
@@ -121,7 +124,16 @@ export function ChangeRequestPanel({
     } finally {
       setDetailLoading(false);
     }
-  }
+  }, [employerId]);
+
+  useEffect(() => {
+    if (requestId == null) {
+      return;
+    }
+    setConfirmStatus(null);
+    setViewOpen(true);
+    void loadRequest(requestId);
+  }, [loadRequest, requestId]);
 
   return (
     <>
@@ -168,29 +180,73 @@ export function ChangeRequestPanel({
             },
           })}
           columns={[
-            { title: "Id", dataIndex: "changeRequestId", width: 80 },
+            {
+              title: "Id",
+              dataIndex: "changeRequestId",
+              width: 80,
+              render: (changeRequestId: number) => (
+                <EntityLink
+                  employerId={employerId}
+                  entity={{ kind: "changeRequest", changeRequestId }}
+                >
+                  {changeRequestId}
+                </EntityLink>
+              ),
+            },
             {
               title: "Employee",
               render: (_: unknown, row: ChangeRequestListItem) => (
-                <EmployeeNameLink
+                <EntityLink
                   employerId={employerId}
-                  name={row.employeeName}
-                  employmentNumber={row.employmentNumber}
-                />
+                  entity={
+                    row.employmentNumber
+                      ? { kind: "employee", employmentNumber: row.employmentNumber }
+                      : null
+                  }
+                >
+                  {row.employmentNumber
+                    ? `${row.employeeName} · ${row.employmentNumber}`
+                    : row.employeeName}
+                </EntityLink>
               ),
             },
-            { title: "Page", dataIndex: "pageName" },
+            {
+              title: "Page",
+              dataIndex: "pageName",
+              render: (pageName: string | null) => (
+                <EntityLink
+                  employerId={employerId}
+                  entity={pageName ? { kind: "workflowPage", pageName } : null}
+                >
+                  {pageName ?? "—"}
+                </EntityLink>
+              ),
+            },
             {
               title: "Sections",
               render: (_: unknown, row: ChangeRequestListItem) => (
-                <NameChips names={splitNames(row.sectionNames)} />
+                <SectionChips employerId={employerId} names={splitNames(row.sectionNames)} />
               ),
             },
             {
               title: "Workflow",
-              render: (_: unknown, row: ChangeRequestListItem) => (
-                <WorkflowChip name={row.workflowName} />
-              ),
+              render: (_: unknown, row: ChangeRequestListItem) =>
+                row.workflowName ? (
+                  <EntityLink
+                    appearance="tag"
+                    color="blue"
+                    employerId={employerId}
+                    entity={
+                      row.workflowId != null
+                        ? { kind: "workflow", workflowId: row.workflowId }
+                        : null
+                    }
+                  >
+                    {row.workflowName}
+                  </EntityLink>
+                ) : (
+                  "—"
+                ),
             },
             {
               title: "Requested by",
@@ -280,6 +336,9 @@ export function ChangeRequestPanel({
         open={viewOpen}
         onClose={() => {
           setViewOpen(false);
+          if (requestId != null) {
+            router.push(workflowsHref(employerId, "requests"));
+          }
         }}
       />
 
@@ -301,5 +360,32 @@ export function ChangeRequestPanel({
         }}
       />
     </>
+  );
+}
+
+function SectionChips({
+  employerId,
+  names,
+}: {
+  employerId: number;
+  names: string[];
+}): React.JSX.Element {
+  if (names.length === 0) {
+    return <>{"—"}</>;
+  }
+  return (
+    <Space size={4} wrap>
+      {names.map((name) => (
+        <EntityLink
+          key={name}
+          appearance="tag"
+          color="blue"
+          employerId={employerId}
+          entity={{ kind: "fieldSection", section: name }}
+        >
+          {name}
+        </EntityLink>
+      ))}
+    </Space>
   );
 }

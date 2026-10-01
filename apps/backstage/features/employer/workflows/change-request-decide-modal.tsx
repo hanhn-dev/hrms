@@ -8,6 +8,7 @@ import {
   previewDecideChangeRequest,
 } from "@/features/employer/workflows/mutations";
 import { SearchSelect } from "@/shared/ui";
+import { EntityLink } from "@/shared/entity-link";
 import type {
   ChangeRequestDetail,
   ConfiguredApproverGroup,
@@ -169,7 +170,23 @@ export function ChangeRequestDecideModal({
             <Typography.Text type="danger">
               No approver is configured on this workflow.
             </Typography.Text>
-          ) : null}
+          ) : (
+            <Space size={8} wrap>
+              {approverPeople(approvers, detail).map((person) => (
+                <EntityLink
+                  key={person.employeeId}
+                  employerId={employerId}
+                  entity={
+                    person.employmentNumber
+                      ? { kind: "employee", employmentNumber: person.employmentNumber }
+                      : null
+                  }
+                >
+                  {personLabel(person)}
+                </EntityLink>
+              ))}
+            </Space>
+          )}
         </label>
 
         <label className="flex flex-col gap-1">
@@ -186,4 +203,25 @@ export function ChangeRequestDecideModal({
       </Space>
     </Modal>
   );
+}
+
+function approverPeople(
+  groups: ConfiguredApproverGroup[],
+  detail: ChangeRequestDetail | null,
+): Array<{ employeeId: number; name: string; employmentNumber: string | null }> {
+  const people = new Map<
+    number,
+    { employeeId: number; name: string; employmentNumber: string | null }
+  >();
+  for (const group of groups) {
+    for (const person of group.people) {
+      people.set(person.employeeId, person);
+    }
+  }
+  for (const person of detail?.pendingApprovers ?? []) {
+    if (!people.has(person.employeeId)) {
+      people.set(person.employeeId, person);
+    }
+  }
+  return [...people.values()];
 }

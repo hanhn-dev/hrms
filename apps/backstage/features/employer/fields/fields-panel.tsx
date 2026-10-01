@@ -1,9 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { Collapse, Input, Select, Table, Tabs, Tag } from "antd";
+import { useEffect, useMemo, useState } from "react";
+import { Alert, Button, Collapse, Input, Select, Table, Tabs, Tag } from "antd";
 import { usePathname, useRouter } from "next/navigation";
-import type { FieldSource } from "@/features/employer/fields/fields-source";
+import { fieldsHref, type FieldSource } from "@/features/employer/fields/fields-source";
 import {
   commitUpdateFieldRow,
   previewUpdateFieldRow,
@@ -18,6 +18,7 @@ import {
   ValidationRuleCell,
   ValidationRuleViewCell,
 } from "@/features/employer/fields/validation-rule-cell";
+import { namesMatch } from "@/shared/entity-link";
 import { EditableTable, type EditableColumn } from "@/shared/ui";
 
 const DEFAULT_ENTITIES = ["System", "Country", "Custom"];
@@ -37,6 +38,8 @@ export function FieldsPanel({
   employerId,
   fieldTypes,
   writesEnabled,
+  section,
+  field,
 }: {
   employerFields: FieldCatalogRow[];
   templateFields: FieldCatalogRow[];
@@ -45,11 +48,42 @@ export function FieldsPanel({
   employerId: number;
   fieldTypes: FieldTypeOption[];
   writesEnabled: boolean;
+  section: string | null;
+  field: string | null;
 }): React.JSX.Element {
   const router = useRouter();
   const pathname = usePathname();
-  const [entities, setEntities] = useState<string[]>(DEFAULT_ENTITIES);
+  const sectionKnown = useMemo(() => {
+    if (!section) {
+      return false;
+    }
+    return [...employerFields, ...templateFields, ...compared].some((row) =>
+      namesMatch(row.section, section),
+    );
+  }, [compared, employerFields, section, templateFields]);
+  const scopedEmployer = useMemo(
+    () => scopeRows(employerFields, section, sectionKnown),
+    [employerFields, section, sectionKnown],
+  );
+  const scopedTemplate = useMemo(
+    () => scopeRows(templateFields, section, sectionKnown),
+    [section, sectionKnown, templateFields],
+  );
+  const scopedCompared = useMemo(
+    () => scopeCompareRows(compared, section, sectionKnown),
+    [compared, section, sectionKnown],
+  );
+  const [entities, setEntities] = useState<string[]>(() =>
+    initialEntities(employerFields, templateFields, section, sectionKnown),
+  );
   const [search, setSearch] = useState("");
+
+  useEffect(() => {
+    if (!field || !sectionKnown) {
+      return;
+    }
+    document.getElementById("field-focus")?.scrollIntoView({ block: "center" });
+  }, [field, sectionKnown, source]);
 
   const entityOptions = useMemo(
     () => entityFilterOptions(employerFields, templateFields),
@@ -57,17 +91,18 @@ export function FieldsPanel({
   );
 
   const visibleEmployer = useMemo(
-    () => filterCatalogRows(employerFields, entities, search),
-    [employerFields, entities, search],
+    () => filterCatalogRows(scopedEmployer, entities, search),
+    [entities, scopedEmployer, search],
   );
   const visibleTemplate = useMemo(
-    () => filterCatalogRows(templateFields, entities, search),
-    [templateFields, entities, search],
+    () => filterCatalogRows(scopedTemplate, entities, search),
+    [entities, scopedTemplate, search],
   );
   const visibleCompared = useMemo(
-    () => filterCompareRows(compared, entities, search),
-    [compared, entities, search],
+    () => filterCompareRows(scopedCompared, entities, search),
+    [entities, scopedCompared, search],
   );
+  const highlightField = sectionKnown ? field : null;
 
   return (
     <>
@@ -92,7 +127,33 @@ export function FieldsPanel({
             setSearch(event.target.value);
           }}
         />
+        {section ? (
+          <Button
+            type="link"
+            onClick={() => {
+              router.push(fieldsHref(employerId, { source }));
+            }}
+          >
+            All sections
+          </Button>
+        ) : null}
       </div>
+      {section && !sectionKnown ? (
+        <Alert
+          className="mb-4"
+          showIcon
+          type="info"
+          title={`No section named ${section}.`}
+        />
+      ) : null}
+      {section && sectionKnown ? (
+        <Alert
+          className="mb-4"
+          showIcon
+          type="info"
+          title={`Section: ${section}${highlightField ? ` · ${highlightField}` : ""}`}
+        />
+      ) : null}
       <Tabs
         activeKey={source}
         onChange={(next) => {
@@ -108,6 +169,9 @@ export function FieldsPanel({
                 employerId={employerId}
                 fieldTypes={fieldTypes}
                 fields={visibleEmployer}
+                highlightField={highlightField}
+                openSections={sectionKnown}
+                pinFocus={source === "employer"}
                 writesEnabled={writesEnabled}
               />
             ),
@@ -119,6 +183,9 @@ export function FieldsPanel({
               <SectionedFields
                 emptyText="No template fields match the current filters."
                 fields={visibleTemplate}
+                highlightField={highlightField}
+                openSections={sectionKnown}
+                pinFocus={source === "template"}
               />
             ),
           },
@@ -128,6 +195,9 @@ export function FieldsPanel({
             children: (
               <SectionedCompare
                 emptyText="No template vs employer differences match the current filters."
+                highlightField={highlightField}
+                openSections={sectionKnown}
+                pinFocus={source === "compare"}
                 rows={visibleCompared}
               />
             ),
@@ -144,12 +214,18 @@ function SectionedFields({
   employerId,
   fieldTypes,
   writesEnabled,
+  highlightField,
+  openSections,
+  pinFocus,
 }: {
   fields: FieldCatalogRow[];
   emptyText: string;
   employerId?: number;
   fieldTypes?: FieldTypeOption[];
   writesEnabled?: boolean;
+  highlightField: string | null;
+  openSections: boolean;
+  pinFocus: boolean;
 }): React.JSX.Element {
   const sections = groupBySection(fields);
   if (sections.length === 0) {
@@ -157,6 +233,7 @@ function SectionedFields({
   }
   return (
     <Collapse
+      defaultActiveKey={openSections ? sections.map((section) => section.key) : undefined}
       items={sections.map((section) => ({
         key: section.key,
         label: `${section.section} (${section.fields.length})`,
@@ -165,6 +242,8 @@ function SectionedFields({
             employerId={employerId}
             fieldTypes={fieldTypes}
             fields={section.fields}
+            highlightField={highlightField}
+            pinFocus={pinFocus}
             writesEnabled={writesEnabled}
           />
         ),
@@ -176,9 +255,15 @@ function SectionedFields({
 function SectionedCompare({
   rows,
   emptyText,
+  highlightField,
+  openSections,
+  pinFocus,
 }: {
   rows: FieldCompareRow[];
   emptyText: string;
+  highlightField: string | null;
+  openSections: boolean;
+  pinFocus: boolean;
 }): React.JSX.Element {
   const sections = groupCompareBySection(rows);
   if (sections.length === 0) {
@@ -186,10 +271,11 @@ function SectionedCompare({
   }
   return (
     <Collapse
+      defaultActiveKey={openSections ? sections.map((section) => section.key) : undefined}
       items={sections.map((section) => ({
         key: section.key,
         label: `${section.section} (${section.rows.length})`,
-        children: <CompareTable rows={section.rows} />,
+        children: <CompareTable highlightField={highlightField} pinFocus={pinFocus} rows={section.rows} />,
       }))}
     />
   );
@@ -200,11 +286,15 @@ function FieldsTable({
   employerId,
   fieldTypes = [],
   writesEnabled,
+  highlightField,
+  pinFocus,
 }: {
   fields: FieldCatalogRow[];
   employerId?: number;
   fieldTypes?: FieldTypeOption[];
   writesEnabled?: boolean;
+  highlightField: string | null;
+  pinFocus: boolean;
 }): React.JSX.Element {
   const router = useRouter();
   const entityOptions = entitySelectOptions(fields);
@@ -340,10 +430,21 @@ function FieldsTable({
             }
       }
       dataSource={fields}
+      onRow={(row) =>
+        pinFocus && namesMatch(row.fieldName, highlightField) ? { id: "field-focus" } : {}
+      }
       pagination={
         fields.length > 20
-          ? { pageSize: 20, showSizeChanger: true, showTotal: (total) => `${total} fields` }
+          ? {
+              defaultCurrent: pageForField(fields, highlightField),
+              pageSize: 20,
+              showSizeChanger: true,
+              showTotal: (total) => `${total} fields`,
+            }
           : false
+      }
+      rowClassName={(row) =>
+        namesMatch(row.fieldName, highlightField) ? "bg-amber-50" : ""
       }
       scroll={{ x: "max-content" }}
       size="small"
@@ -352,13 +453,27 @@ function FieldsTable({
   );
 }
 
-function CompareTable({ rows }: { rows: FieldCompareRow[] }): React.JSX.Element {
+function CompareTable({
+  rows,
+  highlightField,
+  pinFocus,
+}: {
+  rows: FieldCompareRow[];
+  highlightField: string | null;
+  pinFocus: boolean;
+}): React.JSX.Element {
   return (
     <Table
       rowKey="key"
       dataSource={rows}
       size="small"
       scroll={{ x: "max-content" }}
+      onRow={(row) =>
+        pinFocus && namesMatch(row.fieldName, highlightField) ? { id: "field-focus" } : {}
+      }
+      rowClassName={(row) =>
+        namesMatch(row.fieldName, highlightField) ? "bg-amber-50" : ""
+      }
       pagination={
         rows.length > 20
           ? {
@@ -475,6 +590,58 @@ function StatusTag({ status }: { status: FieldCompareStatus }): React.JSX.Elemen
 
 function FlagTag({ value }: { value: unknown }): React.JSX.Element {
   return asFlag(value) ? <Tag color="green">Yes</Tag> : <Tag>No</Tag>;
+}
+
+function scopeRows(
+  rows: FieldCatalogRow[],
+  section: string | null,
+  sectionKnown: boolean,
+): FieldCatalogRow[] {
+  if (!section || !sectionKnown) {
+    return rows;
+  }
+  return rows.filter((row) => namesMatch(row.section, section));
+}
+
+function scopeCompareRows(
+  rows: FieldCompareRow[],
+  section: string | null,
+  sectionKnown: boolean,
+): FieldCompareRow[] {
+  if (!section || !sectionKnown) {
+    return rows;
+  }
+  return rows.filter((row) => namesMatch(row.section, section));
+}
+
+function initialEntities(
+  employerFields: FieldCatalogRow[],
+  templateFields: FieldCatalogRow[],
+  section: string | null,
+  sectionKnown: boolean,
+): string[] {
+  if (!section || !sectionKnown) {
+    return DEFAULT_ENTITIES;
+  }
+  const names = new Set<string>();
+  for (const row of [...employerFields, ...templateFields]) {
+    if (!namesMatch(row.section, section)) {
+      continue;
+    }
+    const entity = row.fieldEntity?.trim();
+    if (entity) {
+      names.add(entity);
+    }
+  }
+  return names.size > 0 ? [...names] : DEFAULT_ENTITIES;
+}
+
+function pageForField(fields: FieldCatalogRow[], highlightField: string | null): number {
+  const index = fields.findIndex((row) => namesMatch(row.fieldName, highlightField));
+  if (index < 0) {
+    return 1;
+  }
+  return Math.floor(index / 20) + 1;
 }
 
 function filterCatalogRows(

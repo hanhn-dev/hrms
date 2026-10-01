@@ -2,8 +2,8 @@
 
 import { Table, Tag } from "antd";
 import type { ColumnsType } from "antd/es/table";
-import Link from "next/link";
 import type { EmployeeSearchHit } from "@/features/employee/search/queries";
+import { EntityLink } from "@/shared/entity-link";
 
 function isActiveFlag(value: unknown): boolean {
   return value === true || value === "Y" || value === "1" || value === 1;
@@ -111,11 +111,12 @@ export function EmployeeSearchTable({
           sorter: (a, b) =>
             a.employmentNumber.localeCompare(b.employmentNumber),
           render: (value: string) => (
-            <Link
-              href={`/employers/${employerId}/employees/${encodeURIComponent(value)}`}
+            <EntityLink
+              employerId={employerId}
+              entity={{ kind: "employee", employmentNumber: value }}
             >
               {value}
-            </Link>
+            </EntityLink>
           ),
         },
         {

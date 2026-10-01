@@ -13,9 +13,13 @@ import { PageHelp } from "@/shared/ui/shell-header-context";
 export async function FieldsScreen({
   employerId,
   source,
+  section,
+  field,
 }: {
   employerId: number;
   source: FieldSource;
+  section: string | null;
+  field: string | null;
 }): Promise<React.JSX.Element> {
   const [employerFields, templateFields, fieldTypes] = await Promise.all([
     listEmployerFields(employerId),
@@ -74,10 +78,13 @@ export async function FieldsScreen({
         ]}
       />
       <FieldsPanel
+        key={`${section ?? ""}:${field ?? ""}`}
         compared={compareEmployerFieldsToTemplate(employerFields, templateFields)}
         employerFields={employerFields}
         employerId={employerId}
+        field={field}
         fieldTypes={fieldTypes}
+        section={section}
         source={source}
         templateFields={templateFields}
         writesEnabled={writesEnabled}

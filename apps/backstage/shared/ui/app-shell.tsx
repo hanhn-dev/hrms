@@ -4,9 +4,11 @@ import { useEffect, useState } from "react";
 import {
   ApartmentOutlined,
   CloudUploadOutlined,
+  DatabaseOutlined,
   NotificationOutlined,
   FileSearchOutlined,
   FormOutlined,
+  AuditOutlined,
   HistoryOutlined,
   IdcardOutlined,
   MenuFoldOutlined,
@@ -49,6 +51,9 @@ function moduleTitle(
   if (pathname.startsWith(`${base}/fields`)) {
     return "Fields";
   }
+  if (pathname.startsWith(`${base}/master-data`)) {
+    return "Master Data";
+  }
   if (pathname.startsWith(`${base}/workflows`)) {
     return "Workflows";
   }
@@ -70,6 +75,9 @@ function moduleTitle(
     }
     if (pathname.endsWith("/leave")) {
       return "Leave";
+    }
+    if (pathname.endsWith("/approvers")) {
+      return "Approvers";
     }
     if (pathname.endsWith("/access")) {
       return "Access";
@@ -142,7 +150,9 @@ export function AppShell({
     ? "roles"
     : pathname.startsWith(`${base}/fields`)
       ? "fields"
-      : pathname.startsWith(`${base}/workflows`)
+      : pathname.startsWith(`${base}/master-data`)
+        ? "master-data"
+        : pathname.startsWith(`${base}/workflows`)
         ? "workflows"
         : pathname.startsWith(`${base}/notifications`)
           ? "notifications"
@@ -229,6 +239,12 @@ export function AppShell({
                 icon: <FormOutlined />,
                 title: "Fields",
                 label: <Link href={`${base}/fields`}>Fields</Link>,
+              },
+              {
+                key: "master-data",
+                icon: <DatabaseOutlined />,
+                title: "Master Data",
+                label: <Link href={`${base}/master-data`}>Master Data</Link>,
               },
               {
                 key: "workflows",
@@ -335,15 +351,17 @@ export function Employee360Nav({
     ? "business-unit"
     : pathname.endsWith("/leave")
       ? "leave"
-      : pathname.endsWith("/access")
-        ? "access"
-        : pathname.endsWith("/login")
-          ? "login"
-          : pathname.endsWith("/sections")
-            ? "sections"
-            : pathname.endsWith("/history")
-              ? "history"
-              : "profile";
+      : pathname.endsWith("/approvers")
+        ? "approvers"
+        : pathname.endsWith("/access")
+          ? "access"
+          : pathname.endsWith("/login")
+            ? "login"
+            : pathname.endsWith("/sections")
+              ? "sections"
+              : pathname.endsWith("/history")
+                ? "history"
+                : "profile";
 
   return (
     <Menu
@@ -385,6 +403,11 @@ export function Employee360Nav({
           key: "leave",
           icon: <SettingOutlined />,
           label: <Link href={`${base}/leave`}>Leave</Link>,
+        },
+        {
+          key: "approvers",
+          icon: <AuditOutlined />,
+          label: <Link href={`${base}/approvers`}>Approvers</Link>,
         },
       ]}
     />

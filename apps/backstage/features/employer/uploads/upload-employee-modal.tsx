@@ -9,6 +9,7 @@ import { UnlockAccountButton } from "@/features/employee/login/unlock-account-bu
 import type { EmployeeLoginInfo, EmployeeProfile, FailedLoginAttempt } from "@hrms/db";
 import type { UploadLiveRow } from "@/features/employer/uploads/queries";
 import { formatDate } from "@/shared/format-date";
+import { entityHref } from "@/shared/entity-link/entity-href";
 
 type EmployeeAccess = Awaited<ReturnType<typeof getEmployeeAccess>>;
 
@@ -36,7 +37,7 @@ export function UploadEmployeeModal({
   const employmentNumber =
     profile?.employmentNumber ?? liveRow?.employmentNumber ?? null;
   const employeeHref = employmentNumber
-    ? `/employers/${employerId}/employees/${encodeURIComponent(employmentNumber)}`
+    ? entityHref(employerId, { kind: "employee", employmentNumber })
     : null;
 
   return (

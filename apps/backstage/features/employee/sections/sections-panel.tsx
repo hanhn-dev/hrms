@@ -1,9 +1,9 @@
 "use client";
 
 import { Table, Typography } from "antd";
-import Link from "next/link";
 import { isCrudSectionId } from "@hrms/db/sections-registry";
 import type { EmployeeSectionCount } from "@/features/employee/sections/queries";
+import { EntityLink } from "@/shared/entity-link";
 
 export function SectionsPanel({
   employerId,
@@ -43,11 +43,16 @@ export function SectionsPanel({
               );
             }
             return (
-              <Link
-                href={`/employers/${employerId}/employees/${encodeURIComponent(employmentNumber)}/sections/${row.sectionId}`}
+              <EntityLink
+                employerId={employerId}
+                entity={{
+                  kind: "employeeSection",
+                  employmentNumber,
+                  sectionId: row.sectionId,
+                }}
               >
                 {label}
-              </Link>
+              </EntityLink>
             );
           },
         },

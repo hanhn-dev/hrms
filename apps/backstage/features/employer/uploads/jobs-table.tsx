@@ -1,15 +1,14 @@
 "use client";
 
 import { Input, Select, Table, Tag } from "antd";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   UPLOAD_STATUSES,
-  uploadDetailHref,
   uploadsHref,
 } from "@/features/employer/uploads/uploads-source";
 import type { UploadListItem, UploadTypeKey } from "@/features/employer/uploads/queries";
 import { formatDate } from "@/shared/format-date";
+import { EntityLink } from "@/shared/entity-link";
 import { UPLOAD_TYPE_LABELS } from "@hrms/db/uploads";
 
 export function JobsTable({
@@ -81,7 +80,9 @@ export function JobsTable({
             dataIndex: "uploadId",
             width: 110,
             render: (id: number) => (
-              <Link href={uploadDetailHref(employerId, id)}>{id}</Link>
+              <EntityLink employerId={employerId} entity={{ kind: "upload", uploadId: id }}>
+                {id}
+              </EntityLink>
             ),
           },
           {

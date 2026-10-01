@@ -11,13 +11,32 @@ import type {
   PendingInboxRow,
 } from "@/features/employer/notifications/queries";
 import { formatDate } from "@/shared/format-date";
+import { EntityLink } from "@/shared/entity-link";
 import type { InboxSide } from "@hrms/db/notifications";
 
-function person(name: string | null, employmentNumber: string | null): string {
-  if (name && employmentNumber) {
-    return `${name} (${employmentNumber})`;
-  }
-  return name || employmentNumber || "—";
+function PersonLink({
+  employerId,
+  name,
+  employmentNumber,
+}: {
+  employerId: number;
+  name: string | null;
+  employmentNumber: string | null;
+}): React.JSX.Element {
+  const label =
+    name && employmentNumber
+      ? `${name} (${employmentNumber})`
+      : name || employmentNumber || "—";
+  return (
+    <EntityLink
+      employerId={employerId}
+      entity={
+        employmentNumber ? { kind: "employee", employmentNumber } : null
+      }
+    >
+      {label}
+    </EntityLink>
+  );
 }
 
 export function InboxPanel({
@@ -167,8 +186,13 @@ export function InboxPanel({
           },
           {
             title: "Subject",
-            render: (_value, row) =>
-              person(row.subjectName, row.subjectEmploymentNumber),
+            render: (_value, row) => (
+              <PersonLink
+                employerId={employerId}
+                employmentNumber={row.subjectEmploymentNumber}
+                name={row.subjectName}
+              />
+            ),
           },
           {
             title: "Waiting on",
@@ -178,11 +202,12 @@ export function InboxPanel({
               ) : (
                 <div className="flex flex-col gap-0.5">
                   {row.waitingOn.map((approver) => (
-                    <span
+                    <PersonLink
                       key={`${approver.name ?? ""}-${approver.employmentNumber ?? ""}`}
-                    >
-                      {person(approver.name, approver.employmentNumber)}
-                    </span>
+                      employerId={employerId}
+                      employmentNumber={approver.employmentNumber}
+                      name={approver.name}
+                    />
                   ))}
                 </div>
               ),
