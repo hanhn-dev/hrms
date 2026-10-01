@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { describe, it } from "vitest";
 import { rankTableMatches, type TableNameRef } from "./rank-table-matches.ts";
 
 function table(name: string, schema = "dbo"): TableNameRef {

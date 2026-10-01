@@ -80,3 +80,27 @@ menu: Leave & Attendance
 submenu: L&A Tasks
 ---
 ```
+
+## Tests
+
+Every implementation under `apps/backstage` ships with a colocated Vitest test for the behavior it adds or changes. A change is not done until `npm run test --workspace=apps/backstage` passes. Use that script (it canonicalizes the Windows path). Do not call `npx vitest` directly.
+
+- Put `*.test.ts` (or `*.test.tsx`) next to the module. Import `describe` and `it` from `vitest`. `node:assert/strict` is fine. Do not list the file in `package.json` — Vitest discovers it.
+- Default environment is `node`. Add `// @vitest-environment jsdom` only when the test needs a DOM.
+- Cover the case you added, plus an empty or invalid input when the function accepts one.
+- Markdown-only edits under `content/` do not need a test. Thin `app/` routes that only render a tested screen do not need their own test.
+
+```ts
+// ❌ BAD — new logic in shared/ui/match-ranges.ts with no match-ranges.test.ts
+// ✅ GOOD — colocated shared/ui/highlight-match.test.ts
+import assert from "node:assert/strict";
+import { describe, it } from "vitest";
+import { matchRanges } from "./match-ranges.ts";
+
+describe("matchRanges", () => {
+  it("returns nothing when the text has no match", () => {
+    assert.deepEqual(matchRanges("SP_GetEmployee", "Bank"), []);
+    assert.deepEqual(matchRanges("", "Bank"), []);
+  });
+});
+```

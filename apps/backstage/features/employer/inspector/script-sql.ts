@@ -1,3 +1,5 @@
+import { isBuiltinReference } from "./script-builtins.ts";
+
 const KEYWORDS = new Set(
   [
     "select",
@@ -38,6 +40,7 @@ const KEYWORDS = new Set(
     "else",
     "while",
     "return",
+    "returns",
     "declare",
     "exec",
     "execute",
@@ -119,7 +122,19 @@ export type SqlToken =
   | { type: "keyword"; value: string }
   | { type: "comment"; value: string }
   | { type: "string"; value: string }
+  | { type: "number"; value: string }
+  | { type: "builtin"; value: string }
+  | { type: "variable"; value: string; name: string }
+  | { type: "alias"; value: string; name: string }
+  | { type: "ident"; value: string; name: string }
   | { type: "object"; value: string; schema: string; name: string };
+
+type ListState = {
+  objectSlot: boolean;
+  objectList: boolean;
+  aliasSlot: boolean;
+  pendingAlias: boolean;
+};
 
 type IdentPart = { raw: string; name: string };
 
@@ -192,8 +207,35 @@ function readChain(
   return { parts, next: cursor };
 }
 
-function isVariable(parts: IdentPart[]): boolean {
+function isTempOrVariable(parts: IdentPart[]): boolean {
   return parts.some((part) => part.name.startsWith("@") || part.name.startsWith("#"));
+}
+
+function readNumber(sql: string, index: number): { value: string; next: number } | null {
+  const char = sql[index] ?? "";
+  const next = sql[index + 1] ?? "";
+  const startDigit = char >= "0" && char <= "9";
+  const startDot = char === "." && next >= "0" && next <= "9";
+  if (!startDigit && !startDot) {
+    return null;
+  }
+  let cursor = index + 1;
+  if (startDigit) {
+    while (cursor < sql.length && sql[cursor]! >= "0" && sql[cursor]! <= "9") {
+      cursor += 1;
+    }
+    if (sql[cursor] === "." && (sql[cursor + 1] ?? "") >= "0" && (sql[cursor + 1] ?? "") <= "9") {
+      cursor += 1;
+      while (cursor < sql.length && sql[cursor]! >= "0" && sql[cursor]! <= "9") {
+        cursor += 1;
+      }
+    }
+  } else {
+    while (cursor < sql.length && sql[cursor]! >= "0" && sql[cursor]! <= "9") {
+      cursor += 1;
+    }
+  }
+  return { value: sql.slice(index, cursor), next: cursor };
 }
 
 export function scriptObjectRefs(
@@ -217,10 +259,12 @@ export function scriptObjectRefs(
 
 export function tokenizeSql(sql: string): SqlToken[] {
   const tokens: SqlToken[] = [];
+  const listStack: ListState[] = [];
   let index = 0;
   let objectSlot = false;
   let objectList = false;
   let aliasSlot = false;
+  let pendingAlias = false;
 
   function pushText(value: string): void {
     if (value.length === 0) {
@@ -232,6 +276,12 @@ export function tokenizeSql(sql: string): SqlToken[] {
       return;
     }
     tokens.push({ type: "text", value });
+  }
+
+  function clearAlias(): void {
+    aliasSlot = false;
+    pendingAlias = false;
+    objectSlot = false;
   }
 
   while (index < sql.length) {
@@ -247,7 +297,6 @@ export function tokenizeSql(sql: string): SqlToken[] {
       }
       tokens.push({ type: "comment", value: sql.slice(index, cursor) });
       index = cursor;
-      aliasSlot = false;
       continue;
     }
 
@@ -256,7 +305,6 @@ export function tokenizeSql(sql: string): SqlToken[] {
       const cursor = end === -1 ? sql.length : end + 2;
       tokens.push({ type: "comment", value: sql.slice(index, cursor) });
       index = cursor;
-      aliasSlot = false;
       continue;
     }
 
@@ -276,8 +324,36 @@ export function tokenizeSql(sql: string): SqlToken[] {
       }
       tokens.push({ type: "string", value: sql.slice(start, cursor) });
       index = cursor;
-      aliasSlot = false;
+      clearAlias();
+      continue;
+    }
+
+    if (char === "(") {
+      listStack.push({ objectSlot, objectList, aliasSlot, pendingAlias });
       objectSlot = false;
+      objectList = false;
+      aliasSlot = false;
+      pendingAlias = false;
+      pushText(char);
+      index += 1;
+      continue;
+    }
+
+    if (char === ")") {
+      const saved = listStack.pop();
+      pushText(char);
+      index += 1;
+      if (saved) {
+        objectList = saved.objectList;
+        aliasSlot = false;
+        if (saved.objectSlot || saved.pendingAlias) {
+          objectSlot = false;
+          pendingAlias = true;
+        } else {
+          objectSlot = saved.objectSlot;
+          pendingAlias = saved.pendingAlias;
+        }
+      }
       continue;
     }
 
@@ -286,6 +362,15 @@ export function tokenizeSql(sql: string): SqlToken[] {
       index += 1;
       objectSlot = true;
       aliasSlot = false;
+      pendingAlias = false;
+      continue;
+    }
+
+    const number = readNumber(sql, index);
+    if (number) {
+      tokens.push({ type: "number", value: number.value });
+      index = number.next;
+      clearAlias();
       continue;
     }
 
@@ -296,48 +381,91 @@ export function tokenizeSql(sql: string): SqlToken[] {
       const bareWord = chain.parts.length === 1 && !chain.parts[0]?.raw.startsWith("[");
       const single = bareWord ? (names[0]?.toLowerCase() ?? "") : "";
       const keyword = single.length > 0 && KEYWORDS.has(single);
+      const head = chain.parts[0];
 
       if (keyword) {
         tokens.push({ type: "keyword", value: raw });
         if (OBJECT_INTRODUCERS.has(single)) {
           objectList = true;
           objectSlot = true;
+          pendingAlias = false;
+          aliasSlot = false;
         } else if (OBJECT_LIST_END.has(single)) {
           objectList = false;
           objectSlot = false;
+          pendingAlias = false;
+          aliasSlot = false;
+        } else if (single === "as" && objectList && pendingAlias) {
+          aliasSlot = true;
+          objectSlot = false;
         } else {
           objectSlot = false;
+          pendingAlias = false;
+          aliasSlot = false;
         }
-        aliasSlot = single === "as";
         index = chain.next;
         continue;
       }
 
-      if (aliasSlot || isVariable(chain.parts)) {
-        pushText(raw);
-        aliasSlot = false;
-        objectSlot = false;
+      if (
+        head &&
+        !head.raw.startsWith("[") &&
+        isBuiltinReference(names, sql, chain.next)
+      ) {
+        tokens.push({ type: "builtin", value: raw });
         index = chain.next;
+        objectSlot = false;
+        aliasSlot = false;
+        pendingAlias = false;
+        continue;
+      }
+
+      if (head && head.name.startsWith("@")) {
+        tokens.push({ type: "variable", value: head.raw, name: head.name });
+        pushText(raw.slice(head.raw.length));
+        index = chain.next;
+        clearAlias();
+        continue;
+      }
+
+      const wantsAlias =
+        objectList &&
+        chain.parts.length === 1 &&
+        (aliasSlot || pendingAlias) &&
+        !isTempOrVariable(chain.parts);
+
+      if (wantsAlias && head) {
+        tokens.push({ type: "alias", value: raw, name: head.name });
+        index = chain.next;
+        clearAlias();
         continue;
       }
 
       const dboQualified = names.length >= 2 && names[0]?.toLowerCase() === "dbo";
-      if (objectSlot || dboQualified) {
+      if ((objectSlot || dboQualified) && !isTempOrVariable(chain.parts)) {
         const schema = names.length >= 2 ? (names[names.length - 2] ?? "dbo") : "dbo";
         const name = names[names.length - 1] ?? "";
         if (name.length >= 2 && !name.startsWith("@") && !name.startsWith("#")) {
           tokens.push({ type: "object", value: raw, schema, name });
           objectSlot = false;
           aliasSlot = false;
+          pendingAlias = true;
           index = chain.next;
           continue;
         }
       }
 
+      if (head && chain.parts.length >= 2 && !head.name.startsWith("#")) {
+        tokens.push({ type: "ident", value: head.raw, name: head.name });
+        pushText(raw.slice(head.raw.length));
+        index = chain.next;
+        clearAlias();
+        continue;
+      }
+
       pushText(raw);
-      objectSlot = false;
-      aliasSlot = false;
       index = chain.next;
+      clearAlias();
       continue;
     }
 

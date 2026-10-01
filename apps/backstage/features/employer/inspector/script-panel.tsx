@@ -4,7 +4,9 @@ import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { Alert, Segmented, Space, Splitter, Tabs, Typography } from "antd";
 import { KIND_COLOR } from "@/features/dbs/kind-style";
 import { SearchSelect } from "@/shared/ui";
-import { scriptObjectRefs } from "@/features/employer/inspector/script-sql";
+import { scriptObjectRefs, tokenizeSql } from "@/features/employer/inspector/script-sql";
+import { bindSql } from "@/features/employer/inspector/script-symbols";
+import { formatSql } from "@/features/employer/inspector/script-format";
 import { ScriptExecuteModal } from "@/features/employer/inspector/script-execute-modal";
 import { SqlScript } from "@/features/employer/inspector/script-view";
 import {
@@ -365,9 +367,6 @@ export function ScriptPanel({
           />
         </div>
       </div>
-      <Typography.Text type="secondary">
-        Scripts are database-wide and ignore the employer filter. Object chips use the studio colors: blue tables, orange procedures, cyan functions, purple views. The list beside the script groups those objects. View script opens another tab. Execute asks for parameters and shows the result in the same window. Ctrl+Tab and Ctrl+Shift+Tab move between tabs. Ctrl+W closes the current tab.
-      </Typography.Text>
       {error ? <Alert type="error" showIcon title={error} /> : null}
       {tabs.length > 0 ? (
         <Tabs
@@ -470,6 +469,11 @@ function ScriptBody({
   const [kinds, setKinds] = useState<Record<string, ScriptObjectKind>>({});
   const [kindsReady, setKindsReady] = useState(false);
   const [executeTarget, setExecuteTarget] = useState<UsedObject | null>(null);
+  const [mode, setMode] = useState<"formatted" | "original">("formatted");
+  const [jumpToken, setJumpToken] = useState<{ index: number; nonce: number } | null>(null);
+  const formatted = useMemo(() => formatSql(sql), [sql]);
+  const displaySql = mode === "formatted" ? formatted.sql : sql;
+  const model = useMemo(() => bindSql(tokenizeSql(displaySql)), [displaySql]);
   const refs = useMemo(() => scriptObjectRefs(sql), [sql]);
 
   useEffect(() => {
@@ -510,7 +514,15 @@ function ScriptBody({
         collapsible={{ motion: true }}
       >
         <Splitter.Panel min="40%" style={{ overflow: "hidden" }}>
-          <SqlScript kinds={kinds} onOpenObject={onOpenObject} sql={sql} />
+          <SqlScript
+            jumpToken={jumpToken}
+            kinds={kinds}
+            mode={mode}
+            model={model}
+            warning={mode === "formatted" ? formatted.warning : null}
+            onMode={setMode}
+            onOpenObject={onOpenObject}
+          />
         </Splitter.Panel>
         <Splitter.Panel
           collapsible={{ start: true, showCollapsibleIcon: true }}
@@ -525,7 +537,11 @@ function ScriptBody({
             kindsReady={kindsReady}
             refs={refs}
             onExecute={setExecuteTarget}
+            onJump={(symbol) => {
+              setJumpToken({ index: symbol.declToken, nonce: Date.now() });
+            }}
             onView={onOpenObject}
+            symbols={model.symbols}
           />
         </Splitter.Panel>
       </Splitter>

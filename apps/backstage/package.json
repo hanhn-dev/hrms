@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint --max-warnings 0",
-    "test": "node --experimental-strip-types --test features/employee/sections/validation/runner.test.ts features/employer/inspector/rank-table-matches.test.ts features/employer/inspector/search-target-order.test.ts features/employer/inspector/script-sql.test.ts shared/ui/highlight-match.test.ts"
+    "test": "node ./scripts/run-vitest.mjs run",
+    "test:watch": "node ./scripts/run-vitest.mjs"
   },
   "dependencies": {
     "@ant-design/cssinjs": "^2.1.2",
@@ -24,6 +25,7 @@
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1",
     "server-only": "^0.0.1",
+    "sql-formatter": "^15.9.0",
     "zod": "^4.4.3",
     "@hrms/database-inspector": "*",
     "@xyflow/react": "^12.12.0",
@@ -42,6 +44,7 @@
     "@types/react-dom": "^19.2.4",
     "eslint": "^10.8.0",
     "tailwindcss": "^4.3.3",
-    "typescript": "6.0.3"
+    "typescript": "6.0.3",
+    "vitest": "4.1.10"
   }
 }

@@ -26,6 +26,8 @@ export const HISTORY_TABLE_BY_SOURCE: Partial<Record<ApplyTableName, string>> = 
   TEmployeeFamilyDetails: "TEmployeeFamilyDetails_history",
   /** Core Sp_ApproveRejectMyDetailsReview snapshots bank rows after approve-insert. */
   TEmployeeBankDetails: "TEmployeeBankDetails_History",
+  /** Core copies the new custom-field identity into this history table. */
+  TEmployeeDetailCustomFields: "TEmployeedetailCustomFieldshistory",
 };
 
 /**
@@ -70,6 +72,10 @@ export type ApplyDetailInput = {
   newValue: string | null;
   isNew: unknown;
   childRowId: number | null;
+  /** Detail primary key, used to re-read CustDetailId after a parent insert. */
+  changeDetailsId?: number | null;
+  /** Parent-row link stored on the detail. May still be the change-request id before apply. */
+  custDetailId?: string | null;
 };
 
 export type ApplyWrite = {
@@ -78,6 +84,7 @@ export type ApplyWrite = {
   kind: "update" | "insert";
   childRowId: number | null;
   value: string;
+  changeDetailsId?: number;
 };
 
 /** Column name → SQL type name (e.g. bit, nvarchar) for one table. */
@@ -93,8 +100,17 @@ export function changeRequestStatus(isApproved: unknown): ChangeRequestStatus {
   return "rejected";
 }
 
+const APPLY_TABLE_BY_KEY = new Map<string, ApplyTableName>(
+  APPLY_TABLES.map((table) => [table.toLowerCase(), table]),
+);
+
+/** Allowlist spelling. Core stores `TemployeedetailCustomFields`; the list uses `TEmployeeDetailCustomFields`. */
+export function canonicalApplyTable(name: string): ApplyTableName | null {
+  return APPLY_TABLE_BY_KEY.get(name.trim().toLowerCase()) ?? null;
+}
+
 export function isApplyTable(name: string): name is ApplyTableName {
-  return (APPLY_TABLES as readonly string[]).includes(name);
+  return canonicalApplyTable(name) != null;
 }
 
 export function isNewRow(value: unknown): boolean {
@@ -179,6 +195,53 @@ export function resolveApplyValue(input: {
   throw new Error(`${input.tableName}.${input.dbFieldName} has no value to apply.`);
 }
 
+function lookupTableEntry<T>(
+  map: Map<string, T>,
+  table: ApplyTableName,
+  rawName: string,
+): T | undefined {
+  const direct = map.get(table) ?? map.get(rawName);
+  if (direct) {
+    return direct;
+  }
+  for (const [key, value] of map) {
+    if (canonicalApplyTable(key) === table) {
+      return value;
+    }
+  }
+  return undefined;
+}
+
+function lookupColumn(columns: Set<string>, name: string): string | null {
+  if (columns.has(name)) {
+    return name;
+  }
+  const key = name.toLowerCase();
+  for (const column of columns) {
+    if (column.toLowerCase() === key) {
+      return column;
+    }
+  }
+  return null;
+}
+
+function lookupColumnType(types: ApplyColumnTypes | undefined, column: string): string | null {
+  if (!types) {
+    return null;
+  }
+  const direct = types.get(column);
+  if (direct) {
+    return direct;
+  }
+  const key = column.toLowerCase();
+  for (const [name, typeName] of types) {
+    if (name.toLowerCase() === key) {
+      return typeName;
+    }
+  }
+  return null;
+}
+
 export function buildApplyPlan(
   details: ApplyDetailInput[],
   columnsByTable: Map<string, Set<string>>,
@@ -191,30 +254,40 @@ export function buildApplyPlan(
     if (!tableName || !dbFieldName) {
       continue;
     }
-    if (!isApplyTable(tableName)) {
+    const table = canonicalApplyTable(tableName);
+    if (!table) {
       throw new Error(`Table ${tableName} is not allowed for Troubleshooter apply.`);
     }
-    const columns = columnsByTable.get(tableName);
-    if (!columns?.has(dbFieldName)) {
+    const columns = lookupTableEntry(columnsByTable, table, tableName);
+    const column = columns ? lookupColumn(columns, dbFieldName) : null;
+    if (!column) {
       throw new Error(`Column ${tableName}.${dbFieldName} was not found on dbo.`);
     }
+    const isCustom = table === "TEmployeeDetailCustomFields";
     const kind = isNewRow(detail.isNew) ? "insert" : "update";
-    if (kind === "update" && (detail.childRowId == null || detail.childRowId <= 0)) {
-      throw new Error(`${tableName}.${dbFieldName} is an edit but ChildRowId is missing.`);
+    if (isCustom && (detail.childRowId == null || detail.childRowId <= 0)) {
+      throw new Error(
+        `${table}.${dbFieldName} is a custom field but ChildRowId (CustFieldID) is missing.`,
+      );
+    }
+    if (!isCustom && kind === "update" && (detail.childRowId == null || detail.childRowId <= 0)) {
+      throw new Error(`${table}.${dbFieldName} is an edit but ChildRowId is missing.`);
     }
     const { value } = resolveApplyValue({
-      tableName,
-      dbFieldName,
+      tableName: table,
+      dbFieldName: column,
       textValueNew: detail.textValueNew,
       newValue: detail.newValue,
-      dataType: typesByTable.get(tableName)?.get(dbFieldName) ?? null,
+      dataType: lookupColumnType(lookupTableEntry(typesByTable, table, tableName), column),
     });
+    const changeDetailsId = detail.changeDetailsId;
     writes.push({
-      table: tableName,
-      column: dbFieldName,
+      table,
+      column,
       kind,
-      childRowId: kind === "update" ? detail.childRowId : null,
+      childRowId: isCustom || kind === "update" ? detail.childRowId : null,
       value,
+      ...(changeDetailsId != null && changeDetailsId > 0 ? { changeDetailsId } : {}),
     });
   }
   if (writes.length === 0) {

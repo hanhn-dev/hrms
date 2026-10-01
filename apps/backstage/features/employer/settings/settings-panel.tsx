@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { WarningOutlined } from "@ant-design/icons";
 import {
   Alert,
   Button,
@@ -12,7 +13,9 @@ import {
   Space,
   Switch,
   Tabs,
+  Tooltip,
   Typography,
+  theme,
 } from "antd";
 import {
   CUSTOMER_SETTING_CATEGORIES,
@@ -23,17 +26,15 @@ import {
   type CustomerSettingUiValue,
 } from "@/features/employer/settings/catalog";
 import {
+  missingColumnHeading,
+  missingColumnLine,
+  type MissingCustomerSettingColumn,
+} from "@/features/employer/settings/missing-columns";
+import {
   commitUpdateCustomerSettings,
   previewUpdateCustomerSettings,
 } from "@/features/employer/settings/mutations";
 import { ConfirmWriteModal, JsonEditorModal, JsonTextCell } from "@/shared/ui";
-
-type MissingCustomerSettingColumn = {
-  key: string;
-  label: string;
-  table: string;
-  column: string;
-};
 
 type CustomerSettingsView = {
   employerId: number;
@@ -155,9 +156,13 @@ export function CustomerSettingsPanel({
             </Button>
           </Space>
         }
-        title="Customer settings"
+        title={
+          <span className="inline-flex items-center gap-2">
+            Customer settings
+            <MissingColumnsHint columns={settings.missingColumns} />
+          </span>
+        }
       >
-        <MissingColumnAlert columns={settings.missingColumns} />
         <Tabs
           activeKey={categoryId}
           items={CUSTOMER_SETTING_CATEGORIES.map((item) => ({
@@ -258,32 +263,47 @@ export function CustomerSettingsPanel({
   );
 }
 
-function MissingColumnAlert({
+function MissingColumnsHint({
   columns,
 }: {
   columns: readonly MissingCustomerSettingColumn[];
 }): React.JSX.Element | null {
-  const first = columns[0];
-  if (!first) {
+  const { token } = theme.useToken();
+  const heading = missingColumnHeading(columns);
+  if (!heading) {
     return null;
   }
+
   return (
-    <Alert
-      className="mb-4"
-      showIcon
-      type="warning"
+    <Tooltip
+      placement="bottomLeft"
+      trigger={["hover", "focus"]}
+      styles={{
+        root: { maxWidth: 440 },
+        container: {
+          maxWidth: 440,
+          maxHeight: "min(240px, 40vh)",
+          overflowY: "auto",
+        },
+      }}
       title={
-        columns.length === 1
-          ? `${first.label} is unavailable`
-          : "Some settings are unavailable"
+        <div className="flex flex-col gap-1">
+          <span className="font-medium">{heading}</span>
+          <ul className="m-0 list-disc pl-4">
+            {columns.map((column) => (
+              <li key={column.key}>{missingColumnLine(column)}</li>
+            ))}
+          </ul>
+        </div>
       }
-      description={columns
-        .map(
-          (column) =>
-            `${column.label} needs dbo.${column.table}.${column.column}, which is not in this database yet.`,
-        )
-        .join(" ")}
-    />
+    >
+      <WarningOutlined
+        aria-label={heading}
+        className="cursor-help"
+        tabIndex={0}
+        style={{ color: token.colorWarning }}
+      />
+    </Tooltip>
   );
 }
 

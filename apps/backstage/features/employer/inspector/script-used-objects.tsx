@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Button, Popover, Space, Tooltip, Typography } from "antd";
 import { KIND_COLOR } from "@/features/dbs/kind-style";
+import type { SqlSymbol } from "@/features/employer/inspector/script-symbols";
 import type { ScriptObjectKind } from "@/features/employer/inspector/queries";
 
 const GROUP_ORDER: ScriptObjectKind[] = [
@@ -29,6 +30,12 @@ function objectKey(schema: string, name: string): string {
   return `${schema}.${name}`.toLowerCase();
 }
 
+const NAME_GROUPS: Array<{ kind: SqlSymbol["kind"]; label: string }> = [
+  { kind: "parameter", label: "Parameters" },
+  { kind: "local", label: "Locals" },
+  { kind: "alias", label: "Aliases" },
+];
+
 export function ScriptUsedObjects({
   refs,
   kinds,
@@ -36,6 +43,8 @@ export function ScriptUsedObjects({
   current,
   onView,
   onExecute,
+  symbols,
+  onJump,
 }: {
   refs: ReadonlyArray<{ schema: string; name: string }>;
   kinds: Readonly<Record<string, ScriptObjectKind>>;
@@ -43,6 +52,8 @@ export function ScriptUsedObjects({
   current: { schema: string; name: string };
   onView: (object: UsedObject) => void;
   onExecute: (object: UsedObject) => void;
+  symbols: readonly SqlSymbol[];
+  onJump: (symbol: SqlSymbol) => void;
 }): React.JSX.Element {
   const [openKey, setOpenKey] = useState<string | null>(null);
   const currentKey = objectKey(current.schema, current.name);
@@ -163,6 +174,48 @@ export function ScriptUsedObjects({
             );
           })
         : null}
+      {symbols.length > 0 ? (
+        <div className="mt-4 border-t border-slate-200 pt-3 dark:border-slate-700">
+          <Typography.Text strong>Names</Typography.Text>
+          {NAME_GROUPS.map((group) => {
+            const rows = symbols.filter((symbol) => symbol.kind === group.kind);
+            if (rows.length === 0) {
+              return null;
+            }
+            return (
+              <div className="mt-3" key={group.kind}>
+                <Typography.Text type="secondary">{group.label}</Typography.Text>
+                <div className="mt-1 flex flex-col">
+                  {rows.map((symbol) => (
+                    <Tooltip key={symbol.id} placement="topLeft" title={symbol.hint}>
+                      <Button
+                        className="!flex !h-auto w-full min-w-0 items-center justify-start overflow-hidden px-1 text-left !whitespace-normal"
+                        type="text"
+                        onClick={() => {
+                          onJump(symbol);
+                        }}
+                      >
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate font-mono text-xs">{symbol.name}</span>
+                          {symbol.kind === "alias" && symbol.target ? (
+                            <span className="block truncate font-sans text-[11px] font-normal leading-4 text-slate-500">
+                              {symbol.target}
+                            </span>
+                          ) : symbol.typeText ? (
+                            <span className="block truncate font-sans text-[11px] font-normal leading-4 text-slate-500">
+                              {symbol.typeText}
+                            </span>
+                          ) : null}
+                        </span>
+                      </Button>
+                    </Tooltip>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : null}
     </aside>
   );
 }

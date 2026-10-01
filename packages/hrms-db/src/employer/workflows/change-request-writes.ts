@@ -11,6 +11,7 @@ import {
   PK_FALLBACK,
   assertSqlIdent,
   buildApplyPlan,
+  canonicalApplyTable,
   forceShowOneOnInsert,
   groupApplyWrites,
   isApplyTable,
@@ -96,24 +97,49 @@ async function assertConfiguredApprover(
 async function loadApplyDetails(db: HrmsDb | Tx, changeRequestId: number) {
   return db.$queryRaw<
     Array<{
+      ChangeDetailsId: number | null;
       TableName: string | null;
       DBFieldName: string | null;
       TextValueNew: string | null;
       NewValue: string | null;
       IsNew: boolean | number | null;
       ChildRowId: number | null;
+      CustDetailId: string | number | null;
     }>
   >`
     SELECT
+        Detail.ChangeDetailsId,
         Detail.TableName,
         Detail.DBFieldName,
         Detail.TextValueNew,
         Detail.NewValue,
         Detail.IsNew,
-        Detail.ChildRowId
+        Detail.ChildRowId,
+        Detail.CustDetailId
     FROM dbo.TMyDetailsChangeRequestDetails AS Detail
     WHERE Detail.ChangeRequestId = ${changeRequestId}
   `;
+}
+
+function asId(value: number | string | null | undefined): number | null {
+  if (value == null || value === "") {
+    return null;
+  }
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function toApplyInput(row: Awaited<ReturnType<typeof loadApplyDetails>>[number]) {
+  return {
+    tableName: row.TableName,
+    dbFieldName: row.DBFieldName,
+    textValueNew: row.TextValueNew,
+    newValue: row.NewValue,
+    isNew: row.IsNew,
+    childRowId: asId(row.ChildRowId),
+    changeDetailsId: asId(row.ChangeDetailsId),
+    custDetailId: row.CustDetailId == null ? null : String(row.CustDetailId),
+  };
 }
 
 async function loadColumns(db: HrmsDb | Tx, tables: string[]): Promise<ColumnRow[]> {
@@ -139,12 +165,17 @@ async function loadColumns(db: HrmsDb | Tx, tables: string[]): Promise<ColumnRow
   `;
 }
 
+function canonicalTableKey(name: string): string {
+  return canonicalApplyTable(name) ?? name;
+}
+
 function columnsByTable(rows: ColumnRow[]): Map<string, Set<string>> {
   const map = new Map<string, Set<string>>();
   for (const row of rows) {
-    const current = map.get(row.TableName) ?? new Set<string>();
+    const table = canonicalTableKey(row.TableName);
+    const current = map.get(table) ?? new Set<string>();
     current.add(row.ColumnName);
-    map.set(row.TableName, current);
+    map.set(table, current);
   }
   return map;
 }
@@ -152,9 +183,10 @@ function columnsByTable(rows: ColumnRow[]): Map<string, Set<string>> {
 function typesByTable(rows: ColumnRow[]): Map<string, ApplyColumnTypes> {
   const map = new Map<string, ApplyColumnTypes>();
   for (const row of rows) {
-    const current = map.get(row.TableName) ?? new Map<string, string>();
+    const table = canonicalTableKey(row.TableName);
+    const current = map.get(table) ?? new Map<string, string>();
     current.set(row.ColumnName, row.TypeName);
-    map.set(row.TableName, current);
+    map.set(table, current);
   }
   return map;
 }
@@ -172,7 +204,9 @@ function pickColumn(columns: Set<string>, candidates: string[]): string | null {
 
 function resolvePk(table: ApplyTableName, columns: ColumnRow[]): string {
   const identity = columns.find(
-    (row) => row.TableName === table && (row.IsIdentity === true || row.IsIdentity === 1),
+    (row) =>
+      canonicalTableKey(row.TableName) === table &&
+      (row.IsIdentity === true || row.IsIdentity === 1),
   );
   if (identity) {
     return identity.ColumnName;
@@ -271,8 +305,11 @@ async function snapshotHistory(
         AND HistorySchemas.name = 'dbo'
         AND SourceTables.name = ${sourceTable}
         AND HistoryTables.name = ${history}
-        AND SourceColumns.is_identity = 0
         AND HistoryColumns.is_identity = 0
+        AND (
+            SourceColumns.is_identity = 0
+            OR SourceColumns.name = ${pk}
+        )
   `;
   if (columns.length === 0) {
     notes.push(`No overlapping columns for ${sourceTable} → ${history}; skipped snapshot.`);
@@ -415,12 +452,12 @@ async function applyInserts(
     if (newId == null) {
       throw new Error(`Insert into ${table} did not return an identity.`);
     }
+    // Core copies the new parent id onto every detail still keyed by this request,
+    // including TemployeedetailCustomFields, so the custom field attaches to that row.
     await tx.$executeRaw`
       UPDATE dbo.TMyDetailsChangeRequestDetails
       SET CustDetailId = ${String(newId)}
       WHERE ChangeRequestId = ${changeRequestId}
-          AND TableName = ${table}
-          AND ISNULL(IsNew, 0) = 1
           AND (
               CustDetailId = ${String(changeRequestId)}
               OR CustDetailId IS NULL
@@ -430,6 +467,149 @@ async function applyInserts(
       await resolveBankBranchId(tx, newId, group, employerId, notes);
     }
     await snapshotHistory(tx, table, pk, newId, notes);
+  }
+}
+
+function custDetailSql(value: string | number | null | undefined): Prisma.Sql {
+  if (value == null) {
+    return Prisma.sql`NULL`;
+  }
+  const text = String(value).trim();
+  if (text.length === 0 || text.toLowerCase() === "null") {
+    return Prisma.sql`NULL`;
+  }
+  if (!/^\d+$/.test(text)) {
+    throw new Error(`CustDetailId ${text} is not an integer.`);
+  }
+  return Prisma.sql`${Number(text)}`;
+}
+
+function groupCustomFieldWrites(writes: ApplyWrite[]): Array<{
+  fieldId: number;
+  changeDetailsId: number;
+  value: string;
+}> {
+  const groups = new Map<number, { fieldId: number; changeDetailsId: number; value: string }>();
+  for (const write of writes) {
+    if (write.changeDetailsId == null || write.changeDetailsId <= 0) {
+      throw new Error(`${CUSTOM_TABLE}.${write.column} is missing ChangeDetailsId.`);
+    }
+    if (write.childRowId == null || write.childRowId <= 0) {
+      throw new Error(
+        `${CUSTOM_TABLE}.${write.column} is a custom field but ChildRowId (CustFieldID) is missing.`,
+      );
+    }
+    const existing = groups.get(write.changeDetailsId);
+    if (!existing || write.column.toLowerCase() === "customvalue") {
+      groups.set(write.changeDetailsId, {
+        fieldId: write.childRowId,
+        changeDetailsId: write.changeDetailsId,
+        value: write.value,
+      });
+    }
+  }
+  return [...groups.values()];
+}
+
+/**
+ * Core Sp_ApproveRejectMyDetailsReview deletes the employee's rows for these CustFieldIDs,
+ * then inserts EmployeeId, CustFieldID (ChildRowId), CustomValue, EmployerId, audit columns,
+ * and CustDetailId. ChildRowId is the field id, not CustomFieldId.
+ */
+async function applyCustomFields(
+  tx: Tx,
+  writes: ApplyWrite[],
+  columnRows: ColumnRow[],
+  columnSets: Map<string, Set<string>>,
+  subjectEmployeeId: number,
+  changeRequestId: number,
+  employerId: number,
+  notes: string[],
+): Promise<void> {
+  if (writes.length === 0) {
+    return;
+  }
+  const columns = columnSets.get(CUSTOM_TABLE);
+  if (!columns) {
+    throw new Error(`Columns for ${CUSTOM_TABLE} were not loaded.`);
+  }
+  const pk = resolvePk(CUSTOM_TABLE, columnRows);
+  const groups = groupCustomFieldWrites(writes);
+  const fieldIds = [...new Set(groups.map((group) => group.fieldId))];
+  const employeeCol = pickColumn(columns, ["EmployeeId", "EmployeeID"]);
+  const fieldCol = pickColumn(columns, ["CustFieldID", "CustFieldId"]);
+  const valueCol = pickColumn(columns, ["CustomValue"]);
+  const employerCol = pickColumn(columns, ["EmployerId", "EmployerID"]);
+  const custDetailCol = pickColumn(columns, ["CustDetailId"]);
+  if (!employeeCol || !fieldCol || !valueCol) {
+    throw new Error(`${CUSTOM_TABLE} is missing EmployeeId, CustFieldID, or CustomValue.`);
+  }
+  await tx.$executeRaw`
+    DELETE FROM dbo.${sqlIdent(CUSTOM_TABLE)}
+    WHERE ${sqlIdent(employeeCol)} = ${subjectEmployeeId}
+        AND ${sqlIdent(fieldCol)} IN (${Prisma.join(fieldIds)})
+  `;
+  const linked = await tx.$queryRaw<
+    Array<{ ChangeDetailsId: number; CustDetailId: string | number | null }>
+  >`
+    SELECT ChangeDetailsId, CustDetailId
+    FROM dbo.TMyDetailsChangeRequestDetails
+    WHERE ChangeRequestId = ${changeRequestId}
+        AND TableName = ${CUSTOM_TABLE}
+  `;
+  const custDetailById = new Map(
+    linked.map((row) => [Number(row.ChangeDetailsId), row.CustDetailId]),
+  );
+  const createdBy = pickColumn(columns, ["CreatedBy"]);
+  const modifiedBy = pickColumn(columns, ["ModifiedBy"]);
+  const modifiedDate = pickColumn(columns, ["ModifiedDate"]);
+  const modifiedUtc = pickColumn(columns, ["ModifiedDateUtc", "ModifiedDateUtcTime"]);
+  for (const group of groups) {
+    if (!custDetailById.has(group.changeDetailsId)) {
+      throw new Error(
+        `Custom field detail ${group.changeDetailsId} was not found after linking CustDetailId.`,
+      );
+    }
+    const names = [employeeCol, fieldCol, valueCol];
+    const values = [
+      Prisma.sql`${subjectEmployeeId}`,
+      Prisma.sql`${group.fieldId}`,
+      Prisma.sql`${group.value}`,
+    ];
+    if (employerCol) {
+      names.push(employerCol);
+      values.push(Prisma.sql`${employerId}`);
+    }
+    if (createdBy) {
+      names.push(createdBy);
+      values.push(Prisma.sql`${subjectEmployeeId}`);
+    }
+    if (modifiedBy && modifiedBy !== createdBy) {
+      names.push(modifiedBy);
+      values.push(Prisma.sql`${subjectEmployeeId}`);
+    }
+    if (modifiedDate) {
+      names.push(modifiedDate);
+      values.push(Prisma.sql`GETDATE()`);
+    }
+    if (modifiedUtc) {
+      names.push(modifiedUtc);
+      values.push(Prisma.sql`GETUTCDATE()`);
+    }
+    if (custDetailCol) {
+      names.push(custDetailCol);
+      values.push(custDetailSql(custDetailById.get(group.changeDetailsId)));
+    }
+    const inserted = await tx.$queryRaw<Array<{ Id: number }>>`
+      INSERT INTO dbo.${sqlIdent(CUSTOM_TABLE)} (${Prisma.join(names.map(sqlIdent))})
+      OUTPUT INSERTED.${sqlIdent(pk)} AS Id
+      VALUES (${Prisma.join(values)})
+    `;
+    const newId = inserted[0]?.Id;
+    if (newId == null) {
+      throw new Error(`Insert into ${CUSTOM_TABLE} did not return an identity.`);
+    }
+    await snapshotHistory(tx, CUSTOM_TABLE, pk, Number(newId), notes);
   }
 }
 
@@ -574,14 +754,7 @@ export async function getChangeRequestWritePreview(
   ];
   const columnRows = await loadColumns(db, tables);
   const writes = buildApplyPlan(
-    details.map((row) => ({
-      tableName: row.TableName,
-      dbFieldName: row.DBFieldName,
-      textValueNew: row.TextValueNew,
-      newValue: row.NewValue,
-      isNew: row.IsNew,
-      childRowId: row.ChildRowId,
-    })),
+    details.map(toApplyInput),
     columnsByTable(columnRows),
     typesByTable(columnRows),
   );
@@ -623,34 +796,16 @@ export async function decideChangeRequest(
       const columnRows = await loadColumns(tx, tables);
       const columnSets = columnsByTable(columnRows);
       const writes = buildApplyPlan(
-        details.map((row) => ({
-          tableName: row.TableName,
-          dbFieldName: row.DBFieldName,
-          textValueNew: row.TextValueNew,
-          newValue: row.NewValue,
-          isNew: row.IsNew,
-          childRowId: row.ChildRowId,
-        })),
+        details.map(toApplyInput),
         columnSets,
         typesByTable(columnRows),
       );
-      const grouped = groupApplyWrites(writes);
-      const parentUpdates = new Map(
-        [...grouped.updates].filter(([key]) => !key.startsWith(`${CUSTOM_TABLE}:`)),
-      );
-      const customUpdates = new Map(
-        [...grouped.updates].filter(([key]) => key.startsWith(`${CUSTOM_TABLE}:`)),
-      );
-      const parentInserts = new Map(
-        [...grouped.inserts].filter(([table]) => table !== CUSTOM_TABLE),
-      );
-      const customInserts = new Map(
-        [...grouped.inserts].filter(([table]) => table === CUSTOM_TABLE),
-      );
+      const customWrites = writes.filter((write) => write.table === CUSTOM_TABLE);
+      const grouped = groupApplyWrites(writes.filter((write) => write.table !== CUSTOM_TABLE));
       const notes: string[] = [];
       await applyUpdates(
         tx,
-        parentUpdates,
+        grouped.updates,
         columnRows,
         columnSets,
         parsed.approverEmployeeId,
@@ -658,7 +813,7 @@ export async function decideChangeRequest(
       );
       await applyInserts(
         tx,
-        parentInserts,
+        grouped.inserts,
         columnRows,
         columnSets,
         header.EmployeeId,
@@ -667,21 +822,12 @@ export async function decideChangeRequest(
         parsed.employerId,
         notes,
       );
-      await applyUpdates(
+      await applyCustomFields(
         tx,
-        customUpdates,
-        columnRows,
-        columnSets,
-        parsed.approverEmployeeId,
-        notes,
-      );
-      await applyInserts(
-        tx,
-        customInserts,
+        customWrites,
         columnRows,
         columnSets,
         header.EmployeeId,
-        parsed.approverEmployeeId,
         parsed.changeRequestId,
         parsed.employerId,
         notes,

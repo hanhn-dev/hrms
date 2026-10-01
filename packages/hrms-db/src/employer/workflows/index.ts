@@ -40,6 +40,7 @@ export {
   APPLY_TABLES,
   CHANGE_REQUEST_STATUSES,
   buildApplyPlan,
+  canonicalApplyTable,
   changeRequestStatus,
   coerceBitApplyValue,
   forceShowOneOnInsert,

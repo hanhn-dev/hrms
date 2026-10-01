@@ -4,6 +4,7 @@ import {
   APPLY_TABLES,
   assertSqlIdent,
   buildApplyPlan,
+  canonicalApplyTable,
   changeRequestStatus,
   coerceBitApplyValue,
   forceShowOneOnInsert,
@@ -38,6 +39,12 @@ describe("isApplyTable", () => {
     assert.equal(isApplyTable("TEmployeeFamilyDetails"), true);
     assert.equal(isApplyTable("TUsers"), false);
     assert.equal(APPLY_TABLES.includes("TEmployee"), true);
+  });
+
+  it("accepts Core's TemployeedetailCustomFields spelling", () => {
+    assert.equal(isApplyTable("TemployeedetailCustomFields"), true);
+    assert.equal(canonicalApplyTable("TemployeedetailCustomFields"), "TEmployeeDetailCustomFields");
+    assert.equal(canonicalApplyTable("TUsers"), null);
   });
 });
 
@@ -212,6 +219,31 @@ describe("buildApplyPlan", () => {
     assert.equal(writes.find((w) => w.column === "isDefault")?.value, "0");
     assert.equal(writes.find((w) => w.column === "Payroll")?.value, "1");
     assert.equal(writes.find((w) => w.column === "AccountNo")?.value, "11242125251");
+  });
+
+  it("canonicalizes TemployeedetailCustomFields and keeps ChildRowId as the field id", () => {
+    const writes = buildApplyPlan(
+      [
+        {
+          tableName: "TemployeedetailCustomFields",
+          dbFieldName: "CustomValue",
+          textValueNew: "775",
+          newValue: "775",
+          isNew: 1,
+          childRowId: 42,
+          changeDetailsId: 9,
+          custDetailId: "10302",
+        },
+      ],
+      new Map([["TemployeedetailCustomFields", new Set(["CustomValue"])]]),
+    );
+    assert.equal(writes.length, 1);
+    assert.equal(writes[0]?.table, "TEmployeeDetailCustomFields");
+    assert.equal(writes[0]?.column, "CustomValue");
+    assert.equal(writes[0]?.kind, "insert");
+    assert.equal(writes[0]?.childRowId, 42);
+    assert.equal(writes[0]?.value, "775");
+    assert.equal(writes[0]?.changeDetailsId, 9);
   });
 
   it("rejects unknown tables, unknown columns, and edits without ChildRowId", () => {
