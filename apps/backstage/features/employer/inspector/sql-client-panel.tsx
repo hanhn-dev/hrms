@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Alert, Button, Card, Input, Space, Tag, Typography } from "antd";
+import { FullscreenExitOutlined, FullscreenOutlined } from "@ant-design/icons";
+import { Alert, Button, Card, Input, Modal, Space, Tag, Typography } from "antd";
 import { DataTable } from "@/shared/ui/data-table";
 import { planColumnFilters } from "@hrms/db/data-fix";
 import type { DataFixTableHit } from "@hrms/db";
@@ -15,6 +16,9 @@ import {
 import { HighlightMatch, SearchSelect } from "@/shared/ui";
 
 const SEARCH_DEBOUNCE_MS = 300;
+const MODAL_CLOSE_OFFSET = 12;
+const MODAL_CLOSE_SIZE = 32;
+const MODAL_ACTION_GAP = 4;
 
 type FilterColumn = {
   name: string;
@@ -42,6 +46,7 @@ export function SqlClientPanel({
   const [appliedFilters, setAppliedFilters] = useState<SqlClientFilter[]>([]);
   const [editCount, setEditCount] = useState(0);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
     const trimmed = query.trim();
@@ -102,6 +107,19 @@ export function SqlClientPanel({
     }
   }
 
+  function closeTable(): void {
+    if (editCount > 0) {
+      setActionError("Commit or discard edits before closing the table.");
+      return;
+    }
+    setActionError(null);
+    setColumns([]);
+    setDraft(EMPTY_DRAFT);
+    setAppliedFilters([]);
+    setExpanded(false);
+    setSelected(null);
+  }
+
   function openTable(hit: DataFixTableHit): void {
     if (selected?.schema === hit.schema && selected.table === hit.table) {
       return;
@@ -114,6 +132,7 @@ export function SqlClientPanel({
     setColumns([]);
     setDraft(EMPTY_DRAFT);
     setAppliedFilters([]);
+    setExpanded(false);
     setSelected(hit);
   }
 
@@ -212,8 +231,41 @@ export function SqlClientPanel({
           />
         </Space>
       </Card>
-      {selected ? (
-        <Card title={`${selected.schema}.${selected.table}`}>
+      <Modal
+        destroyOnHidden
+        footer={null}
+        open={selected !== null}
+        style={
+          expanded
+            ? { top: 0, maxWidth: "100vw", margin: 0, paddingBottom: 0 }
+            : { top: 24 }
+        }
+        styles={{ header: { paddingInlineEnd: 72 } }}
+        title={
+          <>
+            {selected ? `${selected.schema}.${selected.table}` : "Table"}
+            <Button
+              aria-label={expanded ? "Restore width" : "Full width"}
+              icon={expanded ? <FullscreenExitOutlined /> : <FullscreenOutlined />}
+              type="text"
+              style={{
+                position: "absolute",
+                top: MODAL_CLOSE_OFFSET,
+                insetInlineEnd: MODAL_CLOSE_OFFSET + MODAL_CLOSE_SIZE + MODAL_ACTION_GAP,
+                zIndex: 20,
+                width: MODAL_CLOSE_SIZE,
+                height: MODAL_CLOSE_SIZE,
+              }}
+              onClick={() => {
+                setExpanded((current) => !current);
+              }}
+            />
+          </>
+        }
+        width={expanded ? "100vw" : "min(1440px, calc(100vw - 48px))"}
+        onCancel={closeTable}
+      >
+        {selected ? (
           <Space orientation="vertical" size="middle" className="w-full">
             {selected.hasEmployerColumn ? <Tag color="green">Employer scoped</Tag> : <Tag>No employer</Tag>}
             <Space wrap>
@@ -269,7 +321,7 @@ export function SqlClientPanel({
               key={`${selected.schema}.${selected.table}`}
               columnFilters={appliedFilters}
               employerId={employerId}
-              expanded
+              expanded={expanded}
               newestFirst
               schema={selected.schema}
               table={selected.table}
@@ -283,8 +335,8 @@ export function SqlClientPanel({
               }}
             />
           </Space>
-        </Card>
-      ) : null}
+        ) : null}
+      </Modal>
     </div>
   );
 }

@@ -24,6 +24,7 @@ export {
   listChangeRequests,
   listEmployeeChangeRequests,
   listConfiguredApprovers,
+  type ChangeRequestApprover,
   type ChangeRequestDetail,
   type ChangeRequestDetailRow,
   type ChangeRequestListItem,

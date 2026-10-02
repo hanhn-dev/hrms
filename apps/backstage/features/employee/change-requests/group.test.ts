@@ -23,6 +23,7 @@ function request(
     status: "approved",
     workflowId: null,
     workflowName: null,
+    approvers: [],
     ...patch,
   };
 }

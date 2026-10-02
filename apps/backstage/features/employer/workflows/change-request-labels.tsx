@@ -1,6 +1,8 @@
 "use client";
 
-import { Tag } from "antd";
+import { Tag, Tooltip } from "antd";
+import { changeRequestApproverText } from "@/features/employer/workflows/change-request-approver-label";
+import { EntityLink } from "@/shared/entity-link";
 
 const KIND_COLOR = {
   Added: "green",
@@ -53,6 +55,51 @@ export function changeKindFromRow(row: {
     return "Deleted";
   }
   return "Edited";
+}
+
+export function ChangeRequestApprovers({
+  employerId,
+  approvers,
+}: {
+  employerId: number;
+  approvers: Array<{
+    employeeId: number;
+    name: string;
+    employmentNumber: string | null;
+  }>;
+}): React.JSX.Element {
+  if (approvers.length === 0) {
+    return <>{"—"}</>;
+  }
+  return (
+    <span>
+      {approvers.map((person, index) => {
+        const number = person.employmentNumber?.trim();
+        const label = (
+          <EntityLink
+            employerId={employerId}
+            entity={
+              number ? { kind: "employee", employmentNumber: number } : null
+            }
+          >
+            {changeRequestApproverText(person)}
+          </EntityLink>
+        );
+        return (
+          <span key={person.employeeId}>
+            {index > 0 ? ", " : null}
+            {number ? (
+              <Tooltip title={person.name}>
+                <span>{label}</span>
+              </Tooltip>
+            ) : (
+              label
+            )}
+          </span>
+        );
+      })}
+    </span>
+  );
 }
 
 export function KindChip({ kind }: { kind: ChangeKind }): React.JSX.Element {

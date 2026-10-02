@@ -3,7 +3,11 @@
 import { useMemo, useState } from "react";
 import { Collapse, Empty, Input, Segmented, Space, Tag } from "antd";
 import { DataTable } from "@/shared/ui/data-table";
-import { splitNames } from "@/features/employer/workflows/change-request-labels";
+import { changeRequestApproverSearchValues } from "@/features/employer/workflows/change-request-approver-label";
+import {
+  ChangeRequestApprovers,
+  splitNames,
+} from "@/features/employer/workflows/change-request-labels";
 import {
   ChangeRequestIdButton,
   useChangeRequestView,
@@ -66,6 +70,7 @@ export function ChangeRequestsPanel({
         row.workflowName,
         row.createdByName,
         row.createdByEmploymentNumber,
+        ...changeRequestApproverSearchValues(row.approvers),
       ]
         .filter(Boolean)
         .some((value) => String(value).toLowerCase().includes(query));
@@ -102,7 +107,7 @@ export function ChangeRequestsPanel({
           <Input.Search
             allowClear
             className="max-w-sm"
-            placeholder="Search id, section, workflow, or requester"
+            placeholder="Search id, section, workflow, requester, or approver"
             value={search}
             onChange={(event) => {
               setSearch(event.target.value);
@@ -190,6 +195,15 @@ export function ChangeRequestsPanel({
                                 : ""
                             }`
                           : "—",
+                    },
+                    {
+                      title: "Approver",
+                      render: (_: unknown, row: ChangeRequestListItem) => (
+                        <ChangeRequestApprovers
+                          employerId={employerId}
+                          approvers={row.approvers}
+                        />
+                      ),
                     },
                     {
                       title: "Requested",

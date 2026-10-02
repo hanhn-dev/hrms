@@ -410,6 +410,7 @@ export {
   changeRequestStatus,
   APPLY_TABLES,
   CHANGE_REQUEST_STATUSES,
+  type ChangeRequestApprover,
   type ChangeRequestDecision,
   type ChangeRequestDetail,
   type ChangeRequestDetailRow,

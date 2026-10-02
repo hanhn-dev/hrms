@@ -17,7 +17,9 @@ import {
   ChangeRequestIdButton,
   useChangeRequestView,
 } from "@/features/employer/workflows/change-request-view";
+import { changeRequestApproverSearchValues } from "@/features/employer/workflows/change-request-approver-label";
 import {
+  ChangeRequestApprovers,
   changeKindFromRow,
   sectionNamesFrom,
   splitNames,
@@ -88,6 +90,7 @@ export function ChangeRequestPanel({
         row.createdByName,
         row.createdByEmploymentNumber,
         row.workflowName,
+        ...changeRequestApproverSearchValues(row.approvers),
       ]
         .filter(Boolean)
         .some((value) => String(value).toLowerCase().includes(query));
@@ -163,7 +166,7 @@ export function ChangeRequestPanel({
           <Input.Search
             allowClear
             className="max-w-sm"
-            placeholder="Search name, emp no, page, or section"
+            placeholder="Search name, emp no, page, section, or approver"
             value={search}
             onChange={(event) => {
               setSearch(event.target.value);
@@ -261,6 +264,12 @@ export function ChangeRequestPanel({
                       row.createdByEmploymentNumber ? ` · ${row.createdByEmploymentNumber}` : ""
                     }`
                   : "—",
+            },
+            {
+              title: "Approver",
+              render: (_: unknown, row: ChangeRequestListItem) => (
+                <ChangeRequestApprovers employerId={employerId} approvers={row.approvers} />
+              ),
             },
             {
               title: "Requested",

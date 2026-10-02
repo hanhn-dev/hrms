@@ -26,7 +26,7 @@ export async function EmployeeChangeRequestsScreen({
             type: "info",
             title: "Requests for this employee",
             description:
-              "Each row is a My Details change request where this person is the subject. Requested by shows who submitted it, including changes filed on their behalf.",
+              "Each row is a My Details change request where this person is the subject. Requested by shows who submitted it, including changes filed on their behalf. Approver is who the request is waiting on, or the person who approved or rejected a closed request.",
           },
           {
             id: "groups",

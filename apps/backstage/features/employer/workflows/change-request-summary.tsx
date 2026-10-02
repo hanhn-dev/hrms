@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { Descriptions, Space, Typography } from "antd";
 import { DataTable } from "@/shared/ui/data-table";
 import {
+  ChangeRequestApprovers,
   KindChip,
   changeKindFromRow,
   sectionNamesFrom,
@@ -112,6 +113,16 @@ export function ChangeRequestSummary({
                   employmentNumber: detail.header.createdByEmploymentNumber,
                 })
               : "—",
+          },
+          {
+            key: "approver",
+            label: "Approver",
+            children: (
+              <ChangeRequestApprovers
+                employerId={employerId}
+                approvers={detail.header.approvers}
+              />
+            ),
           },
           {
             key: "workflow",

@@ -14,6 +14,11 @@ import {
   pendingApproverFlag,
   type ChangeRequestStatus,
 } from "./change-request-apply";
+import {
+  pickChangeRequestApprovers,
+  type ChangeRequestApprover,
+  type ChangeRequestQueueActor,
+} from "./change-request-approvers";
 
 const REQUEST_TYPE = "EmploymentTypeChange";
 
@@ -31,7 +36,10 @@ export type ChangeRequestListItem = {
   status: ChangeRequestStatus;
   workflowId: number | null;
   workflowName: string | null;
+  approvers: ChangeRequestApprover[];
 };
+
+export type { ChangeRequestApprover };
 
 export type ChangeRequestDetailRow = {
   changeDetailsId: number;
@@ -86,7 +94,10 @@ type HeaderRow = {
   WorkflowName: string | null;
 };
 
-function mapHeader(row: HeaderRow): ChangeRequestListItem {
+function mapHeader(
+  row: HeaderRow,
+  approvers: ChangeRequestApprover[] = [],
+): ChangeRequestListItem {
   return {
     changeRequestId: row.ChangeRequestId,
     employeeId: row.EmployeeId,
@@ -101,7 +112,80 @@ function mapHeader(row: HeaderRow): ChangeRequestListItem {
     status: changeRequestStatus(row.IsApproved),
     workflowId: row.WorkflowId,
     workflowName: row.WorkflowName,
+    approvers,
   };
+}
+
+type QueueActorSqlRow = {
+  RequestTransid: number;
+  ApproveStatus: string | null;
+  ApprovalLevel: number | null;
+  ManagerId: number | null;
+  ManagerName: string | null;
+  ManagerEmploymentNumber: string | null;
+  UpdatedBy: number | null;
+  UpdatedByName: string | null;
+  UpdatedByEmploymentNumber: string | null;
+};
+
+function mapQueueActor(row: QueueActorSqlRow): ChangeRequestQueueActor {
+  return {
+    approveStatus: row.ApproveStatus,
+    approvalLevel: row.ApprovalLevel,
+    managerId: row.ManagerId,
+    managerName: row.ManagerName,
+    managerEmploymentNumber: row.ManagerEmploymentNumber,
+    updatedBy: row.UpdatedBy,
+    updatedByName: row.UpdatedByName,
+    updatedByEmploymentNumber: row.UpdatedByEmploymentNumber,
+  };
+}
+
+async function loadApproversByRequest(
+  db: HrmsDb,
+  changeRequestIds: number[],
+): Promise<Map<number, ChangeRequestApprover[]>> {
+  const unique = [...new Set(changeRequestIds)];
+  const grouped = new Map<number, ChangeRequestQueueActor[]>();
+  if (unique.length === 0) {
+    return new Map();
+  }
+  const rows = await db.$queryRaw<QueueActorSqlRow[]>(Prisma.sql`
+    SELECT
+        Queue.RequestTransid,
+        Queue.ApproveStatus,
+        Queue.ApprovalLevel,
+        Queue.ManagerId,
+        LTRIM(RTRIM(CONCAT_WS(' ', Manager.FName, Manager.MiddleName, Manager.LName))) AS ManagerName,
+        ManagerInfo.EmploymentNumber AS ManagerEmploymentNumber,
+        Queue.UpdatedBy,
+        LTRIM(RTRIM(CONCAT_WS(' ', Actor.FName, Actor.MiddleName, Actor.LName))) AS UpdatedByName,
+        ActorInfo.EmploymentNumber AS UpdatedByEmploymentNumber
+    FROM dbo.TRequestWorkflows AS Queue
+    LEFT JOIN dbo.TEmployee AS Manager
+        ON Manager.EmployeeId = Queue.ManagerId
+    LEFT JOIN dbo.TEmployeeInfo AS ManagerInfo
+        ON ManagerInfo.EmployeeId = Queue.ManagerId
+    LEFT JOIN dbo.TEmployee AS Actor
+        ON Actor.EmployeeId = Queue.UpdatedBy
+    LEFT JOIN dbo.TEmployeeInfo AS ActorInfo
+        ON ActorInfo.EmployeeId = Queue.UpdatedBy
+    WHERE Queue.RequestType = ${REQUEST_TYPE}
+        AND ISNULL(Queue.IsDeleted, 0) = 0
+        AND Queue.RequestTransid IN (${Prisma.join(unique)})
+    ORDER BY Queue.RequestTransid, Queue.ApprovalLevel, Queue.Transid
+  `);
+  for (const row of rows) {
+    const actors = grouped.get(row.RequestTransid) ?? [];
+    actors.push(mapQueueActor(row));
+    grouped.set(row.RequestTransid, actors);
+  }
+  return new Map(
+    unique.map((changeRequestId) => [
+      changeRequestId,
+      pickChangeRequestApprovers(grouped.get(changeRequestId) ?? []),
+    ]),
+  );
 }
 
 async function loadHeader(
@@ -224,7 +308,11 @@ async function listChangeRequestHeaders(
     ${employeeFilter}
     ORDER BY ChangeRequest.ChangeRequestId DESC
   `);
-  return rows.map(mapHeader);
+  const approvers = await loadApproversByRequest(
+    db,
+    rows.map((row) => row.ChangeRequestId),
+  );
+  return rows.map((row) => mapHeader(row, approvers.get(row.ChangeRequestId) ?? []));
 }
 
 export async function listChangeRequests(
@@ -254,7 +342,7 @@ export async function getChangeRequest(
     return null;
   }
 
-  const [details, pending] = await Promise.all([
+  const [details, pending, approvers] = await Promise.all([
     db.$queryRaw<
       Array<{
         ChangeDetailsId: number;
@@ -308,10 +396,11 @@ export async function getChangeRequest(
           AND ISNULL(Queue.IsDeleted, 0) = 0
       ORDER BY Queue.ApprovalLevel, Queue.Transid
     `,
+    loadApproversByRequest(db, [header.ChangeRequestId]),
   ]);
 
   return {
-    header: mapHeader(header),
+    header: mapHeader(header, approvers.get(header.ChangeRequestId) ?? []),
     details: details.map((row) => ({
       changeDetailsId: row.ChangeDetailsId,
       sectionName: row.SectionName,
