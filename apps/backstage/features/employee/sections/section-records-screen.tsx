@@ -1,5 +1,9 @@
-import { Alert, Card } from "antd";
-import { isCrudSectionId, missingObjectName, sectionRecordSpecForId } from "@hrms/db";
+import { Alert } from "antd";
+import {
+  isCrudSectionId,
+  missingObjectName,
+  sectionRecordSpecForId,
+} from "@hrms/db";
 import { areWritesEnabled } from "@/shared/auth";
 import { getSelectedEnvironment } from "@/shared/db";
 import { Employee360Nav, MissingObjectAlert, PageHelp } from "@/shared/ui";
@@ -22,9 +26,12 @@ export async function SectionRecordsScreen({
   let page = {
     fields: [] as Awaited<ReturnType<typeof getSectionRecordsPage>>["fields"],
     records: [] as Awaited<ReturnType<typeof getSectionRecordsPage>>["records"],
+    pending: [] as Awaited<ReturnType<typeof getSectionRecordsPage>>["pending"],
     label: spec?.label ?? `Section ${sectionId}`,
     sectionName: spec?.sectionName ?? `Section ${sectionId}`,
     crudSupported: false,
+    recordsScript: "",
+    pendingScript: "",
   };
   if (crud) {
     try {
@@ -95,18 +102,19 @@ export async function SectionRecordsScreen({
           description="Personal Details and Current Employment Details are deferred. Use the Sections summary for counts only."
         />
       ) : (
-        <Card title={`${page.label} records`}>
-          <SectionRecordsPanel
-            employerId={employerId}
-            employmentNumber={employmentNumber}
-            sectionId={sectionId}
-            label={page.label}
-            fields={page.fields}
-            records={page.records}
-            writesEnabled={writesEnabled}
-            tables={tables.length > 0 ? tables : [spec!.tables[0]!.liveTable]}
-          />
-        </Card>
+        <SectionRecordsPanel
+          employerId={employerId}
+          employmentNumber={employmentNumber}
+          sectionId={sectionId}
+          label={page.label}
+          fields={page.fields}
+          records={page.records}
+          pending={page.pending}
+          pendingScript={page.pendingScript}
+          recordsScript={page.recordsScript}
+          writesEnabled={writesEnabled}
+          tables={tables.length > 0 ? tables : [spec!.tables[0]!.liveTable]}
+        />
       )}
     </>
   );

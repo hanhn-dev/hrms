@@ -8,11 +8,11 @@ import {
   Input,
   Select,
   Space,
-  Table,
   Tag,
   Typography,
 } from "antd";
 import { createTwoFilesPatch } from "diff";
+import { DataTable } from "@/shared/ui/data-table";
 import {
   compareEnvironments,
   type ObjectCompareRow,
@@ -38,6 +38,7 @@ export function ComparePanel({
   const [q, setQ] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [rows, setRows] = useState<ObjectCompareRow[] | null>(null);
+  const [queryScript, setQueryScript] = useState("");
   const [leftEnv, setLeftEnv] = useState<string | null>(null);
   const [summary, setSummary] = useState<Record<
     ObjectCompareStatus,
@@ -93,11 +94,13 @@ export function ComparePanel({
         });
         setLeftEnv(result.leftEnv);
         setRows(result.rows);
+        setQueryScript(result.queryScript);
         setSummary(result.summary);
         setSelected(null);
         setError(null);
       } catch (err) {
         setRows(null);
+        setQueryScript("");
         setSummary(null);
         setError(err instanceof Error ? err.message : String(err));
       }
@@ -158,7 +161,9 @@ export function ComparePanel({
           </Space>
         ) : null}
         {rows ? (
-          <Table
+          <DataTable
+            onRefresh={runCompare}
+            queryScript={queryScript}
             size="small"
             rowKey="id"
             pagination={{ pageSize: 25 }}

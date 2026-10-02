@@ -1,8 +1,9 @@
 "use client";
 
 import { CheckOutlined, CloseOutlined, EditOutlined } from "@ant-design/icons";
-import { App, Button, Form, Space, Table, Tooltip } from "antd";
+import { App, Button, Form, Space, Tooltip } from "antd";
 import type { TablePaginationConfig, TableProps } from "antd";
+import { DataTable } from "@/shared/ui/data-table";
 import { useState } from "react";
 import { ConfirmWriteModal } from "@/shared/ui/confirm-write-modal";
 import { EditableCell } from "./editable-cell";
@@ -12,6 +13,9 @@ type EditableTableProps<T extends object> = Omit<TableProps<T>, "columns" | "com
   columns: Array<EditableColumn<T>>;
   writesEnabled?: boolean;
   confirmWrite?: ConfirmWriteConfig<T>;
+  onRefresh?: () => void | Promise<void>;
+  queryScript: string;
+  skipRefresh?: boolean;
 };
 
 export function EditableTable<T extends object>({
@@ -21,6 +25,9 @@ export function EditableTable<T extends object>({
   rowKey,
   pagination,
   onChange,
+  onRefresh,
+  queryScript,
+  skipRefresh,
   ...tableProps
 }: EditableTableProps<T>): React.JSX.Element {
   const { message } = App.useApp();
@@ -192,9 +199,12 @@ export function EditableTable<T extends object>({
 
   return (
     <Form form={form} component={false}>
-      <Table<T>
+      <DataTable<T>
         {...tableProps}
         columns={mergedColumns as TableProps<T>["columns"]}
+        onRefresh={onRefresh}
+        queryScript={queryScript}
+        skipRefresh={skipRefresh}
         components={{ body: { cell: EditableCell } }}
         pagination={mergedPagination}
         rowKey={rowKey}

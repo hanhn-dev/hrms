@@ -288,37 +288,58 @@ async function snapshotHistory(
     notes.push(`History table ${history} is missing; skipped snapshot for ${sourceTable}.`);
     return;
   }
-  const columns = await tx.$queryRaw<Array<{ ColumnName: string }>>`
-    SELECT SourceColumns.name AS ColumnName
-    FROM sys.columns AS SourceColumns
-    INNER JOIN sys.tables AS SourceTables
-        ON SourceTables.object_id = SourceColumns.object_id
-    INNER JOIN sys.schemas AS SourceSchemas
-        ON SourceSchemas.schema_id = SourceTables.schema_id
-    INNER JOIN sys.columns AS HistoryColumns
-        ON HistoryColumns.name = SourceColumns.name
+  // Overlapping columns are copied from the live row. A history-only datetime that is
+  // NOT NULL and has no default (LastModifiedOn on family, contact, education, nomination)
+  // is filled with GETDATE() so the INSERT does not roll back the approve.
+  const columns = await tx.$queryRaw<Array<{ ColumnName: string; FromLive: number }>>`
+    SELECT
+        HistoryColumns.name AS ColumnName,
+        CASE WHEN SourceColumns.column_id IS NULL THEN 0 ELSE 1 END AS FromLive
+    FROM sys.columns AS HistoryColumns
     INNER JOIN sys.tables AS HistoryTables
         ON HistoryTables.object_id = HistoryColumns.object_id
     INNER JOIN sys.schemas AS HistorySchemas
         ON HistorySchemas.schema_id = HistoryTables.schema_id
-    WHERE SourceSchemas.name = 'dbo'
-        AND HistorySchemas.name = 'dbo'
-        AND SourceTables.name = ${sourceTable}
-        AND HistoryTables.name = ${history}
-        AND HistoryColumns.is_identity = 0
+    INNER JOIN sys.types AS HistoryTypes
+        ON HistoryTypes.user_type_id = HistoryColumns.user_type_id
+    INNER JOIN sys.tables AS SourceTables
+        ON SourceTables.name = ${sourceTable}
+    INNER JOIN sys.schemas AS SourceSchemas
+        ON SourceSchemas.schema_id = SourceTables.schema_id
+        AND SourceSchemas.name = 'dbo'
+    LEFT JOIN sys.columns AS SourceColumns
+        ON SourceColumns.object_id = SourceTables.object_id
+        AND SourceColumns.name = HistoryColumns.name
+        AND SourceColumns.is_computed = 0
         AND (
             SourceColumns.is_identity = 0
             OR SourceColumns.name = ${pk}
         )
+    WHERE HistorySchemas.name = 'dbo'
+        AND HistoryTables.name = ${history}
+        AND HistoryColumns.is_identity = 0
+        AND HistoryColumns.is_computed = 0
+        AND (
+            SourceColumns.column_id IS NOT NULL
+            OR (
+                HistoryColumns.is_nullable = 0
+                AND HistoryColumns.default_object_id = 0
+                AND HistoryTypes.name IN ('datetime', 'datetime2', 'smalldatetime', 'date')
+            )
+        )
   `;
-  if (columns.length === 0) {
+  const copied = columns.filter((row) => Number(row.FromLive) === 1);
+  if (copied.length === 0) {
     notes.push(`No overlapping columns for ${sourceTable} → ${history}; skipped snapshot.`);
     return;
   }
   const idents = columns.map((row) => sqlIdent(row.ColumnName));
+  const selects = columns.map((row) =>
+    Number(row.FromLive) === 1 ? sqlIdent(row.ColumnName) : Prisma.sql`GETDATE()`,
+  );
   await tx.$executeRaw`
     INSERT INTO dbo.${sqlIdent(history)} (${Prisma.join(idents)})
-    SELECT ${Prisma.join(idents)}
+    SELECT ${Prisma.join(selects)}
     FROM dbo.${sqlIdent(sourceTable)}
     WHERE ${sqlIdent(pk)} = ${pkValue}
   `;
@@ -343,6 +364,8 @@ async function applyUpdates(
       throw new Error(`Columns for ${table} were not loaded.`);
     }
     const pk = resolvePk(table, columnRows);
+    // Personal history is the row before this edit. Child sections are snapshotted
+    // after the write so Past History shows the approved values.
     if (table === "TEmployee") {
       await snapshotHistory(tx, table, pk, childRowId, notes);
     }
@@ -357,6 +380,9 @@ async function applyUpdates(
     `;
     if (Number(updated) === 0) {
       throw new Error(`${table} row ${childRowId} was not found for ${key}.`);
+    }
+    if (table !== "TEmployee") {
+      await snapshotHistory(tx, table, pk, childRowId, notes);
     }
   }
 }

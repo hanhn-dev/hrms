@@ -1,5 +1,6 @@
-import { missingObjectName } from "@hrms/db";
+import { captureQueryScript, missingObjectName } from "@hrms/db";
 import { Card } from "antd";
+import { RecentEmployeeStrip } from "@/features/employee/recent";
 import { EmployeeSearchForm } from "@/features/employee/search/search-form";
 import { EmployeeSearchTable } from "@/features/employee/search/search-table";
 import {
@@ -19,10 +20,14 @@ export async function EmployeeSearchScreen({
   let results: EmployeeSearchHit[] = [];
   let unavailable: EmployeeSearchResult["unavailable"] = [];
   let blockedObject: string | null = null;
+  let queryScript = "";
   try {
-    const found = await searchEmployees(employerId, search);
-    results = found.hits;
-    unavailable = found.unavailable;
+    const found = await captureQueryScript(() =>
+      searchEmployees(employerId, search),
+    );
+    results = found.result.hits;
+    unavailable = found.result.unavailable;
+    queryScript = found.script;
   } catch (error) {
     blockedObject = missingObjectName(error);
     if (!blockedObject) {
@@ -53,9 +58,11 @@ export async function EmployeeSearchScreen({
       )}
       <Card>
         <EmployeeSearchForm employerId={employerId} initialSearch={search} />
+        <RecentEmployeeStrip employerId={employerId} />
         {blockedObject ? null : (
           <EmployeeSearchTable
             employerId={employerId}
+            queryScript={queryScript}
             results={results}
             search={search}
             unavailableFields={unavailable.map((item) => item.field)}

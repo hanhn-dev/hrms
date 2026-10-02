@@ -1,6 +1,7 @@
 "use client";
 
-import { Alert, Descriptions, Modal, Space, Table, Tabs } from "antd";
+import { Alert, Descriptions, Modal, Space, Tabs } from "antd";
+import { DataTable } from "@/shared/ui/data-table";
 import Link from "next/link";
 import { AccessActions } from "@/features/employee/access/access-actions";
 import { AccessTreesTabs } from "@/features/employee/access/access-trees-tabs";
@@ -21,6 +22,7 @@ export function UploadEmployeeModal({
   access,
   login,
   attempts,
+  loginScript,
   writesEnabled,
   onClose,
 }: {
@@ -31,6 +33,7 @@ export function UploadEmployeeModal({
   access: EmployeeAccess | null;
   login: EmployeeLoginInfo | null;
   attempts: FailedLoginAttempt[];
+  loginScript: string;
   writesEnabled: boolean;
   onClose: () => void;
 }): React.JSX.Element {
@@ -131,6 +134,7 @@ export function UploadEmployeeModal({
                       employmentNumber={employmentNumber}
                       login={login}
                       attempts={attempts}
+                      loginScript={loginScript}
                       writesEnabled={writesEnabled}
                     />
                   ) : (
@@ -233,12 +237,14 @@ function EmployeeLoginPane({
   employmentNumber,
   login,
   attempts,
+  loginScript,
   writesEnabled,
 }: {
   employerId: number;
   employmentNumber: string;
   login: EmployeeLoginInfo | null;
   attempts: FailedLoginAttempt[];
+  loginScript: string;
   writesEnabled: boolean;
 }): React.JSX.Element {
   return (
@@ -286,7 +292,8 @@ function EmployeeLoginPane({
           },
         ]}
       />
-      <Table
+      <DataTable
+        queryScript={loginScript}
         rowKey="deviceLoginAttemptId"
         dataSource={attempts}
         size="small"

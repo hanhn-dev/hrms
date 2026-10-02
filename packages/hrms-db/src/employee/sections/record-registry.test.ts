@@ -46,6 +46,13 @@ describe("SECTION_RECORD_SPECS", () => {
     );
   });
 
+  it("uses the nominee table primary key", () => {
+    const nominee = sectionRecordSpecForId(17)!;
+    assert.equal(nominee.tables[0]?.entityKeyColumn, "EmployeeNomineeId");
+    assert.equal(nominee.tables[0]?.audit?.updatedBy, "UpdatedBy");
+    assert.equal(nominee.tables[0]?.audit?.updatedAtUtc, "UpdatedDateUtc");
+  });
+
   it("has unique section ids", () => {
     const ids = SECTION_RECORD_SPECS.map((s) => s.sectionId);
     assert.equal(new Set(ids).size, ids.length);

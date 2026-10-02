@@ -1,6 +1,7 @@
 "use client";
 
-import { Table, Tag } from "antd";
+import { Tag } from "antd";
+import { DataTable } from "@/shared/ui/data-table";
 import Link from "next/link";
 import type { BusinessUnitEmployee } from "@/features/employee/business-unit/queries";
 
@@ -13,14 +14,17 @@ export function BusinessUnitTable({
   employerId,
   results,
   search,
+  queryScript,
 }: {
   currentEmployeeId: number;
   employerId: number;
   results: BusinessUnitEmployee[];
   search: string;
+  queryScript: string;
 }): React.JSX.Element {
   return (
-    <Table
+    <DataTable
+      queryScript={queryScript}
       rowKey="employeeId"
       dataSource={results}
       scroll={{ x: "max-content" }}

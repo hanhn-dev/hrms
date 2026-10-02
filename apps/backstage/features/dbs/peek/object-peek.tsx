@@ -8,11 +8,11 @@ import {
   Form,
   Input,
   Space,
-  Table,
   Tabs,
   Tag,
   Typography,
 } from "antd";
+import { DataTable } from "@/shared/ui/data-table";
 import type { DatabaseObjectDetails, DatabaseObjectKind } from "@/features/dbs/queries";
 import {
   confirmExecuteProcedure,
@@ -193,6 +193,7 @@ export function ObjectPeek({
   );
   const [error, setError] = useState<string | null>(null);
   const [rows, setRows] = useState<Record<string, unknown>[] | null>(null);
+  const [rowsScript, setRowsScript] = useState("");
   const [rowsMeta, setRowsMeta] = useState<string | null>(null);
   const [rowsLoaded, setRowsLoaded] = useState(false);
   const [scriptLoading, setScriptLoading] = useState(false);
@@ -227,6 +228,7 @@ export function ObjectPeek({
     setColumnsLoaded(columnsReady);
     setLoading(!columnsReady);
     setRows(null);
+    setRowsScript("");
     setRowsMeta(null);
     setRowsLoaded(false);
     setScriptLoaded(
@@ -331,6 +333,7 @@ export function ObjectPeek({
           top: 20,
         });
         setRows(result.rows);
+        setRowsScript(result.queryScript ?? "");
         setRowsMeta(
           `${result.rowCount} row${result.rowCount === 1 ? "" : "s"}${
             result.truncated ? " (truncated)" : ""
@@ -340,11 +343,37 @@ export function ObjectPeek({
         setError(null);
       } catch (err) {
         setRows(null);
+        setRowsScript("");
         setRowsLoaded(false);
         setError(err instanceof Error ? err.message : String(err));
       }
     });
   }, [employerId, object.kind, object.name, object.schema]);
+
+  const reloadStructure = useCallback((): void => {
+    setLoading(true);
+    setError(null);
+    void fetchObjectDetailsOnce({
+      schema: object.schema,
+      name: object.name,
+      kind: object.kind,
+      includeRelationships: false,
+      includeDefinition: false,
+      includeDependencies: false,
+      includeDependents: false,
+      includeStructure: object.kind === "table" || object.kind === "view",
+    })
+      .then((next) => {
+        onDetailsRef.current(next);
+        onPartLoadedRef.current("columns");
+        setColumnsLoaded(true);
+        setLoading(false);
+      })
+      .catch((err: unknown) => {
+        setError(err instanceof Error ? err.message : String(err));
+        setLoading(false);
+      });
+  }, [object.kind, object.name, object.schema]);
 
   useEffect(() => {
     if (activeTab !== "rows") {
@@ -492,6 +521,7 @@ export function ObjectPeek({
         );
         if (result.recordsets?.[0]) {
           setRows([...result.recordsets[0]]);
+          setRowsScript("");
           setRowsMeta(
             `Procedure result set 1 (${result.recordsets[0].length} rows)`,
           );
@@ -652,7 +682,9 @@ export function ObjectPeek({
                     ) : null}
                   </Space>
                 ) : (
-                  <Table
+                  <DataTable
+                    onRefresh={reloadStructure}
+                    queryScript={details?.queryScripts?.columns ?? ""}
                     size="small"
                     pagination={false}
                     dataSource={columnRows}
@@ -712,9 +744,6 @@ export function ObjectPeek({
                       </Typography.Text>
                     ) : (
                       <>
-                        <Button loading={pending} onClick={loadRows}>
-                          Refresh TOP 20
-                        </Button>
                         {pending && !rows ? (
                           <Typography.Text type="secondary">
                             Loading rows…
@@ -726,7 +755,9 @@ export function ObjectPeek({
                           </Typography.Text>
                         ) : null}
                         {rows ? (
-                          <Table
+                          <DataTable
+                            onRefresh={loadRows}
+                            queryScript={rowsScript}
                             size="small"
                             pagination={false}
                             scroll={{ x: true }}
@@ -769,7 +800,9 @@ export function ObjectPeek({
                         indexRows.length === 0 ? (
                           <Typography.Text type="secondary">None</Typography.Text>
                         ) : (
-                          <Table
+                          <DataTable
+                            onRefresh={reloadStructure}
+                            queryScript={details?.queryScripts?.indexes ?? ""}
                             size="small"
                             pagination={false}
                             scroll={{ x: true }}
@@ -809,7 +842,9 @@ export function ObjectPeek({
                         triggerRows.length === 0 ? (
                           <Typography.Text type="secondary">None</Typography.Text>
                         ) : (
-                          <Table
+                          <DataTable
+                            onRefresh={reloadStructure}
+                            queryScript={details?.queryScripts?.triggers ?? ""}
                             size="small"
                             pagination={false}
                             scroll={{ x: true }}
@@ -842,7 +877,9 @@ export function ObjectPeek({
                         constraintRows.length === 0 ? (
                           <Typography.Text type="secondary">None</Typography.Text>
                         ) : (
-                          <Table
+                          <DataTable
+                            onRefresh={reloadStructure}
+                            queryScript={details?.queryScripts?.constraints ?? ""}
                             size="small"
                             pagination={false}
                             scroll={{ x: true }}

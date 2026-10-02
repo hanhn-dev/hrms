@@ -1,3 +1,4 @@
+import { captureQueryScript } from "@hrms/db";
 import { Alert } from "antd";
 import { areWritesEnabled } from "@/shared/auth";
 import { getSelectedEnvironment } from "@/shared/db";
@@ -13,7 +14,7 @@ export async function MasterDataScreen({
   listKey: string | null;
 }): Promise<React.JSX.Element> {
   const [page, writesEnabled] = await Promise.all([
-    loadMasterData(employerId, listKey),
+    captureQueryScript(() => loadMasterData(employerId, listKey)),
     getSelectedEnvironment().then((environment) => areWritesEnabled(environment)),
   ]);
 
@@ -38,7 +39,7 @@ export async function MasterDataScreen({
           },
         ]}
       />
-      {page.catalog.length === 0 ? (
+      {page.result.catalog.length === 0 ? (
         <Alert
           showIcon
           type="warning"
@@ -46,11 +47,12 @@ export async function MasterDataScreen({
         />
       ) : (
         <MasterDataPanel
-          catalog={page.catalog}
+          catalog={page.result.catalog}
           employerId={employerId}
-          lookups={page.lookups}
-          rows={page.rows}
-          selected={page.selected}
+          lookups={page.result.lookups}
+          queryScript={page.script}
+          rows={page.result.rows}
+          selected={page.result.selected}
           writesEnabled={writesEnabled}
         />
       )}

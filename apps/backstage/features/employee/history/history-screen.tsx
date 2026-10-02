@@ -1,3 +1,4 @@
+import { captureQueryScript } from "@hrms/db";
 import { Alert, Card } from "antd";
 import {
   HISTORY_VIEW_TYPES,
@@ -40,16 +41,21 @@ export async function EmployeeHistoryScreen({
   const pageSize = 30;
 
   let result: Awaited<ReturnType<typeof getEmployeeHistoryChanges>> = null;
+  let queryScript = "";
   let missingObject: string | null = null;
   try {
-    result = await getEmployeeHistoryChanges(employerId, employmentNumber, {
-      type,
-      section,
-      from: from ?? null,
-      to: to ?? null,
-      pageNumber,
-      pageSize,
-    });
+    const loaded = await captureQueryScript(() =>
+      getEmployeeHistoryChanges(employerId, employmentNumber, {
+        type,
+        section,
+        from: from ?? null,
+        to: to ?? null,
+        pageNumber,
+        pageSize,
+      }),
+    );
+    result = loaded.result;
+    queryScript = loaded.script;
   } catch (error) {
     missingObject = missingObjectName(error);
     if (!missingObject) {
@@ -99,6 +105,7 @@ export async function EmployeeHistoryScreen({
             pageSize={pageSize}
             totalItems={result.totalItems}
             events={result.data}
+            queryScript={queryScript}
           />
         </Card>
       )}

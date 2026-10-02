@@ -10,6 +10,11 @@ import {
   type SectionTableSpec,
 } from "./record-registry";
 import { softDeleteActiveSql } from "./sql";
+import {
+  applyRelationshipLabels,
+  collectRelationshipIds,
+  relationshipDisplayTexts,
+} from "./relationship-labels";
 
 export type SectionRecordRow = {
   /** Stable key for UI: `${liveTable}:${entityKey}` */
@@ -128,10 +133,42 @@ export async function listSectionRecords(
     records.push(...tableRecords);
   }
 
+  const relationshipTexts = relationshipDisplayTexts(fields);
+  const relationshipIds = collectRelationshipIds(records, relationshipTexts);
+  if (relationshipIds.length > 0) {
+    const labels = await loadRelationshipLabels(db, relationshipIds);
+    return {
+      fields,
+      records: applyRelationshipLabels(records, relationshipTexts, labels),
+      label: spec.label,
+      sectionName: spec.sectionName,
+    };
+  }
+
   return {
     fields,
     records,
     label: spec.label,
     sectionName: spec.sectionName,
   };
+}
+
+async function loadRelationshipLabels(
+  db: HrmsDb,
+  ids: number[],
+): Promise<Map<number, string>> {
+  const rows = await db.$queryRaw<
+    Array<{ ID: number | bigint; Relationship: string | null }>
+  >`
+    SELECT ID, Relationship
+    FROM dbo.TEmergencyRelationship
+    WHERE ID IN (${Prisma.join(ids)})
+  `;
+  const labels = new Map<number, string>();
+  for (const row of rows) {
+    const id = asNumber(row.ID);
+    const name = row.Relationship?.trim();
+    if (id != null && name) labels.set(id, name);
+  }
+  return labels;
 }

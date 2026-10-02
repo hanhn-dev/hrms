@@ -1,6 +1,7 @@
 "use client";
 
-import { Table, Typography } from "antd";
+import { Typography } from "antd";
+import { DataTable } from "@/shared/ui/data-table";
 import { isCrudSectionId } from "@hrms/db/sections-registry";
 import type { EmployeeSectionCount } from "@/features/employee/sections/queries";
 import { EntityLink } from "@/shared/entity-link";
@@ -9,13 +10,16 @@ export function SectionsPanel({
   employerId,
   employmentNumber,
   rows,
+  queryScript,
 }: {
   employerId: number;
   employmentNumber: string;
   rows: EmployeeSectionCount[];
+  queryScript: string;
 }): React.JSX.Element {
   return (
-    <Table
+    <DataTable
+      queryScript={queryScript}
       rowKey="sectionId"
       size="small"
       pagination={false}

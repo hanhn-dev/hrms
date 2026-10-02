@@ -1,3 +1,4 @@
+import { captureQueryScript } from "@hrms/db";
 import { WorkflowsPanel } from "@/features/employer/workflows/workflows-panel";
 import type { WorkflowsTab } from "@/features/employer/workflows/workflows-source";
 import {
@@ -25,11 +26,11 @@ export async function WorkflowsScreen({
   requestId: number | null;
 }): Promise<React.JSX.Element> {
   const [workflows, pages, groups, settings, changeRequests] = await Promise.all([
-    listWorkflows(employerId),
-    listWorkflowPages(employerId),
-    listWorkflowGroups(employerId),
+    captureQueryScript(() => listWorkflows(employerId)),
+    captureQueryScript(() => listWorkflowPages(employerId)),
+    captureQueryScript(() => listWorkflowGroups(employerId)),
     getWorkflowSettings(employerId),
-    listChangeRequests(employerId),
+    captureQueryScript(() => listChangeRequests(employerId)),
   ]);
   const writesEnabled = areWritesEnabled(await getSelectedEnvironment());
 
@@ -70,15 +71,19 @@ export async function WorkflowsScreen({
         ]}
       />
       <WorkflowsPanel
-        changeRequests={changeRequests}
+        changeRequests={changeRequests.result}
+        changeRequestsScript={changeRequests.script}
         employerId={employerId}
         groupId={groupId}
-        groups={groups}
+        groups={groups.result}
+        groupsScript={groups.script}
         pageName={pageName}
-        pages={pages}
+        pages={pages.result}
+        pagesScript={pages.script}
         requestId={requestId}
         tab={tab}
-        workflows={workflows}
+        workflows={workflows.result}
+        workflowsScript={workflows.script}
         writesEnabled={writesEnabled}
       />
     </>

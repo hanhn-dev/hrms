@@ -1,3 +1,4 @@
+import { captureQueryScript } from "@hrms/db";
 import { FieldsPanel } from "@/features/employer/fields/fields-panel";
 import type { FieldSource } from "@/features/employer/fields/fields-source";
 import {
@@ -22,8 +23,8 @@ export async function FieldsScreen({
   field: string | null;
 }): Promise<React.JSX.Element> {
   const [employerFields, templateFields, fieldTypes] = await Promise.all([
-    listEmployerFields(employerId),
-    listFieldTemplate(),
+    captureQueryScript(() => listEmployerFields(employerId)),
+    captureQueryScript(() => listFieldTemplate()),
     listFieldTypes(),
   ]);
   const writesEnabled = areWritesEnabled(await getSelectedEnvironment());
@@ -79,14 +80,22 @@ export async function FieldsScreen({
       />
       <FieldsPanel
         key={`${section ?? ""}:${field ?? ""}`}
-        compared={compareEmployerFieldsToTemplate(employerFields, templateFields)}
-        employerFields={employerFields}
+        compareScript={[employerFields.script, templateFields.script]
+          .filter((script) => script.trim() !== "")
+          .join("\n\n")}
+        compared={compareEmployerFieldsToTemplate(
+          employerFields.result,
+          templateFields.result,
+        )}
+        employerFields={employerFields.result}
         employerId={employerId}
+        employerScript={employerFields.script}
         field={field}
         fieldTypes={fieldTypes}
         section={section}
         source={source}
-        templateFields={templateFields}
+        templateFields={templateFields.result}
+        templateScript={templateFields.script}
         writesEnabled={writesEnabled}
       />
     </>

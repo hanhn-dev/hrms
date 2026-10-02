@@ -10,11 +10,11 @@ import {
   Segmented,
   Select,
   Space,
-  Table,
   Tag,
   Typography,
 } from "antd";
 import dayjs, { type Dayjs } from "dayjs";
+import { DataTable } from "@/shared/ui/data-table";
 import {
   HISTORY_SECTIONS,
   HISTORY_VIEW_OPTIONS,
@@ -53,6 +53,7 @@ export function HistoryPanel({
   pageSize,
   totalItems,
   events,
+  queryScript,
 }: {
   type: HistoryViewFilter;
   section: string | null;
@@ -62,6 +63,7 @@ export function HistoryPanel({
   pageSize: number;
   totalItems: number;
   events: HistoryPanelEvent[];
+  queryScript: string;
 }): React.JSX.Element {
   const router = useRouter();
   const pathname = usePathname();
@@ -191,7 +193,8 @@ export function HistoryPanel({
                 </div>
               }
             >
-              <Table
+              <DataTable
+                queryScript={queryScript}
                 rowKey="key"
                 size="small"
                 pagination={false}

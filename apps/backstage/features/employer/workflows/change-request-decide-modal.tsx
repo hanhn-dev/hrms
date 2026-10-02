@@ -26,6 +26,7 @@ export function ChangeRequestDecideModal({
   status,
   employerId,
   detail,
+  queryScript,
   approvers,
   writesEnabled,
   onClose,
@@ -35,6 +36,7 @@ export function ChangeRequestDecideModal({
   status: "Approved" | "Rejected";
   employerId: number;
   detail: ChangeRequestDetail | null;
+  queryScript: string;
   approvers: ConfiguredApproverGroup[];
   writesEnabled: boolean;
   onClose: () => void;
@@ -153,7 +155,13 @@ export function ChangeRequestDecideModal({
     >
       <Space className="w-full" orientation="vertical" size="middle">
         {error ? <Typography.Paragraph type="danger">{error}</Typography.Paragraph> : null}
-        {detail ? <ChangeRequestSummary detail={detail} employerId={employerId} /> : null}
+        {detail ? (
+          <ChangeRequestSummary
+            detail={detail}
+            employerId={employerId}
+            queryScript={queryScript}
+          />
+        ) : null}
 
         <label className="flex flex-col gap-1">
           <span>Approver</span>

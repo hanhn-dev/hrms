@@ -1,3 +1,4 @@
+import { captureQueryScript } from "@hrms/db";
 import { Alert } from "antd";
 import { ApproversTable } from "@/features/employee/approvers/approvers-table";
 import { listEmployeeApprovers } from "@/features/employee/approvers/queries";
@@ -10,7 +11,10 @@ export async function EmployeeApproversScreen({
   employerId: number;
   employmentNumber: string;
 }): Promise<React.JSX.Element> {
-  const result = await listEmployeeApprovers(employerId, employmentNumber);
+  const loaded = await captureQueryScript(() =>
+    listEmployeeApprovers(employerId, employmentNumber),
+  );
+  const result = loaded.result;
 
   return (
     <>
@@ -37,7 +41,11 @@ export async function EmployeeApproversScreen({
       {!result ? (
         <Alert showIcon type="error" title="Employee was not found." />
       ) : (
-        <ApproversTable employerId={employerId} result={result} />
+        <ApproversTable
+          employerId={employerId}
+          queryScript={loaded.script}
+          result={result}
+        />
       )}
     </>
   );

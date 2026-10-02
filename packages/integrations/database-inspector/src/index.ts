@@ -17,6 +17,7 @@ export type {
   DatabaseMcpConfig,
   DatabaseObjectDetails,
   DatabaseObjectKind,
+  DatabaseObjectQueryScripts,
   DatabaseObjectSummary,
   DatabaseRelationship,
   DependencySummary,

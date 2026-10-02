@@ -1,4 +1,5 @@
-import { Alert, Card, Descriptions, Table } from "antd";
+import { captureQueryScript } from "@hrms/db";
+import { Alert, Card, Descriptions } from "antd";
 import {
   getCustomerSettings,
   getEmployerSettings,
@@ -7,7 +8,7 @@ import {
 import { CustomerSettingsPanel } from "@/features/employer/settings/settings-panel";
 import { areWritesEnabled } from "@/shared/auth";
 import { getSelectedEnvironment } from "@/shared/db";
-import { HintIcon } from "@/shared/ui";
+import { DataTable, HintIcon } from "@/shared/ui";
 import { PageHelp } from "@/shared/ui/shell-header-context";
 
 export async function EmployerSettingsScreen({
@@ -17,7 +18,7 @@ export async function EmployerSettingsScreen({
 }): Promise<React.JSX.Element> {
   const [settings, modules, customerSettings] = await Promise.all([
     getEmployerSettings(employerId),
-    listLicensedModules(employerId),
+    captureQueryScript(() => listLicensedModules(employerId)),
     getCustomerSettings(employerId),
   ]);
   const writesEnabled = areWritesEnabled(await getSelectedEnvironment());
@@ -131,9 +132,10 @@ export async function EmployerSettingsScreen({
         />
       </div>
       <Card title="Licensed modules">
-        <Table
+        <DataTable
+          queryScript={modules.script}
           rowKey="moduleId"
-          dataSource={modules}
+          dataSource={modules.result}
           pagination={false}
           size="small"
           scroll={{ x: "max-content" }}

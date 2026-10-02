@@ -1,18 +1,21 @@
 "use client";
 
-import { Table } from "antd";
+import { DataTable } from "@/shared/ui/data-table";
 import type { RolePageGrant, RoleRow } from "@/features/employer/roles/queries";
 import { EntityLink } from "@/shared/entity-link";
 
 export function RolesTable({
   employerId,
   roles,
+  queryScript,
 }: {
   employerId: number;
   roles: RoleRow[];
+  queryScript: string;
 }): React.JSX.Element {
   return (
-    <Table
+    <DataTable
+      queryScript={queryScript}
       rowKey="roleId"
       dataSource={roles}
       size="small"
@@ -45,11 +48,14 @@ export function RolesTable({
 
 export function RoleGrantsTable({
   grants,
+  queryScript,
 }: {
   grants: RolePageGrant[];
+  queryScript: string;
 }): React.JSX.Element {
   return (
-    <Table
+    <DataTable
+      queryScript={queryScript}
       rowKey="menuId"
       dataSource={grants}
       size="small"

@@ -13,11 +13,11 @@ import {
   Radio,
   Space,
   Switch,
-  Table,
   Tag,
   Tooltip,
   Typography,
 } from "antd";
+import { DataTable } from "@/shared/ui/data-table";
 import type { MasterDataColumn, MasterDataEntry, MasterDataLookupOption, MasterDataRow } from "@hrms/db";
 import {
   commitMasterDataChange,
@@ -109,6 +109,7 @@ export function MasterDataPanel({
   rows,
   lookups,
   writesEnabled,
+  queryScript,
 }: {
   employerId: number;
   catalog: MasterDataEntry[];
@@ -116,6 +117,7 @@ export function MasterDataPanel({
   rows: MasterDataRow[];
   lookups: Record<string, MasterDataLookupOption[]>;
   writesEnabled: boolean;
+  queryScript: string;
 }): React.JSX.Element {
   const router = useRouter();
   const [catalogQuery, setCatalogQuery] = useState("");
@@ -215,7 +217,8 @@ export function MasterDataPanel({
                 setRowQuery(event.target.value);
               }}
             />
-            <Table<MasterDataRow>
+            <DataTable<MasterDataRow>
+              queryScript={queryScript}
               rowKey={(row) => String(rowId(selected, row) ?? row[selected.idColumn])}
               dataSource={visibleRows}
               pagination={{ pageSize: 20, showSizeChanger: true }}

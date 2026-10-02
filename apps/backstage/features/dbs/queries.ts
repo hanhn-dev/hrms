@@ -9,6 +9,7 @@ import {
   listTableColumns as listTableColumnsFromDb,
   previewTableRows as previewTableRowsFromDb,
   searchValueInTables as searchValueInTablesFromDb,
+  captureQueryScript,
   type ExploreSearchInput,
   type ExploreSearchMode,
   type ExploreSearchTableResult,
@@ -116,9 +117,11 @@ export async function previewTableRows(input: {
 export async function runSelect(input: {
   sql: string;
   maxRows?: number;
-}): Promise<ExecuteSelectResult> {
+}): Promise<ExecuteSelectResult & { queryScript: string }> {
   await requireRootAdmin();
-  return executeSelectFromDb(await getHrmsDb(), input);
+  const db = await getHrmsDb();
+  const loaded = await captureQueryScript(() => executeSelectFromDb(db, input));
+  return { ...loaded.result, queryScript: loaded.script };
 }
 
 export async function fetchCatalog(input?: {
@@ -266,6 +269,7 @@ export type EnvCompareResult = {
   rightEnv: string;
   rows: ObjectCompareRow[];
   summary: Record<ObjectCompareStatus, number>;
+  queryScript: string;
 };
 
 function objectKey(
@@ -432,5 +436,14 @@ export async function compareEnvironments(input: {
     summary[row.status] += 1;
   }
 
-  return { leftEnv, rightEnv, rows, summary };
+  return {
+    leftEnv,
+    rightEnv,
+    rows,
+    summary,
+    queryScript: [leftCatalog.queryScript, rightCatalog.queryScript]
+      .filter((script): script is string => Boolean(script?.trim()))
+      .map((script, index) => `-- ${index === 0 ? leftEnv : rightEnv}\n${script.trim()}`)
+      .join("\n\n"),
+  };
 }

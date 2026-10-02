@@ -117,6 +117,14 @@ type SqlServerDependencyRow = {
 
 type SqlServerPool = any;
 
+const SQL_SERVER_CATALOG_SQL = `
+      SELECT s.name AS schema_name, o.name AS object_name, o.type AS object_type
+      FROM sys.objects AS o
+      INNER JOIN sys.schemas AS s ON s.schema_id = o.schema_id
+      WHERE o.is_ms_shipped = 0 AND o.type IN ('U', 'V', 'P', 'FN', 'IF', 'TF', 'SO')
+      ORDER BY s.name, o.name
+    `;
+
 export async function getSqlServerCatalog(
   config: DatabaseMcpConfig,
   query: CatalogQuery = {},
@@ -126,13 +134,7 @@ export async function getSqlServerCatalog(
   try {
     const kinds = query.kinds ? new Set(query.kinds) : undefined;
     const schemaFilter = query.schema?.trim();
-    const objectRows = (await pool.request().query(`
-      SELECT s.name AS schema_name, o.name AS object_name, o.type AS object_type
-      FROM sys.objects AS o
-      INNER JOIN sys.schemas AS s ON s.schema_id = o.schema_id
-      WHERE o.is_ms_shipped = 0 AND o.type IN ('U', 'V', 'P', 'FN', 'IF', 'TF', 'SO')
-      ORDER BY s.name, o.name
-    `)).recordset as SqlServerCatalogRow[];
+    const objectRows = (await pool.request().query(SQL_SERVER_CATALOG_SQL)).recordset as SqlServerCatalogRow[];
 
     const objects: DatabaseObjectSummary[] = objectRows
       .map((row: SqlServerCatalogRow) => {
@@ -154,6 +156,7 @@ export async function getSqlServerCatalog(
       objects,
       relationships,
       warnings: [],
+      queryScript: SQL_SERVER_CATALOG_SQL.trim(),
     };
   } finally {
     await pool.close().catch(() => undefined);
@@ -175,7 +178,7 @@ export async function getSqlServerObjectDetails(
 
     if (request.kind === 'table' || request.kind === 'view') {
       const includeStructure = Boolean(request.includeStructure);
-      const [columns, relationships, definitionMeta, dependencies, dependents, structure] = await Promise.all([
+      const [columnsLoaded, relationships, definitionMeta, dependencies, dependents, structure] = await Promise.all([
         loadSqlServerColumns(pool, request.schema, request.name),
         includeRelationships
           ? loadSqlServerRelationships(pool, request.schema, request.name)
@@ -191,19 +194,27 @@ export async function getSqlServerObjectDetails(
           : Promise.resolve([]),
         includeStructure
           ? loadSqlServerStructure(pool, request.schema, request.name)
-          : Promise.resolve(emptyObjectStructure()),
+          : Promise.resolve({ ...emptyObjectStructure(), scripts: emptyStructureScripts() }),
       ]);
 
       return {
         object: createSummary(request.schema, request.name, request.kind, Boolean(definitionMeta?.definition)),
-        columns,
+        columns: columnsLoaded.columns,
         parameters: [],
         definition: definitionMeta?.definition ?? null,
         definitionUnavailableReason: definitionMeta?.definitionUnavailableReason ?? null,
         dependencies,
         dependents,
         relationships,
-        ...structure,
+        indexes: structure.indexes,
+        triggers: structure.triggers,
+        constraints: structure.constraints,
+        queryScripts: {
+          columns: columnsLoaded.script,
+          indexes: structure.scripts.indexes,
+          triggers: structure.scripts.triggers,
+          constraints: structure.scripts.constraints,
+        },
         warnings: [],
       };
     }
@@ -480,11 +491,48 @@ async function ensureSqlServerObjectExists(
   }
 }
 
-async function loadSqlServerColumns(pool: SqlServerPool, schema: string, name: string): Promise<DatabaseColumn[]> {
+function sqlServerNvarcharLiteral(value: string): string {
+  return `N'${value.replaceAll("'", "''")}'`;
+}
+
+function sqlServerSchemaNameScript(schema: string, name: string, statement: string): string {
+  return [
+    `DECLARE @schema nvarchar(256) = ${sqlServerNvarcharLiteral(schema)};`,
+    `DECLARE @name nvarchar(256) = ${sqlServerNvarcharLiteral(name)};`,
+    statement.trim(),
+  ].join('\n');
+}
+
+function emptyStructureScripts(): {
+  indexes: string;
+  triggers: string;
+  constraints: string;
+} {
+  return { indexes: '', triggers: '', constraints: '' };
+}
+
+async function querySqlServerBySchemaName<T>(
+  pool: SqlServerPool,
+  schema: string,
+  name: string,
+  statement: string,
+): Promise<{ rows: T[]; script: string }> {
   const request = pool.request();
   request.input('schema', sql.NVarChar, schema);
   request.input('name', sql.NVarChar, name);
-  const rows = (await request.query(`
+  const rows = (await request.query(statement)).recordset as T[];
+  return {
+    rows,
+    script: sqlServerSchemaNameScript(schema, name, statement),
+  };
+}
+
+async function loadSqlServerColumns(
+  pool: SqlServerPool,
+  schema: string,
+  name: string,
+): Promise<{ columns: DatabaseColumn[]; script: string }> {
+  const loaded = await querySqlServerBySchemaName<SqlServerColumnRow>(pool, schema, name, `
     SELECT c.name AS column_name, TYPE_NAME(c.user_type_id) AS data_type,
       c.max_length, c.precision, c.scale, c.is_nullable,
       CASE WHEN pk.column_id IS NULL THEN 0 ELSE 1 END AS is_primary_key,
@@ -504,15 +552,18 @@ async function loadSqlServerColumns(pool: SqlServerPool, schema: string, name: s
     ) AS fk ON fk.object_id = c.object_id AND fk.column_id = c.column_id
     WHERE s.name = @schema AND o.name = @name
     ORDER BY c.column_id
-  `)).recordset as SqlServerColumnRow[];
+  `);
 
-  return rows.map((row: SqlServerColumnRow) => ({
-    name: row.column_name,
-    dataType: formatSqlServerType(row),
-    nullable: Boolean(row.is_nullable),
-    primaryKey: Boolean(row.is_primary_key),
-    foreignKey: Boolean(row.is_foreign_key),
-  }));
+  return {
+    columns: loaded.rows.map((row: SqlServerColumnRow) => ({
+      name: row.column_name,
+      dataType: formatSqlServerType(row),
+      nullable: Boolean(row.is_nullable),
+      primaryKey: Boolean(row.is_primary_key),
+      foreignKey: Boolean(row.is_foreign_key),
+    })),
+    script: loaded.script,
+  };
 }
 
 async function loadSqlServerRelationships(pool: SqlServerPool, schema: string, name: string): Promise<DatabaseRelationship[]> {
@@ -851,20 +902,34 @@ async function loadSqlServerStructure(
   pool: SqlServerPool,
   schema: string,
   name: string,
-): Promise<Pick<DatabaseObjectDetails, 'indexes' | 'triggers' | 'constraints'>> {
+): Promise<
+  Pick<DatabaseObjectDetails, 'indexes' | 'triggers' | 'constraints'> & {
+    scripts: { indexes: string; triggers: string; constraints: string };
+  }
+> {
   const [indexes, triggers, constraints] = await Promise.all([
     loadSqlServerIndexes(pool, schema, name),
     loadSqlServerTriggers(pool, schema, name),
     loadSqlServerConstraints(pool, schema, name),
   ]);
-  return { indexes, triggers, constraints };
+  return {
+    indexes: indexes.rows,
+    triggers: triggers.rows,
+    constraints: constraints.rows,
+    scripts: {
+      indexes: indexes.script,
+      triggers: triggers.script,
+      constraints: constraints.script,
+    },
+  };
 }
 
-async function loadSqlServerIndexes(pool: SqlServerPool, schema: string, name: string): Promise<DatabaseIndex[]> {
-  const request = pool.request();
-  request.input('schema', sql.NVarChar, schema);
-  request.input('name', sql.NVarChar, name);
-  const rows = (await request.query(`
+async function loadSqlServerIndexes(
+  pool: SqlServerPool,
+  schema: string,
+  name: string,
+): Promise<{ rows: DatabaseIndex[]; script: string }> {
+  const loaded = await querySqlServerBySchemaName<SqlServerIndexRow>(pool, schema, name, `
     SELECT
       i.name AS index_name,
       i.type_desc AS index_type,
@@ -894,23 +959,27 @@ async function loadSqlServerIndexes(pool: SqlServerPool, schema: string, name: s
     ) AS included_cols
     WHERE s.name = @schema AND o.name = @name AND i.type > 0 AND i.name IS NOT NULL
     ORDER BY i.name
-  `)).recordset as SqlServerIndexRow[];
+  `);
 
-  return rows.map((row) => ({
-    name: row.index_name,
-    type: row.index_type,
-    unique: sqlFlag(row.is_unique),
-    primaryKey: sqlFlag(row.is_primary_key),
-    columns: splitCsv(row.key_columns),
-    includedColumns: splitCsv(row.included_columns),
-  }));
+  return {
+    rows: loaded.rows.map((row) => ({
+      name: row.index_name,
+      type: row.index_type,
+      unique: sqlFlag(row.is_unique),
+      primaryKey: sqlFlag(row.is_primary_key),
+      columns: splitCsv(row.key_columns),
+      includedColumns: splitCsv(row.included_columns),
+    })),
+    script: loaded.script,
+  };
 }
 
-async function loadSqlServerTriggers(pool: SqlServerPool, schema: string, name: string): Promise<DatabaseTrigger[]> {
-  const request = pool.request();
-  request.input('schema', sql.NVarChar, schema);
-  request.input('name', sql.NVarChar, name);
-  const rows = (await request.query(`
+async function loadSqlServerTriggers(
+  pool: SqlServerPool,
+  schema: string,
+  name: string,
+): Promise<{ rows: DatabaseTrigger[]; script: string }> {
+  const loaded = await querySqlServerBySchemaName<SqlServerTriggerRow>(pool, schema, name, `
     SELECT
       tr.name AS trigger_name,
       tr.is_disabled,
@@ -926,25 +995,25 @@ async function loadSqlServerTriggers(pool: SqlServerPool, schema: string, name: 
     ) AS events
     WHERE s.name = @schema AND o.name = @name
     ORDER BY tr.name
-  `)).recordset as SqlServerTriggerRow[];
+  `);
 
-  return rows.map((row) => ({
-    name: row.trigger_name,
-    disabled: sqlFlag(row.is_disabled),
-    insteadOf: sqlFlag(row.is_instead_of_trigger),
-    events: splitCsv(row.event_list),
-  }));
+  return {
+    rows: loaded.rows.map((row) => ({
+      name: row.trigger_name,
+      disabled: sqlFlag(row.is_disabled),
+      insteadOf: sqlFlag(row.is_instead_of_trigger),
+      events: splitCsv(row.event_list),
+    })),
+    script: loaded.script,
+  };
 }
 
 async function loadSqlServerConstraints(
   pool: SqlServerPool,
   schema: string,
   name: string,
-): Promise<DatabaseConstraint[]> {
-  const request = pool.request();
-  request.input('schema', sql.NVarChar, schema);
-  request.input('name', sql.NVarChar, name);
-  const rows = (await request.query(`
+): Promise<{ rows: DatabaseConstraint[]; script: string }> {
+  const loaded = await querySqlServerBySchemaName<SqlServerConstraintRow>(pool, schema, name, `
     SELECT
       kc.name AS constraint_name,
       CASE kc.type WHEN 'PK' THEN 'primaryKey' ELSE 'unique' END AS constraint_kind,
@@ -1020,15 +1089,18 @@ async function loadSqlServerConstraints(
     WHERE s.name = @schema AND o.name = @name
 
     ORDER BY constraint_name
-  `)).recordset as SqlServerConstraintRow[];
+  `);
 
-  return rows.map((row) => ({
-    name: row.constraint_name,
-    kind: row.constraint_kind,
-    columns: splitCsv(row.column_list),
-    definition: row.definition,
-    referencedObjectId: row.referenced_object,
-  }));
+  return {
+    rows: loaded.rows.map((row) => ({
+      name: row.constraint_name,
+      kind: row.constraint_kind,
+      columns: splitCsv(row.column_list),
+      definition: row.definition,
+      referencedObjectId: row.referenced_object,
+    })),
+    script: loaded.script,
+  };
 }
 
 function requireString(value: string | undefined, name: string): string {

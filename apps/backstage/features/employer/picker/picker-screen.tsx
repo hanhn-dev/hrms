@@ -1,3 +1,4 @@
+import { captureQueryScript } from "@hrms/db";
 import { Alert, Card } from "antd";
 import { DbsEntryButton } from "@/features/employer/picker/dbs-entry-button";
 import { EmployerPickerTable } from "@/features/employer/picker/picker-table";
@@ -15,7 +16,7 @@ export async function EmployerPickerScreen({
   userName: string;
 }): Promise<React.JSX.Element> {
   const [employers, health, environment] = await Promise.all([
-    listEmployers(),
+    captureQueryScript(() => listEmployers()),
     getDatabaseHealth(),
     getSelectedEnvironment(),
   ]);
@@ -54,7 +55,7 @@ export async function EmployerPickerScreen({
         />
       )}
       <Card>
-        <EmployerPickerTable employers={employers} />
+        <EmployerPickerTable employers={employers.result} queryScript={employers.script} />
       </Card>
     </div>
   );

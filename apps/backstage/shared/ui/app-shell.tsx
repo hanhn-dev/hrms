@@ -5,8 +5,10 @@ import {
   ApartmentOutlined,
   CloudUploadOutlined,
   DatabaseOutlined,
+  ToolOutlined,
   NotificationOutlined,
   FileSearchOutlined,
+  FileTextOutlined,
   FormOutlined,
   AuditOutlined,
   HistoryOutlined,
@@ -30,6 +32,10 @@ import {
   useShellHelpNotes,
 } from "@/shared/ui/shell-header-context";
 import { writesHelpNote } from "@/shared/ui/writes-help-note";
+import {
+  employee360Area,
+  employee360Title,
+} from "@/shared/ui/employee-360-path";
 
 export type ShellEmployer = {
   employerId: number;
@@ -54,6 +60,9 @@ function moduleTitle(
   if (pathname.startsWith(`${base}/master-data`)) {
     return "Master Data";
   }
+  if (pathname.startsWith(`${base}/data-fix`)) {
+    return "Data Fix";
+  }
   if (pathname.startsWith(`${base}/workflows`)) {
     return "Workflows";
   }
@@ -64,28 +73,8 @@ function moduleTitle(
     return "Bulk Uploads";
   }
   if (pathname.startsWith(`${base}/employees/`)) {
-    if (pathname.endsWith("/business-unit")) {
-      return "Business unit";
-    }
-    if (pathname.endsWith("/history")) {
-      return "History";
-    }
-    if (pathname.endsWith("/sections")) {
-      return "Sections";
-    }
-    if (pathname.endsWith("/leave")) {
-      return "Leave";
-    }
-    if (pathname.endsWith("/approvers")) {
-      return "Approvers";
-    }
-    if (pathname.endsWith("/access")) {
-      return "Access";
-    }
-    if (pathname.endsWith("/login")) {
-      return "Login";
-    }
-    return "Profile";
+    const area = employee360Area(pathname, base);
+    return area ? employee360Title(area) : "Profile";
   }
   if (pathname.startsWith(`${base}/employees`)) {
     return "Employees";
@@ -147,20 +136,22 @@ export function AppShell({
   const selectedKey = pathname.startsWith(`${base}/inspector`)
     ? "inspector"
     : pathname.startsWith(`${base}/roles`)
-    ? "roles"
-    : pathname.startsWith(`${base}/fields`)
-      ? "fields"
-      : pathname.startsWith(`${base}/master-data`)
-        ? "master-data"
-        : pathname.startsWith(`${base}/workflows`)
-        ? "workflows"
-        : pathname.startsWith(`${base}/notifications`)
-          ? "notifications"
-          : pathname.startsWith(`${base}/uploads`)
-          ? "uploads"
-          : pathname.startsWith(`${base}/employees`)
-              ? "employees"
-              : "overview";
+      ? "roles"
+      : pathname.startsWith(`${base}/fields`)
+        ? "fields"
+        : pathname.startsWith(`${base}/master-data`)
+          ? "master-data"
+          : pathname.startsWith(`${base}/data-fix`)
+            ? "data-fix"
+            : pathname.startsWith(`${base}/workflows`)
+              ? "workflows"
+              : pathname.startsWith(`${base}/notifications`)
+                ? "notifications"
+                : pathname.startsWith(`${base}/uploads`)
+                  ? "uploads"
+                  : pathname.startsWith(`${base}/employees`)
+                    ? "employees"
+                    : "overview";
   const title = moduleTitle(pathname, base, employers, employerId);
 
   return (
@@ -247,6 +238,12 @@ export function AppShell({
                 label: <Link href={`${base}/master-data`}>Master Data</Link>,
               },
               {
+                key: "data-fix",
+                icon: <ToolOutlined />,
+                title: "Data Fix",
+                label: <Link href={`${base}/data-fix`}>Data Fix</Link>,
+              },
+              {
                 key: "workflows",
                 icon: <ApartmentOutlined />,
                 title: "Workflows",
@@ -256,7 +253,9 @@ export function AppShell({
                 key: "notifications",
                 icon: <NotificationOutlined />,
                 title: "Notifications",
-                label: <Link href={`${base}/notifications`}>Notifications</Link>,
+                label: (
+                  <Link href={`${base}/notifications`}>Notifications</Link>
+                ),
               },
               {
                 key: "uploads",
@@ -347,21 +346,8 @@ export function Employee360Nav({
 }): React.JSX.Element {
   const pathname = usePathname();
   const base = `/employers/${employerId}/employees/${encodeURIComponent(employmentNumber)}`;
-  const selectedKey = pathname.endsWith("/business-unit")
-    ? "business-unit"
-    : pathname.endsWith("/leave")
-      ? "leave"
-      : pathname.endsWith("/approvers")
-        ? "approvers"
-        : pathname.endsWith("/access")
-          ? "access"
-          : pathname.endsWith("/login")
-            ? "login"
-            : pathname.endsWith("/sections")
-              ? "sections"
-              : pathname.endsWith("/history")
-                ? "history"
-                : "profile";
+  const selectedKey =
+    employee360Area(pathname, `/employers/${employerId}`) ?? "profile";
 
   return (
     <Menu
@@ -378,6 +364,11 @@ export function Employee360Nav({
           key: "history",
           icon: <HistoryOutlined />,
           label: <Link href={`${base}/history`}>History</Link>,
+        },
+        {
+          key: "change-requests",
+          icon: <FileTextOutlined />,
+          label: <Link href={`${base}/change-requests`}>Change requests</Link>,
         },
         {
           key: "sections",

@@ -9,10 +9,10 @@ import {
   Segmented,
   Select,
   Space,
-  Table,
   Tag,
   Typography,
 } from "antd";
+import { DataTable } from "@/shared/ui/data-table";
 import {
   listSearchTargets,
   searchInspectorTable,
@@ -141,8 +141,10 @@ function HitRows({
   mode: ExploreSearchMode;
 }): React.JSX.Element {
   const [rows, setRows] = useState<Record<string, unknown>[] | null>(null);
+  const [queryScript, setQueryScript] = useState("");
   const [truncated, setTruncated] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -162,6 +164,7 @@ function HitRows({
           return;
         }
         setRows(result.rows);
+        setQueryScript(result.queryScript ?? "");
         setTruncated(result.truncated);
       })
       .catch((err: unknown) => {
@@ -172,7 +175,7 @@ function HitRows({
     return () => {
       cancelled = true;
     };
-  }, [schema, name, employerId, value, mode]);
+  }, [schema, name, employerId, value, mode, reloadKey]);
 
   if (error) {
     return <Alert type="error" showIcon title={error} />;
@@ -193,7 +196,11 @@ function HitRows({
         {rows.length} matching row{rows.length === 1 ? "" : "s"}
         {truncated ? " (more exist)" : ""}
       </Typography.Text>
-      <Table
+      <DataTable
+        onRefresh={() => {
+          setReloadKey((current) => current + 1);
+        }}
+        queryScript={queryScript}
         size="small"
         pagination={false}
         scroll={{ x: true }}
@@ -229,6 +236,7 @@ export function ValueSearchPanel({
   const [value, setValue] = useState("");
   const [mode, setMode] = useState<ExploreSearchMode>("exact");
   const [hits, setHits] = useState<ExistenceTableResult[]>([]);
+  const [existenceScript, setExistenceScript] = useState("");
   const [errors, setErrors] = useState<ExistenceTableResult[]>([]);
   const [scanned, setScanned] = useState(0);
   const [total, setTotal] = useState(0);
@@ -368,6 +376,7 @@ export function ValueSearchPanel({
       setHits([]);
       setErrors([]);
       setScanned(0);
+      setExistenceScript("");
     }
     setTotal(ordered.length);
     setSampleEmployerId(selectedEmployer);
@@ -396,13 +405,20 @@ export function ValueSearchPanel({
           if (runId.current !== id) {
             return;
           }
-          const found = next.filter((row) => row.exists && !row.error);
-          const failed = next.filter((row) => row.error);
+          const found = next.hits.filter((row) => row.exists && !row.error);
+          const failed = next.hits.filter((row) => row.error);
           if (found.length > 0) {
             setHits((current) => [...current, ...found]);
           }
           if (failed.length > 0) {
             setErrors((current) => [...current, ...failed]);
+          }
+          if (next.queryScript.trim() !== "") {
+            setExistenceScript((current) =>
+              current.trim() === ""
+                ? next.queryScript
+                : `${current}\n\n${next.queryScript}`,
+            );
           }
           setScanned(index + batch.length);
         }
@@ -596,7 +612,9 @@ export function ValueSearchPanel({
           }
         />
       ) : null}
-      <Table
+      <DataTable
+        onRefresh={runSearch}
+        queryScript={existenceScript}
         size="small"
         rowKey="table"
         pagination={{ pageSize: 20, hideOnSinglePage: true }}

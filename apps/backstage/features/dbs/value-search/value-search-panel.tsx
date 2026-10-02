@@ -11,10 +11,10 @@ import {
   Segmented,
   Space,
   Switch,
-  Table,
   Tag,
   Typography,
 } from "antd";
+import { DataTable } from "@/shared/ui/data-table";
 import {
   listTables,
   searchValueInTables,
@@ -110,8 +110,10 @@ function QualifiedTableChips({
 }
 
 function ResultTable({
+  onRefresh,
   result,
 }: {
+  onRefresh: () => void;
   result: ExploreSearchTableResult;
 }): React.JSX.Element {
   const columns = useMemo(() => {
@@ -161,7 +163,9 @@ function ResultTable({
           <Tag>No employer column</Tag>
         )}
       </Space>
-      <Table
+      <DataTable
+        onRefresh={onRefresh}
+        queryScript={result.queryScript ?? ""}
         size="small"
         pagination={false}
         scroll={{ x: true }}
@@ -395,7 +399,7 @@ export function ValueSearchPanel({
                     )}
                   </Space>
                 ),
-                children: <ResultTable result={result} />,
+                children: <ResultTable onRefresh={runSearch} result={result} />,
               }))}
             />
           </Card>

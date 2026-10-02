@@ -15,6 +15,7 @@ export const APPLY_TABLES = [
   "TEducationDetails",
   "TPastEmploymentDetails",
   "TEmployeeBudgetSourceDetails",
+  "TEmployeeNominee_Details",
   "TEmployeeAttachment",
   "TEmployeeDetailCustomFields",
 ] as const;
@@ -23,9 +24,19 @@ export type ApplyTableName = (typeof APPLY_TABLES)[number];
 
 export const HISTORY_TABLE_BY_SOURCE: Partial<Record<ApplyTableName, string>> = {
   TEmployee: "TEmployeeHistory",
+  TEmployeeContactDetails: "TEmployeeContactDetailshistory",
   TEmployeeFamilyDetails: "TEmployeeFamilyDetails_history",
+  TEmployeeEmergencyContactDetails: "TEmployeeEmergencyContactDetailsHistory",
+  TEmployeePassportDetails: "TEmployeePassportDetailsHistory",
+  TEmployeeVisaInfo: "TEmployeeVisaInfoHistory",
+  TEmployeeNomination: "TEmployeeNominationHistory",
   /** Core Sp_ApproveRejectMyDetailsReview snapshots bank rows after approve-insert. */
   TEmployeeBankDetails: "TEmployeeBankDetails_History",
+  TCertificationDetails: "TCertificationDetailsHistory",
+  TEducationDetails: "TEducationHistoryDetails",
+  TPastEmploymentDetails: "TPastEmploymentDetails_History",
+  TEmployeeBudgetSourceDetails: "TEmployeeBudgetSourceDetailsHistory",
+  TEmployeeNominee_Details: "TEmployeeNominee_Details_History",
   /** Core copies the new custom-field identity into this history table. */
   TEmployeeDetailCustomFields: "TEmployeedetailCustomFieldshistory",
 };
@@ -59,6 +70,7 @@ export const PK_FALLBACK: Record<ApplyTableName, string> = {
   TEducationDetails: "EducationId",
   TPastEmploymentDetails: "PastEmploymentId",
   TEmployeeBudgetSourceDetails: "EmployeeBudgetSourceDetailID",
+  TEmployeeNominee_Details: "EmployeeNomineeId",
   TEmployeeAttachment: "AttachmentId",
   TEmployeeDetailCustomFields: "CustomFieldId",
 };

@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Input, Table, Tag, Typography } from "antd";
+import { Input, Tag, Typography } from "antd";
+import { DataTable } from "@/shared/ui/data-table";
 import {
   approverLabel,
   filterApproverRows,
@@ -14,9 +15,11 @@ import { HighlightMatch } from "@/shared/ui/highlight-match";
 export function ApproversTable({
   employerId,
   result,
+  queryScript,
 }: {
   employerId: number;
   result: EmployeeApprovers;
+  queryScript: string;
 }): React.JSX.Element {
   const [query, setQuery] = useState("");
   const rows = useMemo(
@@ -47,7 +50,8 @@ export function ApproversTable({
         value={query}
         onChange={(event) => setQuery(event.target.value)}
       />
-      <Table
+      <DataTable
+        queryScript={queryScript}
         rowKey="rowKey"
         dataSource={rows}
         size="small"

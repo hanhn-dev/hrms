@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Alert, Button, Collapse, Input, Select, Table, Tabs, Tag } from "antd";
+import { Alert, Button, Collapse, Input, Select, Tabs, Tag } from "antd";
+import { DataTable } from "@/shared/ui/data-table";
 import { usePathname, useRouter } from "next/navigation";
 import { fieldsHref, type FieldSource } from "@/features/employer/fields/fields-source";
 import {
@@ -40,6 +41,9 @@ export function FieldsPanel({
   writesEnabled,
   section,
   field,
+  employerScript,
+  templateScript,
+  compareScript,
 }: {
   employerFields: FieldCatalogRow[];
   templateFields: FieldCatalogRow[];
@@ -50,6 +54,9 @@ export function FieldsPanel({
   writesEnabled: boolean;
   section: string | null;
   field: string | null;
+  employerScript: string;
+  templateScript: string;
+  compareScript: string;
 }): React.JSX.Element {
   const router = useRouter();
   const pathname = usePathname();
@@ -172,6 +179,7 @@ export function FieldsPanel({
                 highlightField={highlightField}
                 openSections={sectionKnown}
                 pinFocus={source === "employer"}
+                queryScript={employerScript}
                 writesEnabled={writesEnabled}
               />
             ),
@@ -186,6 +194,7 @@ export function FieldsPanel({
                 highlightField={highlightField}
                 openSections={sectionKnown}
                 pinFocus={source === "template"}
+                queryScript={templateScript}
               />
             ),
           },
@@ -198,6 +207,7 @@ export function FieldsPanel({
                 highlightField={highlightField}
                 openSections={sectionKnown}
                 pinFocus={source === "compare"}
+                queryScript={compareScript}
                 rows={visibleCompared}
               />
             ),
@@ -217,6 +227,7 @@ function SectionedFields({
   highlightField,
   openSections,
   pinFocus,
+  queryScript,
 }: {
   fields: FieldCatalogRow[];
   emptyText: string;
@@ -226,6 +237,7 @@ function SectionedFields({
   highlightField: string | null;
   openSections: boolean;
   pinFocus: boolean;
+  queryScript: string;
 }): React.JSX.Element {
   const sections = groupBySection(fields);
   if (sections.length === 0) {
@@ -244,6 +256,7 @@ function SectionedFields({
             fields={section.fields}
             highlightField={highlightField}
             pinFocus={pinFocus}
+            queryScript={queryScript}
             writesEnabled={writesEnabled}
           />
         ),
@@ -258,12 +271,14 @@ function SectionedCompare({
   highlightField,
   openSections,
   pinFocus,
+  queryScript,
 }: {
   rows: FieldCompareRow[];
   emptyText: string;
   highlightField: string | null;
   openSections: boolean;
   pinFocus: boolean;
+  queryScript: string;
 }): React.JSX.Element {
   const sections = groupCompareBySection(rows);
   if (sections.length === 0) {
@@ -275,7 +290,14 @@ function SectionedCompare({
       items={sections.map((section) => ({
         key: section.key,
         label: `${section.section} (${section.rows.length})`,
-        children: <CompareTable highlightField={highlightField} pinFocus={pinFocus} rows={section.rows} />,
+        children: (
+          <CompareTable
+            highlightField={highlightField}
+            pinFocus={pinFocus}
+            queryScript={queryScript}
+            rows={section.rows}
+          />
+        ),
       }))}
     />
   );
@@ -288,6 +310,7 @@ function FieldsTable({
   writesEnabled,
   highlightField,
   pinFocus,
+  queryScript,
 }: {
   fields: FieldCatalogRow[];
   employerId?: number;
@@ -295,6 +318,7 @@ function FieldsTable({
   writesEnabled?: boolean;
   highlightField: string | null;
   pinFocus: boolean;
+  queryScript: string;
 }): React.JSX.Element {
   const router = useRouter();
   const entityOptions = entitySelectOptions(fields);
@@ -408,6 +432,7 @@ function FieldsTable({
 
   return (
     <EditableTable<FieldCatalogRow>
+      queryScript={queryScript}
       rowKey="fieldId"
       columns={columns}
       confirmWrite={
@@ -457,13 +482,16 @@ function CompareTable({
   rows,
   highlightField,
   pinFocus,
+  queryScript,
 }: {
   rows: FieldCompareRow[];
   highlightField: string | null;
   pinFocus: boolean;
+  queryScript: string;
 }): React.JSX.Element {
   return (
-    <Table
+    <DataTable
+      queryScript={queryScript}
       rowKey="key"
       dataSource={rows}
       size="small"

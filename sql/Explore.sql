@@ -112,3 +112,10 @@ sp_helptext 'Sp_ApproveRejectMyDetailsReview'
 SELECT TOP 100 * FROM TEmployeeBankDetails Where AccountNo = '124215112599899'
 
  EXEC SP_GetAccessibleEmployerIds 1431
+
+
+
+
+SELECT TOP 100 * FROM TEmployeeDetail_Fields WHERE FieldName = 'Employment Number' AND EmployerId = 10
+
+SELECT TOP 100 * FROM TEmployeeInfo

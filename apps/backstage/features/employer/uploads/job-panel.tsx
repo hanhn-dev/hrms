@@ -1,6 +1,7 @@
 "use client";
 
-import { Alert, Button, Card, Descriptions, Listy, Modal, Segmented, Table, Tag } from "antd";
+import { Alert, Button, Card, Descriptions, Listy, Modal, Segmented, Tag } from "antd";
+import { DataTable } from "@/shared/ui/data-table";
 import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -59,7 +60,14 @@ export function JobPanel({
   employeeAccess,
   employeeLogin,
   employeeLoginAttempts,
+  employeeLoginScript,
   writesEnabled,
+  sectionsScript,
+  batchesScript,
+  stagingScript,
+  sectionDataScript,
+  rowErrorsScript,
+  executionErrorsScript,
 }: {
   employerId: number;
   upload: UploadDetail;
@@ -82,7 +90,14 @@ export function JobPanel({
   employeeAccess: Awaited<ReturnType<typeof getEmployeeAccess>> | null;
   employeeLogin: EmployeeLoginInfo | null;
   employeeLoginAttempts: FailedLoginAttempt[];
+  employeeLoginScript: string;
   writesEnabled: boolean;
+  sectionsScript: string;
+  batchesScript: string;
+  stagingScript: string;
+  sectionDataScript: string;
+  rowErrorsScript: string;
+  executionErrorsScript: string;
 }): React.JSX.Element {
   const router = useRouter();
   const selectedSection =
@@ -186,7 +201,8 @@ export function JobPanel({
         className="mb-4"
         title={`Sections in this upload (${upload.sectionCount})`}
       >
-        <Table
+        <DataTable
+          queryScript={sectionsScript}
           rowKey="uploadSectionId"
           dataSource={upload.sections}
           size="small"
@@ -292,9 +308,10 @@ export function JobPanel({
               <SectionDataTable
                 data={sectionData}
                 employerId={employerId}
+                errorClass={errorClass}
+                queryScript={sectionDataScript}
                 uploadId={upload.uploadId}
                 uploadSectionId={selectedSection.uploadSectionId}
-                errorClass={errorClass}
               />
             )}
           </>
@@ -323,14 +340,15 @@ export function JobPanel({
           />
         </div>
         {errorClass === "system" ? (
-          <ExecutionTable errors={executionErrors} />
+          <ExecutionTable errors={executionErrors} queryScript={executionErrorsScript} />
         ) : (
           <RowErrorsTable
             employerId={employerId}
-            upload={upload}
-            sectionId={selectedSection?.sectionId ?? null}
             errorClass={errorClass}
+            queryScript={rowErrorsScript}
             result={rowErrors}
+            sectionId={selectedSection?.sectionId ?? null}
+            upload={upload}
           />
         )}
       </Card>
@@ -403,7 +421,8 @@ export function JobPanel({
       ) : null}
 
       <Card className="mb-4" title="Batches">
-        <Table
+        <DataTable
+          queryScript={batchesScript}
           rowKey="processedBatchResultId"
           dataSource={batches}
           size="small"
@@ -463,7 +482,8 @@ export function JobPanel({
             {staging.stagingCount} staging rows · {staging.orphanCount} orphans (email in
             staging, no TEmployee yet)
           </p>
-          <Table
+          <DataTable
+            queryScript={stagingScript}
             rowKey={(row) => row.emailId ?? String(row.employeeId ?? "")}
             dataSource={staging.orphans}
             size="small"
@@ -536,6 +556,7 @@ export function JobPanel({
         access={employeeAccess}
         login={employeeLogin}
         attempts={employeeLoginAttempts}
+        loginScript={employeeLoginScript}
         writesEnabled={writesEnabled}
         onClose={() => {
           router.push(
@@ -566,12 +587,14 @@ function SectionDataTable({
   uploadId,
   uploadSectionId,
   errorClass,
+  queryScript,
 }: {
   data: UploadSectionData | null;
   employerId: number;
   uploadId: number;
   uploadSectionId: number | null;
   errorClass: UploadErrorClass;
+  queryScript: string;
 }): React.JSX.Element {
   const [selectedRow, setSelectedRow] = useState<UploadSectionDataRow | null>(null);
   if (!data) {
@@ -590,7 +613,8 @@ function SectionDataTable({
           title={`Showing ${data.rows.length} of ${data.totalMatched} rows.`}
         />
       ) : null}
-      <Table
+      <DataTable
+        queryScript={queryScript}
         rowKey={(row) => String(row.rowIndex)}
         dataSource={data.rows}
         size="small"
@@ -758,12 +782,14 @@ function RowErrorsTable({
   sectionId,
   errorClass,
   result,
+  queryScript,
 }: {
   employerId: number;
   upload: UploadDetail;
   sectionId: number | null;
   errorClass: Exclude<UploadErrorClass, "system">;
   result: UploadRowErrorResult | null;
+  queryScript: string;
 }): React.JSX.Element {
   if (result?.parseError) {
     return <Alert showIcon type="error" title={result.parseError} />;
@@ -782,7 +808,8 @@ function RowErrorsTable({
           title={`Showing ${rows.length} of ${result.totalMatched} matching rows.`}
         />
       ) : null}
-      <Table
+      <DataTable
+        queryScript={queryScript}
         rowKey="key"
         dataSource={rows}
         size="small"
@@ -874,11 +901,14 @@ function RowErrorsTable({
 
 function ExecutionTable({
   errors,
+  queryScript,
 }: {
   errors: UploadExecutionError[];
+  queryScript: string;
 }): React.JSX.Element {
   return (
-    <Table
+    <DataTable
+      queryScript={queryScript}
       rowKey="logId"
       dataSource={errors}
       size="small"

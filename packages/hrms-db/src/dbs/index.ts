@@ -4,11 +4,16 @@ import { parseEmployerId } from "../shared/ids";
 import { assertSqlIdent, sqlIdent } from "../employee/history/sql";
 import { parseExactNumeric } from "./exact-numeric";
 import {
+  formatTableDefinitionLine,
+  type TableColumnDefinition,
+} from "./table-definition";
+import {
   collapsedModuleNameQuery,
   moduleNameSearchTokens,
 } from "./module-name-search";
 import { assertSelectOnly } from "./select-guard";
 import { serializeRow } from "./serialize-row";
+import { captureQueryScript } from "../shared/query-script";
 
 export { assertSelectOnly } from "./select-guard";
 export {
@@ -89,6 +94,7 @@ export type ExploreSearchTableResult = {
   employerFiltered: boolean;
   hasEmployerColumn: boolean;
   error?: string;
+  queryScript?: string;
 };
 
 type SysTableRow = {
@@ -244,6 +250,95 @@ export async function listTableColumns(
     searchable: isSearchableType(row.TypeName),
     isEmployerColumn: isEmployerColumnName(row.ColumnName),
   }));
+}
+
+export type TableDefinition = {
+  found: boolean;
+  lines: string[];
+};
+
+type TableDefinitionRow = {
+  ColumnName: string;
+  TypeName: string;
+  MaxLength: number | bigint;
+  PrecisionValue: number | bigint;
+  ScaleValue: number | bigint;
+  IsNullable: number | boolean | bigint;
+  IsIdentity: number | boolean | bigint;
+  IsPrimaryKey: number | boolean | bigint;
+};
+
+function asDefinitionNumber(value: number | bigint): number {
+  return typeof value === "bigint" ? Number(value) : value;
+}
+
+function asDefinitionFlag(value: number | boolean | bigint): boolean {
+  return value === true || value === 1 || value === 1n;
+}
+
+export async function getTableDefinition(
+  db: HrmsDb,
+  input: { schema: string; name: string },
+): Promise<TableDefinition> {
+  const schema = assertSqlIdent(input.schema.trim() || "dbo");
+  const name = assertSqlIdent(input.name.trim());
+  if (isIgnoredSchema(schema)) {
+    return { found: false, lines: [] };
+  }
+
+  const rows = await db.$queryRaw<TableDefinitionRow[]>`
+    SELECT
+        Columns.name AS ColumnName,
+        Types.name AS TypeName,
+        Columns.max_length AS MaxLength,
+        Columns.precision AS PrecisionValue,
+        Columns.scale AS ScaleValue,
+        CAST(Columns.is_nullable AS int) AS IsNullable,
+        CAST(Columns.is_identity AS int) AS IsIdentity,
+        CAST(CASE WHEN PkColumns.column_id IS NULL THEN 0 ELSE 1 END AS int) AS IsPrimaryKey
+    FROM sys.columns AS Columns
+    INNER JOIN sys.tables AS Tables
+        ON Tables.object_id = Columns.object_id
+    INNER JOIN sys.schemas AS Schemas
+        ON Schemas.schema_id = Tables.schema_id
+    INNER JOIN sys.types AS Types
+        ON Types.user_type_id = Columns.user_type_id
+    LEFT JOIN (
+        SELECT
+            IndexColumns.object_id,
+            IndexColumns.column_id
+        FROM sys.indexes AS Indexes
+        INNER JOIN sys.index_columns AS IndexColumns
+            ON IndexColumns.object_id = Indexes.object_id
+            AND IndexColumns.index_id = Indexes.index_id
+        WHERE Indexes.is_primary_key = 1
+    ) AS PkColumns
+        ON PkColumns.object_id = Columns.object_id
+        AND PkColumns.column_id = Columns.column_id
+    WHERE Schemas.name = ${schema}
+        AND Tables.name = ${name}
+        AND Tables.is_ms_shipped = 0
+    ORDER BY Columns.column_id ASC
+  `;
+
+  if (rows.length === 0) {
+    return { found: false, lines: [] };
+  }
+
+  const lines = rows.map((row) => {
+    const column: TableColumnDefinition = {
+      name: row.ColumnName,
+      typeName: row.TypeName,
+      maxLength: asDefinitionNumber(row.MaxLength),
+      precision: asDefinitionNumber(row.PrecisionValue),
+      scale: asDefinitionNumber(row.ScaleValue),
+      nullable: asDefinitionFlag(row.IsNullable),
+      identity: asDefinitionFlag(row.IsIdentity),
+      primaryKey: asDefinitionFlag(row.IsPrimaryKey),
+    };
+    return formatTableDefinitionLine(column);
+  });
+  return { found: true, lines };
 }
 
 function buildExactPredicates(
@@ -406,26 +501,27 @@ export async function searchValueInTables(
 
   for (const parsed of parsedTables) {
     const qualified = qualifyTableName(parsed.schema, parsed.name);
-    try {
-      results.push(
-        await searchOneTable(db, parsed, value, input.mode, employerId, top),
-      );
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      results.push({
-        table: qualified,
-        schema: parsed.schema,
-        name: parsed.name,
-        exists: false,
-        matchedColumns: [],
-        rowCount: 0,
-        rows: [],
-        truncated: false,
-        employerFiltered: false,
-        hasEmployerColumn: false,
-        error: message,
-      });
-    }
+    const loaded = await captureQueryScript(async () => {
+      try {
+        return await searchOneTable(db, parsed, value, input.mode, employerId, top);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        return {
+          table: qualified,
+          schema: parsed.schema,
+          name: parsed.name,
+          exists: false,
+          matchedColumns: [],
+          rowCount: 0,
+          rows: [],
+          truncated: false,
+          employerFiltered: false,
+          hasEmployerColumn: false,
+          error: message,
+        } satisfies ExploreSearchTableResult;
+      }
+    });
+    results.push({ ...loaded.result, queryScript: loaded.script });
   }
 
   return results;
@@ -448,9 +544,18 @@ export type PreviewTableRowsResult = {
   truncated: boolean;
   employerFiltered: boolean;
   hasEmployerColumn: boolean;
+  queryScript?: string;
 };
 
 export async function previewTableRows(
+  db: HrmsDb,
+  input: PreviewTableRowsInput,
+): Promise<PreviewTableRowsResult> {
+  const loaded = await captureQueryScript(() => loadPreviewTableRows(db, input));
+  return { ...loaded.result, queryScript: loaded.script };
+}
+
+async function loadPreviewTableRows(
   db: HrmsDb,
   input: PreviewTableRowsInput,
 ): Promise<PreviewTableRowsResult> {

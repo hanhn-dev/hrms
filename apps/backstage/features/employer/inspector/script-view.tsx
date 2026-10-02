@@ -103,6 +103,7 @@ export function SqlScript({
   kinds,
   onMode,
   onOpenObject,
+  onCompare,
 }: {
   model: SqlModel;
   warning: string | null;
@@ -111,6 +112,7 @@ export function SqlScript({
   kinds: Readonly<Record<string, ScriptObjectKind>>;
   onMode: (mode: ScriptMode) => void;
   onOpenObject: (object: { schema: string; name: string }) => void;
+  onCompare: () => void;
 }): React.JSX.Element {
   const scrollRef = useRef<HTMLDivElement>(null);
   const pendingScroll = useRef<number | null>(null);
@@ -237,6 +239,9 @@ export function SqlScript({
             }
           }}
         />
+        <Button size="small" onClick={onCompare}>
+          Compare
+        </Button>
         <Button
           size="small"
           disabled={model.folds.length === 0}

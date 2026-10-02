@@ -1,6 +1,7 @@
 "use client";
 
-import { Input, Select, Table, Tag } from "antd";
+import { Input, Select, Tag } from "antd";
+import { DataTable } from "@/shared/ui/data-table";
 import { useRouter } from "next/navigation";
 import {
   UPLOAD_STATUSES,
@@ -17,12 +18,14 @@ export function JobsTable({
   type,
   status,
   uploadId,
+  queryScript,
 }: {
   employerId: number;
   jobs: UploadListItem[];
   type: UploadTypeKey | null;
   status: string | null;
   uploadId: number | null;
+  queryScript: string;
 }): React.JSX.Element {
   const router = useRouter();
 
@@ -62,7 +65,8 @@ export function JobsTable({
           }}
         />
       </div>
-      <Table
+      <DataTable
+        queryScript={queryScript}
         rowKey="uploadId"
         dataSource={jobs}
         size="small"

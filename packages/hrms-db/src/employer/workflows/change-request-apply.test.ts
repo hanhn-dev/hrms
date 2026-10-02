@@ -8,6 +8,7 @@ import {
   changeRequestStatus,
   coerceBitApplyValue,
   forceShowOneOnInsert,
+  HISTORY_TABLE_BY_SOURCE,
   isApplyTable,
   omitIsDeleteOnInsert,
   pendingApproverFlag,
@@ -45,6 +46,50 @@ describe("isApplyTable", () => {
     assert.equal(isApplyTable("TemployeedetailCustomFields"), true);
     assert.equal(canonicalApplyTable("TemployeedetailCustomFields"), "TEmployeeDetailCustomFields");
     assert.equal(canonicalApplyTable("TUsers"), null);
+  });
+});
+
+describe("HISTORY_TABLE_BY_SOURCE", () => {
+  it("maps every apply table that has a history table (positive)", () => {
+    assert.equal(HISTORY_TABLE_BY_SOURCE.TEmployee, "TEmployeeHistory");
+    assert.equal(HISTORY_TABLE_BY_SOURCE.TEmployeeContactDetails, "TEmployeeContactDetailshistory");
+    assert.equal(
+      HISTORY_TABLE_BY_SOURCE.TEmployeeEmergencyContactDetails,
+      "TEmployeeEmergencyContactDetailsHistory",
+    );
+    assert.equal(HISTORY_TABLE_BY_SOURCE.TEmployeePassportDetails, "TEmployeePassportDetailsHistory");
+    assert.equal(HISTORY_TABLE_BY_SOURCE.TEmployeeVisaInfo, "TEmployeeVisaInfoHistory");
+    assert.equal(HISTORY_TABLE_BY_SOURCE.TEmployeeNomination, "TEmployeeNominationHistory");
+    assert.equal(HISTORY_TABLE_BY_SOURCE.TCertificationDetails, "TCertificationDetailsHistory");
+    assert.equal(HISTORY_TABLE_BY_SOURCE.TEducationDetails, "TEducationHistoryDetails");
+    assert.equal(HISTORY_TABLE_BY_SOURCE.TPastEmploymentDetails, "TPastEmploymentDetails_History");
+    assert.equal(
+      HISTORY_TABLE_BY_SOURCE.TEmployeeBudgetSourceDetails,
+      "TEmployeeBudgetSourceDetailsHistory",
+    );
+    assert.equal(HISTORY_TABLE_BY_SOURCE.TEmployeeNominee_Details, "TEmployeeNominee_Details_History");
+    assert.equal(HISTORY_TABLE_BY_SOURCE.TEmployeeFamilyDetails, "TEmployeeFamilyDetails_history");
+    assert.equal(HISTORY_TABLE_BY_SOURCE.TEmployeeBankDetails, "TEmployeeBankDetails_History");
+    assert.equal(
+      HISTORY_TABLE_BY_SOURCE.TEmployeeDetailCustomFields,
+      "TEmployeedetailCustomFieldshistory",
+    );
+  });
+
+  it("does not snapshot attachment rows (negative)", () => {
+    assert.equal(isApplyTable("TEmployeeAttachment"), true);
+    assert.equal(HISTORY_TABLE_BY_SOURCE.TEmployeeAttachment, undefined);
+  });
+
+  it("rejects an unknown table and leaves it out of the map (edge)", () => {
+    assert.equal(isApplyTable("TNotAProfileTable"), false);
+    assert.equal(isApplyTable(""), false);
+    assert.equal(isApplyTable("  "), false);
+    assert.equal(canonicalApplyTable("TNotAProfileTable"), null);
+    assert.equal(
+      Object.prototype.hasOwnProperty.call(HISTORY_TABLE_BY_SOURCE, "TNotAProfileTable"),
+      false,
+    );
   });
 });
 

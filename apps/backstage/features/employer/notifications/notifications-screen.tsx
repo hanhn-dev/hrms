@@ -1,3 +1,4 @@
+import { captureQueryScript } from "@hrms/db";
 import { NotificationsPanel } from "@/features/employer/notifications/notifications-panel";
 import {
   resolveEmailWindow,
@@ -19,24 +20,28 @@ export async function NotificationsScreen({
   const window = resolveEmailWindow(query);
   const [email, inbox] = await Promise.all([
     query.tab === "email"
-      ? listEmailNotifications(employerId, {
-          module: query.module,
-          status: query.status,
-          template: query.template,
-          transId: query.transId,
-          createdFrom: window.from,
-          createdTo: window.to,
-          page: query.page,
-        })
+      ? captureQueryScript(() =>
+          listEmailNotifications(employerId, {
+            module: query.module,
+            status: query.status,
+            template: query.template,
+            transId: query.transId,
+            createdFrom: window.from,
+            createdTo: window.to,
+            page: query.page,
+          }),
+        )
       : Promise.resolve(null),
     query.tab === "inbox"
-      ? listPendingInbox(employerId, {
-          side: query.side,
-          category: query.category,
-          requestType: query.requestType,
-          employee: query.employee,
-          page: query.page,
-        })
+      ? captureQueryScript(() =>
+          listPendingInbox(employerId, {
+            side: query.side,
+            category: query.category,
+            requestType: query.requestType,
+            employee: query.employee,
+            page: query.page,
+          }),
+        )
       : Promise.resolve(null),
   ]);
 
@@ -71,9 +76,11 @@ export async function NotificationsScreen({
       <NotificationsPanel
         appliedFrom={window.from ? window.from.toISOString() : null}
         appliedTo={window.to ? window.to.toISOString() : null}
-        email={email}
+        email={email?.result ?? null}
+        emailScript={email?.script ?? ""}
         employerId={employerId}
-        inbox={inbox}
+        inbox={inbox?.result ?? null}
+        inboxScript={inbox?.script ?? ""}
         query={query}
         usingDefaultWindow={window.usingDefaultWindow}
       />

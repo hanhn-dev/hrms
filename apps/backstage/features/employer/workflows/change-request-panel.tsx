@@ -8,12 +8,15 @@ import {
   Input,
   Segmented,
   Space,
-  Table,
   Tag,
 } from "antd";
+import { DataTable } from "@/shared/ui/data-table";
 import { getChangeRequestDetail } from "@/features/employer/workflows/change-request-actions";
 import { ChangeRequestDecideModal } from "@/features/employer/workflows/change-request-decide-modal";
-import { ChangeRequestDetailModal } from "@/features/employer/workflows/change-request-detail-modal";
+import {
+  ChangeRequestIdButton,
+  useChangeRequestView,
+} from "@/features/employer/workflows/change-request-view";
 import {
   changeKindFromRow,
   sectionNamesFrom,
@@ -43,22 +46,29 @@ export function ChangeRequestPanel({
   requests,
   writesEnabled,
   requestId,
+  queryScript,
 }: {
   employerId: number;
   requests: ChangeRequestListItem[];
   writesEnabled: boolean;
   requestId: number | null;
+  queryScript: string;
 }): React.JSX.Element {
   const router = useRouter();
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("pending");
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [detail, setDetail] = useState<ChangeRequestDetail | null>(null);
+  const [detailScript, setDetailScript] = useState("");
   const [approvers, setApprovers] = useState<ConfiguredApproverGroup[]>([]);
-  const [detailError, setDetailError] = useState<string | null>(null);
-  const [detailLoading, setDetailLoading] = useState(false);
   const [confirmStatus, setConfirmStatus] = useState<"Approved" | "Rejected" | null>(null);
-  const [viewOpen, setViewOpen] = useState(false);
+  const changeRequestView = useChangeRequestView(employerId, {
+    onClose: () => {
+      if (requestId != null) {
+        router.push(workflowsHref(employerId, "requests"));
+      }
+    },
+  });
 
   const visible = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -88,7 +98,7 @@ export function ChangeRequestPanel({
     changeRequestId: number,
     status: "Approved" | "Rejected",
   ): Promise<void> {
-    setViewOpen(false);
+    changeRequestView.hide();
     const loaded =
       selectedId === changeRequestId && detail != null
         ? true
@@ -100,29 +110,23 @@ export function ChangeRequestPanel({
 
   async function openView(changeRequestId: number): Promise<void> {
     setConfirmStatus(null);
-    setViewOpen(true);
-    if (selectedId === changeRequestId && detail != null) {
-      return;
-    }
-    await loadRequest(changeRequestId);
+    setSelectedId(changeRequestId);
+    await changeRequestView.openView(changeRequestId);
   }
 
   const loadRequest = useCallback(async (changeRequestId: number): Promise<boolean> => {
     setSelectedId(changeRequestId);
     setDetail(null);
+    setDetailScript("");
     setApprovers([]);
-    setDetailError(null);
-    setDetailLoading(true);
     try {
       const result = await getChangeRequestDetail(employerId, changeRequestId);
       setDetail(result.detail);
+      setDetailScript(result.queryScript);
       setApprovers(result.approvers);
       return true;
-    } catch (error) {
-      setDetailError(error instanceof Error ? error.message : "Failed to load change request.");
+    } catch {
       return false;
-    } finally {
-      setDetailLoading(false);
     }
   }, [employerId]);
 
@@ -131,9 +135,9 @@ export function ChangeRequestPanel({
       return;
     }
     setConfirmStatus(null);
-    setViewOpen(true);
-    void loadRequest(requestId);
-  }, [loadRequest, requestId]);
+    setSelectedId(requestId);
+    void changeRequestView.openView(requestId);
+  }, [changeRequestView.openView, requestId]);
 
   return (
     <>
@@ -166,7 +170,8 @@ export function ChangeRequestPanel({
             }}
           />
         </div>
-        <Table
+        <DataTable
+          queryScript={queryScript}
           rowKey="changeRequestId"
           size="small"
           dataSource={visible}
@@ -185,12 +190,12 @@ export function ChangeRequestPanel({
               dataIndex: "changeRequestId",
               width: 80,
               render: (changeRequestId: number) => (
-                <EntityLink
-                  employerId={employerId}
-                  entity={{ kind: "changeRequest", changeRequestId }}
-                >
-                  {changeRequestId}
-                </EntityLink>
+                <ChangeRequestIdButton
+                  changeRequestId={changeRequestId}
+                  onOpen={(id) => {
+                    void openView(id);
+                  }}
+                />
               ),
             },
             {
@@ -328,25 +333,14 @@ export function ChangeRequestPanel({
 
       </Space>
 
-      <ChangeRequestDetailModal
-        detail={viewOpen ? detail : null}
-        employerId={employerId}
-        error={viewOpen ? detailError : null}
-        loading={viewOpen && detailLoading}
-        open={viewOpen}
-        onClose={() => {
-          setViewOpen(false);
-          if (requestId != null) {
-            router.push(workflowsHref(employerId, "requests"));
-          }
-        }}
-      />
+      {changeRequestView.modal}
 
       <ChangeRequestDecideModal
         approvers={approvers}
         detail={detail}
         employerId={employerId}
         open={confirmStatus != null && detail != null}
+        queryScript={detailScript}
         status={confirmStatus ?? "Approved"}
         writesEnabled={writesEnabled}
         onClose={() => {

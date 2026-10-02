@@ -65,6 +65,8 @@ Link only when the id or name is already on the row. A label with no ref stays p
 
 A new kind is one new member of `EntityRef`, one branch in `entityHref`, and one row in the table below. The destination is the existing page for that entity, focused by a route segment or query param.
 
+A change-request id in a table opens `ChangeRequestDetailModal` on the current page (`ChangeRequestIdButton` and `useChangeRequestView`). The workflows URL stays the deep link. The id inside that open modal is plain text.
+
 | Kind | URL | What the page shows |
 |---|---|---|
 | `employee` | `/employers/{id}/employees/{employmentNumber}` | Profile, plus the nav to history, sections, access, leave, and approvers |

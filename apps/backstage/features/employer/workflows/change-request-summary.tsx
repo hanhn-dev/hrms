@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo } from "react";
-import { Descriptions, Space, Table, Typography } from "antd";
+import { Descriptions, Space, Typography } from "antd";
+import { DataTable } from "@/shared/ui/data-table";
 import {
   KindChip,
   changeKindFromRow,
@@ -21,9 +22,11 @@ function personLabel(person: {
 export function ChangeRequestSummary({
   employerId,
   detail,
+  queryScript,
 }: {
   employerId: number;
   detail: ChangeRequestDetail;
+  queryScript: string;
 }): React.JSX.Element {
   const sectionNames = useMemo(
     () => sectionNamesFrom(detail.header.sectionNames, detail.details),
@@ -36,17 +39,11 @@ export function ChangeRequestSummary({
         size="small"
         column={2}
         items={[
-          { key: "id", label: "Request", children: (
-            <EntityLink
-              employerId={employerId}
-              entity={{
-                kind: "changeRequest",
-                changeRequestId: detail.header.changeRequestId,
-              }}
-            >
-              {detail.header.changeRequestId}
-            </EntityLink>
-          ) },
+          {
+            key: "id",
+            label: "Request",
+            children: detail.header.changeRequestId,
+          },
           {
             key: "page",
             label: "Page",
@@ -145,8 +142,9 @@ export function ChangeRequestSummary({
       />
       <div>
         <Typography.Text strong>Field changes</Typography.Text>
-        <Table
+        <DataTable
           className="mt-2"
+          queryScript={queryScript}
           rowKey="changeDetailsId"
           size="small"
           pagination={false}

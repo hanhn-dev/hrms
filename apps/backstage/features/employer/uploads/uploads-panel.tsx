@@ -25,6 +25,8 @@ export function UploadsPanel({
   countries,
   catalog,
   jobs,
+  jobsScript,
+  catalogScript,
 }: {
   employerId: number;
   view: UploadsView;
@@ -37,6 +39,8 @@ export function UploadsPanel({
   countries: UploadCountryOption[];
   catalog: UploadCatalog | null;
   jobs: UploadListItem[] | null;
+  jobsScript: string;
+  catalogScript: string;
 }): React.JSX.Element {
   const router = useRouter();
 
@@ -85,6 +89,7 @@ export function UploadsPanel({
               <JobsTable
                 employerId={employerId}
                 jobs={jobs ?? []}
+                queryScript={jobsScript}
                 type={jobType}
                 status={jobStatus}
                 uploadId={jobUploadId}
@@ -150,6 +155,7 @@ export function UploadsPanel({
                   <CatalogPanel
                     catalog={catalog}
                     employerId={employerId}
+                    queryScript={catalogScript}
                     selectedSectionId={sectionId}
                   />
                 </>

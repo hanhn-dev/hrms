@@ -1,4 +1,5 @@
 export { createHrmsDb, checkDatabase, type HrmsDb } from "./shared/client";
+export { captureQueryScript, queryCaptureGeneration, type CapturedQuery } from "./shared/query-script";
 export { hrmsDbConfigSchema, toMssqlConfig, type HrmsDbConfig } from "./shared/config";
 export { asIso } from "./shared/iso";
 
@@ -72,6 +73,8 @@ export {
   tableSpecFor,
   listSectionFormFields,
   listSectionRecords,
+  listPendingSectionRecords,
+  groupPendingSectionRecords,
   loadSectionRecordValues,
   previewSectionUpsertDiff,
   commitUpsertSectionRecord,
@@ -88,6 +91,9 @@ export {
   type SoftDeleteSpec,
   type SectionFormField,
   type SectionRecordRow,
+  type PendingSectionDetail,
+  type PendingSectionRow,
+  type PendingSectionStatus,
   type SectionRecordValues,
   type SectionUpsertInput,
   type SectionDeleteInput,
@@ -154,9 +160,35 @@ export {
   type MasterDataWriteMode,
 } from "./employer/master-data";
 export {
+  browseDataFixTable,
+  browseOrderColumns,
+  commitDataFix,
+  commitDataFixBatch,
+  dataFixWriteBlock,
+  loadDataFixColumn,
+  parseDataFixLiteral,
+  planColumnFilters,
+  planDataFixWrite,
+  previewDataFix,
+  rankColumnHits,
+  searchDataFixColumns,
+  searchDataFixTables,
+  type ColumnFilterInput,
+  type DataFixBrowse,
+  type DataFixCellEdit,
+  type DataFixColumnFacts,
+  type DataFixColumnHit,
+  type DataFixColumnTarget,
+  type DataFixTableHit,
+  type DataFixPlan,
+  type DataFixPreview,
+  type DataFixRequest,
+} from "./employer/data-fix";
+export {
   assertSelectOnly,
   listTables,
   listTableColumns,
+  getTableDefinition,
   listSearchTargets,
   searchValueInTables,
   searchValueExistence,
@@ -174,6 +206,7 @@ export {
   type ExploreSearchMode,
   type ExploreSearchTableResult,
   type ExploreTable,
+  type TableDefinition,
   type SearchTarget,
   type ExistenceTableResult,
   type ExistenceSearchInput,
@@ -356,6 +389,7 @@ export {
   listWorkflowLocations,
   listWorkflowPages,
   listChangeRequests,
+  listEmployeeChangeRequests,
   listConfiguredApprovers,
   listWorkflows,
   lookupWorkflowRoleIds,

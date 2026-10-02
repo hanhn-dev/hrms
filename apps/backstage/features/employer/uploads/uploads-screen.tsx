@@ -1,3 +1,4 @@
+import { captureQueryScript } from "@hrms/db";
 import { UploadsPanel } from "@/features/employer/uploads/uploads-panel";
 import {
   listUploadCatalog,
@@ -28,25 +29,31 @@ export async function UploadsScreen({
 }): Promise<React.JSX.Element> {
   const [countries, catalog, jobs] = await Promise.all([
     listUploadCountries(employerId),
-    view === "catalog" ? listUploadCatalog(employerId, type, countryId) : Promise.resolve(null),
+    view === "catalog"
+      ? captureQueryScript(() => listUploadCatalog(employerId, type, countryId))
+      : Promise.resolve(null),
     view === "jobs"
-      ? listUploads(employerId, {
-          type: jobType,
-          status: jobStatus,
-          uploadId: jobUploadId,
-        })
+      ? captureQueryScript(() =>
+          listUploads(employerId, {
+            type: jobType,
+            status: jobStatus,
+            uploadId: jobUploadId,
+          }),
+        )
       : Promise.resolve(null),
   ]);
 
   return (
     <UploadsPanel
-      catalog={catalog}
+      catalog={catalog?.result ?? null}
+      catalogScript={catalog?.script ?? ""}
       countries={countries}
       employerId={employerId}
       jobStatus={jobStatus}
       jobType={jobType}
       jobUploadId={jobUploadId}
-      jobs={jobs}
+      jobs={jobs?.result ?? null}
+      jobsScript={jobs?.script ?? ""}
       countryId={countryId}
       sectionId={sectionId}
       type={type}

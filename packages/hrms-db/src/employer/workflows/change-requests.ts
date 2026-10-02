@@ -1,3 +1,4 @@
+import { Prisma } from "../../generated/prisma/client";
 import type { HrmsDb } from "../../shared/client";
 import { asIso } from "../../shared/iso";
 import {
@@ -161,12 +162,18 @@ async function loadHeader(
   return rows[0] ?? null;
 }
 
-export async function listChangeRequests(
+async function listChangeRequestHeaders(
   db: HrmsDb,
   employerId: number,
+  employeeId: number | null,
 ): Promise<ChangeRequestListItem[]> {
   const tenantId = parseEmployerId(employerId);
-  const rows = await db.$queryRaw<HeaderRow[]>`
+  const subjectId = employeeId == null ? null : employeeIdSchema.parse(employeeId);
+  const employeeFilter =
+    subjectId == null
+      ? Prisma.empty
+      : Prisma.sql`AND ChangeRequest.EmployeeId = ${subjectId}`;
+  const rows = await db.$queryRaw<HeaderRow[]>(Prisma.sql`
     SELECT
         ChangeRequest.ChangeRequestId,
         ChangeRequest.EmployeeId,
@@ -214,9 +221,25 @@ export async function listChangeRequests(
     LEFT JOIN dbo.TEmployeeInfo AS RequesterInfo
         ON RequesterInfo.EmployeeId = ChangeRequest.CreatedBy
     WHERE ChangeRequest.EmployerId = ${tenantId}
+    ${employeeFilter}
     ORDER BY ChangeRequest.ChangeRequestId DESC
-  `;
+  `);
   return rows.map(mapHeader);
+}
+
+export async function listChangeRequests(
+  db: HrmsDb,
+  employerId: number,
+): Promise<ChangeRequestListItem[]> {
+  return listChangeRequestHeaders(db, employerId, null);
+}
+
+export async function listEmployeeChangeRequests(
+  db: HrmsDb,
+  employerId: number,
+  employeeId: number,
+): Promise<ChangeRequestListItem[]> {
+  return listChangeRequestHeaders(db, employerId, employeeId);
 }
 
 export async function getChangeRequest(

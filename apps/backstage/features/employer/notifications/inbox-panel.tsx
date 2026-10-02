@@ -1,6 +1,7 @@
 "use client";
 
-import { Button, Input, Table, Tag } from "antd";
+import { Button, Input, Tag } from "antd";
+import { DataTable } from "@/shared/ui/data-table";
 import { useRouter } from "next/navigation";
 import {
   notificationsHref,
@@ -43,10 +44,12 @@ export function InboxPanel({
   employerId,
   query,
   result,
+  queryScript,
 }: {
   employerId: number;
   query: NotificationsQuery;
   result: PendingInboxList;
+  queryScript: string;
 }): React.JSX.Element {
   const router = useRouter();
 
@@ -160,7 +163,8 @@ export function InboxPanel({
       {tableTitle ? (
         <div className="mb-2 text-sm font-medium text-slate-700">{tableTitle}</div>
       ) : null}
-      <Table<PendingInboxRow>
+      <DataTable<PendingInboxRow>
+        queryScript={queryScript}
         rowKey={(row) => `${row.requestType}-${row.requestId}`}
         dataSource={result.rows}
         size="small"

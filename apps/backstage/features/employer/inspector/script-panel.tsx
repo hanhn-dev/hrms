@@ -1,12 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
-import { Alert, Segmented, Space, Splitter, Tabs, Typography } from "antd";
+import { ReloadOutlined } from "@ant-design/icons";
+import { Alert, Button, Segmented, Space, Splitter, Tabs, Tooltip, Typography } from "antd";
 import { KIND_COLOR } from "@/features/dbs/kind-style";
 import { SearchSelect } from "@/shared/ui";
 import { scriptObjectRefs, tokenizeSql } from "@/features/employer/inspector/script-sql";
 import { bindSql } from "@/features/employer/inspector/script-symbols";
 import { formatSql } from "@/features/employer/inspector/script-format";
+import { ScriptCompare } from "@/features/employer/inspector/script-compare";
 import { ScriptExecuteModal } from "@/features/employer/inspector/script-execute-modal";
 import { SqlScript } from "@/features/employer/inspector/script-view";
 import {
@@ -15,11 +17,12 @@ import {
 } from "@/features/employer/inspector/script-used-objects";
 import {
   getModuleDefinition,
+  listInspectorTables,
   listModules,
   resolveScriptObject,
   resolveScriptObjectKinds,
+  type InspectorObjectKind,
   type ModuleKind,
-  type ModuleSummary,
   type ResolvedScript,
   type ScriptObjectKind,
 } from "@/features/employer/inspector/queries";
@@ -30,7 +33,7 @@ type ScriptTab = {
   key: string;
   schema: string;
   name: string;
-  kind: ModuleKind | "table" | "lookup";
+  kind: InspectorObjectKind | "lookup";
   loading: boolean;
   error: string | null;
   script: ResolvedScript | null;
@@ -81,10 +84,10 @@ export function ScriptPanel({
 }: {
   writesEnabled: boolean;
 }): React.JSX.Element {
-  const [kind, setKind] = useState<ModuleKind>("storedProcedure");
+  const [kind, setKind] = useState<InspectorObjectKind>("storedProcedure");
   const [query, setQuery] = useState("");
   const debouncedQuery = useDebouncedValue(query.trim(), 300);
-  const [options, setOptions] = useState<ModuleSummary[]>([]);
+  const [options, setOptions] = useState<Array<{ schema: string; name: string }>>([]);
   const [loadingOptions, setLoadingOptions] = useState(false);
   const [selected, setSelected] = useState<string | undefined>(undefined);
   const [tabs, setTabs] = useState<ScriptTab[]>([]);
@@ -102,7 +105,11 @@ export function ScriptPanel({
 
     let cancelled = false;
     setLoadingOptions(true);
-    void listModules({ kind, q: debouncedQuery })
+    const request =
+      kind === "table"
+        ? listInspectorTables({ q: debouncedQuery })
+        : listModules({ kind, q: debouncedQuery });
+    void request
       .then((rows) => {
         if (!cancelled) {
           setOptions(rows);
@@ -269,6 +276,82 @@ export function ScriptPanel({
     });
   }
 
+  function reloadScript(tab: ScriptTab): void {
+    setTabs((current) =>
+      current.map((item) =>
+        item.key === tab.key ? { ...item, loading: true, error: null } : item,
+      ),
+    );
+    startTransition(async () => {
+      try {
+        const kind = tab.script?.kind ?? tab.kind;
+        if (kind === "lookup" || kind === "table") {
+          const resolved = await resolveScriptObject({
+            schema: tab.schema,
+            name: tab.name,
+          });
+          setTabs((current) =>
+            current.map((item) => {
+              if (item.key !== tab.key) {
+                return item;
+              }
+              if (!resolved) {
+                return {
+                  ...item,
+                  loading: false,
+                  error: `No script or table named ${tab.schema}.${tab.name}.`,
+                };
+              }
+              return {
+                ...item,
+                schema: resolved.schema,
+                name: resolved.name,
+                kind: resolved.kind,
+                loading: false,
+                error: null,
+                script: resolved,
+              };
+            }),
+          );
+          return;
+        }
+        const definition = await getModuleDefinition({
+          schema: tab.schema,
+          name: tab.name,
+          kind,
+        });
+        setTabs((current) =>
+          current.map((item) =>
+            item.key === tab.key
+              ? {
+                  ...item,
+                  schema: definition.schema,
+                  name: definition.name,
+                  kind: definition.kind,
+                  loading: false,
+                  error: null,
+                  script: {
+                    schema: definition.schema,
+                    name: definition.name,
+                    kind: definition.kind,
+                    definition: definition.definition,
+                    unavailableReason: definition.unavailableReason,
+                  },
+                }
+              : item,
+          ),
+        );
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        setTabs((current) =>
+          current.map((item) =>
+            item.key === tab.key ? { ...item, loading: false, error: message } : item,
+          ),
+        );
+      }
+    });
+  }
+
   function closeTab(key: string): void {
     const index = tabs.findIndex((tab) => tab.key === key);
     const next = tabs.filter((tab) => tab.key !== key);
@@ -322,7 +405,7 @@ export function ScriptPanel({
             <Segmented
               value={kind}
               onChange={(next) => {
-                setKind(next as ModuleKind);
+                setKind(next as InspectorObjectKind);
                 setSelected(undefined);
                 setOptions([]);
                 setQuery("");
@@ -331,6 +414,7 @@ export function ScriptPanel({
                 { label: "Stored procedure", value: "storedProcedure" },
                 { label: "Function", value: "function" },
                 { label: "View", value: "view" },
+                { label: "Table", value: "table" },
               ]}
             />
           </div>
@@ -359,10 +443,15 @@ export function ScriptPanel({
             onSearch={setQuery}
             onChange={(next: string | undefined) => {
               setSelected(next);
-              if (next) {
-                const parsed = splitQualified(next);
-                openModule(parsed.schema, parsed.name, kind);
+              if (!next) {
+                return;
               }
+              const parsed = splitQualified(next);
+              if (kind === "table") {
+                openReference(parsed.schema, parsed.name);
+                return;
+              }
+              openModule(parsed.schema, parsed.name, kind);
             }}
           />
         </div>
@@ -392,6 +481,9 @@ export function ScriptPanel({
                 onOpenObject={(object) => {
                   openReference(object.schema, object.name);
                 }}
+                onRefresh={() => {
+                  reloadScript(tab);
+                }}
               />
             ),
           }))}
@@ -409,27 +501,69 @@ export function ScriptPanel({
   );
 }
 
+function ScriptReload({ onRefresh }: { onRefresh: () => void }): React.JSX.Element {
+  return (
+    <div className="flex justify-end">
+      <Tooltip title="Reload from database">
+        <Button
+          aria-label="Reload from database"
+          icon={<ReloadOutlined />}
+          size="small"
+          type="text"
+          onClick={onRefresh}
+        />
+      </Tooltip>
+    </div>
+  );
+}
+
 function ScriptTabBody({
   tab,
   writesEnabled,
   onOpenObject,
+  onRefresh,
 }: {
   tab: ScriptTab;
   writesEnabled: boolean;
   onOpenObject: (object: { schema: string; name: string }) => void;
+  onRefresh: () => void;
 }): React.JSX.Element {
+  const [comparing, setComparing] = useState(false);
   if (tab.loading) {
     return <Typography.Text type="secondary">Loading {tab.schema}.{tab.name}…</Typography.Text>;
   }
   if (tab.error) {
     return <Alert type="error" showIcon title={tab.error} />;
   }
+  if (comparing && tab.script) {
+    return (
+      <ScriptCompare
+        kind={tab.script.kind}
+        name={tab.script.name}
+        schema={tab.script.schema}
+        onClose={() => {
+          setComparing(false);
+        }}
+      />
+    );
+  }
   if (tab.script?.kind === "table") {
     return (
       <div className="flex flex-col gap-2">
-        <Typography.Text type="secondary">
-          {tab.script.schema}.{tab.script.name} is a table. Columns:
-        </Typography.Text>
+        <ScriptReload onRefresh={onRefresh} />
+        <div className="flex items-center justify-between gap-2">
+          <Typography.Text type="secondary">
+            {tab.script.schema}.{tab.script.name} is a table. Columns:
+          </Typography.Text>
+          <Button
+            size="small"
+            onClick={() => {
+              setComparing(true);
+            }}
+          >
+            Compare
+          </Button>
+        </div>
         <pre className="max-h-[36rem] overflow-auto rounded bg-slate-50 p-3 font-mono text-xs leading-5 whitespace-pre dark:bg-slate-900">
           {tab.script.columns.map((column) => `${column.name}  ${column.typeName}`).join("\n")}
         </pre>
@@ -437,17 +571,38 @@ function ScriptTabBody({
     );
   }
   if (tab.script && "unavailableReason" in tab.script && tab.script.unavailableReason) {
-    return <Alert type="warning" showIcon title={tab.script.unavailableReason} />;
+    return (
+      <div className="flex flex-col gap-2">
+        <ScriptReload onRefresh={onRefresh} />
+        <div>
+          <Button
+            size="small"
+            onClick={() => {
+              setComparing(true);
+            }}
+          >
+            Compare
+          </Button>
+        </div>
+        <Alert type="warning" showIcon title={tab.script.unavailableReason} />
+      </div>
+    );
   }
   if (tab.script && "definition" in tab.script && tab.script.definition) {
     return (
-      <ScriptBody
-        name={tab.script.name}
-        schema={tab.script.schema}
-        sql={tab.script.definition}
-        writesEnabled={writesEnabled}
-        onOpenObject={onOpenObject}
-      />
+      <div className="flex flex-col gap-2">
+        <ScriptReload onRefresh={onRefresh} />
+        <ScriptBody
+          name={tab.script.name}
+          schema={tab.script.schema}
+          sql={tab.script.definition}
+          writesEnabled={writesEnabled}
+          onCompare={() => {
+            setComparing(true);
+          }}
+          onOpenObject={onOpenObject}
+        />
+      </div>
     );
   }
   return <Typography.Text type="secondary">No script text is available.</Typography.Text>;
@@ -459,12 +614,14 @@ function ScriptBody({
   sql,
   writesEnabled,
   onOpenObject,
+  onCompare,
 }: {
   schema: string;
   name: string;
   sql: string;
   writesEnabled: boolean;
   onOpenObject: (object: { schema: string; name: string }) => void;
+  onCompare: () => void;
 }): React.JSX.Element {
   const [kinds, setKinds] = useState<Record<string, ScriptObjectKind>>({});
   const [kindsReady, setKindsReady] = useState(false);
@@ -520,6 +677,7 @@ function ScriptBody({
             mode={mode}
             model={model}
             warning={mode === "formatted" ? formatted.warning : null}
+            onCompare={onCompare}
             onMode={setMode}
             onOpenObject={onOpenObject}
           />

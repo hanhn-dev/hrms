@@ -1,6 +1,7 @@
 "use client";
 
-import { Alert, Button, Input, Table, Tabs, Tag } from "antd";
+import { Alert, Button, Input, Tabs, Tag } from "antd";
+import { DataTable } from "@/shared/ui/data-table";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ChangeRequestPanel } from "@/features/employer/workflows/change-request-panel";
@@ -32,10 +33,14 @@ export function WorkflowsPanel({
   pages,
   groups,
   changeRequests,
+  changeRequestsScript,
   writesEnabled,
   pageName,
   groupId,
   requestId,
+  workflowsScript,
+  pagesScript,
+  groupsScript,
 }: {
   employerId: number;
   tab: WorkflowsTab;
@@ -43,10 +48,14 @@ export function WorkflowsPanel({
   pages: WorkflowPageCatalogRow[];
   groups: WorkflowGroupRow[];
   changeRequests: ChangeRequestListItem[];
+  changeRequestsScript: string;
   writesEnabled: boolean;
   pageName: string | null;
   groupId: number | null;
   requestId: number | null;
+  workflowsScript: string;
+  pagesScript: string;
+  groupsScript: string;
 }): React.JSX.Element {
   const router = useRouter();
   const [search, setSearch] = useState("");
@@ -130,7 +139,8 @@ export function WorkflowsPanel({
             key: "workflows",
             label: `Workflows (${workflows.length})`,
             children: (
-              <Table
+              <DataTable
+                queryScript={workflowsScript}
                 rowKey="workflowId"
                 dataSource={visibleWorkflows}
                 size="small"
@@ -194,7 +204,8 @@ export function WorkflowsPanel({
                     router.push(workflowsHref(employerId, "pages"));
                   }}
                 />
-                <Table
+                <DataTable
+                queryScript={pagesScript}
                 rowKey={(row) => String(row.modulePageId)}
                 dataSource={visiblePages}
                 size="small"
@@ -266,7 +277,8 @@ export function WorkflowsPanel({
                     router.push(workflowsHref(employerId, "groups"));
                   }}
                 />
-                <Table
+                <DataTable
+                queryScript={groupsScript}
                 rowKey="roleId"
                 dataSource={visibleGroups}
                 size="small"
@@ -344,6 +356,7 @@ export function WorkflowsPanel({
             children: (
               <ChangeRequestPanel
                 employerId={employerId}
+                queryScript={changeRequestsScript}
                 requestId={requestId}
                 requests={changeRequests}
                 writesEnabled={writesEnabled}

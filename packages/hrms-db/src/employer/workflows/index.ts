@@ -22,6 +22,7 @@ export { getWorkflow, type WorkflowDefinition, type WorkflowDetailRow } from "./
 export {
   getChangeRequest,
   listChangeRequests,
+  listEmployeeChangeRequests,
   listConfiguredApprovers,
   type ChangeRequestDetail,
   type ChangeRequestDetailRow,

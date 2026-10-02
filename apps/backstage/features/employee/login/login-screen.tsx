@@ -1,10 +1,11 @@
-import { Alert, Card, Descriptions, Table } from "antd";
+import { captureQueryScript } from "@hrms/db";
+import { Alert, Card, Descriptions } from "antd";
 import { UnlockAccountButton } from "@/features/employee/login/unlock-account-button";
 import { getEmployeeLoginInfo } from "@/features/employee/login/queries";
 import { areWritesEnabled } from "@/shared/auth";
 import { getSelectedEnvironment } from "@/shared/db";
 import { formatDate } from "@/shared/format-date";
-import { Employee360Nav, PageHeader } from "@/shared/ui";
+import { DataTable, Employee360Nav, PageHeader } from "@/shared/ui";
 
 export async function EmployeeLoginScreen({
   employerId,
@@ -13,10 +14,10 @@ export async function EmployeeLoginScreen({
   employerId: number;
   employmentNumber: string;
 }): Promise<React.JSX.Element> {
-  const { login, attempts } = await getEmployeeLoginInfo(
-    employerId,
-    employmentNumber,
+  const loaded = await captureQueryScript(() =>
+    getEmployeeLoginInfo(employerId, employmentNumber),
   );
+  const { login, attempts } = loaded.result;
   const writesEnabled = areWritesEnabled(await getSelectedEnvironment());
 
   return (
@@ -97,7 +98,8 @@ export async function EmployeeLoginScreen({
         />
       </Card>
       <Card title="Recent failed logins">
-        <Table
+        <DataTable
+          queryScript={loaded.script}
           rowKey="deviceLoginAttemptId"
           dataSource={attempts.map((attempt) => ({
             ...attempt,

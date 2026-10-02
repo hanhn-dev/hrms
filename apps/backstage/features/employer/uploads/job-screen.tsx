@@ -1,5 +1,5 @@
 import { Alert } from "antd";
-import { compareUploadHeaders } from "@hrms/db";
+import { captureQueryScript, compareUploadHeaders } from "@hrms/db";
 import { isMissingObjectError } from "@hrms/db/uploads";
 import { getEmployeeAccess } from "@/features/employee/access/queries";
 import { getEmployeeLoginInfo } from "@/features/employee/login/queries";
@@ -41,7 +41,8 @@ export async function JobScreen({
   workEmail: string | null;
   batchId: number | null;
 }): Promise<React.JSX.Element> {
-  const upload = await getUpload(employerId, uploadId);
+  const uploadLoaded = await captureQueryScript(() => getUpload(employerId, uploadId));
+  const upload = uploadLoaded.result;
   if (!upload) {
     return <Alert showIcon type="error" title="Upload was not found for this employer." />;
   }
@@ -85,20 +86,24 @@ export async function JobScreen({
 
   const [sectionData, rowErrors, batches, executionErrors, staging, finalize, selectedBatch, liveRow, stagingRow] =
     await Promise.all([
-      listUploadSectionData(employerId, uploadId, resolvedUploadSectionId),
+      captureQueryScript(() =>
+        listUploadSectionData(employerId, uploadId, resolvedUploadSectionId),
+      ),
       resolvedError === "system"
         ? Promise.resolve(null)
-        : listUploadRowErrors(
-            employerId,
-            uploadId,
-            resolvedSectionId,
-            resolvedError,
-            catalogFieldsForSection,
+        : captureQueryScript(() =>
+            listUploadRowErrors(
+              employerId,
+              uploadId,
+              resolvedSectionId,
+              resolvedError,
+              catalogFieldsForSection,
+            ),
           ),
-      missingObjectFallback(listUploadBatches(employerId, uploadId), []),
-      missingObjectFallback(listUploadExecutionErrors(employerId, uploadId), []),
+      loadCaptured(() => listUploadBatches(employerId, uploadId), []),
+      loadCaptured(() => listUploadExecutionErrors(employerId, uploadId), []),
       upload.type === "creation"
-        ? missingObjectFallback(listCreationStaging(employerId, uploadId), {
+        ? loadCaptured(() => listCreationStaging(employerId, uploadId), {
             stagingCount: 0,
             orphanCount: 0,
             orphans: [],
@@ -123,37 +128,58 @@ export async function JobScreen({
     ? await Promise.all([
         getEmployeeProfile(employerId, employmentNumber),
         getEmployeeAccess(employerId, employmentNumber),
-        getEmployeeLoginInfo(employerId, employmentNumber),
+        captureQueryScript(() => getEmployeeLoginInfo(employerId, employmentNumber)),
       ])
     : [null, null, null];
   const writesEnabled = areWritesEnabled(await getSelectedEnvironment());
 
   return (
     <JobPanel
-      batches={batches}
+      batches={batches.result}
+      batchesScript={batches.script}
       catalog={catalog}
       employerId={employerId}
       employeeAccess={employeeAccess}
-      employeeLogin={employeeLogin?.login ?? null}
-      employeeLoginAttempts={employeeLogin?.attempts ?? []}
+      employeeLogin={employeeLogin?.result.login ?? null}
+      employeeLoginAttempts={employeeLogin?.result.attempts ?? []}
+      employeeLoginScript={employeeLogin?.script ?? ""}
       employeeProfile={employeeProfile}
       errorClass={resolvedError}
-      executionErrors={executionErrors}
+      executionErrors={executionErrors.result}
+      executionErrorsScript={executionErrors.script}
       finalize={finalize}
       liveRow={liveRow}
       mismatches={mismatches}
-      rowErrors={rowErrors}
+      rowErrors={rowErrors?.result ?? null}
+      rowErrorsScript={rowErrors?.script ?? ""}
       selectedBatch={selectedBatch}
-      sectionData={sectionData}
+      sectionData={sectionData.result}
+      sectionDataScript={sectionData.script}
+      sectionsScript={uploadLoaded.script}
       selectedEmployeeId={employeeId}
       selectedSectionId={resolvedSectionId}
       selectedUploadSectionId={resolvedUploadSectionId}
-      staging={staging}
+      staging={staging?.result ?? null}
+      stagingScript={staging?.script ?? ""}
       stagingRow={stagingRow}
       upload={upload}
       writesEnabled={writesEnabled}
     />
   );
+}
+
+async function loadCaptured<T>(
+  work: () => Promise<T>,
+  fallback: T,
+): Promise<{ result: T; script: string }> {
+  try {
+    return await captureQueryScript(work);
+  } catch (error) {
+    if (isMissingObjectError(error)) {
+      return { result: fallback, script: "" };
+    }
+    throw error;
+  }
 }
 
 async function missingObjectFallback<T>(promise: Promise<T>, fallback: T): Promise<T> {

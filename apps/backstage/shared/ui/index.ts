@@ -1,4 +1,5 @@
 export { AppProviders } from "./app-providers";
+export { DataTable, type DataTableProps } from "./data-table";
 export { AppShell, Employee360Nav, type ShellEmployer } from "./app-shell";
 export { Paragraph, Text, Title } from "./antd-rsc";
 export {

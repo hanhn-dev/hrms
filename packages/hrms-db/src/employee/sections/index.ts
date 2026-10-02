@@ -1,7 +1,4 @@
-export {
-  getEmployeeSectionCounts,
-  type EmployeeSectionCount,
-} from "./counts";
+export { getEmployeeSectionCounts, type EmployeeSectionCount } from "./counts";
 export {
   EMPLOYEE_LIST_SECTION_COLUMNS,
   type EmployeeListSectionField,
@@ -17,14 +14,15 @@ export {
   type SectionTableSpec,
   type SoftDeleteSpec,
 } from "./record-registry";
+export { listSectionFormFields, type SectionFormField } from "./form-fields";
+export { listSectionRecords, type SectionRecordRow } from "./records";
 export {
-  listSectionFormFields,
-  type SectionFormField,
-} from "./form-fields";
-export {
-  listSectionRecords,
-  type SectionRecordRow,
-} from "./records";
+  groupPendingSectionRecords,
+  type PendingSectionDetail,
+  type PendingSectionRow,
+  type PendingSectionStatus,
+} from "./pending-records";
+export { listPendingSectionRecords } from "./pending-records-query";
 export {
   commitDeleteSectionRecord,
   commitUpsertSectionRecord,

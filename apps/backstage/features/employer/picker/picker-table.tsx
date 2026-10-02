@@ -1,6 +1,7 @@
 "use client";
 
-import { Input, Table, Tag } from "antd";
+import { Input, Tag } from "antd";
+import { DataTable } from "@/shared/ui/data-table";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import type { EmployerListItem } from "@/features/employer/picker/queries";
@@ -25,8 +26,10 @@ function isActiveFlag(value: unknown): boolean {
 
 export function EmployerPickerTable({
   employers,
+  queryScript,
 }: {
   employers: EmployerListItem[];
+  queryScript: string;
 }): React.JSX.Element {
   const [nameQuery, setNameQuery] = useState("");
   const [page, setPage] = useState(1);
@@ -50,7 +53,8 @@ export function EmployerPickerTable({
   }, [employers, nameQuery]);
 
   return (
-    <Table
+    <DataTable
+      queryScript={queryScript}
       rowKey="employerId"
       dataSource={filteredEmployers}
       scroll={{ x: "max-content" }}

@@ -10,6 +10,7 @@ export function ChangeRequestDetailModal({
   error,
   employerId,
   detail,
+  queryScript,
   onClose,
 }: {
   open: boolean;
@@ -17,6 +18,7 @@ export function ChangeRequestDetailModal({
   error: string | null;
   employerId: number;
   detail: ChangeRequestDetail | null;
+  queryScript: string;
   onClose: () => void;
 }): React.JSX.Element {
   return (
@@ -38,7 +40,13 @@ export function ChangeRequestDetailModal({
           <Spin />
         </div>
       ) : null}
-      {detail ? <ChangeRequestSummary detail={detail} employerId={employerId} /> : null}
+      {detail ? (
+        <ChangeRequestSummary
+          detail={detail}
+          employerId={employerId}
+          queryScript={queryScript}
+        />
+      ) : null}
     </Modal>
   );
 }

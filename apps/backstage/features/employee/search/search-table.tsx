@@ -1,6 +1,7 @@
 "use client";
 
-import { Table, Tag } from "antd";
+import { Tag } from "antd";
+import { DataTable } from "@/shared/ui/data-table";
 import type { ColumnsType } from "antd/es/table";
 import type { EmployeeSearchHit } from "@/features/employee/search/queries";
 import { EntityLink } from "@/shared/entity-link";
@@ -76,14 +77,17 @@ export function EmployeeSearchTable({
   search,
   results,
   unavailableFields = [],
+  queryScript,
 }: {
   employerId: number;
   search: string;
   results: EmployeeSearchHit[];
   unavailableFields?: readonly string[];
+  queryScript: string;
 }): React.JSX.Element {
   return (
-    <Table
+    <DataTable
+      queryScript={queryScript}
       rowKey="employeeId"
       dataSource={results}
       scroll={{ x: "max-content" }}

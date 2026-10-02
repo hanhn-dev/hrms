@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { Alert, Button, Card, Input, Space, Table, Typography } from "antd";
+import { Alert, Button, Card, Input, Space, Typography } from "antd";
+import { DataTable } from "@/shared/ui/data-table";
 import { runSelect } from "@/features/dbs/queries";
 import {
   QUERY_RESULT_ROW_KEY,
@@ -36,6 +37,7 @@ export function SqlRunnerPanel({
   const [sql, setSql] = useState("SELECT TOP 20 * FROM dbo.TEmployerDetails");
   const [error, setError] = useState<string | null>(null);
   const [rows, setRows] = useState<Record<string, unknown>[] | null>(null);
+  const [queryScript, setQueryScript] = useState("");
   const [meta, setMeta] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -57,6 +59,7 @@ export function SqlRunnerPanel({
       try {
         const result = await runSelect({ sql, maxRows: 200 });
         setRows(result.rows);
+        setQueryScript(result.queryScript);
         setMeta(
           `${result.rowCount} row${result.rowCount === 1 ? "" : "s"} (max ${result.maxRows})${
             result.truncated ? " · truncated" : ""
@@ -65,6 +68,7 @@ export function SqlRunnerPanel({
         setError(null);
       } catch (err) {
         setRows(null);
+        setQueryScript("");
         setMeta(null);
         setError(err instanceof Error ? err.message : String(err));
       }
@@ -100,7 +104,9 @@ export function SqlRunnerPanel({
         {meta ? <Typography.Text type="secondary">{meta}</Typography.Text> : null}
         {rows ? (
           <Card size="small">
-            <Table
+            <DataTable
+              onRefresh={run}
+              queryScript={queryScript}
               size="small"
               pagination={false}
               scroll={{ x: true, y: 360 }}

@@ -20,7 +20,9 @@ export function NotificationsPanel({
   appliedTo,
   usingDefaultWindow,
   email,
+  emailScript,
   inbox,
+  inboxScript,
 }: {
   employerId: number;
   query: NotificationsQuery;
@@ -28,7 +30,9 @@ export function NotificationsPanel({
   appliedTo: string | null;
   usingDefaultWindow: boolean;
   email: EmailNotificationList | null;
+  emailScript: string;
   inbox: PendingInboxList | null;
+  inboxScript: string;
 }): React.JSX.Element {
   const router = useRouter();
 
@@ -63,6 +67,7 @@ export function NotificationsPanel({
                 appliedTo={appliedTo}
                 employerId={employerId}
                 query={query}
+                queryScript={emailScript}
                 result={email}
                 usingDefaultWindow={usingDefaultWindow}
               />
@@ -73,7 +78,12 @@ export function NotificationsPanel({
           key: "inbox",
           label: "Inbox",
           children: inbox ? (
-            <InboxPanel employerId={employerId} query={query} result={inbox} />
+            <InboxPanel
+              employerId={employerId}
+              query={query}
+              queryScript={inboxScript}
+              result={inbox}
+            />
           ) : null,
         },
       ]}

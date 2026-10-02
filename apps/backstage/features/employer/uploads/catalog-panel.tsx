@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Button, Card, Descriptions, Drawer, Space, Table, Tag } from "antd";
+import { Button, Card, Descriptions, Drawer, Space, Tag } from "antd";
+import { DataTable } from "@/shared/ui/data-table";
 import Link from "next/link";
 import { ValidationRuleViewCell } from "@/features/employer/fields/validation-rule-cell";
 import { uploadsHref } from "@/features/employer/uploads/uploads-source";
@@ -15,10 +16,12 @@ export function CatalogPanel({
   catalog,
   employerId,
   selectedSectionId,
+  queryScript,
 }: {
   catalog: UploadCatalog;
   employerId: number;
   selectedSectionId: number | null;
+  queryScript: string;
 }): React.JSX.Element {
   const selected =
     catalog.sections.find((section) => section.sectionId === selectedSectionId) ??
@@ -32,7 +35,8 @@ export function CatalogPanel({
   return (
     <>
       <Card className="mb-4" title="Sections for this upload type">
-        <Table
+        <DataTable
+          queryScript={queryScript}
           rowKey="sectionId"
           dataSource={catalog.sections}
           size="small"
@@ -76,7 +80,8 @@ export function CatalogPanel({
             : "Select a section to see its fields"
         }
       >
-        <Table
+        <DataTable
+          queryScript={queryScript}
           rowKey={(row) => `${row.sectionId}-${row.fieldId}-${row.fieldName ?? ""}`}
           dataSource={fields}
           size="small"

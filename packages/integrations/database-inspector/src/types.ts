@@ -47,6 +47,15 @@ export interface DatabaseCatalog {
   readonly objects: readonly DatabaseObjectSummary[];
   readonly relationships: readonly DatabaseRelationship[];
   readonly warnings: readonly string[];
+  /** Pasteable script for the catalog SELECT. Set by SQL Server only. */
+  readonly queryScript?: string;
+}
+
+export interface DatabaseObjectQueryScripts {
+  readonly columns: string;
+  readonly indexes: string;
+  readonly triggers: string;
+  readonly constraints: string;
 }
 
 export interface CatalogQuery {
@@ -115,6 +124,8 @@ export interface DatabaseObjectDetails {
   readonly triggers: readonly DatabaseTrigger[];
   readonly constraints: readonly DatabaseConstraint[];
   readonly warnings: readonly string[];
+  /** Pasteable scripts for the structure SELECTs. Set by SQL Server only. */
+  readonly queryScripts?: DatabaseObjectQueryScripts;
 }
 
 export interface ObjectDetailsRequest {

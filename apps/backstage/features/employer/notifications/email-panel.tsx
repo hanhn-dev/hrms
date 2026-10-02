@@ -1,6 +1,7 @@
 "use client";
 
-import { Button, DatePicker, Input, Select, Table, Tag, Tooltip } from "antd";
+import { Button, DatePicker, Input, Select, Tag, Tooltip } from "antd";
+import { DataTable } from "@/shared/ui/data-table";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import { useRouter } from "next/navigation";
@@ -80,6 +81,7 @@ export function EmailPanel({
   appliedTo,
   usingDefaultWindow,
   result,
+  queryScript,
 }: {
   employerId: number;
   query: NotificationsQuery;
@@ -87,6 +89,7 @@ export function EmailPanel({
   appliedTo: string | null;
   usingDefaultWindow: boolean;
   result: EmailNotificationList;
+  queryScript: string;
 }): React.JSX.Element {
   const router = useRouter();
 
@@ -218,7 +221,8 @@ export function EmailPanel({
               : "Showing the selected created range."}
         </span>
       </div>
-      <Table<EmailNotificationRow>
+      <DataTable<EmailNotificationRow>
+        queryScript={queryScript}
         rowKey={(row) => `${row.module}-${row.notificationId}`}
         dataSource={result.rows}
         size="small"

@@ -4,12 +4,15 @@ import {
   findScriptObject,
   findScriptObjectKinds,
   getModuleDefinition as getModuleDefinitionFromDb,
+  getTableDefinition as getTableDefinitionFromDb,
   listEmployers as listEmployersFromDb,
   listModules as listModulesFromDb,
   listSearchTargets as listSearchTargetsFromDb,
   listTableColumns as listTableColumnsFromDb,
+  listTables as listTablesFromDb,
   searchValueExistence as searchValueExistenceFromDb,
   searchValueInTables as searchValueInTablesFromDb,
+  captureQueryScript,
   type ExistenceSearchInput,
   type ExistenceTableResult,
   type ExploreSearchMode,
@@ -21,7 +24,8 @@ import {
   type SearchTarget,
 } from "@hrms/db";
 import { requireRootAdmin } from "@/shared/auth";
-import { getHrmsDb } from "@/shared/db";
+import { getHrmsDb, getSelectedEnvironment, listConfiguredEnvironments } from "@/shared/db";
+import { parseEnvironmentName } from "@/shared/db/environments";
 
 export type {
   ExistenceSearchInput,
@@ -56,9 +60,13 @@ export async function listSearchTargets(): Promise<SearchTarget[]> {
 
 export async function searchValueExistence(
   input: ExistenceSearchInput,
-): Promise<ExistenceTableResult[]> {
+): Promise<{ hits: ExistenceTableResult[]; queryScript: string }> {
   await requireRootAdmin();
-  return searchValueExistenceFromDb(await getHrmsDb(), input);
+  const db = await getHrmsDb();
+  const loaded = await captureQueryScript(() =>
+    searchValueExistenceFromDb(db, input),
+  );
+  return { hits: loaded.result, queryScript: loaded.script };
 }
 
 export async function searchInspectorTable(input: {
@@ -89,6 +97,90 @@ export async function listModules(input: {
 }): Promise<ModuleSummary[]> {
   await requireRootAdmin();
   return listModulesFromDb(await getHrmsDb(), input);
+}
+
+export async function listInspectorTables(input: {
+  q?: string;
+}): Promise<Array<{ schema: string; name: string }>> {
+  await requireRootAdmin();
+  return listTablesFromDb(await getHrmsDb(), { q: input.q });
+}
+
+export async function listInspectorEnvironments(): Promise<{
+  environments: string[];
+  selected: string;
+}> {
+  await requireRootAdmin();
+  return {
+    environments: listConfiguredEnvironments(),
+    selected: await getSelectedEnvironment(),
+  };
+}
+
+export type InspectorObjectKind = ModuleKind | "table";
+
+export type ObjectEnvironmentDefinition = {
+  schema: string;
+  name: string;
+  kind: InspectorObjectKind;
+  text: string | null;
+  unavailableReason: string | null;
+};
+
+function assertInspectorObjectKind(kind: string): InspectorObjectKind {
+  if (
+    kind === "storedProcedure" ||
+    kind === "function" ||
+    kind === "view" ||
+    kind === "table"
+  ) {
+    return kind;
+  }
+  throw new Error("Object kind must be a stored procedure, function, view, or table.");
+}
+
+export async function getObjectDefinitionForEnvironment(input: {
+  schema: string;
+  name: string;
+  kind: InspectorObjectKind;
+  env: string;
+}): Promise<ObjectEnvironmentDefinition> {
+  await requireRootAdmin();
+  const kind = assertInspectorObjectKind(input.kind);
+  const env = parseEnvironmentName(input.env);
+  if (!env) {
+    throw new Error(`Unknown environment: ${input.env}`);
+  }
+  const db = await getHrmsDb(env);
+  if (kind === "table") {
+    const definition = await getTableDefinitionFromDb(db, {
+      schema: input.schema,
+      name: input.name,
+    });
+    const schema = input.schema.trim() || "dbo";
+    const name = input.name.trim();
+    return {
+      schema,
+      name,
+      kind,
+      text: definition.found ? definition.lines.join("\n") : null,
+      unavailableReason: definition.found
+        ? null
+        : `Unable to find table ${schema}.${name}.`,
+    };
+  }
+  const definition = await getModuleDefinitionFromDb(db, {
+    schema: input.schema,
+    name: input.name,
+    kind,
+  });
+  return {
+    schema: definition.schema,
+    name: definition.name,
+    kind: definition.kind,
+    text: definition.definition,
+    unavailableReason: definition.unavailableReason,
+  };
 }
 
 export async function getModuleDefinition(input: {

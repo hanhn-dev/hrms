@@ -1,7 +1,8 @@
-import { Alert, Card, Table } from "antd";
+import { captureQueryScript } from "@hrms/db";
+import { Alert, Card } from "antd";
+import { DataTable, Employee360Nav } from "@/shared/ui";
 import { getEmployeeLeaveBalances } from "@/features/employee/leave/queries";
 import { formatDate } from "@/shared/format-date";
-import { Employee360Nav } from "@/shared/ui";
 
 export async function EmployeeLeaveScreen({
   employerId,
@@ -10,7 +11,10 @@ export async function EmployeeLeaveScreen({
   employerId: number;
   employmentNumber: string;
 }): Promise<React.JSX.Element> {
-  const balances = await getEmployeeLeaveBalances(employerId, employmentNumber);
+  const loaded = await captureQueryScript(() =>
+    getEmployeeLeaveBalances(employerId, employmentNumber),
+  );
+  const balances = loaded.result;
 
   return (
     <>
@@ -26,7 +30,8 @@ export async function EmployeeLeaveScreen({
         description="This is the stored balance, not SP_LA_GetEmployeeLeaveBalanceDetails eligibility/pending math."
       />
       <Card>
-        <Table
+        <DataTable
+          queryScript={loaded.script}
           rowKey="transId"
           dataSource={balances.map((row) => ({
             ...row,

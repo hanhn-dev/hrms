@@ -15,16 +15,35 @@ export async function resolveEmployee(
   return resolveEmployeeFromDb(await getHrmsDb(), employerId, employmentNumber);
 }
 
-export async function getEmployeeShellLabel(
+export type EmployeeShell = {
+  fullName: string;
+  employmentNumber: string;
+};
+
+export async function getEmployeeShell(
   employerId: number,
   employmentNumber: string,
-): Promise<string | null> {
+): Promise<EmployeeShell | null> {
   await requireRootAdmin();
   const employee = await resolveEmployee(employerId, employmentNumber);
   if (!employee) {
     return null;
   }
-  return `${employee.fullName} · ${employee.employmentNumber}`;
+  return {
+    fullName: employee.fullName,
+    employmentNumber: employee.employmentNumber,
+  };
+}
+
+export async function getEmployeeShellLabel(
+  employerId: number,
+  employmentNumber: string,
+): Promise<string | null> {
+  const shell = await getEmployeeShell(employerId, employmentNumber);
+  if (!shell) {
+    return null;
+  }
+  return `${shell.fullName} · ${shell.employmentNumber}`;
 }
 
 export async function requireResolvedEmployee(

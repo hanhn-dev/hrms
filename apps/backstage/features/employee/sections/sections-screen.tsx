@@ -1,3 +1,4 @@
+import { captureQueryScript } from "@hrms/db";
 import { Card } from "antd";
 import { SectionsPanel } from "@/features/employee/sections/sections-panel";
 import { getEmployeeSectionCounts } from "@/features/employee/sections/queries";
@@ -10,7 +11,10 @@ export async function EmployeeSectionsScreen({
   employerId: number;
   employmentNumber: string;
 }): Promise<React.JSX.Element> {
-  const rows = await getEmployeeSectionCounts(employerId, employmentNumber);
+  const loaded = await captureQueryScript(() =>
+    getEmployeeSectionCounts(employerId, employmentNumber),
+  );
+  const rows = loaded.result;
   const unavailable = rows.flatMap((row) =>
     row.missingObjects.map((objectName) => ({
       feature: row.label,
@@ -55,6 +59,7 @@ export async function EmployeeSectionsScreen({
         <SectionsPanel
           employerId={employerId}
           employmentNumber={employmentNumber}
+          queryScript={loaded.script}
           rows={rows}
         />
       </Card>

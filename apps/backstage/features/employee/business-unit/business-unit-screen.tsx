@@ -1,3 +1,4 @@
+import { captureQueryScript } from "@hrms/db";
 import { Alert, Card } from "antd";
 import { BusinessUnitSearchForm } from "@/features/employee/business-unit/business-unit-form";
 import { BusinessUnitTable } from "@/features/employee/business-unit/business-unit-table";
@@ -13,11 +14,10 @@ export async function EmployeeBusinessUnitScreen({
   employmentNumber: string;
   search: string;
 }): Promise<React.JSX.Element> {
-  const result = await listBusinessUnitEmployees(
-    employerId,
-    employmentNumber,
-    search,
+  const loaded = await captureQueryScript(() =>
+    listBusinessUnitEmployees(employerId, employmentNumber, search),
   );
+  const result = loaded.result;
 
   return (
     <>
@@ -55,6 +55,7 @@ export async function EmployeeBusinessUnitScreen({
           <BusinessUnitTable
             currentEmployeeId={result.currentEmployeeId}
             employerId={employerId}
+            queryScript={loaded.script}
             results={result.employees}
             search={search}
           />

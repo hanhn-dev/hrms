@@ -1,3 +1,4 @@
+import { captureQueryScript } from "@hrms/db";
 import { Card } from "antd";
 import { RoleGrantsTable, RolesTable } from "@/features/employer/roles/roles-tables";
 import { listRolePageGrants, listRoles } from "@/features/employer/roles/queries";
@@ -10,14 +11,14 @@ export async function RolesScreen({
   selectedRoleId: number | null;
 }): Promise<React.JSX.Element> {
   const [roles, grants] = await Promise.all([
-    listRoles(employerId),
-    listRolePageGrants(employerId, selectedRoleId),
+    captureQueryScript(() => listRoles(employerId)),
+    captureQueryScript(() => listRolePageGrants(employerId, selectedRoleId)),
   ]);
 
   return (
     <>
       <Card className="mb-4" title="Tenant roles">
-        <RolesTable employerId={employerId} roles={roles} />
+        <RolesTable employerId={employerId} queryScript={roles.script} roles={roles.result} />
       </Card>
       <Card
         title={
@@ -26,7 +27,7 @@ export async function RolesScreen({
             : "Select a role to see page grants"
         }
       >
-        <RoleGrantsTable grants={grants} />
+        <RoleGrantsTable grants={grants.result} queryScript={grants.script} />
       </Card>
     </>
   );

@@ -213,12 +213,16 @@ export const SECTION_RECORD_SPECS: readonly SectionRecordSpec[] = [
     tables: [
       {
         liveTable: "TEmployeeNominee_Details",
-        entityKeyColumn: "NomineeDetailId",
+        entityKeyColumn: "EmployeeNomineeId",
         employeeIdColumn: "EmployeeId",
         softDelete: { kind: "bit-null-or-zero", column: "IsDelete" },
         audit: {
-          updatedBy: "ModifiedBy",
-          updatedAtUtc: "ModifiedDateUtc",
+          createdBy: "CreatedBy",
+          createdAt: "CreatedDate",
+          createdAtUtc: "CreatedDateUtc",
+          updatedBy: "UpdatedBy",
+          updatedAt: "UpdatedDate",
+          updatedAtUtc: "UpdatedDateUtc",
         },
       },
     ],

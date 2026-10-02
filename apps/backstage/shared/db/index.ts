@@ -1,6 +1,6 @@
 import "server-only";
 import { cookies } from "next/headers";
-import { createHrmsDb, type HrmsDb } from "@hrms/db";
+import { createHrmsDb, queryCaptureGeneration, type HrmsDb } from "@hrms/db";
 import {
   ENVIRONMENT_COOKIE,
   getEnvironmentConfig,
@@ -20,7 +20,11 @@ export async function getHrmsDb(env?: string): Promise<HrmsDb> {
     ? resolveEnvironment(env)
     : await getSelectedEnvironment();
   const existing = clients.get(resolved);
-  if (existing) {
+  if (
+    existing &&
+    (existing as HrmsDb & { queryCaptureGeneration?: number }).queryCaptureGeneration ===
+      queryCaptureGeneration
+  ) {
     return existing;
   }
   const client = createHrmsDb(getEnvironmentConfig(resolved));
