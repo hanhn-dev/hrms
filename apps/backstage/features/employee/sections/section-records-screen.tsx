@@ -1,16 +1,10 @@
+import { Suspense } from "react";
 import { Alert } from "antd";
-import {
-  isCrudSectionId,
-  missingObjectName,
-  sectionRecordSpecForId,
-} from "@hrms/db";
-import { areWritesEnabled } from "@/shared/auth";
-import { getSelectedEnvironment } from "@/shared/db";
-import { Employee360Nav, MissingObjectAlert, PageHelp } from "@/shared/ui";
-import { getSectionRecordsPage } from "@/features/employee/sections/queries";
-import { SectionRecordsPanel } from "@/features/employee/sections/section-records-panel";
+import { isCrudSectionId, sectionRecordSpecForId } from "@hrms/db";
+import { SectionRecordsSlot } from "@/features/employee/sections/section-records-slots";
+import { Employee360Nav, PageHelp, SectionFallback } from "@/shared/ui";
 
-export async function SectionRecordsScreen({
+export function SectionRecordsScreen({
   employerId,
   employmentNumber,
   sectionId,
@@ -18,45 +12,10 @@ export async function SectionRecordsScreen({
   employerId: number;
   employmentNumber: string;
   sectionId: number;
-}): Promise<React.JSX.Element> {
-  const writesEnabled = areWritesEnabled(await getSelectedEnvironment());
+}): React.JSX.Element {
   const crud = isCrudSectionId(sectionId);
   const spec = sectionRecordSpecForId(sectionId);
-  let missingObject: string | null = null;
-  let page = {
-    fields: [] as Awaited<ReturnType<typeof getSectionRecordsPage>>["fields"],
-    records: [] as Awaited<ReturnType<typeof getSectionRecordsPage>>["records"],
-    pending: [] as Awaited<ReturnType<typeof getSectionRecordsPage>>["pending"],
-    label: spec?.label ?? `Section ${sectionId}`,
-    sectionName: spec?.sectionName ?? `Section ${sectionId}`,
-    crudSupported: false,
-    recordsScript: "",
-    pendingScript: "",
-  };
-  if (crud) {
-    try {
-      page = await getSectionRecordsPage({
-        employerId,
-        employmentNumber,
-        sectionId,
-      });
-    } catch (error) {
-      missingObject = missingObjectName(error);
-      if (!missingObject) {
-        throw error;
-      }
-    }
-  }
-
-  const tables = Array.from(
-    new Set(
-      (spec?.tables.map((t) => t.liveTable) ?? []).concat(
-        page.fields
-          .map((f) => f.dbTable)
-          .filter((t): t is string => t != null && t.trim() !== ""),
-      ),
-    ),
-  );
+  const label = spec?.label ?? `Section ${sectionId}`;
 
   return (
     <>
@@ -86,15 +45,8 @@ export async function SectionRecordsScreen({
           },
         ]}
       />
-      <Employee360Nav
-        employerId={employerId}
-        employmentNumber={employmentNumber}
-      />
-      {missingObject ? (
-        <MissingObjectAlert
-          items={[{ feature: page.label, objectName: missingObject }]}
-        />
-      ) : !crud ? (
+      <Employee360Nav employerId={employerId} employmentNumber={employmentNumber} />
+      {!crud ? (
         <Alert
           type="info"
           showIcon
@@ -102,19 +54,14 @@ export async function SectionRecordsScreen({
           description="Personal Details and Current Employment Details are deferred. Use the Sections summary for counts only."
         />
       ) : (
-        <SectionRecordsPanel
-          employerId={employerId}
-          employmentNumber={employmentNumber}
-          sectionId={sectionId}
-          label={page.label}
-          fields={page.fields}
-          records={page.records}
-          pending={page.pending}
-          pendingScript={page.pendingScript}
-          recordsScript={page.recordsScript}
-          writesEnabled={writesEnabled}
-          tables={tables.length > 0 ? tables : [spec!.tables[0]!.liveTable]}
-        />
+        <Suspense fallback={<SectionFallback title={`${label} records`} />}>
+          <SectionRecordsSlot
+            employerId={employerId}
+            employmentNumber={employmentNumber}
+            label={label}
+            sectionId={sectionId}
+          />
+        </Suspense>
       )}
     </>
   );

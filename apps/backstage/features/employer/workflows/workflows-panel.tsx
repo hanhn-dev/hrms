@@ -26,6 +26,66 @@ const STATUS_COLOR: Record<WorkflowListItem["status"], string> = {
   "not-defined": "default",
 };
 
+export function WorkflowsTabBar({
+  employerId,
+  tab,
+  writesEnabled,
+  children,
+}: {
+  employerId: number;
+  tab: WorkflowsTab;
+  writesEnabled: boolean;
+  children: React.ReactNode;
+}): React.JSX.Element {
+  const router = useRouter();
+  return (
+    <>
+      {tab === "requests" ? null : (
+        <div className="mb-4 flex justify-end">
+          <Button
+            disabled={!writesEnabled}
+            type="primary"
+            onClick={() => {
+              router.push(workflowHref(employerId, "new"));
+            }}
+          >
+            New workflow
+          </Button>
+        </div>
+      )}
+      <Tabs
+        activeKey={tab}
+        destroyOnHidden
+        onChange={(next) => {
+          router.push(workflowsHref(employerId, next as WorkflowsTab));
+        }}
+        items={[
+          {
+            key: "workflows",
+            label: "Workflows",
+            children: tab === "workflows" ? children : null,
+          },
+          {
+            key: "pages",
+            label: "Pages",
+            children: tab === "pages" ? children : null,
+          },
+          {
+            key: "groups",
+            label: "Groups",
+            children: tab === "groups" ? children : null,
+          },
+          {
+            key: "requests",
+            label: "Requests",
+            children: tab === "requests" ? children : null,
+          },
+        ]}
+      />
+    </>
+  );
+}
+
 export function WorkflowsPanel({
   employerId,
   tab,
@@ -107,7 +167,7 @@ export function WorkflowsPanel({
   return (
     <>
       {tab === "requests" ? null : (
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <div className="mb-4">
           <Input.Search
             allowClear
             className="max-w-sm"
@@ -117,29 +177,12 @@ export function WorkflowsPanel({
               setSearch(event.target.value);
             }}
           />
-          <Button
-            disabled={!writesEnabled}
-            type="primary"
-            onClick={() => {
-              router.push(workflowHref(employerId, "new"));
-            }}
-          >
-            New workflow
-          </Button>
         </div>
       )}
-      <Tabs
-        activeKey={tab}
-        destroyOnHidden
-        onChange={(next) => {
-          router.push(workflowsHref(employerId, next as WorkflowsTab));
-        }}
-        items={[
-          {
-            key: "workflows",
-            label: `Workflows (${workflows.length})`,
-            children: (
-              <DataTable
+      {tab === "workflows" ? (
+        <>
+          <p className="mb-3 text-slate-600">{visibleWorkflows.length} workflows</p>
+          <DataTable
                 queryScript={workflowsScript}
                 rowKey="workflowId"
                 dataSource={visibleWorkflows}
@@ -187,15 +230,13 @@ export function WorkflowsPanel({
                   { title: "Locations", dataIndex: "locationNames" },
                   { title: "Business units", dataIndex: "businessUnitNames" },
                 ]}
-              />
-            ),
-          },
-          {
-            key: "pages",
-            label: `Pages (${pages.length})`,
-            children: (
-              <>
-                <FocusNote
+          />
+        </>
+      ) : null}
+      {tab === "pages" ? (
+        <>
+          <p className="mb-3 text-slate-600">{visiblePages.length} pages</p>
+          <FocusNote
                   clearLabel="All pages"
                   missing={pageMissing}
                   missingTitle={pageName ? `No page named ${pageName}.` : null}
@@ -259,16 +300,13 @@ export function WorkflowsPanel({
                       value ? <Tag color="blue">Employer 0</Tag> : "",
                   },
                 ]}
-              />
-              </>
-            ),
-          },
-          {
-            key: "groups",
-            label: `Groups (${groups.length})`,
-            children: (
-              <>
-                <FocusNote
+          />
+        </>
+      ) : null}
+      {tab === "groups" ? (
+        <>
+          <p className="mb-3 text-slate-600">{visibleGroups.length} groups</p>
+          <FocusNote
                   clearLabel="All groups"
                   missing={groupMissing}
                   missingTitle={groupId != null ? `No group with id ${groupId}.` : null}
@@ -346,25 +384,21 @@ export function WorkflowsPanel({
                       ) : null,
                   },
                 ]}
-              />
-              </>
-            ),
-          },
-          {
-            key: "requests",
-            label: `Requests (${changeRequests.length})`,
-            children: (
-              <ChangeRequestPanel
-                employerId={employerId}
-                queryScript={changeRequestsScript}
-                requestId={requestId}
-                requests={changeRequests}
-                writesEnabled={writesEnabled}
-              />
-            ),
-          },
-        ]}
-      />
+          />
+        </>
+      ) : null}
+      {tab === "requests" ? (
+        <>
+          <p className="mb-3 text-slate-600">{changeRequests.length} requests</p>
+          <ChangeRequestPanel
+            employerId={employerId}
+            queryScript={changeRequestsScript}
+            requestId={requestId}
+            requests={changeRequests}
+            writesEnabled={writesEnabled}
+          />
+        </>
+      ) : null}
     </>
   );
 }

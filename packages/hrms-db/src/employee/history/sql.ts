@@ -1,4 +1,4 @@
-import { Prisma } from "../../generated/prisma/client";
+import { Prisma } from "../../generated/prisma/client.ts";
 
 const SQL_IDENT = /^[A-Za-z_][A-Za-z0-9_]*$/;
 

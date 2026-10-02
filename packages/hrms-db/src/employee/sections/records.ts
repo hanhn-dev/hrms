@@ -11,10 +11,12 @@ import {
 } from "./record-registry";
 import { softDeleteActiveSql } from "./sql";
 import {
-  applyRelationshipLabels,
-  collectRelationshipIds,
-  relationshipDisplayTexts,
-} from "./relationship-labels";
+  sectionLookupQuery,
+  sectionLookupRefs,
+  type SectionLookupRef,
+} from "./section-lookups";
+
+export type { SectionLookupRef } from "./section-lookups";
 
 export type SectionRecordRow = {
   /** Stable key for UI: `${liveTable}:${entityKey}` */
@@ -22,6 +24,7 @@ export type SectionRecordRow = {
   liveTable: string;
   entityKey: number;
   values: Record<string, string | number | boolean | null>;
+  lookups: Record<string, SectionLookupRef>;
 };
 
 function formatCellValue(value: unknown): string | number | boolean | null {
@@ -52,24 +55,28 @@ async function listRecordsForTable(
       f.dbColumn.trim() !== "",
   );
 
+  const source = sqlIdent("src");
   const selectParts: Prisma.Sql[] = [
-    Prisma.sql`${sqlIdent(input.table.entityKeyColumn)} AS [__EntityKey]`,
+    Prisma.sql`${source}.${sqlIdent(input.table.entityKeyColumn)} AS [__EntityKey]`,
   ];
   const aliasByFieldId = new Map<number, string>();
   for (const field of tableFields) {
     const alias = `f_${field.fieldId}`;
     aliasByFieldId.set(field.fieldId, alias);
     selectParts.push(
-      Prisma.sql`${sqlIdent(field.dbColumn!)} AS ${sqlIdent(alias)}`,
+      Prisma.sql`${source}.${sqlIdent(field.dbColumn!)} AS ${sqlIdent(alias)}`,
     );
   }
+  const lookupQuery = sectionLookupQuery(input.table.liveTable, tableFields);
+  selectParts.push(...lookupQuery.selects);
 
   const rows = await db.$queryRaw<Array<Record<string, unknown>>>`
     SELECT ${Prisma.join(selectParts)}
-    FROM ${sqlTable(input.table.liveTable)}
-    WHERE ${sqlIdent(input.table.employeeIdColumn)} = ${input.employeeId}
-      AND ${softDeleteActiveSql(input.table.softDelete)}
-    ORDER BY ${sqlIdent(input.table.entityKeyColumn)}
+    FROM ${sqlTable(input.table.liveTable)} AS ${source}
+    ${lookupQuery.joins}
+    WHERE ${source}.${sqlIdent(input.table.employeeIdColumn)} = ${input.employeeId}
+      AND ${softDeleteActiveSql(input.table.softDelete, "src")}
+    ORDER BY ${source}.${sqlIdent(input.table.entityKeyColumn)}
   `;
 
   return rows.map((row) => {
@@ -89,11 +96,29 @@ async function listRecordsForTable(
         )?.[1];
       values[field.displayText] = formatCellValue(raw);
     }
+    const labelByField = new Map<string, string | null>();
+    for (const binding of lookupQuery.bindings) {
+      const field = tableFields.find((item) => item.fieldId === binding.fieldId);
+      if (!field) continue;
+      const raw =
+        row[binding.alias] ??
+        Object.entries(row).find(
+          ([key]) => key.toLowerCase() === binding.alias.toLowerCase(),
+        )?.[1];
+      const label = raw == null ? null : String(raw).trim();
+      labelByField.set(field.displayText, label === "" ? null : label);
+    }
     return {
       recordKey: `${input.table.liveTable}:${entityKey}`,
       liveTable: input.table.liveTable,
       entityKey,
       values,
+      lookups: sectionLookupRefs({
+        liveTable: input.table.liveTable,
+        fields: tableFields,
+        values,
+        labelByField,
+      }),
     };
   });
 }
@@ -133,42 +158,10 @@ export async function listSectionRecords(
     records.push(...tableRecords);
   }
 
-  const relationshipTexts = relationshipDisplayTexts(fields);
-  const relationshipIds = collectRelationshipIds(records, relationshipTexts);
-  if (relationshipIds.length > 0) {
-    const labels = await loadRelationshipLabels(db, relationshipIds);
-    return {
-      fields,
-      records: applyRelationshipLabels(records, relationshipTexts, labels),
-      label: spec.label,
-      sectionName: spec.sectionName,
-    };
-  }
-
   return {
     fields,
     records,
     label: spec.label,
     sectionName: spec.sectionName,
   };
-}
-
-async function loadRelationshipLabels(
-  db: HrmsDb,
-  ids: number[],
-): Promise<Map<number, string>> {
-  const rows = await db.$queryRaw<
-    Array<{ ID: number | bigint; Relationship: string | null }>
-  >`
-    SELECT ID, Relationship
-    FROM dbo.TEmergencyRelationship
-    WHERE ID IN (${Prisma.join(ids)})
-  `;
-  const labels = new Map<number, string>();
-  for (const row of rows) {
-    const id = asNumber(row.ID);
-    const name = row.Relationship?.trim();
-    if (id != null && name) labels.set(id, name);
-  }
-  return labels;
 }

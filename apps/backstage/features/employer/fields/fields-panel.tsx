@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Alert, Button, Collapse, Input, Select, Tabs, Tag } from "antd";
 import { DataTable } from "@/shared/ui/data-table";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { fieldsHref, type FieldSource } from "@/features/employer/fields/fields-source";
 import {
   commitUpdateFieldRow,
@@ -30,6 +30,53 @@ const KNOWN_ENTITIES = [
   "Segment",
   "BulkCreation",
 ];
+
+export function FieldsTabBar({
+  source,
+  employerId,
+  section,
+  field,
+  children,
+}: {
+  source: FieldSource;
+  employerId: number;
+  section: string | null;
+  field: string | null;
+  children: React.ReactNode;
+}): React.JSX.Element {
+  const router = useRouter();
+  return (
+    <Tabs
+      activeKey={source}
+      onChange={(next) => {
+        router.push(
+          fieldsHref(employerId, {
+            source: next as FieldSource,
+            section,
+            field,
+          }),
+        );
+      }}
+      items={[
+        {
+          key: "employer",
+          label: "Employer fields",
+          children: source === "employer" ? children : null,
+        },
+        {
+          key: "template",
+          label: "Template",
+          children: source === "template" ? children : null,
+        },
+        {
+          key: "compare",
+          label: "Compare",
+          children: source === "compare" ? children : null,
+        },
+      ]}
+    />
+  );
+}
 
 export function FieldsPanel({
   employerFields,
@@ -59,7 +106,6 @@ export function FieldsPanel({
   compareScript: string;
 }): React.JSX.Element {
   const router = useRouter();
-  const pathname = usePathname();
   const sectionKnown = useMemo(() => {
     if (!section) {
       return false;
@@ -161,59 +207,48 @@ export function FieldsPanel({
           title={`Section: ${section}${highlightField ? ` · ${highlightField}` : ""}`}
         />
       ) : null}
-      <Tabs
-        activeKey={source}
-        onChange={(next) => {
-          router.push(`${pathname}?source=${next}`);
-        }}
-        items={[
-          {
-            key: "employer",
-            label: `Employer fields (${employerFields.length})`,
-            children: (
-              <SectionedFields
-                emptyText="No employer fields match the current filters."
-                employerId={employerId}
-                fieldTypes={fieldTypes}
-                fields={visibleEmployer}
-                highlightField={highlightField}
-                openSections={sectionKnown}
-                pinFocus={source === "employer"}
-                queryScript={employerScript}
-                writesEnabled={writesEnabled}
-              />
-            ),
-          },
-          {
-            key: "template",
-            label: `Template (${templateFields.length})`,
-            children: (
-              <SectionedFields
-                emptyText="No template fields match the current filters."
-                fields={visibleTemplate}
-                highlightField={highlightField}
-                openSections={sectionKnown}
-                pinFocus={source === "template"}
-                queryScript={templateScript}
-              />
-            ),
-          },
-          {
-            key: "compare",
-            label: `Compare (${compared.length})`,
-            children: (
-              <SectionedCompare
-                emptyText="No template vs employer differences match the current filters."
-                highlightField={highlightField}
-                openSections={sectionKnown}
-                pinFocus={source === "compare"}
-                queryScript={compareScript}
-                rows={visibleCompared}
-              />
-            ),
-          },
-        ]}
-      />
+      {source === "employer" ? (
+        <>
+          <p className="mb-3 text-slate-600">{visibleEmployer.length} fields</p>
+          <SectionedFields
+          emptyText="No employer fields match the current filters."
+          employerId={employerId}
+          fieldTypes={fieldTypes}
+          fields={visibleEmployer}
+          highlightField={highlightField}
+          openSections={sectionKnown}
+          pinFocus
+          queryScript={employerScript}
+          writesEnabled={writesEnabled}
+        />
+        </>
+      ) : null}
+      {source === "template" ? (
+        <>
+          <p className="mb-3 text-slate-600">{visibleTemplate.length} fields</p>
+          <SectionedFields
+          emptyText="No template fields match the current filters."
+          fields={visibleTemplate}
+          highlightField={highlightField}
+          openSections={sectionKnown}
+          pinFocus
+          queryScript={templateScript}
+        />
+        </>
+      ) : null}
+      {source === "compare" ? (
+        <>
+          <p className="mb-3 text-slate-600">{visibleCompared.length} differences</p>
+          <SectionedCompare
+            emptyText="No template vs employer differences match the current filters."
+            highlightField={highlightField}
+            openSections={sectionKnown}
+            pinFocus
+            queryScript={compareScript}
+            rows={visibleCompared}
+          />
+        </>
+      ) : null}
     </>
   );
 }

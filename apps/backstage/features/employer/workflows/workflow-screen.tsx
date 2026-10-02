@@ -1,15 +1,9 @@
+import { Suspense } from "react";
 import { Alert } from "antd";
-import { WorkflowPanel } from "@/features/employer/workflows/workflow-panel";
-import {
-  getWorkflow,
-  listMappablePages,
-  listWorkflowBusinessUnits,
-  listWorkflowGroups,
-  listWorkflowLocations,
-  listWorkflowModules,
-} from "@/features/employer/workflows/queries";
-import { areWritesEnabled } from "@/shared/auth";
-import { getSelectedEnvironment } from "@/shared/db";
+import { WorkflowHeading } from "@/features/employer/workflows/workflow-panel";
+import { WorkflowEditorSlot } from "@/features/employer/workflows/workflow-slots";
+import { getWorkflow } from "@/features/employer/workflows/queries";
+import { SectionFallback } from "@/shared/ui/section-fallback";
 import { PageHelp } from "@/shared/ui/shell-header-context";
 
 export async function WorkflowScreen({
@@ -19,15 +13,7 @@ export async function WorkflowScreen({
   employerId: number;
   workflowId: number | "new";
 }): Promise<React.JSX.Element> {
-  const [workflow, pages, groups, locations, businessUnits, modules] = await Promise.all([
-    workflowId === "new" ? Promise.resolve(null) : getWorkflow(employerId, workflowId),
-    listMappablePages(employerId),
-    listWorkflowGroups(employerId),
-    listWorkflowLocations(employerId),
-    listWorkflowBusinessUnits(employerId),
-    listWorkflowModules(employerId),
-  ]);
-
+  const workflow = workflowId === "new" ? null : await getWorkflow(employerId, workflowId);
   if (workflowId !== "new" && !workflow) {
     return <Alert showIcon type="error" title="Workflow was not found for this employer." />;
   }
@@ -53,16 +39,10 @@ export async function WorkflowScreen({
           },
         ]}
       />
-      <WorkflowPanel
-        businessUnits={businessUnits}
-        employerId={employerId}
-        groups={groups}
-        locations={locations}
-        modules={modules}
-        pages={pages}
-        workflow={workflow}
-        writesEnabled={areWritesEnabled(await getSelectedEnvironment())}
-      />
+      <WorkflowHeading employerId={employerId} workflow={workflow} />
+      <Suspense fallback={<SectionFallback title="Workflow editor" />}>
+        <WorkflowEditorSlot employerId={employerId} workflow={workflow} />
+      </Suspense>
     </>
   );
 }

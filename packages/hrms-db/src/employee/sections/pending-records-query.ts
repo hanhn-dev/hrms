@@ -11,6 +11,10 @@ import {
 } from "./pending-records";
 import { sectionRecordSpecForId } from "./record-registry";
 import type { SectionRecordRow } from "./records";
+import {
+  loadSectionLookupLabels,
+  withSectionLookups,
+} from "./section-lookups";
 
 type DetailQueryRow = {
   ChangeRequestId: number | bigint;
@@ -73,7 +77,7 @@ export async function listPendingSectionRecords(
     ORDER BY Header.ChangeRequestId DESC, Detail.ChangeDetailsId ASC
   `;
 
-  return groupPendingSectionRecords({
+  const pending = groupPendingSectionRecords({
     tables: spec.tables.map((table) => table.liveTable),
     fields: input.fields,
     liveRecords: input.liveRecords,
@@ -96,4 +100,6 @@ export async function listPendingSectionRecords(
       ];
     }),
   });
+  const labels = await loadSectionLookupLabels(db, input.fields, pending);
+  return withSectionLookups(input.fields, pending, labels);
 }

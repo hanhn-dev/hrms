@@ -4,26 +4,38 @@ import { parseEmployerId } from "../../shared/ids";
 import { assertSqlIdent, sqlIdent, sqlTable } from "../history/sql";
 import type { SoftDeleteSpec } from "./record-registry";
 
-export function softDeleteActiveSql(softDelete: SoftDeleteSpec): Prisma.Sql {
+function qualifiedIdent(name: string, qualifier?: string): Prisma.Sql {
+  return qualifier
+    ? Prisma.sql`${sqlIdent(qualifier)}.${sqlIdent(name)}`
+    : sqlIdent(name);
+}
+
+export function softDeleteActiveSql(
+  softDelete: SoftDeleteSpec,
+  qualifier?: string,
+): Prisma.Sql {
   switch (softDelete.kind) {
     case "yn": {
-      const col = sqlIdent(softDelete.column);
+      const col = qualifiedIdent(softDelete.column, qualifier);
       return Prisma.sql`(${col} IS NULL OR ${col} = N'N')`;
     }
     case "bit-null-or-zero": {
-      const col = sqlIdent(softDelete.column);
+      const col = qualifiedIdent(softDelete.column, qualifier);
       return Prisma.sql`(${col} IS NULL OR ${col} = 0)`;
     }
     case "bit-zero": {
-      const col = sqlIdent(softDelete.column);
+      const col = qualifiedIdent(softDelete.column, qualifier);
       return Prisma.sql`${col} = 0`;
     }
     case "bit-null": {
-      const col = sqlIdent(softDelete.column);
+      const col = qualifiedIdent(softDelete.column, qualifier);
       return Prisma.sql`${col} IS NULL`;
     }
-    case "bank":
-      return Prisma.sql`ISNULL([Show], 1) = 1 AND ISNULL([IsDelete], 0) = 0`;
+    case "bank": {
+      const show = qualifiedIdent("Show", qualifier);
+      const deleted = qualifiedIdent("IsDelete", qualifier);
+      return Prisma.sql`ISNULL(${show}, 1) = 1 AND ISNULL(${deleted}, 0) = 0`;
+    }
     case "none":
       return Prisma.sql`1 = 1`;
   }

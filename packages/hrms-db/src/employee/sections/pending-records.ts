@@ -1,5 +1,5 @@
 import type { SectionFormField } from "./form-fields";
-import type { SectionRecordRow } from "./records";
+import type { SectionLookupRef, SectionRecordRow } from "./records";
 
 export type PendingSectionStatus = "ADDED" | "UPDATED" | "DELETED";
 
@@ -24,6 +24,7 @@ export type PendingSectionRow = {
   childRowId: number | null;
   status: PendingSectionStatus;
   values: Record<string, string | number | boolean | null>;
+  lookups: Record<string, SectionLookupRef>;
 };
 
 const DELETE_FIELDS = new Set(["action", "isdelete", "isdeleted"]);
@@ -178,6 +179,7 @@ export function groupPendingSectionRecords(input: {
       childRowId: bucket.childRowId,
       status,
       values,
+      lookups: {},
     });
   }
 

@@ -1,14 +1,11 @@
-import { captureQueryScript } from "@hrms/db";
+import { Suspense } from "react";
 import { Alert, Card, Descriptions } from "antd";
+import { getEmployerSettings } from "@/features/employer/settings/queries";
 import {
-  getCustomerSettings,
-  getEmployerSettings,
-  listLicensedModules,
-} from "@/features/employer/settings/queries";
-import { CustomerSettingsPanel } from "@/features/employer/settings/settings-panel";
-import { areWritesEnabled } from "@/shared/auth";
-import { getSelectedEnvironment } from "@/shared/db";
-import { DataTable, HintIcon } from "@/shared/ui";
+  CustomerSettingsSlot,
+  LicensedModulesSlot,
+} from "@/features/employer/settings/settings-slots";
+import { HintIcon, SectionFallback } from "@/shared/ui";
 import { PageHelp } from "@/shared/ui/shell-header-context";
 
 export async function EmployerSettingsScreen({
@@ -16,12 +13,7 @@ export async function EmployerSettingsScreen({
 }: {
   employerId: number;
 }): Promise<React.JSX.Element> {
-  const [settings, modules, customerSettings] = await Promise.all([
-    getEmployerSettings(employerId),
-    captureQueryScript(() => listLicensedModules(employerId)),
-    getCustomerSettings(employerId),
-  ]);
-  const writesEnabled = areWritesEnabled(await getSelectedEnvironment());
+  const settings = await getEmployerSettings(employerId);
 
   if (!settings) {
     return <Alert showIcon type="error" title="Employer was not found." />;
@@ -124,27 +116,14 @@ export async function EmployerSettingsScreen({
           ]}
         />
       </Card>
-      <div className="mb-4">
-        <CustomerSettingsPanel
-          employerId={employerId}
-          settings={customerSettings}
-          writesEnabled={writesEnabled}
-        />
-      </div>
-      <Card title="Licensed modules">
-        <DataTable
-          queryScript={modules.script}
-          rowKey="moduleId"
-          dataSource={modules.result}
-          pagination={false}
-          size="small"
-          scroll={{ x: "max-content" }}
-          columns={[
-            { title: "ModuleId", dataIndex: "moduleId", width: 120 },
-            { title: "Name", dataIndex: "moduleName" },
-          ]}
-        />
-      </Card>
+      <Suspense fallback={<SectionFallback title="Customer settings" />}>
+        <CustomerSettingsSlot employerId={employerId} />
+      </Suspense>
+      <Suspense fallback={<SectionFallback title="Licensed modules" />}>
+        <Card title="Licensed modules">
+          <LicensedModulesSlot employerId={employerId} />
+        </Card>
+      </Suspense>
     </>
   );
 }

@@ -63,6 +63,7 @@ const liveRow: SectionRecordRow = {
   liveTable: "TEmployeeFamilyDetails",
   entityKey: 88,
   values: { Name: "Ada", Relationship: "Spouse" },
+  lookups: {},
 };
 
 describe("groupPendingSectionRecords", () => {

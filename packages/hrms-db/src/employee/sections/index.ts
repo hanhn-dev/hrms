@@ -15,7 +15,11 @@ export {
   type SoftDeleteSpec,
 } from "./record-registry";
 export { listSectionFormFields, type SectionFormField } from "./form-fields";
-export { listSectionRecords, type SectionRecordRow } from "./records";
+export { listSectionRecords, type SectionLookupRef, type SectionRecordRow } from "./records";
+export {
+  getSectionLookupRow,
+  type SectionLookupDetail,
+} from "./section-lookups";
 export {
   groupPendingSectionRecords,
   type PendingSectionDetail,

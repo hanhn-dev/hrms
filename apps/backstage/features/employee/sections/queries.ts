@@ -9,6 +9,7 @@ import {
   type EmployeeSectionCount,
   type PendingSectionRow,
   type SectionFormField,
+  type SectionLookupRef,
   type SectionRecordRow,
 } from "@hrms/db";
 import { requireRootAdmin } from "@/shared/auth";
@@ -18,6 +19,7 @@ export type {
   EmployeeSectionCount,
   PendingSectionRow,
   SectionFormField,
+  SectionLookupRef,
   SectionRecordRow,
 };
 
@@ -31,6 +33,46 @@ export async function getEmployeeSectionCounts(
     employerId,
     employmentNumber,
   );
+}
+
+export type SectionRecordsLoad = {
+  fields: SectionFormField[];
+  records: SectionRecordRow[];
+  label: string;
+  sectionName: string;
+  recordsScript: string;
+};
+
+export async function loadSectionRecords(input: {
+  employerId: number;
+  employmentNumber: string;
+  sectionId: number;
+}): Promise<SectionRecordsLoad> {
+  await requireRootAdmin();
+  const db = await getHrmsDb();
+  const recordsLoaded = await captureQueryScript(() => listSectionRecords(db, input));
+  return {
+    ...recordsLoaded.result,
+    recordsScript: recordsLoaded.script,
+  };
+}
+
+export async function loadPendingSectionRecords(input: {
+  employerId: number;
+  employmentNumber: string;
+  sectionId: number;
+  fields: SectionFormField[];
+  liveRecords: SectionRecordRow[];
+}): Promise<{ pending: PendingSectionRow[]; pendingScript: string }> {
+  await requireRootAdmin();
+  const db = await getHrmsDb();
+  const pendingLoaded = await captureQueryScript(() =>
+    listPendingSectionRecords(db, input),
+  );
+  return {
+    pending: pendingLoaded.result,
+    pendingScript: pendingLoaded.script,
+  };
 }
 
 export async function getSectionRecordsPage(input: {
@@ -61,24 +103,17 @@ export async function getSectionRecordsPage(input: {
       pendingScript: "",
     };
   }
-  const db = await getHrmsDb();
-  const recordsLoaded = await captureQueryScript(() => listSectionRecords(db, input));
-  const data = recordsLoaded.result;
-  const pendingLoaded = await captureQueryScript(() =>
-    listPendingSectionRecords(db, {
-      employerId: input.employerId,
-      employmentNumber: input.employmentNumber,
-      sectionId: input.sectionId,
-      fields: data.fields,
-      liveRecords: data.records,
-    }),
-  );
+  const records = await loadSectionRecords(input);
+  const pending = await loadPendingSectionRecords({
+    ...input,
+    fields: records.fields,
+    liveRecords: records.records,
+  });
   return {
-    ...data,
-    pending: pendingLoaded.result,
+    ...records,
+    pending: pending.pending,
     crudSupported: true,
-    recordsScript: recordsLoaded.script,
-    pendingScript: pendingLoaded.script,
+    pendingScript: pending.pendingScript,
   };
 }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { Alert, Button, Card, Descriptions, Listy, Modal, Segmented, Tag } from "antd";
+import { Alert, Button, Card, Descriptions, List, Modal, Segmented, Tag } from "antd";
 import { DataTable } from "@/shared/ui/data-table";
 import Link from "next/link";
 import { useState } from "react";
@@ -38,79 +38,13 @@ function FieldChip({ field }: { field: string }): React.JSX.Element {
   return <Tag color="blue">{field}</Tag>;
 }
 
-export function JobPanel({
+export function JobSummary({
   employerId,
   upload,
-  catalog,
-  mismatches,
-  errorClass,
-  selectedSectionId,
-  selectedUploadSectionId,
-  sectionData,
-  rowErrors,
-  batches,
-  selectedBatch,
-  executionErrors,
-  staging,
-  finalize,
-  liveRow,
-  stagingRow,
-  selectedEmployeeId,
-  employeeProfile,
-  employeeAccess,
-  employeeLogin,
-  employeeLoginAttempts,
-  employeeLoginScript,
-  writesEnabled,
-  sectionsScript,
-  batchesScript,
-  stagingScript,
-  sectionDataScript,
-  rowErrorsScript,
-  executionErrorsScript,
 }: {
   employerId: number;
   upload: UploadDetail;
-  catalog: UploadCatalog | null;
-  mismatches: UploadHeaderMismatch[];
-  errorClass: UploadErrorClass;
-  selectedSectionId: number | null;
-  selectedUploadSectionId: number | null;
-  sectionData: UploadSectionData | null;
-  rowErrors: UploadRowErrorResult | null;
-  batches: UploadBatchRow[];
-  selectedBatch: UploadBatchDetail | null;
-  executionErrors: UploadExecutionError[];
-  staging: CreationStagingSummary | null;
-  finalize: CreationFinalize | null;
-  liveRow: UploadLiveRow | null;
-  stagingRow: CreationStagingRow | null;
-  selectedEmployeeId: number | null;
-  employeeProfile: EmployeeProfile | null;
-  employeeAccess: Awaited<ReturnType<typeof getEmployeeAccess>> | null;
-  employeeLogin: EmployeeLoginInfo | null;
-  employeeLoginAttempts: FailedLoginAttempt[];
-  employeeLoginScript: string;
-  writesEnabled: boolean;
-  sectionsScript: string;
-  batchesScript: string;
-  stagingScript: string;
-  sectionDataScript: string;
-  rowErrorsScript: string;
-  executionErrorsScript: string;
 }): React.JSX.Element {
-  const router = useRouter();
-  const selectedSection =
-    upload.sections.find(
-      (section) => section.uploadSectionId === selectedUploadSectionId,
-    ) ??
-    upload.sections.find((section) => section.sectionId === selectedSectionId) ??
-    upload.sections[0] ??
-    null;
-  const mismatch = mismatches.find(
-    (item) => item.sectionId === selectedSection?.sectionId,
-  );
-
   return (
     <>
       <div className="mb-4">
@@ -196,7 +130,33 @@ export function JobPanel({
           />
         </div>
       </Card>
+    </>
+  );
+}
 
+export function JobSectionsCard({
+  employerId,
+  upload,
+  catalog,
+  mismatches,
+  errorClass,
+  selectedSection,
+  sectionsScript,
+}: {
+  employerId: number;
+  upload: UploadDetail;
+  catalog: UploadCatalog | null;
+  mismatches: UploadHeaderMismatch[];
+  errorClass: UploadErrorClass;
+  selectedSection: UploadSectionRollup | null;
+  sectionsScript: string;
+}): React.JSX.Element {
+  const mismatch = mismatches.find(
+    (item) => item.sectionId === selectedSection?.sectionId,
+  );
+
+  return (
+    <>
       <Card
         className="mb-4"
         title={`Sections in this upload (${upload.sectionCount})`}
@@ -282,15 +242,43 @@ export function JobPanel({
           />
         ) : null}
       </Card>
+      {catalog ? (
+        <div className="mb-4 text-sm">
+          <Link
+            href={`/employers/${employerId}/uploads?type=${catalog.type}${catalog.countryId ? `&countryId=${catalog.countryId}` : ""}`}
+          >
+            Open the catalog for this upload type
+          </Link>
+        </div>
+      ) : null}
+    </>
+  );
+}
 
-      <Card
-        className="mb-4"
-        title={
-          selectedSection
-            ? `${selectedSection.section ?? "Section"} · ${selectedSection.fieldCount} fields selected · ${selectedSection.total} rows`
-            : "Select a section to see its fields and data"
-        }
-      >
+export function JobSectionDataCard({
+  employerId,
+  upload,
+  errorClass,
+  selectedSection,
+  sectionData,
+  sectionDataScript,
+}: {
+  employerId: number;
+  upload: UploadDetail;
+  errorClass: UploadErrorClass;
+  selectedSection: UploadSectionRollup | null;
+  sectionData: UploadSectionData | null;
+  sectionDataScript: string;
+}): React.JSX.Element {
+  return (
+    <Card
+      className="mb-4"
+      title={
+        selectedSection
+          ? `${selectedSection.section ?? "Section"} · ${selectedSection.fieldCount} fields selected · ${selectedSection.total} rows`
+          : "Select a section to see its fields and data"
+      }
+    >
         {selectedSection ? (
           <>
             <div className="mb-3 flex flex-wrap gap-1">
@@ -318,11 +306,34 @@ export function JobPanel({
         ) : (
           <p className="text-slate-500">This upload has no TEmployeeDetail_Upload_Section rows.</p>
         )}
-      </Card>
+    </Card>
+  );
+}
 
-      <Card className="mb-4" title="Classified row errors">
-        <div className="mb-3">
-          <Segmented
+export function JobRowErrorsCard({
+  employerId,
+  upload,
+  errorClass,
+  selectedSection,
+  rowErrors,
+  rowErrorsScript,
+  executionErrors,
+  executionErrorsScript,
+}: {
+  employerId: number;
+  upload: UploadDetail;
+  errorClass: UploadErrorClass;
+  selectedSection: UploadSectionRollup | null;
+  rowErrors: UploadRowErrorResult | null;
+  rowErrorsScript: string;
+  executionErrors: UploadExecutionError[];
+  executionErrorsScript: string;
+}): React.JSX.Element {
+  const router = useRouter();
+  return (
+    <Card className="mb-4" title="Classified row errors">
+      <div className="mb-3">
+        <Segmented
             value={errorClass}
             options={[
               { label: `Validation (${upload.invalid})`, value: "validation" },
@@ -351,8 +362,42 @@ export function JobPanel({
             upload={upload}
           />
         )}
-      </Card>
+    </Card>
+  );
+}
 
+export function JobEmployeeSlot({
+  employerId,
+  upload,
+  errorClass,
+  selectedSection,
+  liveRow,
+  stagingRow,
+  selectedEmployeeId,
+  employeeProfile,
+  employeeAccess,
+  employeeLogin,
+  employeeLoginAttempts,
+  employeeLoginScript,
+  writesEnabled,
+}: {
+  employerId: number;
+  upload: UploadDetail;
+  errorClass: UploadErrorClass;
+  selectedSection: UploadSectionRollup | null;
+  liveRow: UploadLiveRow | null;
+  stagingRow: CreationStagingRow | null;
+  selectedEmployeeId: number | null;
+  employeeProfile: EmployeeProfile | null;
+  employeeAccess: Awaited<ReturnType<typeof getEmployeeAccess>> | null;
+  employeeLogin: EmployeeLoginInfo | null;
+  employeeLoginAttempts: FailedLoginAttempt[];
+  employeeLoginScript: string;
+  writesEnabled: boolean;
+}): React.JSX.Element {
+  const router = useRouter();
+  return (
+    <>
       {liveRow || stagingRow ? (
         <Card className="mb-4" title="Selected row data">
           {liveRow ? (
@@ -419,8 +464,48 @@ export function JobPanel({
           ) : null}
         </Card>
       ) : null}
+      <UploadEmployeeModal
+        employerId={employerId}
+        open={selectedEmployeeId != null}
+        liveRow={liveRow}
+        profile={employeeProfile}
+        access={employeeAccess}
+        login={employeeLogin}
+        attempts={employeeLoginAttempts}
+        loginScript={employeeLoginScript}
+        writesEnabled={writesEnabled}
+        onClose={() => {
+          router.push(
+            uploadDetailHref(employerId, upload.uploadId, {
+              section: selectedSection?.uploadSectionId,
+              error: errorClass,
+            }),
+          );
+        }}
+      />
+    </>
+  );
+}
 
-      <Card className="mb-4" title="Batches">
+export function JobBatchesCard({
+  employerId,
+  upload,
+  errorClass,
+  selectedSection,
+  batches,
+  batchesScript,
+  selectedBatch,
+}: {
+  employerId: number;
+  upload: UploadDetail;
+  errorClass: UploadErrorClass;
+  selectedSection: UploadSectionRollup | null;
+  batches: UploadBatchRow[];
+  batchesScript: string;
+  selectedBatch: UploadBatchDetail | null;
+}): React.JSX.Element {
+  return (
+    <Card className="mb-4" title="Batches">
         <DataTable
           queryScript={batchesScript}
           rowKey="processedBatchResultId"
@@ -474,10 +559,29 @@ export function JobPanel({
             </div>
           </div>
         ) : null}
-      </Card>
+    </Card>
+  );
+}
 
-      {staging ? (
-        <Card className="mb-4" title="Creation staging">
+export function JobStagingCard({
+  employerId,
+  upload,
+  errorClass,
+  selectedSection,
+  staging,
+  stagingScript,
+  finalize,
+}: {
+  employerId: number;
+  upload: UploadDetail;
+  errorClass: UploadErrorClass;
+  selectedSection: UploadSectionRollup | null;
+  staging: CreationStagingSummary;
+  stagingScript: string;
+  finalize: CreationFinalize | null;
+}): React.JSX.Element {
+  return (
+    <Card className="mb-4" title="Creation staging">
           <p className="mb-3 text-slate-600">
             {staging.stagingCount} staging rows · {staging.orphanCount} orphans (email in
             staging, no TEmployee yet)
@@ -545,39 +649,7 @@ export function JobPanel({
           ) : (
             <p className="mt-3 text-slate-500">No finalize row for this upload.</p>
           )}
-        </Card>
-      ) : null}
-
-      <UploadEmployeeModal
-        employerId={employerId}
-        open={selectedEmployeeId != null}
-        liveRow={liveRow}
-        profile={employeeProfile}
-        access={employeeAccess}
-        login={employeeLogin}
-        attempts={employeeLoginAttempts}
-        loginScript={employeeLoginScript}
-        writesEnabled={writesEnabled}
-        onClose={() => {
-          router.push(
-            uploadDetailHref(employerId, upload.uploadId, {
-              section: selectedSection?.uploadSectionId,
-              error: errorClass,
-            }),
-          );
-        }}
-      />
-
-      {catalog ? (
-        <div className="text-sm">
-          <Link
-            href={`/employers/${employerId}/uploads?type=${catalog.type}${catalog.countryId ? `&countryId=${catalog.countryId}` : ""}`}
-          >
-            Open the catalog for this upload type
-          </Link>
-        </div>
-      ) : null}
-    </>
+    </Card>
   );
 }
 
@@ -768,10 +840,11 @@ function RowErrorList({ errors }: { errors: string[] }): React.JSX.Element {
     text,
   }));
   return (
-    <Listy
-      items={items}
+    <List
+      dataSource={items}
       rowKey="key"
-      itemRender={(item) => item.text}
+      renderItem={(item) => <List.Item>{item.text}</List.Item>}
+      size="small"
     />
   );
 }

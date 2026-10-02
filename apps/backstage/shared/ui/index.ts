@@ -21,6 +21,7 @@ export { HighlightMatch, useSearchQuery } from "./highlight-match";
 export { HintIcon } from "./hint-icon";
 export { MissingObjectAlert } from "./missing-object-alert";
 export { SearchSelect } from "./search-select";
+export { SectionFallback } from "./section-fallback";
 export { PageHelpTrigger, type PageHelpNote } from "./page-help";
 export { PageHeader } from "./page-header";
 export { writesHelpNote } from "./writes-help-note";

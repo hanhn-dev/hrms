@@ -1,34 +1,32 @@
-import { captureQueryScript } from "@hrms/db";
-import { Card } from "antd";
-import { RoleGrantsTable, RolesTable } from "@/features/employer/roles/roles-tables";
-import { listRolePageGrants, listRoles } from "@/features/employer/roles/queries";
+import { Suspense } from "react";
+import { RoleGrantsSlot, RolesListSlot } from "@/features/employer/roles/roles-slots";
+import { SectionFallback } from "@/shared/ui/section-fallback";
 
-export async function RolesScreen({
+export function RolesScreen({
   employerId,
   selectedRoleId,
 }: {
   employerId: number;
   selectedRoleId: number | null;
-}): Promise<React.JSX.Element> {
-  const [roles, grants] = await Promise.all([
-    captureQueryScript(() => listRoles(employerId)),
-    captureQueryScript(() => listRolePageGrants(employerId, selectedRoleId)),
-  ]);
-
+}): React.JSX.Element {
   return (
     <>
-      <Card className="mb-4" title="Tenant roles">
-        <RolesTable employerId={employerId} queryScript={roles.script} roles={roles.result} />
-      </Card>
-      <Card
-        title={
-          selectedRoleId
-            ? `Page grants for role ${selectedRoleId}`
-            : "Select a role to see page grants"
+      <Suspense fallback={<SectionFallback title="Tenant roles" />}>
+        <RolesListSlot employerId={employerId} />
+      </Suspense>
+      <Suspense
+        fallback={
+          <SectionFallback
+            title={
+              selectedRoleId
+                ? `Page grants for role ${selectedRoleId}`
+                : "Select a role to see page grants"
+            }
+          />
         }
       >
-        <RoleGrantsTable grants={grants.result} queryScript={grants.script} />
-      </Card>
+        <RoleGrantsSlot employerId={employerId} selectedRoleId={selectedRoleId} />
+      </Suspense>
     </>
   );
 }

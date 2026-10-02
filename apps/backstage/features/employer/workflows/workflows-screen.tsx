@@ -1,16 +1,21 @@
-import { captureQueryScript } from "@hrms/db";
-import { WorkflowsPanel } from "@/features/employer/workflows/workflows-panel";
-import type { WorkflowsTab } from "@/features/employer/workflows/workflows-source";
+import { Suspense } from "react";
+import { WorkflowsTabBar } from "@/features/employer/workflows/workflows-panel";
 import {
-  getWorkflowSettings,
-  listChangeRequests,
-  listWorkflowGroups,
-  listWorkflowPages,
-  listWorkflows,
-} from "@/features/employer/workflows/queries";
+  WorkflowPartialNote,
+  WorkflowsTabSlot,
+} from "@/features/employer/workflows/workflows-slots";
+import type { WorkflowsTab } from "@/features/employer/workflows/workflows-source";
 import { areWritesEnabled } from "@/shared/auth";
 import { getSelectedEnvironment } from "@/shared/db";
+import { SectionFallback } from "@/shared/ui/section-fallback";
 import { PageHelp } from "@/shared/ui/shell-header-context";
+
+const TAB_TITLE: Record<WorkflowsTab, string> = {
+  workflows: "Workflows",
+  pages: "Pages",
+  groups: "Groups",
+  requests: "Requests",
+};
 
 export async function WorkflowsScreen({
   employerId,
@@ -25,13 +30,6 @@ export async function WorkflowsScreen({
   groupId: number | null;
   requestId: number | null;
 }): Promise<React.JSX.Element> {
-  const [workflows, pages, groups, settings, changeRequests] = await Promise.all([
-    captureQueryScript(() => listWorkflows(employerId)),
-    captureQueryScript(() => listWorkflowPages(employerId)),
-    captureQueryScript(() => listWorkflowGroups(employerId)),
-    getWorkflowSettings(employerId),
-    captureQueryScript(() => listChangeRequests(employerId)),
-  ]);
   const writesEnabled = areWritesEnabled(await getSelectedEnvironment());
 
   return (
@@ -39,21 +37,6 @@ export async function WorkflowsScreen({
       <PageHelp
         source="workflows"
         notes={[
-          settings.allowPartialWorkflow
-            ? {
-                id: "partial-allowed",
-                type: "warning",
-                title: "Partial workflows are allowed",
-                description:
-                  "TCustomerSettings.AllowPartialWorkflow is on. Incomplete trees can still be used at runtime.",
-              }
-            : {
-                id: "partial-ignored",
-                type: "info",
-                title: "Partial workflows are ignored at runtime",
-                description:
-                  "A tree missing approvers or notifications is treated as not defined unless AllowPartialWorkflow is enabled.",
-              },
           {
             id: "deactivate-workflow",
             type: "info",
@@ -70,22 +53,21 @@ export async function WorkflowsScreen({
           },
         ]}
       />
-      <WorkflowsPanel
-        changeRequests={changeRequests.result}
-        changeRequestsScript={changeRequests.script}
-        employerId={employerId}
-        groupId={groupId}
-        groups={groups.result}
-        groupsScript={groups.script}
-        pageName={pageName}
-        pages={pages.result}
-        pagesScript={pages.script}
-        requestId={requestId}
-        tab={tab}
-        workflows={workflows.result}
-        workflowsScript={workflows.script}
-        writesEnabled={writesEnabled}
-      />
+      <Suspense fallback={null}>
+        <WorkflowPartialNote employerId={employerId} />
+      </Suspense>
+      <WorkflowsTabBar employerId={employerId} tab={tab} writesEnabled={writesEnabled}>
+        <Suspense fallback={<SectionFallback title={TAB_TITLE[tab]} />}>
+          <WorkflowsTabSlot
+            employerId={employerId}
+            groupId={groupId}
+            pageName={pageName}
+            requestId={requestId}
+            tab={tab}
+            writesEnabled={writesEnabled}
+          />
+        </Suspense>
+      </WorkflowsTabBar>
     </>
   );
 }

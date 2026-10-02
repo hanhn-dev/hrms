@@ -61,6 +61,34 @@ type ActorOption = {
   empty?: boolean;
 };
 
+export function WorkflowHeading({
+  employerId,
+  workflow,
+}: {
+  employerId: number;
+  workflow: WorkflowDefinition | null;
+}): React.JSX.Element {
+  const router = useRouter();
+  return (
+    <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+      <Button
+        type="link"
+        className="!px-0"
+        onClick={() => {
+          router.push(workflowsHref(employerId));
+        }}
+      >
+        Back to workflows
+      </Button>
+      {workflow ? (
+        <Tag color={statusColor(workflow.status)}>{workflow.status}</Tag>
+      ) : (
+        <Tag>new</Tag>
+      )}
+    </div>
+  );
+}
+
 export function WorkflowPanel({
   employerId,
   workflow,
@@ -196,23 +224,6 @@ export function WorkflowPanel({
 
   return (
     <Space className="w-full" orientation="vertical" size="large">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <Button
-          type="link"
-          className="!px-0"
-          onClick={() => {
-            router.push(workflowsHref(employerId));
-          }}
-        >
-          Back to workflows
-        </Button>
-        {workflow ? (
-          <Tag color={statusColor(workflow.status)}>{workflow.status}</Tag>
-        ) : (
-          <Tag>new</Tag>
-        )}
-      </div>
-
       {emptyUsedGroups.length > 0 ? (
         <Alert
           showIcon

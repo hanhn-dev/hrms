@@ -1,17 +1,17 @@
-import { captureQueryScript } from "@hrms/db";
-import { FieldsPanel } from "@/features/employer/fields/fields-panel";
+import { Suspense } from "react";
+import { FieldsSourceSlot } from "@/features/employer/fields/fields-slots";
+import { FieldsTabBar } from "@/features/employer/fields/fields-panel";
 import type { FieldSource } from "@/features/employer/fields/fields-source";
-import {
-  compareEmployerFieldsToTemplate,
-  listEmployerFields,
-  listFieldTemplate,
-  listFieldTypes,
-} from "@/features/employer/fields/queries";
-import { areWritesEnabled } from "@/shared/auth";
-import { getSelectedEnvironment } from "@/shared/db";
+import { SectionFallback } from "@/shared/ui/section-fallback";
 import { PageHelp } from "@/shared/ui/shell-header-context";
 
-export async function FieldsScreen({
+const SOURCE_TITLE: Record<FieldSource, string> = {
+  employer: "Employer fields",
+  template: "Template",
+  compare: "Compare",
+};
+
+export function FieldsScreen({
   employerId,
   source,
   section,
@@ -21,14 +21,7 @@ export async function FieldsScreen({
   source: FieldSource;
   section: string | null;
   field: string | null;
-}): Promise<React.JSX.Element> {
-  const [employerFields, templateFields, fieldTypes] = await Promise.all([
-    captureQueryScript(() => listEmployerFields(employerId)),
-    captureQueryScript(() => listFieldTemplate()),
-    listFieldTypes(),
-  ]);
-  const writesEnabled = areWritesEnabled(await getSelectedEnvironment());
-
+}): React.JSX.Element {
   return (
     <>
       <PageHelp
@@ -73,31 +66,20 @@ export async function FieldsScreen({
             id: "template-readonly",
             type: "info",
             title: "Template and Compare are read-only",
-            description:
-              "Inline edit applies to Employer fields only.",
+            description: "Inline edit applies to Employer fields only.",
           },
         ]}
       />
-      <FieldsPanel
-        key={`${section ?? ""}:${field ?? ""}`}
-        compareScript={[employerFields.script, templateFields.script]
-          .filter((script) => script.trim() !== "")
-          .join("\n\n")}
-        compared={compareEmployerFieldsToTemplate(
-          employerFields.result,
-          templateFields.result,
-        )}
-        employerFields={employerFields.result}
-        employerId={employerId}
-        employerScript={employerFields.script}
-        field={field}
-        fieldTypes={fieldTypes}
-        section={section}
-        source={source}
-        templateFields={templateFields.result}
-        templateScript={templateFields.script}
-        writesEnabled={writesEnabled}
-      />
+      <FieldsTabBar employerId={employerId} field={field} section={section} source={source}>
+        <Suspense fallback={<SectionFallback title={SOURCE_TITLE[source]} />}>
+          <FieldsSourceSlot
+            employerId={employerId}
+            field={field}
+            section={section}
+            source={source}
+          />
+        </Suspense>
+      </FieldsTabBar>
     </>
   );
 }

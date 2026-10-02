@@ -1,0 +1,32 @@
+---
+description: Stream multi-section Backstage screens with Suspense so the shell paints before each section's data.
+globs: apps/backstage/**/*.tsx
+alwaysApply: false
+---
+
+# Streaming pages
+
+A screen with several independent reads paints a shell after the one query it needs (or immediately, when the URL already decides). Each visual section is an async Server Component inside `<Suspense fallback={<SectionFallback title="..." />}>` from `@/shared/ui`.
+
+```tsx
+// ❌ BAD — the page stays blank until every read finishes
+const [rows, grants] = await Promise.all([listRoles(id), listGrants(id)]);
+return <RolesPanel grants={grants} rows={rows} />;
+
+// ✅ GOOD — roles and grants fill in on their own
+return (
+  <>
+    <Suspense fallback={<SectionFallback title="Tenant roles" />}>
+      <RolesListSlot employerId={id} />
+    </Suspense>
+    <Suspense fallback={<SectionFallback title="Page grants" />}>
+      <RoleGrantsSlot employerId={id} selectedRoleId={roleId} />
+    </Suspense>
+  </>
+);
+```
+
+- A tabbed screen loads only the active tab.
+- One visual unit may `Promise.all` its own reads inside its boundary. A later section that needs an earlier result is a nested boundary.
+- Do not wrap the whole page in one `Suspense`.
+- `"use client"` files stay interactive islands. They do not fetch the section's data.

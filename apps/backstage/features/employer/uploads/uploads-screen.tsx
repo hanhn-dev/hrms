@@ -1,14 +1,15 @@
-import { captureQueryScript } from "@hrms/db";
-import { UploadsPanel } from "@/features/employer/uploads/uploads-panel";
+import { Suspense } from "react";
 import {
-  listUploadCatalog,
-  listUploadCountries,
-  listUploads,
-} from "@/features/employer/uploads/queries";
+  UploadsCatalogSlot,
+  UploadsCountriesSlot,
+  UploadsJobsSlot,
+} from "@/features/employer/uploads/uploads-slots";
+import { UploadsPanel } from "@/features/employer/uploads/uploads-panel";
 import type { UploadsView } from "@/features/employer/uploads/uploads-source";
 import type { UploadTypeKey } from "@hrms/db";
+import { SectionFallback } from "@/shared/ui/section-fallback";
 
-export async function UploadsScreen({
+export function UploadsScreen({
   employerId,
   view,
   type,
@@ -26,38 +27,49 @@ export async function UploadsScreen({
   jobType: UploadTypeKey | null;
   jobStatus: string | null;
   jobUploadId: number | null;
-}): Promise<React.JSX.Element> {
-  const [countries, catalog, jobs] = await Promise.all([
-    listUploadCountries(employerId),
-    view === "catalog"
-      ? captureQueryScript(() => listUploadCatalog(employerId, type, countryId))
-      : Promise.resolve(null),
-    view === "jobs"
-      ? captureQueryScript(() =>
-          listUploads(employerId, {
-            type: jobType,
-            status: jobStatus,
-            uploadId: jobUploadId,
-          }),
-        )
-      : Promise.resolve(null),
-  ]);
-
+}): React.JSX.Element {
   return (
     <UploadsPanel
-      catalog={catalog?.result ?? null}
-      catalogScript={catalog?.script ?? ""}
-      countries={countries}
+      countryId={countryId}
+      countrySelect={
+        view === "catalog" ? (
+          <Suspense fallback={<SectionFallback title="Countries" />}>
+            <UploadsCountriesSlot
+              countryId={countryId}
+              employerId={employerId}
+              sectionId={sectionId}
+              type={type}
+            />
+          </Suspense>
+        ) : null
+      }
       employerId={employerId}
       jobStatus={jobStatus}
       jobType={jobType}
       jobUploadId={jobUploadId}
-      jobs={jobs?.result ?? null}
-      jobsScript={jobs?.script ?? ""}
-      countryId={countryId}
       sectionId={sectionId}
       type={type}
       view={view}
-    />
+    >
+      {view === "jobs" ? (
+        <Suspense fallback={<SectionFallback title="Uploads" />}>
+          <UploadsJobsSlot
+            employerId={employerId}
+            jobStatus={jobStatus}
+            jobType={jobType}
+            jobUploadId={jobUploadId}
+          />
+        </Suspense>
+      ) : (
+        <Suspense fallback={<SectionFallback title="Type catalog" />}>
+          <UploadsCatalogSlot
+            countryId={countryId}
+            employerId={employerId}
+            sectionId={sectionId}
+            type={type}
+          />
+        </Suspense>
+      )}
+    </UploadsPanel>
   );
 }

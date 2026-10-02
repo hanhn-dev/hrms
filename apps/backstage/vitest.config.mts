@@ -1,18 +1,16 @@
-import { defineConfig } from "vitest/config";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { defineConfig } from "vitest/config";
 
-const rootDir = path.dirname(fileURLToPath(import.meta.url));
+const root = path.dirname(fileURLToPath(import.meta.url)).replaceAll("\\", "/");
 
 export default defineConfig({
   resolve: {
-    alias: {
-      "@": rootDir,
-    },
+    alias: [{ find: /^@\//, replacement: `${root}/` }],
   },
-  test: {
-    environment: "node",
-    include: ["**/*.test.ts", "**/*.test.tsx"],
-    exclude: ["node_modules/**", ".next/**", "content/**"],
+  oxc: {
+    jsx: {
+      runtime: "automatic",
+    },
   },
 });
