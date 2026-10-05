@@ -1,5 +1,6 @@
 import { captureQueryScript } from "@hrms/db";
 import { Alert, Card, Descriptions } from "antd";
+import Link from "next/link";
 import { UnlockAccountButton } from "@/features/employee/login/unlock-account-button";
 import { getEmployeeLoginInfo } from "@/features/employee/login/queries";
 import { areWritesEnabled } from "@/shared/auth";
@@ -24,18 +25,25 @@ export async function EmployeeLoginScreen({
     <>
       <PageHeader
         extra={
-          <UnlockAccountButton
-            disabled={!writesEnabled || !login?.userId}
-            disabledReason={
-              !writesEnabled
-                ? "Writes are disabled."
-                : !login?.userId
-                  ? "No TUsers row for this employee."
-                  : undefined
-            }
-            employerId={employerId}
-            employmentNumber={employmentNumber}
-          />
+          <div className="flex items-center gap-2">
+            <Link
+              href={`/employers/${employerId}/logs?employee=${encodeURIComponent(employmentNumber)}`}
+            >
+              Application logs
+            </Link>
+            <UnlockAccountButton
+              disabled={!writesEnabled || !login?.userId}
+              disabledReason={
+                !writesEnabled
+                  ? "Writes are disabled."
+                  : !login?.userId
+                    ? "No TUsers row for this employee."
+                    : undefined
+              }
+              employerId={employerId}
+              employmentNumber={employmentNumber}
+            />
+          </div>
         }
       />
       <Employee360Nav

@@ -51,6 +51,9 @@ function moduleTitle(
   if (pathname.startsWith(`${base}/inspector`)) {
     return "Inspector";
   }
+  if (pathname.startsWith(`${base}/logs`)) {
+    return "Logs";
+  }
   if (pathname.startsWith(`${base}/roles`)) {
     return "Roles";
   }
@@ -133,7 +136,9 @@ export function AppShell({
     };
   }, []);
 
-  const selectedKey = pathname.startsWith(`${base}/inspector`)
+  const selectedKey = pathname.startsWith(`${base}/logs`)
+    ? "logs"
+    : pathname.startsWith(`${base}/inspector`)
     ? "inspector"
     : pathname.startsWith(`${base}/roles`)
       ? "roles"
@@ -268,6 +273,12 @@ export function AppShell({
                 icon: <FileSearchOutlined />,
                 title: "Inspector",
                 label: <Link href={`${base}/inspector`}>Inspector</Link>,
+              },
+              {
+                key: "logs",
+                icon: <HistoryOutlined />,
+                title: "Logs",
+                label: <Link href={`${base}/logs`}>Logs</Link>,
               },
             ]}
           />
