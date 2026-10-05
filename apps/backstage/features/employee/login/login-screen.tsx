@@ -1,12 +1,13 @@
 import { captureQueryScript } from "@hrms/db";
 import { Alert, Card, Descriptions } from "antd";
 import Link from "next/link";
+import { ResetPasswordButton } from "@/features/employee/login/reset-password-button";
 import { UnlockAccountButton } from "@/features/employee/login/unlock-account-button";
 import { getEmployeeLoginInfo } from "@/features/employee/login/queries";
 import { areWritesEnabled } from "@/shared/auth";
 import { getSelectedEnvironment } from "@/shared/db";
 import { formatDate } from "@/shared/format-date";
-import { DataTable, Employee360Nav, PageHeader } from "@/shared/ui";
+import { DataTable, Employee360Nav } from "@/shared/ui";
 
 export async function EmployeeLoginScreen({
   employerId,
@@ -20,36 +21,38 @@ export async function EmployeeLoginScreen({
   );
   const { login, attempts } = loaded.result;
   const writesEnabled = areWritesEnabled(await getSelectedEnvironment());
+  const writeDisabled = !writesEnabled || !login?.userId;
+  const writeDisabledReason = !writesEnabled
+    ? "Writes are disabled."
+    : !login?.userId
+      ? "No TUsers row for this employee."
+      : undefined;
 
   return (
     <>
-      <PageHeader
-        extra={
-          <div className="flex items-center gap-2">
-            <Link
-              href={`/employers/${employerId}/logs?employee=${encodeURIComponent(employmentNumber)}`}
-            >
-              Application logs
-            </Link>
-            <UnlockAccountButton
-              disabled={!writesEnabled || !login?.userId}
-              disabledReason={
-                !writesEnabled
-                  ? "Writes are disabled."
-                  : !login?.userId
-                    ? "No TUsers row for this employee."
-                    : undefined
-              }
-              employerId={employerId}
-              employmentNumber={employmentNumber}
-            />
-          </div>
-        }
-      />
       <Employee360Nav
         employerId={employerId}
         employmentNumber={employmentNumber}
       />
+      <div className="mb-4 flex items-center justify-end gap-2">
+        <Link
+          href={`/employers/${employerId}/logs?employee=${encodeURIComponent(employmentNumber)}`}
+        >
+          Application logs
+        </Link>
+        <ResetPasswordButton
+          disabled={writeDisabled}
+          disabledReason={writeDisabledReason}
+          employerId={employerId}
+          employmentNumber={employmentNumber}
+        />
+        <UnlockAccountButton
+          disabled={writeDisabled}
+          disabledReason={writeDisabledReason}
+          employerId={employerId}
+          employmentNumber={employmentNumber}
+        />
+      </div>
       {!login?.userId ? (
         <Alert
           className="mb-4"

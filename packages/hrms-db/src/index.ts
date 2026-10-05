@@ -47,8 +47,11 @@ export {
 } from "./employee/business-unit";
 export { getEmployeeProfile, type EmployeeProfile } from "./employee/profile";
 export {
+  DEFAULT_RESET_PASSWORD,
+  encodeHrmsPassword,
   getEmployeeLoginInfo,
   listUnlockPreview,
+  resetUserPassword,
   unlockUserAccount,
   type EmployeeLoginInfo,
   type FailedLoginAttempt,

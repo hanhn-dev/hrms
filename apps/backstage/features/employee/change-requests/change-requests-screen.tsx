@@ -2,6 +2,8 @@ import { captureQueryScript } from "@hrms/db";
 import { Alert } from "antd";
 import { ChangeRequestsPanel } from "@/features/employee/change-requests/change-requests-panel";
 import { listEmployeeChangeRequests } from "@/features/employee/change-requests/queries";
+import { areWritesEnabled } from "@/shared/auth";
+import { getSelectedEnvironment } from "@/shared/db";
 import { Employee360Nav, PageHelp } from "@/shared/ui";
 
 export async function EmployeeChangeRequestsScreen({
@@ -11,6 +13,7 @@ export async function EmployeeChangeRequestsScreen({
   employerId: number;
   employmentNumber: string;
 }): Promise<React.JSX.Element> {
+  const writesEnabled = areWritesEnabled(await getSelectedEnvironment());
   const loaded = await captureQueryScript(() =>
     listEmployeeChangeRequests(employerId, employmentNumber),
   );
@@ -35,6 +38,13 @@ export async function EmployeeChangeRequestsScreen({
             description:
               "Requests are grouped by the workflow that owns them. A request with no workflow queue sits under No workflow. Groups that still have pending requests start open.",
           },
+          {
+            id: "change-request-apply",
+            type: "info",
+            title: "Change-request approve",
+            description:
+              "Approve on a pending row applies the field diffs and closes the queue. It does not call the product stored procedure, send approval email, or insert the next routing level. Reject closes the queue and does not apply live field diffs.",
+          },
         ]}
       />
       <Employee360Nav employerId={employerId} employmentNumber={employmentNumber} />
@@ -45,6 +55,7 @@ export async function EmployeeChangeRequestsScreen({
           employerId={employerId}
           queryScript={loaded.script}
           requests={requests}
+          writesEnabled={writesEnabled}
         />
       )}
     </>

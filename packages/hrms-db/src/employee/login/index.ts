@@ -1,7 +1,10 @@
 import type { HrmsDb } from "../../shared/client";
 import { asIso } from "../../shared/iso";
-import { parseEmployerId } from "../../shared/ids";
+import { employeeIdSchema, parseEmployerId, userIdSchema } from "../../shared/ids";
 import { requireResolvedEmployee } from "../../shared/employee";
+import { DEFAULT_RESET_PASSWORD, encodeHrmsPassword } from "./password";
+
+export { DEFAULT_RESET_PASSWORD, encodeHrmsPassword } from "./password";
 
 export type EmployeeLoginInfo = {
   userId: number | null;
@@ -162,4 +165,75 @@ export async function unlockUserAccount(
     WHERE UserEmployee.EmployeeID = ${input.employeeId}
         AND Users.Employerid = ${employerId}
   `;
+}
+
+export async function resetUserPassword(
+  db: HrmsDb,
+  input: {
+    employeeId: number;
+    employerId: number;
+    modifiedBy: number;
+  },
+): Promise<void> {
+  const employeeId = employeeIdSchema.parse(input.employeeId);
+  const employerId = parseEmployerId(input.employerId);
+  const modifiedBy = userIdSchema.parse(input.modifiedBy);
+  const passwordStr = encodeHrmsPassword(DEFAULT_RESET_PASSWORD);
+  await db.$transaction(async (tx) => {
+    await tx.$executeRaw`
+      INSERT INTO dbo.TUsersHistory (
+          UserID, UserName, PasswordStr, RoleID, UserEmail, IsActive,
+          ChangedOn, ChangedBy, Employerid, IsGlobalAccess, EmployerIds,
+          HistoryCreatedBy, HistoryCreatedDate, ActionType
+      )
+      SELECT
+          Users.UserID, Users.UserName, Users.PasswordStr, Users.RoleID,
+          Users.UserEmail, Users.IsActive,
+          ISNULL(Users.ModifiedDate, Users.CreatedDate),
+          ISNULL(Users.ModifiedBy, Users.CreatedBy),
+          Users.Employerid, Users.IsGlobalAccess, Users.EmployerIds,
+          ISNULL(Users.ModifiedBy, Users.CreatedBy),
+          ISNULL(Users.ModifiedDate, Users.CreatedDate),
+          'U'
+      FROM dbo.TUsers AS Users
+      INNER JOIN dbo.TUserEmployee AS UserEmployee
+          ON UserEmployee.UserID = Users.UserID
+      WHERE UserEmployee.EmployeeID = ${employeeId}
+          AND Users.Employerid = ${employerId}
+    `;
+    const updated = await tx.$executeRaw`
+      UPDATE Users
+      SET
+          Users.PasswordStr = ${passwordStr},
+          Users.ModifiedBy = ${modifiedBy},
+          Users.ModifiedDate = GETDATE(),
+          Users.PasswordChangedDate = GETDATE(),
+          Users.IsForceToChangePassword = 'N',
+          Users.IsUserIdLocked = 'N',
+          Users.InvalidLoginAttemptCount = 0
+      FROM dbo.TUsers AS Users
+      INNER JOIN dbo.TUserEmployee AS UserEmployee
+          ON UserEmployee.UserID = Users.UserID
+      WHERE UserEmployee.EmployeeID = ${employeeId}
+          AND Users.Employerid = ${employerId}
+    `;
+    if (updated === 0) {
+      throw new Error("No TUsers row was found for this employee.");
+    }
+    await tx.$executeRaw`
+      INSERT INTO dbo.TuserPasswordHistory (
+          EmployerId, UserName, PasswordStr, PasswordChangedDate
+      )
+      SELECT
+          Users.Employerid,
+          Users.UserName,
+          Users.PasswordStr,
+          GETDATE()
+      FROM dbo.TUsers AS Users
+      INNER JOIN dbo.TUserEmployee AS UserEmployee
+          ON UserEmployee.UserID = Users.UserID
+      WHERE UserEmployee.EmployeeID = ${employeeId}
+          AND Users.Employerid = ${employerId}
+    `;
+  });
 }

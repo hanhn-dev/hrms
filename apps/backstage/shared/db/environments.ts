@@ -99,7 +99,7 @@ export function parseEnvironmentName(raw: string): string | null {
 }
 
 export function writesAllowedForEnvironment(env: string): boolean {
-  const allowed = (process.env.TROUBLESHOOTER_WRITES_ENVS ?? "DEV")
+  const allowed = (process.env.TROUBLESHOOTER_WRITES_ENVS ?? "DEV,QA,UAT")
     .split(",")
     .map(normalizeEnvName)
     .filter(Boolean);
