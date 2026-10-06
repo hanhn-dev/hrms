@@ -811,6 +811,9 @@ export async function decideChangeRequest(
   );
   await assertConfiguredApprover(db, parsed);
 
+  // Family and custom-field apply runs several catalog lookups and history
+  // snapshots in one transaction. Prisma's 5s default expires that work
+  // (request 10352 failed at 5816 ms) and rolls the approve back.
   await db.$transaction(async (tx) => {
     if (parsed.status === "Approved") {
       const details = await loadApplyDetails(tx, parsed.changeRequestId);
@@ -860,7 +863,7 @@ export async function decideChangeRequest(
       );
     }
     await closeRequest(tx, parsed, header.EmployeeId);
-  });
+  }, { timeout: 30_000 });
 
   const after = await db.$queryRaw<
     Array<{ ChangeRequestId: number; IsApproved: boolean | number | null; Comments: string | null }>

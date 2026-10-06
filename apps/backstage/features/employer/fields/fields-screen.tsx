@@ -58,9 +58,9 @@ export function FieldsScreen({
           {
             id: "fieldtype-json",
             type: "warning",
-            title: "FieldType_JSON_SQL is not rewritten",
+            title: "FieldType_JSON_SQL is read-only",
             description:
-              "Changing FieldType updates FieldTypeID only. Control JSON on the field row stays as stored.",
+              "The section tables show FieldType_JSON_SQL for reference. Changing FieldType updates FieldTypeID only. Control JSON and lookup SQL on the field row stay as stored.",
           },
           {
             id: "template-readonly",

@@ -16,6 +16,11 @@ import type {
   FieldTypeOption,
 } from "@/features/employer/fields/queries";
 import {
+  COMPARE_FIELD_TABLE_TITLES,
+  EMPLOYER_FIELD_TABLE_TITLES,
+  fieldColumnTitle,
+} from "@/features/employer/fields/field-table-columns";
+import {
   ValidationRuleCell,
   ValidationRuleViewCell,
 } from "@/features/employer/fields/validation-rule-cell";
@@ -435,6 +440,21 @@ function FieldsTable({
         ),
     },
     {
+      title: fieldColumnTitle(EMPLOYER_FIELD_TABLE_TITLES, "FieldType_JSON_SQL"),
+      dataIndex: "fieldTypeJsonSql",
+      width: 220,
+      render: (value: string | null, row: FieldCatalogRow) => (
+        <ValidationRuleViewCell
+          label={
+            row.fieldName
+              ? `FieldType_JSON_SQL: ${row.fieldName}`
+              : "FieldType_JSON_SQL"
+          }
+          value={value}
+        />
+      ),
+    },
+    {
       title: "Hidden",
       dataIndex: "isHidden",
       width: 90,
@@ -616,6 +636,33 @@ function CompareTable({
                 <span>→</span>
                 <ValidationRuleViewCell
                   label="Template ValidationRule"
+                  value={right}
+                />
+              </div>
+            );
+          },
+        },
+        {
+          title: fieldColumnTitle(COMPARE_FIELD_TABLE_TITLES, "FieldType_JSON_SQL"),
+          key: "fieldTypeJsonSql",
+          width: 260,
+          render: (_: unknown, row: FieldCompareRow) => {
+            const left = row.employer?.fieldTypeJsonSql ?? null;
+            const right = row.template?.fieldTypeJsonSql ?? null;
+            if ((left ?? "") === (right ?? "")) {
+              return (
+                <ValidationRuleViewCell label="FieldType_JSON_SQL" value={left} />
+              );
+            }
+            return (
+              <div className="flex items-center gap-1">
+                <ValidationRuleViewCell
+                  label="Employer FieldType_JSON_SQL"
+                  value={left}
+                />
+                <span>→</span>
+                <ValidationRuleViewCell
+                  label="Template FieldType_JSON_SQL"
                   value={right}
                 />
               </div>

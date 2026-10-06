@@ -27,6 +27,7 @@ type FieldQueryRow = {
   IsMandatory: boolean | number | null;
   IsValidate: boolean | number | null;
   ValidationRule: string | null;
+  FieldType_JSON_SQL: string | null;
   IsHidden: boolean | number | null;
   IsActive: boolean | number | null;
   IsDefault: boolean | number | null;
@@ -56,6 +57,7 @@ export async function listEmployerFields(
         Fields.IsMandatory,
         Fields.IsValidate,
         Fields.ValidationRule,
+        Fields.FieldType_JSON_SQL,
         Fields.IsHidden,
         Fields.IsActive,
         Fields.IsDefault,
@@ -94,6 +96,7 @@ export async function listFieldTemplate(db: HrmsDb): Promise<FieldCatalogRow[]> 
         Master.IsMandatory,
         Master.IsValidate,
         Master.ValidationRule,
+        Master.FieldType_JSON_SQL,
         Master.IsHidden,
         Master.IsActive,
         Master.IsDefault,
@@ -155,6 +158,7 @@ function mapFieldRow(row: FieldQueryRow): FieldCatalogRow {
     isMandatory: row.IsMandatory,
     isValidate: row.IsValidate,
     validationRule: row.ValidationRule,
+    fieldTypeJsonSql: row.FieldType_JSON_SQL,
     isHidden: row.IsHidden,
     isActive: row.IsActive,
     isDefault: row.IsDefault,

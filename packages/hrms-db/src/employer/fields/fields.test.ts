@@ -22,6 +22,7 @@ function field(
     isMandatory: false,
     isValidate: false,
     validationRule: null,
+    fieldTypeJsonSql: null,
     isHidden: false,
     isActive: true,
     isDefault: false,
@@ -113,6 +114,29 @@ describe("compareEmployerFieldsToTemplate", () => {
       "IsValidate",
       "ValidationRule",
     ]);
+  });
+
+  it("reports FieldType_JSON_SQL drift on its own", () => {
+    const compared = compareEmployerFieldsToTemplate(
+      [
+        field({
+          fieldId: 21,
+          fieldName: "Relationship",
+          fieldTypeJsonSql: "SELECT ID, Relationship FROM dbo.TRelationship",
+        }),
+      ],
+      [
+        field({
+          fieldId: 4,
+          fieldName: "Relationship",
+          employerId: 0,
+          fieldTypeJsonSql: null,
+        }),
+      ],
+    );
+    assert.equal(compared.length, 1);
+    assert.equal(compared[0]?.status, "drift");
+    assert.deepEqual(compared[0]?.driftedProperties, ["FieldType_JSON_SQL"]);
   });
 
   it("does not match the same employer row to two template rows", () => {

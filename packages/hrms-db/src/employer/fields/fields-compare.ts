@@ -14,6 +14,7 @@ export type FieldCatalogRow = {
   isMandatory: boolean | number | null;
   isValidate: boolean | number | null;
   validationRule: string | null;
+  fieldTypeJsonSql: string | null;
   isHidden: boolean | number | null;
   isActive: boolean | number | null;
   isDefault: boolean | number | null;
@@ -46,6 +47,7 @@ const COMPARED_PROPERTIES = [
   "isMandatory",
   "isValidate",
   "validationRule",
+  "fieldTypeJsonSql",
   "isHidden",
   "isActive",
 ] as const;
@@ -159,6 +161,8 @@ function propertyLabel(
       return "IsValidate";
     case "validationRule":
       return "ValidationRule";
+    case "fieldTypeJsonSql":
+      return "FieldType_JSON_SQL";
     case "isHidden":
       return "IsHidden";
     case "isActive":
