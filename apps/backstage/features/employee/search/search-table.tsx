@@ -5,10 +5,12 @@ import { DataTable } from "@/shared/ui/data-table";
 import type { ColumnsType } from "antd/es/table";
 import type { EmployeeSearchHit } from "@/features/employee/search/queries";
 import { EntityLink } from "@/shared/entity-link";
-
-function isActiveFlag(value: unknown): boolean {
-  return value === true || value === "Y" || value === "1" || value === 1;
-}
+import {
+  EMPLOYEE_STATUS_FILTERS,
+  employeeStatusColor,
+  employeeStatusLabel,
+  matchesEmployeeStatusFilter,
+} from "@/features/employee/search/search-status";
 
 /** Mirrors `@hrms/db` EMPLOYEE_LIST_SECTION_COLUMNS (client-safe; no Prisma barrel). */
 const SECTION_COLUMNS: ReadonlyArray<{
@@ -154,23 +156,15 @@ export function EmployeeSearchTable({
             (record.roleName?.trim() || "—") === String(value),
         },
         {
-          title: "Active",
-          dataIndex: "isActive",
-          width: 110,
-          filters: [
-            { text: "Active", value: "active" },
-            { text: "Inactive", value: "inactive" },
-          ],
+          title: "Status",
+          dataIndex: "employeeStatus",
+          width: 160,
+          filters: [...EMPLOYEE_STATUS_FILTERS],
           onFilter: (value, record) =>
-            value === "active"
-              ? isActiveFlag(record.isActive)
-              : !isActiveFlag(record.isActive),
-          render: (value: unknown) =>
-            isActiveFlag(value) ? (
-              <Tag color="green">Active</Tag>
-            ) : (
-              <Tag color="red">Inactive</Tag>
-            ),
+            matchesEmployeeStatusFilter(record.employeeStatus, value),
+          render: (value: string | null) => (
+            <Tag color={employeeStatusColor(value)}>{employeeStatusLabel(value)}</Tag>
+          ),
         },
         ...sectionCountColumns(new Set(unavailableFields)),
       ]}

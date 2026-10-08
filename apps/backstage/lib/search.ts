@@ -1,3 +1,4 @@
+import { databaseHref, databaseLabel, getCurrentDatabaseDocs } from "./database-docs";
 import { getAllWikiDocs } from "./docs";
 import { getCurrentFeatureDocs } from "./guides";
 import { getAllWikiPages, prettifyWikiSegment } from "./llm-wiki";
@@ -79,7 +80,15 @@ function buildIndex(): SearchRecord[] {
     body: searchableBody(doc.content),
   }));
 
-  return [...features, ...wiki, ...docs];
+  const databaseDocs = getCurrentDatabaseDocs().map((doc) => ({
+    href: databaseHref(doc.slug),
+    crumbs: uniqueCrumbs(["Docs", databaseLabel(doc.database), doc.title]),
+    title: doc.title,
+    headings: extractHeadings(doc.content),
+    body: searchableBody(doc.content),
+  }));
+
+  return [...features, ...wiki, ...docs, ...databaseDocs];
 }
 
 let cachedIndex: SearchRecord[] | undefined;

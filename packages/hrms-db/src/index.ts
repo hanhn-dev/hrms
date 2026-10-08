@@ -192,6 +192,7 @@ export {
 } from "./employer/data-fix";
 export {
   assertSelectOnly,
+  wrapSelectForLimit,
   listTables,
   listTableColumns,
   getTableDefinition,
@@ -204,6 +205,7 @@ export {
   findScriptObjectKinds,
   previewTableRows,
   executeSelect,
+  executeSelectForCompare,
   executeFunction,
   parseQualifiedTable,
   qualifyTableName,

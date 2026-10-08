@@ -19,7 +19,8 @@ export type EmployeeSearchHit = {
   employmentNumber: string;
   fullName: string;
   workEmail: string | null;
-  isActive: string | boolean | null;
+  /** Active, Active-Resigned, or InActive — same rule as SP_EMPMD_GetEmpSummaryData. */
+  employeeStatus: string | null;
   roleName: string | null;
 } & EmployeeSectionCountFields;
 
@@ -33,7 +34,7 @@ type SearchRow = {
   EmploymentNumber: string;
   FullName: string;
   WorkEmail: string | null;
-  IsActive: string | boolean | null;
+  EmployeeStatus: string | null;
   RoleName: string | null;
   SkillCount: number | null;
   DomainCount: number | null;
@@ -77,7 +78,11 @@ export async function searchEmployees(
         EmployeeInfo.EmploymentNumber,
         LTRIM(RTRIM(CONCAT_WS(' ', Employee.FName, Employee.MiddleName, Employee.LName))) AS FullName,
         Employee.EmailID AS WorkEmail,
-        Employee.IsActive,
+        CASE
+            WHEN Employee.IsActive = 'Y' AND Separation.EmployeeId IS NOT NULL THEN 'Active-Resigned'
+            WHEN Employee.IsActive = 'Y' AND Separation.EmployeeId IS NULL THEN 'Active'
+            WHEN Employee.IsActive = 'N' THEN 'InActive'
+        END AS EmployeeStatus,
         Roles.RoleName,
         ${employeeListSectionCountSelect(present)}
     FROM dbo.TEmployee AS Employee
@@ -95,6 +100,25 @@ export async function searchEmployees(
         AND Users.Employerid = ${tenantId}
     LEFT JOIN dbo.TRoles AS Roles
         ON Roles.RoleID = Users.RoleID
+    OUTER APPLY (
+        SELECT TOP (1)
+            CASE
+                WHEN rw.RequestType = 'ResignationPullback'
+                    AND RD.ApproveStatus = 'Approved'
+                    AND rw.ApproveStatus = 'C'
+                THEN NULL
+                ELSE RD.EmployeeId
+            END AS EmployeeId
+        FROM dbo.TResignationDetails AS RD
+        INNER JOIN dbo.TSeparationType AS ST
+            ON ST.SeparationTypeId = RD.SeparationTypeId
+            AND RD.EmployeeId = Employee.EmployeeId
+        INNER JOIN dbo.TRequestWorkflows AS rw
+            ON RD.ResignationDetailId = rw.RequestTransid
+            AND rw.RequestType IN ('ResignationDetails', 'ResignationPullback')
+            AND RD.ApproveStatus IN ('Pending', 'Approved', 'Pullback')
+        ORDER BY rw.Transid DESC
+    ) AS Separation
     ${employeeListSectionCountJoins(tenantId, present)}
     WHERE Employee.Employerid = ${tenantId}
         ${nameFilter}
@@ -112,7 +136,7 @@ export async function searchEmployees(
       employmentNumber: row.EmploymentNumber,
       fullName: row.FullName,
       workEmail: row.WorkEmail,
-      isActive: row.IsActive,
+      employeeStatus: row.EmployeeStatus,
       roleName: row.RoleName,
       ...counts,
     };

@@ -41,6 +41,13 @@ export async function EmployeeSearchScreen({
         source="employee-search"
         notes={[
           {
+            id: "employee-status",
+            type: "info",
+            title: "Employee status",
+            description:
+              "Active-Resigned means the employee is still active and has submitted a separation. The rule matches employee summary: the latest resignation or pullback workflow (Pending, Approved, or Pullback) still points at the employee. A completed pullback stays Active.",
+          },
+          {
             id: "section-counts",
             type: "info",
             title: "Section count columns",

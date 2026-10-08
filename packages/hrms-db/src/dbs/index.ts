@@ -11,11 +11,11 @@ import {
   collapsedModuleNameQuery,
   moduleNameSearchTokens,
 } from "./module-name-search";
-import { assertSelectOnly } from "./select-guard";
+import { assertSelectOnly, wrapSelectForLimit } from "./select-guard";
 import { serializeRow } from "./serialize-row";
 import { captureQueryScript } from "../shared/query-script";
 
-export { assertSelectOnly } from "./select-guard";
+export { assertSelectOnly, wrapSelectForLimit } from "./select-guard";
 export {
   executeFunction,
   type ExecuteFunctionInput,
@@ -29,6 +29,7 @@ const DEFAULT_TOP_PER_TABLE = 20;
 const MAX_TOP_PER_TABLE = 50;
 const DEFAULT_SELECT_MAX_ROWS = 200;
 const MAX_SELECT_ROWS = 500;
+const COMPARE_SELECT_MAX_ROWS = 2000;
 const MAX_TABLE_LIST = 5000;
 const TYPEAHEAD_TABLE_LIMIT = 50;
 const MODULE_LIST_LIMIT = 50;
@@ -635,6 +636,26 @@ export async function executeSelect(
   // Wrap user SELECT so TOP is enforced even when the script omits it.
   const wrapped = `SELECT TOP (${fetchTop}) * FROM (${sql}) AS DbsSelect`;
 
+  const rows = await db.$queryRawUnsafe<Record<string, unknown>[]>(wrapped);
+  const truncated = rows.length > maxRows;
+  const limited = truncated ? rows.slice(0, maxRows) : rows;
+
+  return {
+    rows: limited.map(serializeRow),
+    rowCount: limited.length,
+    truncated,
+    maxRows,
+  };
+}
+
+/** Read-only compare path. Higher cap than free-form SELECT; ORDER BY stays valid. */
+export async function executeSelectForCompare(
+  db: HrmsDb,
+  sql: string,
+): Promise<ExecuteSelectResult> {
+  const body = assertSelectOnly(sql);
+  const maxRows = COMPARE_SELECT_MAX_ROWS;
+  const wrapped = wrapSelectForLimit(body, maxRows + 1);
   const rows = await db.$queryRawUnsafe<Record<string, unknown>[]>(wrapped);
   const truncated = rows.length > maxRows;
   const limited = truncated ? rows.slice(0, maxRows) : rows;

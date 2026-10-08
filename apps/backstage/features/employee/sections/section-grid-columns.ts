@@ -14,7 +14,7 @@ export function sectionGridColumns(
   fields: readonly { displayText: string }[],
   rows: readonly { lookups: Readonly<Record<string, unknown>> }[],
 ): SectionGridColumn[] {
-  return fields.flatMap((field) => {
+  return fields.flatMap((field): SectionGridColumn[] => {
     const hasLookup = rows.some((row) => row.lookups[field.displayText] != null);
     if (!hasLookup) {
       return [

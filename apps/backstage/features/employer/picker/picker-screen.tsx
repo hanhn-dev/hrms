@@ -21,24 +21,26 @@ export async function EmployerPickerScreen({
   const environments = listConfiguredEnvironments();
 
   return (
-    <div className="mx-auto max-w-5xl p-6">
-      <PageHeader
-        title="Select employer"
-        extra={
-          <div className="flex items-center gap-3">
-            <DbsEntryButton />
-            <Text type="secondary">{userName}</Text>
-            <EnvironmentSelect environment={environment} environments={environments} />
-            <SignOutButton />
-          </div>
-        }
-      />
-      <Suspense fallback={<SectionFallback title="Database" />}>
-        <PickerHealthSlot environment={environment} />
-      </Suspense>
-      <Suspense fallback={<SectionFallback title="Employers" />}>
-        <PickerEmployersSlot />
-      </Suspense>
+    <div className="h-screen overflow-y-auto">
+      <div className="mx-auto max-w-5xl p-6">
+        <PageHeader
+          title="Select employer"
+          extra={
+            <div className="flex items-center gap-3">
+              <DbsEntryButton />
+              <Text type="secondary">{userName}</Text>
+              <EnvironmentSelect environment={environment} environments={environments} />
+              <SignOutButton />
+            </div>
+          }
+        />
+        <Suspense fallback={<SectionFallback title="Database" />}>
+          <PickerHealthSlot environment={environment} />
+        </Suspense>
+        <Suspense fallback={<SectionFallback title="Employers" />}>
+          <PickerEmployersSlot />
+        </Suspense>
+      </div>
     </div>
   );
 }

@@ -43,8 +43,8 @@ apps/backstage/
     dbs/                       Data Builder Studio (standalone /dbs)
   shared/                      cross-cutting only (auth helpers, db, ui, theme, resolve)
   components/                  docs-chrome UI (site header, guides article chrome, auth menu)
-  lib/                         content loaders + markdown helpers (docs/wiki/guides)
-  content/                     on-disk markdown trees (wiki, guides, llm-wiki)
+  lib/                         content loaders + markdown helpers (docs/wiki/guides/database)
+  content/                     on-disk markdown trees (wiki, guides, llm-wiki, database)
 ```
 
 ### Feature modules (`features/`)
@@ -95,6 +95,7 @@ Ops screens: antd only (no `@hrms/ui`). Docs chrome stays Tailwind. Mount antd p
 |---|---|---|
 | `/` | Landing | `app/page.tsx` |
 | `/docs`, `/docs/[slug]` | Hand-authored guides, DB changelog, baseline dumps | `lib/docs.ts` ← `content/wiki/*.md` |
+| `/docs/database`, `/docs/database/[...slug]` | Stored procedure and function explanations (latest + dated archives) | `lib/database-docs.ts` ← `content/database/<database>/<object>.md` |
 | `/wiki`, `/wiki/[[...slug]]` | Mirrored TDG HRMS DB wiki | `lib/llm-wiki.ts` ← `content/llm-wiki/**/*.md` |
 | `/docs/guides`, `/docs/guides/[...slug]` | Published product guides (latest + dated archives) | `lib/guides.ts` ← `content/guides/**/*.md` |
 | `/docs/guides/edit/[...slug]` | In-app editor (signed-in) | writes a proposal, does not overwrite latest |
@@ -103,7 +104,7 @@ Ops screens: antd only (no `@hrms/ui`). Docs chrome stays Tailwind. Mount antd p
 | `/dbs` | Data Builder Studio (schema canvas, SELECT, gated SP exec, env compare) | `features/dbs` |
 | `/employers/[employerId]/...` | Employer/employee diagnostics and gated writes | `features/employee/*`, `features/employer/*` |
 
-Adding a markdown file under the matching `content/` folder is enough — slugs are discovered with `readdirSync`. Do not register routes by hand.
+Adding a markdown file under the matching `content/` folder is enough — slugs are discovered with `readdirSync` in `lib/docs.ts`, `lib/llm-wiki.ts`, `lib/guides.ts`, and `lib/database-docs.ts`. Do not register routes by hand.
 
 ## Content trees — do not mix them
 
@@ -111,6 +112,7 @@ Adding a markdown file under the matching `content/` folder is enough — slugs 
 - **`content/guides/_proposals/`** — unpublished in-app proposals (gitignored). One pending proposal per slug.
 - **`content/llm-wiki/`** — **byte-for-byte mirror** of `d:\TDG HRMS DB\llm-wiki\` when that folder exists. Sync with `/sync-llm-wiki`. Cursor: `apps/backstage/.llm-wiki-sync-state.json`. `/track-db-updates` may patch catalog/domain pages for objects in *this run's* SQL delta (edit the DB-repo wiki when it exists, otherwise this tree). Do not hand-edit otherwise.
 - **`content/wiki/`** — hand-authored Docs pages (baselines, liquibase notes). `/track-db-updates` owns `database-changelog.md` only. Wiki-sync must not touch this folder. Cursor: `apps/backstage/.db-updates-state.json`.
+- **`content/database/<database-slug>/<ObjectName>.md`** — latest page for one stored procedure or function, written by `/explain-stored-procedure`. Served at `/docs/database/<database-slug>/<ObjectName>`. Dated snapshots live at `content/database/<database-slug>/<ObjectName>/YYYY-MM-DD.md` and are served at `/docs/database/<database-slug>/<ObjectName>/YYYY-MM-DD`. Index and search list latest only. Do not edit archive files. Do not put these pages in `content/wiki` or `content/llm-wiki`.
 
 ## Operator console (`/employers`) and Data Builder Studio (`/dbs`)
 
