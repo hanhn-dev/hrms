@@ -60,6 +60,18 @@ export function SiteHeader(): React.JSX.Element {
         >
           Db Studio
         </Link>
+        <Link
+          className="shrink-0 text-sm text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
+          href="/flows"
+        >
+          Flows
+        </Link>
+        <Link
+          className="shrink-0 text-sm text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
+          href="/settings"
+        >
+          Settings
+        </Link>
         <div className="ml-auto flex min-w-0 flex-1 items-center justify-end gap-3">
           <SiteSearch />
           <AuthStatus />

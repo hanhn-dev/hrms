@@ -1,0 +1,157 @@
+{
+  "dbSettings": [
+    {
+      "path": "HRMS.CoreAPI/HRMS.Core.WebAPI.Node/Config/dbSettings.json",
+      "connectionStrings": {
+        "BackgroundVerification": "HRM-CL-Prod"
+      },
+      "objects": {
+        "dbConfig": "HRM-CL-Prod",
+        "tneDbConfig": "TravelNExpense_Prod"
+      }
+    },
+    {
+      "path": "InfrastructureComponents/HRMS.AuthWebAPI.Node/Config/dbSettings.json",
+      "connectionStrings": {
+        "ResourceAllocation": "HRM-CL-Prod"
+      },
+      "objects": {}
+    },
+    {
+      "path": "HRMS.Training/HRMS.Training.WebAPI.Node/Config/dbSettings.json",
+      "connectionStrings": {
+        "Training": "Training",
+        "Core": "HRM-CL-Prod"
+      },
+      "objects": {}
+    },
+    {
+      "path": "HRMS.TimePort/HRMS.TimePort.WebAPI.Node/Config/dbSettings.json",
+      "connectionStrings": {
+        "TimePort": "HRM_CL_TIMEPORT",
+        "TimePort_Core": "HRM-CL-Prod"
+      },
+      "objects": {
+        "dbConfig": "HRM_CL_TIMEPORT"
+      }
+    },
+    {
+      "path": "HRMS.Survey/HRMS.Survey.WebAPI.Node/Config/dbSettings.json",
+      "connectionStrings": {
+        "Survey": "Survey",
+        "Core": "HRM-CL-Prod"
+      },
+      "objects": {}
+    },
+    {
+      "path": "HRMS.ResourceAllocation/HRMS.ResourceAllocation.WebAPI.Node/Config/dbSettings.json",
+      "connectionStrings": {
+        "ResourceAllocation": "ResourceAllocation",
+        "Core": "HRM-CL-Prod"
+      },
+      "objects": {}
+    },
+    {
+      "path": "HRMS.PMS/HRMS.PMS.WebAPI.Node/Config/dbSettings.json",
+      "connectionStrings": {
+        "ResourceAllocation": "HRM-CL-Prod"
+      },
+      "objects": {}
+    },
+    {
+      "path": "HRMS.ConferenceRoomBooking/HRMS.ConferenceRoomBooking.WebAPI.Node/Config/dbSettings.json",
+      "connectionStrings": {
+        "Training": "HRM_CRBooking_Prod",
+        "Core": "HRM-CL-Prod"
+      },
+      "objects": {}
+    },
+    {
+      "path": "HRMS.BackgroundVerification/HRMS.BackgroundVerification.WebAPI.Node/Config/dbSettings.json",
+      "connectionStrings": {
+        "BackgroundVerification": "HRM-CL-Prod"
+      },
+      "objects": {}
+    },
+    {
+      "path": "HRMS.ExternalStrorage.WebAPI.Node/Config/dbSettings.json",
+      "connectionStrings": {
+        "TimePort": "HRM_CL_TIMEPORT",
+        "TimePort_Core": "HRM-CL-Prod"
+      },
+      "objects": {}
+    },
+    {
+      "path": "HRMS.TaskManagement/HRMS.TaskManagement.WebAPI.Node/Config/dbSettings.json",
+      "connectionStrings": {
+        "TaskManagement": "HRM-CL-Prod",
+        "TimePort": "HRM_CL_TIMEPORT"
+      },
+      "objects": {
+        "dbConfig": "HRM-CL-Prod"
+      }
+    },
+    {
+      "path": "HRMS.EmailTemplateModification/email-template-builder-app/node_server/Config/dbSettings.json",
+      "connectionStrings": {
+        "BackgroundVerification": "HRM-CL-Prod"
+      },
+      "objects": {
+        "dbConfig": "HRM-CL-Prod",
+        "tneDbConfig": "TravelNExpense_Prod"
+      }
+    }
+  ],
+  "xml": [
+    {
+      "path": "HRMS.Web/HRMS.Web/Web.config",
+      "names": {
+        "HrmsConnectionString": "HRM-CL-Prod"
+      }
+    },
+    {
+      "path": "InfrastructureComponents/HRMS.AuthWebAPI/Web.config",
+      "names": {
+        "HrmsConnectionString": "HRM-CL-Prod"
+      }
+    },
+    {
+      "path": "HRMS.TravelAndExpense/HRMS.TravelAndExpense.WebAPI/Web.config",
+      "names": {
+        "HrmsConnectionString": "HRM-CL-Prod",
+        "TravelNExpenseConnectionString": "TravelNExpense_Prod"
+      }
+    },
+    {
+      "path": "HRMS.Shared/HRMS.WebAPI/Web.config",
+      "names": {
+        "HrmsConnectionString": "HRM-CL-Prod"
+      }
+    },
+    {
+      "path": "HRMS.Training/HRMS.VideoStream.WebAPI/Web.config",
+      "names": {
+        "HrmsConnectionString": "HRM-CL-Prod"
+      }
+    },
+    {
+      "path": "HRMS_SARAL_WebAPI/HRMS_SARAL_WebAPI/Web.config",
+      "names": {
+        "SQL": "HRM-CL-Prod"
+      }
+    },
+    {
+      "path": "HRMS.License/HRMS.LicenseAPI/Web.config",
+      "names": {
+        "HrmsEntities": "HRM-CL-Prod"
+      }
+    }
+  ],
+  "jsPools": [
+    {
+      "path": "HRMS.CoreAPI/HRMS.Core.WebAPI.Node/app.js",
+      "function": "initializeDatabase",
+      "database": "HRM-CL-Prod"
+    }
+  ]
+}

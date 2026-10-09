@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "next lint --max-warnings 0",
     "test": "node ./scripts/run-vitest.mjs run",
+    "index:flows": "node --experimental-strip-types ./features/flows/index-request-flow.ts",
     "test:watch": "node ./scripts/run-vitest.mjs"
   },
   "dependencies": {

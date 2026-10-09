@@ -1,0 +1,26 @@
+{
+  "dev": {
+    "server": "IN-SVR-DBDEVHRM",
+    "user": "hrmsdev",
+    "password": "hrmsdev",
+    "readOnly": false
+  },
+  "qa": {
+    "server": "IN-SVR-DBQAHRM",
+    "user": "readqa",
+    "password": "readqa",
+    "readOnly": true
+  },
+  "staging": {
+    "server": "IN-SVR-DBSTGHRM",
+    "user": "readstg",
+    "password": "readstg",
+    "readOnly": true
+  },
+  "replica": {
+    "server": "in-gnr-w120",
+    "user": "replica",
+    "password": "replica",
+    "readOnly": false
+  }
+}

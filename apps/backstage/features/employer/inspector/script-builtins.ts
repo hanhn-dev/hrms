@@ -323,6 +323,10 @@ function hasCallParen(sql: string, index: number): boolean {
   return sql[cursor] === "(";
 }
 
+export function isSystemProcedureName(name: string): boolean {
+  return SYSTEM_PROCEDURES.has(name.toLowerCase());
+}
+
 export function isBuiltinReference(names: readonly string[], sql: string, nextIndex: number): boolean {
   const name = names[names.length - 1]?.toLowerCase() ?? "";
   if (name.length === 0) {
