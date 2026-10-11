@@ -18,6 +18,10 @@ The procedure is the open-key step that callers run before reading or writing en
 |---|---|---|
 | — | — | The procedure takes no parameters |
 
+## Call sequence
+
+Calls no other procedures or functions.
+
 ## Steps
 
 1. Set `NOCOUNT ON`.
@@ -40,7 +44,3 @@ flowchart TD
   Start[Sp_OpenEncryptionKeys] --> Nocount[Set NOCOUNT ON]
   Nocount --> EndNode[Return]
 ```
-
-## Call sequence
-
-Calls no other procedures or functions.

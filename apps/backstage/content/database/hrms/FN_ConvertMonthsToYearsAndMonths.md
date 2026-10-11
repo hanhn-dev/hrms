@@ -19,6 +19,10 @@ Splits a total number of months into whole years and a remainder, then returns o
 | `@TotalMonths` | in | Integer month count to divide by 12 |
 | `@Type` | in | `NVARCHAR(10)` selector compared with the literals `years` and `months` |
 
+## Call sequence
+
+Calls no other procedures or functions.
+
 ## Steps
 
 In `HRMS-DATABASE/HRMS/FUNCTIONS/FN_ConvertMonthsToYearsAndMonths.sql`:
@@ -49,7 +53,3 @@ flowchart TD
   Months -->|yes| ReturnMonths[Return the remainder]
   Months -->|no| ReturnBoth[Return years and months]
 ```
-
-## Call sequence
-
-Calls no other procedures or functions.

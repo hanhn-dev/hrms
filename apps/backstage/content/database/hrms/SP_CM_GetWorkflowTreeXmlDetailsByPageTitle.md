@@ -20,6 +20,19 @@ Returns one workflow definition for a module page. With no employee, it delegate
 | `@Employerid` | in | Employer used to find the workflow. Replaced by the employee's employer when they differ |
 | `@Employeeid` | in | Employee whose location and business unit narrow the workflow. Null or 0 takes the employer-only path. Default is null |
 
+## Call sequence
+
+```mermaid
+sequenceDiagram
+  participant Caller
+  participant Main as SP_CM_GetWorkflowTreeXmlDetailsByPageTitle
+  participant Emp as SP_CM_GetWorkflowTreeXmlDetailsByPageTitle_EmpId
+  Caller->>Main: execute
+  alt employee id is null or 0
+    Main->>Emp: page title and employer
+  end
+```
+
 ## Steps
 
 In `HRMS-DATABASE/HRMS/STOREPROCEDURE/SP_CM_GetWorkflowTreeXmlDetailsByPageTitle.sql`:
@@ -71,17 +84,4 @@ flowchart TD
   Match --> Custom{Employee location or business unit matches}
   Custom -->|yes| ReturnCustom[Return the matching workflow]
   Custom -->|no| ReturnFallback[Return unscoped non-default or the default]
-```
-
-## Call sequence
-
-```mermaid
-sequenceDiagram
-  participant Caller
-  participant Main as SP_CM_GetWorkflowTreeXmlDetailsByPageTitle
-  participant Emp as SP_CM_GetWorkflowTreeXmlDetailsByPageTitle_EmpId
-  Caller->>Main: execute
-  alt employee id is null or 0
-    Main->>Emp: page title and employer
-  end
 ```

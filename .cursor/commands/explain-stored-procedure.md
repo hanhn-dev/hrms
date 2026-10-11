@@ -113,6 +113,10 @@ the page.
    `apps/backstage/content/database/<database-slug>/<ObjectName>.md`.
    The filename and the H1 are the object name. Link each callee to
    `/docs/database/<database-slug>/<ObjectName>`.
+   Use the page template section order for this procedure and for every
+   nested procedure and function: What it does, Parameters, Call sequence,
+   Steps, Tables, Procedures and functions it calls, Unresolved calls
+   (omit when empty), Flow.
 
 6. **Tell the user** the URL of the procedure they named, the count of
    pages written or left unchanged, and any archive path written.
@@ -143,6 +147,20 @@ One short paragraph.
 |---|---|---|
 | `@EmployeeId` | in | Employee whose rows are read |
 
+## Call sequence
+
+```mermaid
+sequenceDiagram
+  participant Caller
+  participant Main as SP_Example
+  participant Child as SP_Child
+  Caller->>Main: execute
+  Main->>Child: when @Flag = 1
+```
+
+When nothing is called, one line under this heading is enough: "Calls no
+other procedures or functions."
+
 ## Steps
 
 1. First thing the script does, with the condition that guards it.
@@ -172,20 +190,6 @@ flowchart TD
   Start[SP_Example] --> Step1[Read employee]
   Step1 --> Step2[Return the row]
 ```
-
-## Call sequence
-
-```mermaid
-sequenceDiagram
-  participant Caller
-  participant Main as SP_Example
-  participant Child as SP_Child
-  Caller->>Main: execute
-  Main->>Child: when @Flag = 1
-```
-
-When nothing is called, one line under this heading is enough: "Calls no
-other procedures or functions."
 ````
 
 Use standard mermaid fences. Cite the SQL path in **Steps**. Do not invent

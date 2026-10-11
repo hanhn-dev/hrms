@@ -19,6 +19,10 @@ Returns the enabled workflow for a page title and employer when the caller has n
 | `@PageTitle` | in | Module page name. `WorkFromHome` is rewritten to `AttendanceRegularize-WFH` before the lookup |
 | `@Employerid` | in | Employer whose workflow and partial-workflow setting are read |
 
+## Call sequence
+
+Calls no other procedures or functions.
+
 ## Steps
 
 In `HRMS-DATABASE/HRMS/STOREPROCEDURE/SP_CM_GetWorkflowTreeXmlDetailsByPageTitle_EmpId.sql`:
@@ -51,7 +55,3 @@ flowchart TD
   CountCustom -->|yes| Custom[Return non-default workflows]
   CountCustom -->|no| DefaultWf[Return the default workflow]
 ```
-
-## Call sequence
-
-Calls no other procedures or functions.

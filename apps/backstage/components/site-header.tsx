@@ -2,9 +2,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { Suspense } from "react";
 import { AuthStatus } from "@/components/auth/auth-status";
 import { SiteSearch } from "@/components/site-search";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { TrailBar } from "@/shared/navigation";
 
 function hideDocsChrome(pathname: string): boolean {
   return (
@@ -78,6 +80,11 @@ export function SiteHeader(): React.JSX.Element {
           <ThemeToggle />
         </div>
       </nav>
+      {hidden ? null : (
+        <Suspense fallback={null}>
+          <TrailBar />
+        </Suspense>
+      )}
     </header>
   );
 }

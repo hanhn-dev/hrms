@@ -21,6 +21,10 @@ Returns one `EmployeeID` column of people who approve or are notified at routing
 | `@WorkflowId` | in | Workflow whose routing level 1 is read |
 | `@NotificationOrApproval` | in | `A` uses `WorkflowRole`. `N` uses `LevelNotifications` |
 
+## Call sequence
+
+Calls no other procedures or functions.
+
 ## Steps
 
 In `HRMS-DATABASE/HRMS/FUNCTIONS/TVF_Get_AllApprovalsAndNotifications.sql`:
@@ -60,7 +64,3 @@ flowchart TD
   Split --> Resolve[Resolve F, R, I, M, and role names]
   Resolve --> ReturnRows[Return EmployeeID rows]
 ```
-
-## Call sequence
-
-Calls no other procedures or functions.

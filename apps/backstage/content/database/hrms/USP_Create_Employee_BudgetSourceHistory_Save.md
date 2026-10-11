@@ -30,6 +30,17 @@ Appends one `TEmployeeBudgetSourceDetailsHistory` row and then stores its CTC bi
 | `@BudgetSourceStatus` | in | `New` selects the argument insert. Any other value copies the live row and is stored as the history status |
 | `@CreatedBy` | in | `CreatedBy` on the history row and on the CTC save. Default null |
 
+## Call sequence
+
+```mermaid
+sequenceDiagram
+  participant Caller
+  participant Main as USP_Create_Employee_BudgetSourceHistory_Save
+  participant Ctc as USP_TCTC_SaveUpdate
+  Caller->>Main: execute
+  Main->>Ctc: history id and CTC bifurcation
+```
+
 ## Steps
 
 In `HRMS-DATABASE/HRMS/STOREPROCEDURE/USP_Create_Employee_BudgetSourceHistory_Save.sql`:
@@ -61,15 +72,4 @@ flowchart TD
   Status -->|no| FromLive[Insert history from the live budget row]
   FromArgs --> Ctc[USP_TCTC_SaveUpdate]
   FromLive --> Ctc
-```
-
-## Call sequence
-
-```mermaid
-sequenceDiagram
-  participant Caller
-  participant Main as USP_Create_Employee_BudgetSourceHistory_Save
-  participant Ctc as USP_TCTC_SaveUpdate
-  Caller->>Main: execute
-  Main->>Ctc: history id and CTC bifurcation
 ```

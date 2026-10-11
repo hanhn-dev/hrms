@@ -48,6 +48,10 @@ Inserts a `TCTC` row for a parent and reference type, or updates the existing ro
 | `@CreatedBy` | in | Written to `CreatedBy` on insert. On update it is the value stored in `UpdatedBy`. Default null |
 | `@UpdatedBy` | in | Declared and not used. Default null |
 
+## Call sequence
+
+Calls no other procedures or functions.
+
 ## Steps
 
 In `HRMS-DATABASE/HRMS/STOREPROCEDURE/USP_TCTC_SaveUpdate.sql`:
@@ -74,7 +78,3 @@ flowchart TD
   Exists -->|no| InsertRow[Insert TCTC]
   Exists -->|yes| UpdateRow[Update TCTC amounts]
 ```
-
-## Call sequence
-
-Calls no other procedures or functions.

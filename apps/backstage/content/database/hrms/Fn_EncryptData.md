@@ -18,6 +18,10 @@ Returns the input string unchanged. Commented lines in the body would encrypt wi
 |---|---|---|
 | `@ValueToEncrypt` | in | `VARCHAR(MAX)` value the function returns as-is |
 
+## Call sequence
+
+Calls no other procedures or functions.
+
 ## Steps
 
 In `HRMS-DATABASE/HRMS/FUNCTIONS/Fn_EncryptData.sql`:
@@ -40,7 +44,3 @@ Calls no other procedures or functions.
 flowchart TD
   Start[Fn_EncryptData] --> ReturnValue[Return the input]
 ```
-
-## Call sequence
-
-Calls no other procedures or functions.

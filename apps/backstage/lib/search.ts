@@ -1,5 +1,6 @@
 import { databaseHref, databaseLabel, getCurrentDatabaseDocs } from "./database-docs";
 import { getAllWikiDocs } from "./docs";
+import { flowHref, getCurrentFlowDocs } from "./flow-docs";
 import { getCurrentFeatureDocs } from "./guides";
 import { getAllWikiPages, prettifyWikiSegment } from "./llm-wiki";
 import type { SearchHit } from "./search-types";
@@ -88,7 +89,15 @@ function buildIndex(): SearchRecord[] {
     body: searchableBody(doc.content),
   }));
 
-  return [...features, ...wiki, ...docs, ...databaseDocs];
+  const flowDocs = getCurrentFlowDocs().map((doc) => ({
+    href: flowHref(doc.slug),
+    crumbs: uniqueCrumbs(["Docs", "Request flows", doc.title]),
+    title: doc.title,
+    headings: extractHeadings(doc.content),
+    body: searchableBody(doc.content),
+  }));
+
+  return [...features, ...wiki, ...docs, ...databaseDocs, ...flowDocs];
 }
 
 let cachedIndex: SearchRecord[] | undefined;

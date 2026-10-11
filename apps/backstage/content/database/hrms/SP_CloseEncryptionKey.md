@@ -18,6 +18,10 @@ The procedure is the close-key step that callers run after work that used the en
 |---|---|---|
 | — | — | The procedure takes no parameters |
 
+## Call sequence
+
+Calls no other procedures or functions.
+
 ## Steps
 
 1. Set `NOCOUNT ON`.
@@ -40,7 +44,3 @@ flowchart TD
   Start[SP_CloseEncryptionKey] --> Nocount[Set NOCOUNT ON]
   Nocount --> EndNode[Return]
 ```
-
-## Call sequence
-
-Calls no other procedures or functions.

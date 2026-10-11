@@ -18,6 +18,10 @@ Turns a comma-separated list of language ids into a comma-separated list of lang
 |---|---|---|
 | `@lIds` | in | `VARCHAR(400)` comma-separated `tlanguage.Languageid` values |
 
+## Call sequence
+
+Calls no other procedures or functions.
+
 ## Steps
 
 In `HRMS-DATABASE/HRMS/FUNCTIONS/Ufn_BulkProfile_languageIdstoNames.sql`:
@@ -43,7 +47,3 @@ flowchart TD
   Split --> Names[Aggregate LanguageName]
   Names --> ReturnValue[Return the name list]
 ```
-
-## Call sequence
-
-Calls no other procedures or functions.

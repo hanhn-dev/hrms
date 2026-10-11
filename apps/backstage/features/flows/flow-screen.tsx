@@ -1,15 +1,28 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
 import { Mermaid } from "@/lib/mermaid-diagram";
 import { getSetting, migrateLocalSetting } from "@/shared/client-db";
+import { retargetTrail, TrailLink, useTrailLabel } from "@/shared/navigation";
+import { HighlightMatch } from "@/shared/ui";
 import { CHECKOUTS } from "./checkout-copy";
 import { EDITOR_SETTING, readEditor } from "./editor-preference";
 import { FlowCanvas } from "./flow-canvas";
 import { REPO_IDS, type FlowNode } from "./model";
 import type { Journey } from "./query";
 import { FLOW_ROOTS_SETTING, readRoots, ROOTS_KEY, type Roots } from "./roots-storage";
+
+type FeatureHit = {
+  slug: string;
+  title: string;
+  href: string;
+};
+
+type FeatureView = FeatureHit & {
+  charts: string[];
+};
 
 type ProcedureReading = {
   docHref: string | null;
@@ -19,8 +32,15 @@ type ProcedureReading = {
 };
 
 export function FlowScreen(): React.JSX.Element {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  useTrailLabel("Request Flow");
+
   const [query, setQuery] = useState("");
+  const [features, setFeatures] = useState<FeatureHit[]>([]);
   const [results, setResults] = useState<FlowNode[]>([]);
+  const [featureView, setFeatureView] = useState<FeatureView | null>(null);
   const [journey, setJourney] = useState<Journey | null>(null);
   const [roots, setRoots] = useState<Roots>({});
   const [rootsReady, setRootsReady] = useState(false);
@@ -57,11 +77,85 @@ export function FlowScreen(): React.JSX.Element {
     const handle = setTimeout(() => {
       void fetch(`/api/flows/search?q=${encodeURIComponent(query)}`)
         .then((response) => response.json())
-        .then((payload: { nodes?: FlowNode[] }) => setResults(payload.nodes ?? []))
-        .catch(() => setResults([]));
+        .then((payload: { features?: FeatureHit[]; nodes?: FlowNode[] }) => {
+          setFeatures(payload.features ?? []);
+          setResults(payload.nodes ?? []);
+        })
+        .catch(() => {
+          setFeatures([]);
+          setResults([]);
+        });
     }, 200);
     return () => clearTimeout(handle);
   }, [query]);
+
+  const selectFeature = useCallback(
+    (hit: FeatureHit) => {
+      setJourney(null);
+      void fetch(`/api/flows/feature?slug=${encodeURIComponent(hit.slug)}`)
+        .then((response) => response.json())
+        .then((payload: FeatureView & { error?: string }) => {
+          if (!payload.charts) {
+            setFeatureView(null);
+            return;
+          }
+          setFeatureView({ slug: hit.slug, title: payload.title, href: payload.href, charts: payload.charts });
+          const nextHref = `/flows?feature=${encodeURIComponent(hit.slug)}`;
+          const search = searchParams.toString();
+          const currentHref = `${pathname}${search ? `?${search}` : ""}`;
+          retargetTrail(currentHref, nextHref);
+          router.replace(nextHref);
+        })
+        .catch(() => setFeatureView(null));
+    },
+    [pathname, router, searchParams],
+  );
+
+  const selectJourney = useCallback(
+    (id: string) => {
+      setFeatureView(null);
+      void fetch(`/api/flows/journey?id=${encodeURIComponent(id)}`)
+        .then((response) => response.json())
+        .then((payload: { journey?: Journey | null }) => {
+          setJourney(payload.journey ?? null);
+          const nextHref = `/flows?node=${encodeURIComponent(id)}`;
+          const search = searchParams.toString();
+          const currentHref = `${pathname}${search ? `?${search}` : ""}`;
+          retargetTrail(currentHref, nextHref);
+          router.replace(nextHref);
+        })
+        .catch(() => setJourney(null));
+    },
+    [pathname, router, searchParams],
+  );
+
+  useEffect(() => {
+    const feature = searchParams.get("feature");
+    if (feature) {
+      void fetch(`/api/flows/feature?slug=${encodeURIComponent(feature)}`)
+        .then((response) => response.json())
+        .then((payload: FeatureView & { error?: string }) => {
+          if (!payload.charts) return;
+          setFeatureView({
+            slug: feature,
+            title: payload.title,
+            href: payload.href,
+            charts: payload.charts,
+          });
+        })
+        .catch(() => setFeatureView(null));
+      return;
+    }
+    const id = searchParams.get("node");
+    if (!id) return;
+    void fetch(`/api/flows/journey?id=${encodeURIComponent(id)}`)
+      .then((response) => response.json())
+      .then((payload: { journey?: Journey | null }) => setJourney(payload.journey ?? null))
+      .catch(() => setJourney(null));
+    // Restores the procedure named in the URL once, when this page is opened directly.
+    // Later node switches go through `selectJourney`, which keeps the URL in sync itself.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (!journey) return;
@@ -136,7 +230,7 @@ export function FlowScreen(): React.JSX.Element {
         <header>
           <h1 className="text-2xl font-semibold">Request Flow</h1>
           <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-            My Details, from the screen through the API handler into the stored procedures it calls.
+            Search a written feature to open that request on its own.
             Open a procedure to read its write-up and the script from the database. A file link opens that file in Cursor when this machine has the checkout.
           </p>
         </header>
@@ -152,32 +246,53 @@ export function FlowScreen(): React.JSX.Element {
           <div>
             <input
               className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-900"
-              placeholder="Search a screen, route, or procedure"
+              placeholder="Search a feature, screen, route, or procedure"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
             />
             <ul className="mt-3 max-h-[32rem] space-y-1 overflow-auto">
+              {features.map((hit) => (
+                <li key={hit.slug}>
+                  <button
+                    className="w-full rounded-md px-2 py-1 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-800"
+                    type="button"
+                    onClick={() => selectFeature(hit)}
+                  >
+                    <span className="text-xs uppercase text-slate-500">Feature</span>
+                    <div className="break-all">
+                      <HighlightMatch query={query} text={hit.title} />
+                    </div>
+                  </button>
+                </li>
+              ))}
               {results.map((node) => (
                 <li key={node.id}>
                   <button
                     className="w-full rounded-md px-2 py-1 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-800"
                     type="button"
-                    onClick={() => {
-                      void fetch(`/api/flows/journey?id=${encodeURIComponent(node.id)}`)
-                        .then((response) => response.json())
-                        .then((payload: { journey?: Journey | null }) => setJourney(payload.journey ?? null))
-                        .catch(() => setJourney(null));
-                    }}
+                    onClick={() => selectJourney(node.id)}
                   >
                     <span className="text-xs uppercase text-slate-500">{node.kind}</span>
-                    <div className="break-all">{node.label}</div>
+                    <div className="break-all">
+                      <HighlightMatch query={query} text={node.label} />
+                    </div>
                   </button>
                 </li>
               ))}
             </ul>
           </div>
           <div className="min-w-0 space-y-4">
-            {journey ? (
+            {featureView ? (
+              <>
+                <h2 className="text-lg font-semibold">{featureView.title}</h2>
+                <TrailLink className="text-sm text-sky-700 hover:underline dark:text-sky-300" href={featureView.href}>
+                  Open the full write-up
+                </TrailLink>
+                {featureView.charts.map((chart) => (
+                  <Mermaid key={chart.slice(0, 80)} chart={chart} />
+                ))}
+              </>
+            ) : journey ? (
               <>
                 <Mermaid chart={journey.chart} />
                 <ul className="space-y-1 text-sm">
@@ -204,7 +319,7 @@ export function FlowScreen(): React.JSX.Element {
                 <ProcedureReader node={selected} reading={reading} error={readingError} />
               </>
             ) : (
-              <p className="text-sm text-slate-500">Choose a screen, route, or procedure.</p>
+              <p className="text-sm text-slate-500">Choose a feature, screen, route, or procedure.</p>
             )}
           </div>
         </div>
@@ -259,9 +374,9 @@ function ProcedureReader(props: {
       <p className="text-sm text-slate-500">{props.node.detail}</p>
       <div className="mt-3">
         {props.reading?.docHref ? (
-          <a className="text-sm text-sky-700 hover:underline dark:text-sky-300" href={props.reading.docHref}>
+          <TrailLink className="text-sm text-sky-700 hover:underline dark:text-sky-300" href={props.reading.docHref}>
             Read the write-up
-          </a>
+          </TrailLink>
         ) : props.reading ? (
           <p className="text-sm text-slate-500">No write-up in the database folder yet.</p>
         ) : null}

@@ -52,6 +52,47 @@ Saves one employee's personal details. When `TEmployee.UpdatedDate` still matche
 | `@LangugageWriteIds` | in | Written-language ids. Default null |
 | `@LangugageReadIds` | in | Read-language ids. Default null |
 
+## Call sequence
+
+```mermaid
+sequenceDiagram
+  participant Caller
+  participant Main as SP_Mydetails_Enhanced_UpdateEmployeePersonalInformation
+  participant OpenOld as Sp_OpenEncryptionKeys
+  participant OpenNew as Sp_OpenEncryptionKeysNew
+  participant Decrypt as Fn_DecryptData
+  participant Encrypt as Fn_EncryptData
+  participant Approvers as TVF_Get_AllApprovalsAndNotifications
+  participant Base64 as FN_ConvertSTRToBase64
+  participant CloseOld as SP_CloseEncryptionKey
+  participant CloseNew as SP_CloseEncryptionKeyNew
+  Caller->>Main: execute
+  alt UpdatedDate matches
+    Main->>OpenOld: open key
+    Main->>OpenNew: open key
+    alt email already used by an active employee
+      Main-->>Caller: duplicate-email error
+    else email is free
+    alt workflow exists and employee updates own row
+      Main->>Decrypt: compare DOB, names, tax id, Aadhar
+      alt a field differs
+        Main->>Encrypt: when DOB, a name, or tax id differs
+        Main->>OpenOld: open key again
+        alt change rows remain
+          Main->>Approvers: level-1 approvers, mode A
+        end
+        Main->>CloseOld: close key
+      end
+    else direct update
+      Main->>Encrypt: write DOB, names, tax id, Aadhar
+    end
+    Main->>Base64: encode email for tusers
+    Main->>CloseOld: close key
+    Main->>CloseNew: close key
+    end
+  end
+```
+
 ## Steps
 
 In `HRMS-DATABASE/HRMS/STOREPROCEDURE/SP_Mydetails_Enhanced_UpdateEmployeePersonalInformation.sql`:
@@ -144,45 +185,4 @@ flowchart TD
   Gender -->|yes| Ledger[Insert leave-balance ledger rows]
   Gender -->|no| Close[Close encryption keys]
   Ledger --> Close
-```
-
-## Call sequence
-
-```mermaid
-sequenceDiagram
-  participant Caller
-  participant Main as SP_Mydetails_Enhanced_UpdateEmployeePersonalInformation
-  participant OpenOld as Sp_OpenEncryptionKeys
-  participant OpenNew as Sp_OpenEncryptionKeysNew
-  participant Decrypt as Fn_DecryptData
-  participant Encrypt as Fn_EncryptData
-  participant Approvers as TVF_Get_AllApprovalsAndNotifications
-  participant Base64 as FN_ConvertSTRToBase64
-  participant CloseOld as SP_CloseEncryptionKey
-  participant CloseNew as SP_CloseEncryptionKeyNew
-  Caller->>Main: execute
-  alt UpdatedDate matches
-    Main->>OpenOld: open key
-    Main->>OpenNew: open key
-    alt email already used by an active employee
-      Main-->>Caller: duplicate-email error
-    else email is free
-    alt workflow exists and employee updates own row
-      Main->>Decrypt: compare DOB, names, tax id, Aadhar
-      alt a field differs
-        Main->>Encrypt: when DOB, a name, or tax id differs
-        Main->>OpenOld: open key again
-        alt change rows remain
-          Main->>Approvers: level-1 approvers, mode A
-        end
-        Main->>CloseOld: close key
-      end
-    else direct update
-      Main->>Encrypt: write DOB, names, tax id, Aadhar
-    end
-    Main->>Base64: encode email for tusers
-    Main->>CloseOld: close key
-    Main->>CloseNew: close key
-    end
-  end
 ```

@@ -18,6 +18,19 @@ Decrypts a `VARBINARY` value with the open symmetric key and turns the decrypted
 |---|---|---|
 | `@ValueToDecrypt` | in | `VARBINARY(MAX)` ciphertext |
 
+## Call sequence
+
+```mermaid
+sequenceDiagram
+  participant Caller
+  participant Main as Fn_DecryptDataNew
+  participant Decode as FN_ConvertBase64ToSTR
+  Caller->>Main: varbinary value
+  Main->>Decode: DecryptByKey result
+  Decode-->>Main: decoded string
+  Main-->>Caller: varchar result
+```
+
 ## Steps
 
 In `HRMS-DATABASE/HRMS/FUNCTIONS/Fn_DecryptDataNew.sql`:
@@ -44,17 +57,4 @@ flowchart TD
   Start[Fn_DecryptDataNew] --> Decrypt[DecryptByKey]
   Decrypt --> Decode[FN_ConvertBase64ToSTR]
   Decode --> ReturnValue[Return the string]
-```
-
-## Call sequence
-
-```mermaid
-sequenceDiagram
-  participant Caller
-  participant Main as Fn_DecryptDataNew
-  participant Decode as FN_ConvertBase64ToSTR
-  Caller->>Main: varbinary value
-  Main->>Decode: DecryptByKey result
-  Decode-->>Main: decoded string
-  Main-->>Caller: varchar result
 ```

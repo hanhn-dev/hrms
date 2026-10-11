@@ -19,6 +19,26 @@ Returns My Details field values for a comma-separated list of employees and a co
 | `@EmployeeIDs` | in | Comma-separated employee ids to read |
 | `@FieldIDs` | in | Comma-separated `TEmployeeDetail_Fields.FieldID` values to return |
 
+## Call sequence
+
+```mermaid
+sequenceDiagram
+  participant Caller
+  participant Main as SP_MyDetails_GetEmployeeDetailsForGivenFields
+  participant OpenOld as Sp_OpenEncryptionKeys
+  participant OpenNew as Sp_OpenEncryptionKeysNew
+  participant Dyn as sp_executesql batch
+  participant CloseOld as SP_CloseEncryptionKey
+  participant CloseNew as SP_CloseEncryptionKeyNew
+  Caller->>Main: EmployeeIDs, FieldIDs
+  Main->>OpenOld: execute
+  Main->>OpenNew: execute
+  Main->>Dyn: when LEN of SQL is greater than 10
+  Note over Dyn: Decrypt, month conversion, language names, and manager names are inside this batch
+  Main->>CloseOld: execute
+  Main->>CloseNew: execute
+```
+
 ## Steps
 
 In `HRMS-DATABASE/HRMS/STOREPROCEDURE/SP_MyDetails_GetEmployeeDetailsForGivenFields.sql`:
@@ -111,24 +131,4 @@ flowchart TD
   Run -->|yes| Exec[sp_executesql]
   Run -->|no| CloseKeys[Close both encryption keys]
   Exec --> CloseKeys
-```
-
-## Call sequence
-
-```mermaid
-sequenceDiagram
-  participant Caller
-  participant Main as SP_MyDetails_GetEmployeeDetailsForGivenFields
-  participant OpenOld as Sp_OpenEncryptionKeys
-  participant OpenNew as Sp_OpenEncryptionKeysNew
-  participant Dyn as sp_executesql batch
-  participant CloseOld as SP_CloseEncryptionKey
-  participant CloseNew as SP_CloseEncryptionKeyNew
-  Caller->>Main: EmployeeIDs, FieldIDs
-  Main->>OpenOld: execute
-  Main->>OpenNew: execute
-  Main->>Dyn: when LEN of SQL is greater than 10
-  Note over Dyn: Decrypt, month conversion, language names, and manager names are inside this batch
-  Main->>CloseOld: execute
-  Main->>CloseNew: execute
 ```

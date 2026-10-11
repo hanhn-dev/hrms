@@ -23,6 +23,33 @@ Approves or rejects one My Details change request. The value passed as `@Employe
 | `@Status` | in | `Approved` applies the last-level path. Any other value rejects the request |
 | `@Comments` | in | Stored on the change request and on the workflow row |
 
+## Call sequence
+
+```mermaid
+sequenceDiagram
+  participant Caller
+  participant Main as Sp_ApproveRejectMyDetailsReview
+  participant Open as Sp_OpenEncryptionKeys
+  participant Tree as SP_CM_GetWorkflowTreeXmlDetailsByPageTitle
+  participant Ctc as USP_TCTC_SaveUpdate
+  participant Hist as USP_Create_Employee_BudgetSourceHistory_Save
+  participant Save as USP_Create_Employee_BudgetSource_Save
+  participant Close as SP_CloseEncryptionKey
+  Caller->>Main: execute
+  Main->>Open: open keys
+  Main->>Tree: request type, employer, employee
+  opt final approval and budget CTC bifurcation is not empty
+    Main->>Ctc: budget detail id
+  end
+  opt final approval, each budget update or delete
+    Main->>Hist: status is the field mode
+  end
+  opt final approval, each budget insert
+    Main->>Save: RRSId 0
+  end
+  Main->>Close: close key
+```
+
 ## Steps
 
 In `HRMS-DATABASE/HRMS/STOREPROCEDURE/Sp_ApproveRejectMyDetailsReview.sql`:
@@ -142,31 +169,4 @@ flowchart TD
   Commit --> CloseKey[SP_CloseEncryptionKey]
   Txn -.-> Catch[Return the error row and roll back]
   Catch --> CloseKey
-```
-
-## Call sequence
-
-```mermaid
-sequenceDiagram
-  participant Caller
-  participant Main as Sp_ApproveRejectMyDetailsReview
-  participant Open as Sp_OpenEncryptionKeys
-  participant Tree as SP_CM_GetWorkflowTreeXmlDetailsByPageTitle
-  participant Ctc as USP_TCTC_SaveUpdate
-  participant Hist as USP_Create_Employee_BudgetSourceHistory_Save
-  participant Save as USP_Create_Employee_BudgetSource_Save
-  participant Close as SP_CloseEncryptionKey
-  Caller->>Main: execute
-  Main->>Open: open keys
-  Main->>Tree: request type, employer, employee
-  opt final approval and budget CTC bifurcation is not empty
-    Main->>Ctc: budget detail id
-  end
-  opt final approval, each budget update or delete
-    Main->>Hist: status is the field mode
-  end
-  opt final approval, each budget insert
-    Main->>Save: RRSId 0
-  end
-  Main->>Close: close key
 ```

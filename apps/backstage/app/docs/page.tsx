@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { databaseHref, getCurrentDatabaseDocs } from "@/lib/database-docs";
 import { getAllWikiDocs, type WikiDoc } from "@/lib/docs";
+import { flowHref, getCurrentFlowDocs } from "@/lib/flow-docs";
 import { getCurrentFeatureDocs } from "@/lib/guides";
 
 function groupByCategory(docs: WikiDoc[]): [WikiDoc["category"], WikiDoc[]][] {
@@ -21,6 +22,9 @@ export default function DocsPage(): React.JSX.Element {
     .map(({ slug, title, menu }) => ({ slug, title, menu }))
     .sort((a, b) => a.title.localeCompare(b.title));
   const databaseDocs = getCurrentDatabaseDocs().slice(0, 8);
+  const flowDocs = getCurrentFlowDocs()
+    .sort((a, b) => a.title.localeCompare(b.title))
+    .slice(0, 8);
 
   return (
     <div className="h-full overflow-y-auto">
@@ -79,6 +83,38 @@ export default function DocsPage(): React.JSX.Element {
                   <Link
                     className="block px-4 py-3 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-900"
                     href={databaseHref(doc.slug)}
+                  >
+                    {doc.title}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        <section className="mt-8">
+          <div className="flex items-baseline justify-between gap-4">
+            <h2 className="text-sm font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
+              Request flows
+            </h2>
+            <Link
+              className="text-sm text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
+              href="/docs/flows"
+            >
+              Browse all →
+            </Link>
+          </div>
+          {flowDocs.length === 0 ? (
+            <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">
+              No feature flows have been documented yet.
+            </p>
+          ) : (
+            <ul className="mt-3 divide-y divide-slate-200 rounded-md border border-slate-200 dark:divide-slate-800 dark:border-slate-800">
+              {flowDocs.map((doc) => (
+                <li key={doc.slug.join("/")}>
+                  <Link
+                    className="block px-4 py-3 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-900"
+                    href={flowHref(doc.slug)}
                   >
                     {doc.title}
                   </Link>

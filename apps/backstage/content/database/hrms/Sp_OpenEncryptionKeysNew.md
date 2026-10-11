@@ -18,6 +18,10 @@ Opens symmetric key `Encryption_Symmetric_Key` with certificate `Encryption_Cert
 |---|---|---|
 | — | — | The procedure takes no parameters |
 
+## Call sequence
+
+Calls no other procedures or functions.
+
 ## Steps
 
 In `HRMS-DATABASE/HRMS/STOREPROCEDURE/Sp_OpenEncryptionKeysNew.sql`:
@@ -44,7 +48,3 @@ flowchart TD
   TryOpen -->|opened| Done[Return]
   TryOpen -->|error| Caught[Catch and return]
 ```
-
-## Call sequence
-
-Calls no other procedures or functions.

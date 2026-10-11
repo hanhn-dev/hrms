@@ -18,6 +18,10 @@ Decodes a Base64 string to text. It reads `xs:base64Binary` through an XML value
 |---|---|---|
 | `@encodedString` | in | `VARCHAR(100)` Base64 text to decode |
 
+## Call sequence
+
+Calls no other procedures or functions.
+
 ## Steps
 
 In `HRMS-DATABASE/HRMS/FUNCTIONS/FN_ConvertBase64ToSTR.sql`:
@@ -42,7 +46,3 @@ flowchart TD
   Start[FN_ConvertBase64ToSTR] --> Decode[XML xs:base64Binary]
   Decode --> ReturnValue[Return the decoded string]
 ```
-
-## Call sequence
-
-Calls no other procedures or functions.

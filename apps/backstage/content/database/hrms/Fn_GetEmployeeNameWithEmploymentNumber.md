@@ -18,6 +18,19 @@ Returns one employee's display name, employment number, and employer name in a s
 |---|---|---|
 | `@EmployeeID` | in | Employee to format |
 
+## Call sequence
+
+```mermaid
+sequenceDiagram
+  participant Caller
+  participant Main as Fn_GetEmployeeNameWithEmploymentNumber
+  participant Name as Fn_GetEmployeeName
+  Caller->>Main: EmployeeID
+  Main->>Name: same EmployeeID
+  Name-->>Main: display name
+  Main-->>Caller: name, employment number, employer
+```
+
 ## Steps
 
 In `HRMS-DATABASE/HRMS/FUNCTIONS/Fn_GetEmployeeNameWithEmploymentNumber.sql`:
@@ -48,17 +61,4 @@ flowchart TD
   ReadRow --> Name[Fn_GetEmployeeName]
   Name --> Format[Concatenate name, number, and employer]
   Format --> ReturnValue[Return the string or an empty string]
-```
-
-## Call sequence
-
-```mermaid
-sequenceDiagram
-  participant Caller
-  participant Main as Fn_GetEmployeeNameWithEmploymentNumber
-  participant Name as Fn_GetEmployeeName
-  Caller->>Main: EmployeeID
-  Main->>Name: same EmployeeID
-  Name-->>Main: display name
-  Main-->>Caller: name, employment number, employer
 ```

@@ -18,6 +18,10 @@ Builds an employee's display name from first, optional middle, and last name, th
 |---|---|---|
 | `@EmployeeID` | in | Employee whose name is read |
 
+## Call sequence
+
+Calls no other procedures or functions.
+
 ## Steps
 
 In `HRMS-DATABASE/HRMS/FUNCTIONS/Fn_GetEmployeeName.sql`:
@@ -50,7 +54,3 @@ flowchart TD
   WithMiddle --> Cap
   Cap --> ReturnValue[Return the name]
 ```
-
-## Call sequence
-
-Calls no other procedures or functions.

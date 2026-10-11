@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import type { FeatureVersion } from "@/lib/guides";
+import { retargetTrail } from "@/shared/navigation";
 
 export function VersionSelect({
   versions,
@@ -22,7 +23,11 @@ export function VersionSelect({
       <select
         className="max-w-full rounded-md border border-slate-200 bg-white px-2 py-1 text-sm text-slate-800 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
         onChange={(event) => {
-          router.push(event.target.value);
+          const nextHref = event.target.value;
+          if (typeof window !== "undefined") {
+            retargetTrail(`${window.location.pathname}${window.location.search}`, nextHref);
+          }
+          router.push(nextHref);
         }}
         value={selected?.href ?? versions[0]?.href}
       >

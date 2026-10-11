@@ -22,6 +22,19 @@ Inserts one live employee budget-source row for each row in the table-valued par
 | `@EmployerID` | in | Employer stored on each new row |
 | `@CreatedBy` | in | `CreatedBy` on each new row and on history |
 
+## Call sequence
+
+```mermaid
+sequenceDiagram
+  participant Caller
+  participant Main as USP_Create_Employee_BudgetSource_Save
+  participant Hist as USP_Create_Employee_BudgetSourceHistory_Save
+  Caller->>Main: execute
+  loop each parameter row
+    Main->>Hist: status New
+  end
+```
+
 ## Steps
 
 In `HRMS-DATABASE/HRMS/STOREPROCEDURE/USP_Create_Employee_BudgetSource_Save.sql`:
@@ -53,17 +66,4 @@ flowchart TD
   HasRows -->|no| StopNode[Return]
   HasRows -->|yes| Loop[Insert each live budget row]
   Loop --> Hist[USP_Create_Employee_BudgetSourceHistory_Save]
-```
-
-## Call sequence
-
-```mermaid
-sequenceDiagram
-  participant Caller
-  participant Main as USP_Create_Employee_BudgetSource_Save
-  participant Hist as USP_Create_Employee_BudgetSourceHistory_Save
-  Caller->>Main: execute
-  loop each parameter row
-    Main->>Hist: status New
-  end
 ```

@@ -13,13 +13,23 @@ const ENV_ROOTS: Record<RepoId, string | undefined> = {
   "hrms-sdk": process.env.REQUEST_FLOW_HRMS_SDK,
 };
 
+const DEFAULT_ROOTS: Record<RepoId, readonly string[]> = {
+  "hrms-db": ["D:/TDG HRMS DB"],
+  sourcecode: ["D:/TDG HRMS/SourceCode"],
+  "hrms-sdk": ["D:/hrms-sdk"],
+};
+
 export function GET(): NextResponse {
   const roots: Partial<Record<RepoId, string>> = {};
   for (const repo of REPO_IDS) {
-    const start = ENV_ROOTS[repo];
-    if (!start) continue;
-    const root = findRepoRoot(start, repo);
-    if (root) roots[repo] = root;
+    const starts = [ENV_ROOTS[repo], ...DEFAULT_ROOTS[repo]].filter((value): value is string => Boolean(value));
+    for (const start of starts) {
+      const root = findRepoRoot(start, repo);
+      if (root) {
+        roots[repo] = root;
+        break;
+      }
+    }
   }
   return NextResponse.json({ roots });
 }

@@ -18,6 +18,10 @@ Closes symmetric key `Encryption_Symmetric_Key` for the current session. A failu
 |---|---|---|
 | — | — | The procedure takes no parameters |
 
+## Call sequence
+
+Calls no other procedures or functions.
+
 ## Steps
 
 In `HRMS-DATABASE/HRMS/STOREPROCEDURE/SP_CloseEncryptionKeyNew.sql`:
@@ -44,7 +48,3 @@ flowchart TD
   TryClose -->|closed| Done[Return]
   TryClose -->|error| Caught[Catch and return]
 ```
-
-## Call sequence
-
-Calls no other procedures or functions.

@@ -9,6 +9,7 @@ import { EDITOR_SETTING, readEditor } from "@/features/flows/editor-preference";
 import { FLOW_ROOTS_SETTING, readRoots, ROOTS_KEY, type Roots } from "@/features/flows/roots-storage";
 import { MermaidAwarePre, ScrollableTable } from "@/lib/markdown-components";
 import { getSetting, migrateLocalSetting } from "@/shared/client-db";
+import { TrailLink } from "@/shared/navigation";
 import { databaseSourcePath, objectFromDatabaseHref, objectMention, resolveDatabaseDocHref, type ObjectMention } from "./mentions";
 import type { ObjectPanelResult } from "./object-payload";
 import { scriptKindMap, SqlHighlight } from "./sql-highlight";
@@ -296,9 +297,9 @@ function ObjectPanel({
           </p>
           <h2 className="truncate text-base font-semibold">{title}</h2>
           {result?.found && result.docHref ? (
-            <Link className="text-sm text-sky-700 hover:underline dark:text-sky-300" href={result.docHref}>
+            <TrailLink className="text-sm text-sky-700 hover:underline dark:text-sky-300" href={result.docHref}>
               Open the write-up
-            </Link>
+            </TrailLink>
           ) : null}
         </div>
         <button

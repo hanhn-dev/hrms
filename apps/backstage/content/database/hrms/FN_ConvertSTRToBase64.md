@@ -18,6 +18,10 @@ Encodes a string as Base64. It converts the input to `VARBINARY`, then reads `xs
 |---|---|---|
 | `@decodedString` | in | `VARCHAR(MAX)` text to encode |
 
+## Call sequence
+
+Calls no other procedures or functions.
+
 ## Steps
 
 In `HRMS-DATABASE/HRMS/FUNCTIONS/FN_ConvertSTRToBase64.sql`:
@@ -44,7 +48,3 @@ flowchart TD
   ToBinary --> Encode[Read xs:base64Binary]
   Encode --> ReturnValue[Return the encoded string]
 ```
-
-## Call sequence
-
-Calls no other procedures or functions.
