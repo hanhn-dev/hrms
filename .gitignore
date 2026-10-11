@@ -41,3 +41,6 @@ yarn-error.log*
 
 # Backstage in-app feature proposals (unpublished)
 apps/backstage/content/guides/_proposals/
+
+# Backstage local SQLite stores (operator-console-only state, e.g. pull request "done" marks)
+apps/backstage/.data/

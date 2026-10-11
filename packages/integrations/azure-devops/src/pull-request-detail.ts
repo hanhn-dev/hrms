@@ -240,10 +240,9 @@ function buildPullRequestUrl(
   pullRequestId: number,
   orgUrl: string,
 ): string {
-  if (typeof pullRequest.url === 'string' && pullRequest.url.trim().length > 0) {
-    return pullRequest.url;
-  }
-
+  // Deliberately ignore `pullRequest.url` — Azure DevOps populates that field
+  // with the REST API self-link (e.g. `.../_apis/git/repositories/{id}/pullRequests/{id}`),
+  // which returns JSON when opened in a browser instead of the pull request's web page.
   const repositoryName =
     typeof pullRequest.repository?.name === 'string' && pullRequest.repository.name.trim().length > 0
       ? pullRequest.repository.name

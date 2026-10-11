@@ -53,6 +53,8 @@ export type {
 	PullRequestThreadComment,
 	PullRequestThreadsRequest,
 	PullRequestThreadsResponse,
+	TeamIteration,
+	TeamIterationTimeframe,
 } from './types.js';
 export {
 	AzureDevOpsClient,
@@ -87,3 +89,4 @@ export { getWorkItemComments } from './work-item-comments.js';
 export { getWorkItemSpecContext } from './work-item-spec-context.js';
 export { getWorkItemFieldRevisions } from './work-item-revisions.js';
 export { listPullRequestThreads } from './pull-request-threads.js';
+export { getIterationWorkItems, listTeamIterations } from './iterations.js';

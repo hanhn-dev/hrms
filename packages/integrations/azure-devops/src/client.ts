@@ -1,16 +1,21 @@
 import * as azdev from 'azure-devops-node-api';
 import type { IGitApi } from 'azure-devops-node-api/GitApi.js';
 import type { IWorkItemTrackingApi } from 'azure-devops-node-api/WorkItemTrackingApi.js';
+import type { IWorkApi } from 'azure-devops-node-api/WorkApi.js';
+import type { TeamContext } from 'azure-devops-node-api/interfaces/CoreInterfaces.js';
 import type { AzureDevOpsConfig, WorkItemAttachment } from './types.js';
 
 type AttachmentMetadata = Pick<WorkItemAttachment, 'contentType' | 'size'>;
 
 export type WorkItemLookupIssueStatus = 'not_found' | 'inaccessible';
 
+const DEFAULT_TEAM_SUFFIX = ' Team';
+
 export class AzureDevOpsClient {
   readonly config: AzureDevOpsConfig;
   private _gitApi: IGitApi | null = null;
   private _witApi: IWorkItemTrackingApi | null = null;
+  private _workApi: IWorkApi | null = null;
   private _connection: azdev.WebApi;
 
   constructor(config: AzureDevOpsConfig) {
@@ -32,6 +37,27 @@ export class AzureDevOpsClient {
     }
 
     return this._gitApi;
+  }
+
+  async getWorkApi(): Promise<IWorkApi> {
+    if (this._workApi === null) {
+      this._workApi = await this._connection.getWorkApi();
+    }
+
+    return this._workApi;
+  }
+
+  /**
+   * Azure DevOps Team Iterations (sprints) are scoped to a project + team,
+   * not just a project. When no team is configured explicitly, fall back to
+   * the default team Azure DevOps creates for every project ("<Project> Team").
+   */
+  get teamContext(): TeamContext {
+    const team = this.config.team?.trim();
+    return {
+      project: this.config.project,
+      team: team && team.length > 0 ? team : `${this.config.project}${DEFAULT_TEAM_SUFFIX}`,
+    };
   }
 
   async getAttachmentMetadata(url: string): Promise<AttachmentMetadata> {

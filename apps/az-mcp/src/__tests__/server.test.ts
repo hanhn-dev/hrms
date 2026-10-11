@@ -163,6 +163,7 @@ const mockPullRequestLookupResponse: PullRequestLookupResponse = {
       title: 'PR 501',
       author: 'Alice',
       status: 'completed',
+      sourceBranch: 'refs/heads/feature/login',
       targetBranch: 'refs/heads/main',
       mergedDate: '2026-05-16T11:20:00Z',
       url: 'https://dev.azure.com/example/project/_git/repo-a/pullrequest/501',

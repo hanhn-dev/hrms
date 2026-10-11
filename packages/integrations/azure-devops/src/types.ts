@@ -191,6 +191,7 @@ export interface AzureDevOpsConfig {
   readonly orgUrl: string;
   readonly project: string;
   readonly token: string;
+  readonly team?: string;
 }
 
 export interface ListWorkItemsFilter {
@@ -238,6 +239,7 @@ export interface PullRequestCandidate {
   readonly title: string;
   readonly author: string | null;
   readonly status: string;
+  readonly sourceBranch: string;
   readonly targetBranch: string;
   readonly mergedDate: string | null;
   readonly url: string;
@@ -444,4 +446,15 @@ export interface WorkItemHierarchyContextResponse {
   readonly omittedCount: number;
   readonly items: readonly WorkItemHierarchyContextEntry[];
   readonly omissions: readonly WorkItemHierarchyContextOmission[];
+}
+
+export type TeamIterationTimeframe = 'past' | 'current' | 'future';
+
+export interface TeamIteration {
+  readonly id: string;
+  readonly name: string;
+  readonly path: string;
+  readonly timeFrame: TeamIterationTimeframe | null;
+  readonly startDate: string | null;
+  readonly finishDate: string | null;
 }

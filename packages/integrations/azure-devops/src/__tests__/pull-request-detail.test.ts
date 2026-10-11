@@ -119,7 +119,9 @@ describe('getPullRequestDetail', () => {
       creationDate: new Date('2026-07-29T10:00:00.000Z'),
       sourceRefName: 'refs/heads/feature/login',
       targetRefName: 'refs/heads/main',
-      url: 'https://dev.azure.com/example/Sample%20Project/_git/app/pullrequest/501',
+      // Azure DevOps populates this with the REST API self-link, not a web
+      // page — getPullRequestDetail must not surface it as `result.url`.
+      url: 'https://dev.azure.com/example/_apis/git/repositories/repo-guid/pullRequests/501',
       repository: {
         id: 'repo-guid',
         name: 'app',
@@ -209,6 +211,9 @@ describe('getPullRequestDetail', () => {
     expect(result.iterationId).toBe(2);
     expect(result.reviewers).toEqual([{ displayName: 'Bob', vote: 'approved', isRequired: true }]);
     expect(result.workItemIds).toEqual([135898]);
+    // Always a constructed web UI link, never the REST API self-link
+    // Azure DevOps puts on `pullRequest.url` (that returns JSON, not a page).
+    expect(result.url).toBe('https://dev.azure.com/example/Sample%20Project/_git/app/pullrequest/501');
     expect(result.changes.returnedCount).toBe(5);
     expect(result.changes.hasMore).toBe(false);
     expect(result.changes.files.find((file) => file.path === '/src/login.ts')).toMatchObject({

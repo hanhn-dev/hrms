@@ -86,8 +86,9 @@ describe('getWorkItemPullRequests', () => {
 				title: `PR ${pullRequestId}`,
 				createdBy: { displayName: pullRequestId === 501 ? 'Alice' : 'Bob' },
 				status: pullRequestId === 501 ? PullRequestStatus.Completed : PullRequestStatus.Active,
+				sourceRefName: pullRequestId === 501 ? 'refs/heads/fix/EM-170434-observations' : 'refs/heads/fix/EM-170434-update-button',
 				targetRefName: pullRequestId === 501 ? 'refs/heads/main' : 'refs/heads/release/2026.05',
-				url: `https://dev.azure.com/example/project/_git/${repositoryId}/pullrequest/${pullRequestId}`,
+				url: `https://dev.azure.com/example/_apis/git/repositories/${repositoryId}/pullRequests/${pullRequestId}`,
 				lastMergeCommit: { commitId: pullRequestId === 501 ? 'merge-501' : undefined },
 				lastMergeSourceCommit: { commitId: `source-${pullRequestId}` },
 				lastMergeTargetCommit: { commitId: `target-${pullRequestId}` },
@@ -127,6 +128,11 @@ describe('getWorkItemPullRequests', () => {
 			pullRequestId: 501,
 			author: 'Alice',
 			status: 'completed',
+			sourceBranch: 'refs/heads/fix/EM-170434-observations',
+			targetBranch: 'refs/heads/main',
+			// Always a constructed web UI link, never the REST API self-link
+			// Azure DevOps puts on `pullRequest.url` (that returns JSON, not a page).
+			url: 'https://dev.azure.com/example/project-guid/_git/repo-a/pullrequest/501',
 			relatedWorkItemIds: [101, 202],
 			requestedWorkItemIds: [101],
 			childWorkItemIds: [202],

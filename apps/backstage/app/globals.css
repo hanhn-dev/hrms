@@ -52,6 +52,53 @@ html[data-read-mode] [data-feature-toc] {
   .ant-table-tbody > tr.upload-row-expired:hover > td {
     background: var(--ant-color-warning-bg-hover, #fff1b8);
   }
+
+  /* Keep sort arrows adjacent to title text on left-aligned columns */
+  .ant-table-wrapper th:not([class*="align-right"]):not([class*="align-center"]) .ant-table-column-sorters {
+    display: inline-flex;
+    justify-content: flex-start;
+    gap: 6px;
+  }
+
+  .ant-table-wrapper th:not([class*="align-right"]):not([class*="align-center"]) .ant-table-column-title {
+    flex: initial;
+  }
+
+  /* Active sort arrow: vivid blue with high contrast (matching default Ant Design) */
+  .ant-table-wrapper .ant-table-column-sorter-up.active,
+  .ant-table-wrapper .ant-table-column-sorter-down.active {
+    color: #1677ff !important;
+  }
+
+  /* Inactive sort arrow: subtle muted gray so it doesn't overpower active arrow on hover */
+  .ant-table-wrapper .ant-table-column-sorter-up:not(.active),
+  .ant-table-wrapper .ant-table-column-sorter-down:not(.active) {
+    color: rgba(0, 0, 0, 0.25) !important;
+  }
+
+  /* Dark mode support */
+  :where(.dark) .ant-table-wrapper .ant-table-column-sorter-up.active,
+  :where(.dark) .ant-table-wrapper .ant-table-column-sorter-down.active {
+    color: #4096ff !important;
+  }
+
+  :where(.dark) .ant-table-wrapper .ant-table-column-sorter-up:not(.active),
+  :where(.dark) .ant-table-wrapper .ant-table-column-sorter-down:not(.active) {
+    color: rgba(255, 255, 255, 0.3) !important;
+  }
+
+  /* Sorted header background: subtle neutral tint like antd default, not glaring blue */
+  .ant-table-wrapper .ant-table-thead > tr > th.ant-table-column-sort {
+    background: rgba(0, 0, 0, 0.04) !important;
+  }
+
+  :where(.dark) .ant-table-wrapper .ant-table-thead > tr > th.ant-table-column-sort {
+    background: rgba(255, 255, 255, 0.06) !important;
+  }
+
+  :where(.dark) .ant-table-wrapper td.ant-table-column-sort {
+    background: rgba(255, 255, 255, 0.02) !important;
+  }
 }
 
 /* transform-origin must be 0 0 to match the zoom-toward-cursor math in

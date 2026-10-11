@@ -285,11 +285,10 @@ function getCommitId(value: { commitId?: string } | undefined): string | null {
   return null;
 }
 
-function buildPullRequestUrl(pullRequest: GitPullRequest, reference: PullRequestArtifactReference, orgUrl: string): string {
-  if (typeof pullRequest.url === 'string' && pullRequest.url.trim().length > 0) {
-    return pullRequest.url;
-  }
-
+function buildPullRequestUrl(reference: PullRequestArtifactReference, orgUrl: string): string {
+  // Deliberately ignore `pullRequest.url` — Azure DevOps populates that field
+  // with the REST API self-link (e.g. `.../_apis/git/repositories/{id}/pullRequests/{id}`),
+  // which returns JSON when opened in a browser instead of the pull request's web page.
   return `${orgUrl}/${reference.projectId}/_git/${reference.repositoryId}/pullrequest/${reference.pullRequestId}`;
 }
 
@@ -324,9 +323,10 @@ async function hydrateCandidates(
         title: typeof pullRequest.title === 'string' ? pullRequest.title : '',
         author: getDisplayName(pullRequest.createdBy),
         status: normalizePullRequestStatus(pullRequest.status),
+        sourceBranch: typeof pullRequest.sourceRefName === 'string' ? pullRequest.sourceRefName : '',
         targetBranch: typeof pullRequest.targetRefName === 'string' ? pullRequest.targetRefName : '',
         mergedDate: toIsoString(pullRequest.closedDate),
-        url: buildPullRequestUrl(pullRequest, candidate.reference, client.config.orgUrl),
+        url: buildPullRequestUrl(candidate.reference, client.config.orgUrl),
         hashes: {
           mergeCommit: getCommitId(pullRequest.lastMergeCommit),
           sourceCommit: getCommitId(pullRequest.lastMergeSourceCommit),
