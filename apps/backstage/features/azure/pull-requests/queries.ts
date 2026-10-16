@@ -2,8 +2,15 @@
 
 import {
   getWorkItem,
-  getWorkItemPullRequests,
-  type PullRequestLookupResponse,
+  listAreaModules,
+  listTeamIterations,
+  listTeamMembers,
+  searchPullRequests as searchPullRequestsInAzure,
+  type AreaModule,
+  type PullRequestSearchCriteria,
+  type PullRequestSearchResult,
+  type TeamIteration,
+  type TeamMember,
   type WorkItem,
 } from "@hrms/azure-devops";
 import {
@@ -13,19 +20,30 @@ import {
 import { requireRootAdmin } from "@/shared/auth";
 import { getAzureDevOpsClient } from "@/shared/azure";
 
-export type { PullRequestLookupResponse, WorkItem };
+export type { PullRequestSearchResult, WorkItem };
 
-export async function lookupPullRequestsForWorkItems(
-  ids: string,
-): Promise<PullRequestLookupResponse> {
+export type PullRequestSearchOptions = {
+  readonly teamMembers: readonly TeamMember[];
+  readonly modules: readonly AreaModule[];
+  readonly iterations: readonly TeamIteration[];
+};
+
+export async function loadPullRequestSearchOptions(): Promise<PullRequestSearchOptions> {
   await requireRootAdmin();
   const client = getAzureDevOpsClient();
-  // confirmUnfiltered skips the chat-elicitation "needs_refinement" stage
-  // (that flow exists for az-mcp's AI clients) and always resolves straight
-  // to the full "complete" result — this screen's table already supports
-  // sorting/filtering/selecting, so no server-side refinement round trip is
-  // needed.
-  return getWorkItemPullRequests(client, { ids, confirmUnfiltered: true });
+  const [teamMembers, modules, iterations] = await Promise.all([
+    listTeamMembers(client),
+    listAreaModules(client),
+    listTeamIterations(client),
+  ]);
+  return { teamMembers, modules, iterations };
+}
+
+export async function searchPullRequests(
+  criteria: PullRequestSearchCriteria,
+): Promise<PullRequestSearchResult> {
+  await requireRootAdmin();
+  return searchPullRequestsInAzure(getAzureDevOpsClient(), criteria);
 }
 
 export async function getWorkItemDetail(id: number): Promise<WorkItem> {

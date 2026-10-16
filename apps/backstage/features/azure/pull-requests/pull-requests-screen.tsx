@@ -1,14 +1,16 @@
+import { Suspense } from "react";
 import { AzureNav } from "@/features/azure/azure-nav";
-import { PullRequestsPanel } from "@/features/azure/pull-requests/pull-requests-panel";
+import { PullRequestsSearchSlot } from "@/features/azure/pull-requests/pull-requests-search-slot";
 import { PageHeader } from "@/shared/ui/page-header";
+import { SectionFallback } from "@/shared/ui/section-fallback";
 
 const HELP = [
   {
     id: "lookup",
     type: "info" as const,
-    title: "Work items and bugs, not just stories",
+    title: "Combine work items and pull requests",
     description:
-      "Enter any comma-separated Azure DevOps work item IDs — User Stories, Bugs, Tasks. Every pull request linked to those items or their child work items is included.",
+      "Paste work item IDs, or filter by module (area path), type, state, iteration, assignee, tags, and title. Add a date range and authors to narrow the pull requests. Filled filters are combined. Values inside one list match any of those values. Blank filters are ignored.",
   },
   {
     id: "cherry-pick",
@@ -31,7 +33,9 @@ export async function PullRequestsScreen(): Promise<React.JSX.Element> {
     <div className="h-screen overflow-y-auto">
       <div className="mx-auto max-w-6xl p-6">
         <PageHeader extra={<AzureNav active="pull-requests" />} notes={HELP} title="Pull requests" />
-        <PullRequestsPanel />
+        <Suspense fallback={<SectionFallback title="Pull request search" />}>
+          <PullRequestsSearchSlot />
+        </Suspense>
       </div>
     </div>
   );

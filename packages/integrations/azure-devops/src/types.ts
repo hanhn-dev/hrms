@@ -154,6 +154,18 @@ export interface SearchWorkItemsFilter {
   readonly iteration?: string;
   readonly changedSince?: string;
   readonly top?: number;
+  /** Area paths matched with UNDER. Multiple values are OR. */
+  readonly areaPaths?: readonly string[];
+  /** Work item types. Multiple values are OR. Used instead of `type` when set. */
+  readonly types?: readonly string[];
+  /** Work item states. Multiple values are OR. Used instead of `state` when set. */
+  readonly states?: readonly string[];
+  /** Assignee display names. Multiple values are OR. Used instead of `assignedTo` when set. */
+  readonly assignees?: readonly string[];
+  /** Tag contains. Multiple values are OR. */
+  readonly tags?: readonly string[];
+  /** Restrict the query to these work item ids. */
+  readonly ids?: readonly number[];
 }
 
 export interface WorkItemRequestEntry {
@@ -238,9 +250,11 @@ export interface PullRequestCandidate {
   readonly pullRequestId: number;
   readonly title: string;
   readonly author: string | null;
+  readonly authorId: string | null;
   readonly status: string;
   readonly sourceBranch: string;
   readonly targetBranch: string;
+  readonly openedDate: string | null;
   readonly mergedDate: string | null;
   readonly url: string;
   readonly hashes: PullRequestHashes;
@@ -289,6 +303,45 @@ export interface PullRequestLookupResponse {
   readonly questions: readonly RefinementQuestion[] | null;
   readonly results: readonly PullRequestCandidate[] | null;
 }
+
+export type PullRequestDateField = 'opened' | 'merged';
+
+export interface TeamMember {
+  readonly id: string;
+  readonly displayName: string;
+}
+
+export interface AreaModule {
+  readonly name: string;
+  readonly path: string;
+}
+
+export interface PullRequestSearchCriteria {
+  readonly workItemIds: string;
+  readonly areaPaths: readonly string[];
+  readonly types: readonly string[];
+  readonly states: readonly string[];
+  readonly iterationPath: string;
+  readonly assignees: readonly string[];
+  readonly tags: string;
+  readonly titleContains: string;
+  readonly dateField: PullRequestDateField;
+  readonly dateFrom: string | null;
+  readonly dateTo: string | null;
+  readonly authorIds: readonly string[];
+  readonly statuses: readonly string[];
+}
+
+export interface PullRequestSearchResult {
+  readonly results: readonly PullRequestCandidate[];
+  readonly issues: readonly PullRequestLookupIssue[];
+  readonly truncated: boolean;
+}
+
+export const WORK_ITEM_TYPE_OPTIONS = ['Product Backlog Item', 'Bug', 'Task'] as const;
+export const WORK_ITEM_STATE_OPTIONS = ['New', 'Active', 'Resolved', 'Closed', 'Done'] as const;
+export const PULL_REQUEST_STATUS_OPTIONS = ['active', 'completed', 'abandoned'] as const;
+export const PULL_REQUEST_SEARCH_LIMIT = 200;
 
 export type PullRequestChangeType = 'add' | 'edit' | 'delete' | 'rename' | 'other';
 export type PullRequestLineDiffChangeType = 'none' | 'add' | 'delete' | 'edit';

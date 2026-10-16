@@ -3,7 +3,14 @@
   "version": "0.0.0",
   "type": "module",
   "exports": {
-    ".": "./dist/index.js"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./criteria": {
+      "types": "./dist/pull-request-search-criteria.d.ts",
+      "default": "./dist/pull-request-search-criteria.js"
+    }
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

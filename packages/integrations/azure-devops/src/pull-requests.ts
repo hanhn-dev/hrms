@@ -285,6 +285,59 @@ function getCommitId(value: { commitId?: string } | undefined): string | null {
   return null;
 }
 
+export function mapGitPullRequestToCandidate(
+  pullRequest: GitPullRequest,
+  orgUrl: string,
+  links: {
+    readonly repositoryId: string;
+    readonly projectId: string;
+    readonly pullRequestId: number;
+    readonly relatedWorkItemIds?: readonly number[];
+    readonly requestedWorkItemIds?: readonly number[];
+    readonly childWorkItemIds?: readonly number[];
+  },
+): PullRequestCandidate {
+  return {
+    repositoryId: pullRequest.repository?.id ?? links.repositoryId,
+    pullRequestId: pullRequest.pullRequestId ?? links.pullRequestId,
+    title: typeof pullRequest.title === 'string' ? pullRequest.title : '',
+    author: getDisplayName(pullRequest.createdBy),
+    authorId: getIdentityId(pullRequest.createdBy),
+    status: normalizePullRequestStatus(pullRequest.status),
+    sourceBranch: typeof pullRequest.sourceRefName === 'string' ? pullRequest.sourceRefName : '',
+    targetBranch: typeof pullRequest.targetRefName === 'string' ? pullRequest.targetRefName : '',
+    openedDate: toIsoString(pullRequest.creationDate),
+    mergedDate: toIsoString(pullRequest.closedDate),
+    url: buildPullRequestUrl(
+      {
+        projectId: links.projectId,
+        repositoryId: pullRequest.repository?.id ?? links.repositoryId,
+        pullRequestId: pullRequest.pullRequestId ?? links.pullRequestId,
+        linkedWorkItemId: 0,
+        requestedAncestorId: 0,
+        linkSource: 'requested',
+      },
+      orgUrl,
+    ),
+    hashes: {
+      mergeCommit: getCommitId(pullRequest.lastMergeCommit),
+      sourceCommit: getCommitId(pullRequest.lastMergeSourceCommit),
+      targetCommit: getCommitId(pullRequest.lastMergeTargetCommit),
+    },
+    relatedWorkItemIds: [...(links.relatedWorkItemIds ?? [])],
+    requestedWorkItemIds: [...(links.requestedWorkItemIds ?? [])],
+    childWorkItemIds: [...(links.childWorkItemIds ?? [])],
+  };
+}
+
+function getIdentityId(value: { id?: string } | undefined): string | null {
+  if (typeof value?.id === 'string' && value.id.trim().length > 0) {
+    return value.id.trim();
+  }
+
+  return null;
+}
+
 function buildPullRequestUrl(reference: PullRequestArtifactReference, orgUrl: string): string {
   // Deliberately ignore `pullRequest.url` — Azure DevOps populates that field
   // with the REST API self-link (e.g. `.../_apis/git/repositories/{id}/pullRequests/{id}`),
@@ -317,25 +370,14 @@ async function hydrateCandidates(
         throw new Error(`Azure DevOps pull request API error: ${getAzureDevOpsErrorMessage(error)}`);
       }
 
-      return {
+      return mapGitPullRequestToCandidate(pullRequest, client.config.orgUrl, {
         repositoryId: pullRequest.repository?.id ?? candidate.reference.repositoryId,
+        projectId: candidate.reference.projectId,
         pullRequestId: pullRequest.pullRequestId ?? candidate.reference.pullRequestId,
-        title: typeof pullRequest.title === 'string' ? pullRequest.title : '',
-        author: getDisplayName(pullRequest.createdBy),
-        status: normalizePullRequestStatus(pullRequest.status),
-        sourceBranch: typeof pullRequest.sourceRefName === 'string' ? pullRequest.sourceRefName : '',
-        targetBranch: typeof pullRequest.targetRefName === 'string' ? pullRequest.targetRefName : '',
-        mergedDate: toIsoString(pullRequest.closedDate),
-        url: buildPullRequestUrl(candidate.reference, client.config.orgUrl),
-        hashes: {
-          mergeCommit: getCommitId(pullRequest.lastMergeCommit),
-          sourceCommit: getCommitId(pullRequest.lastMergeSourceCommit),
-          targetCommit: getCommitId(pullRequest.lastMergeTargetCommit),
-        },
         relatedWorkItemIds: [...candidate.relatedWorkItemIds].sort((left, right) => left - right),
         requestedWorkItemIds: [...candidate.requestedWorkItemIds].sort((left, right) => left - right),
         childWorkItemIds: [...candidate.childWorkItemIds].sort((left, right) => left - right),
-      };
+      });
     }),
   );
 }

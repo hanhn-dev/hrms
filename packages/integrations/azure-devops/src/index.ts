@@ -21,6 +21,11 @@ export type {
 	PullRequestReviewerVote,
 	PullRequestSortDirection,
 	PullRequestSortField,
+	PullRequestDateField,
+	PullRequestSearchCriteria,
+	PullRequestSearchResult,
+	TeamMember,
+	AreaModule,
 	RefinementQuestion,
 	MultiWorkItemRequest,
 	ListWorkItemsFilter,
@@ -57,6 +62,12 @@ export type {
 	TeamIterationTimeframe,
 } from './types.js';
 export {
+	PULL_REQUEST_SEARCH_LIMIT,
+	PULL_REQUEST_STATUS_OPTIONS,
+	WORK_ITEM_STATE_OPTIONS,
+	WORK_ITEM_TYPE_OPTIONS,
+} from './types.js';
+export {
 	AzureDevOpsClient,
 	classifyPullRequestLookupError,
 	classifyWorkItemLookupError,
@@ -83,8 +94,17 @@ export {
 	resolvePullRequest,
 } from './pull-request-detail.js';
 export type { ParsedPullRequestReference } from './pull-request-detail.js';
-export { getWorkItemPullRequests } from './pull-requests.js';
-export { getWorkItem, getWorkItemHierarchyContext, getWorkItemsByIds, listWorkItems, mapWorkItemLinks, parseWorkItemIdsInput, queryWorkItems, searchWorkItems, withWorkItemLinkTitles } from './work-items.js';
+export { getWorkItemPullRequests, mapGitPullRequestToCandidate } from './pull-requests.js';
+export {
+	emptyPullRequestSearchCriteria,
+	filterPullRequestCandidates,
+	hasWorkItemSearchCriteria,
+	intersectWorkItemIds,
+	isPullRequestSearchCriteriaEmpty,
+	searchPullRequests,
+} from './pull-request-search.js';
+export { listAreaModules, listTeamMembers, toWorkItemAreaPath } from './catalog.js';
+export { getWorkItem, getWorkItemHierarchyContext, getWorkItemsByIds, listWorkItems, mapWorkItemLinks, parseWorkItemIdsInput, queryWorkItems, searchWorkItemIds, searchWorkItems, buildSearchWorkItemsWiql, withWorkItemLinkTitles } from './work-items.js';
 export { getWorkItemComments } from './work-item-comments.js';
 export { getWorkItemSpecContext } from './work-item-spec-context.js';
 export { getWorkItemFieldRevisions } from './work-item-revisions.js';

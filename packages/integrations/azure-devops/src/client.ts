@@ -1,4 +1,5 @@
 import * as azdev from 'azure-devops-node-api';
+import type { ICoreApi } from 'azure-devops-node-api/CoreApi.js';
 import type { IGitApi } from 'azure-devops-node-api/GitApi.js';
 import type { IWorkItemTrackingApi } from 'azure-devops-node-api/WorkItemTrackingApi.js';
 import type { IWorkApi } from 'azure-devops-node-api/WorkApi.js';
@@ -13,6 +14,7 @@ const DEFAULT_TEAM_SUFFIX = ' Team';
 
 export class AzureDevOpsClient {
   readonly config: AzureDevOpsConfig;
+  private _coreApi: ICoreApi | null = null;
   private _gitApi: IGitApi | null = null;
   private _witApi: IWorkItemTrackingApi | null = null;
   private _workApi: IWorkApi | null = null;
@@ -37,6 +39,14 @@ export class AzureDevOpsClient {
     }
 
     return this._gitApi;
+  }
+
+  async getCoreApi(): Promise<ICoreApi> {
+    if (this._coreApi === null) {
+      this._coreApi = await this._connection.getCoreApi();
+    }
+
+    return this._coreApi;
   }
 
   async getWorkApi(): Promise<IWorkApi> {

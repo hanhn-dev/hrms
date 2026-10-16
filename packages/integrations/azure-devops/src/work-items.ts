@@ -653,6 +653,102 @@ export async function listWorkItems(
   return queryWorkItems(client, wiql, top);
 }
 
+function nonEmptyValues(values: readonly string[] | undefined): string[] {
+  return (values ?? []).map((value) => value.trim()).filter((value) => value.length > 0);
+}
+
+function wiqlOr(clauses: readonly string[]): string | null {
+  if (clauses.length === 0) {
+    return null;
+  }
+
+  if (clauses.length === 1) {
+    return clauses[0] ?? null;
+  }
+
+  return `(${clauses.join(' OR ')})`;
+}
+
+function equalsAny(field: string, values: readonly string[]): string | null {
+  return wiqlOr(values.map((value) => `[${field}] = '${escapeWiqlString(value)}'`));
+}
+
+function containsAny(field: string, values: readonly string[]): string | null {
+  return wiqlOr(values.map((value) => `[${field}] CONTAINS '${escapeWiqlString(value)}'`));
+}
+
+function underAny(field: string, values: readonly string[]): string | null {
+  return wiqlOr(values.map((value) => `[${field}] UNDER '${escapeWiqlString(value)}'`));
+}
+
+/**
+ * WIQL for a work-item search. Filled filters are AND. Multi-value filters are OR.
+ */
+export function buildSearchWorkItemsWiql(project: string, filter: SearchWorkItemsFilter): string {
+  const conditions: string[] = [`[System.TeamProject] = '${escapeWiqlString(project)}'`];
+  const title = filter.titleContains?.trim() ?? '';
+  if (title.length > 0) {
+    conditions.push(`[System.Title] CONTAINS '${escapeWiqlString(title)}'`);
+  }
+
+  const assignees = nonEmptyValues(filter.assignees);
+  if (assignees.length > 0) {
+    const clause = equalsAny('System.AssignedTo', assignees);
+    if (clause !== null) {
+      conditions.push(clause);
+    }
+  } else if (filter.assignedTo) {
+    const assignedTo = filter.assignedTo.trim();
+    if (assignedTo === '@Me') {
+      conditions.push('[System.AssignedTo] = @Me');
+    } else if (assignedTo.length > 0) {
+      conditions.push(`[System.AssignedTo] = '${escapeWiqlString(assignedTo)}'`);
+    }
+  }
+
+  const types = nonEmptyValues(filter.types);
+  const typeClause = types.length > 0 ? equalsAny('System.WorkItemType', types) : null;
+  if (typeClause !== null) {
+    conditions.push(typeClause);
+  } else if (filter.type && filter.type.trim().length > 0) {
+    conditions.push(`[System.WorkItemType] = '${escapeWiqlString(filter.type.trim())}'`);
+  }
+
+  const states = nonEmptyValues(filter.states);
+  const stateClause = states.length > 0 ? equalsAny('System.State', states) : null;
+  if (stateClause !== null) {
+    conditions.push(stateClause);
+  } else if (filter.state && filter.state.trim().length > 0) {
+    conditions.push(`[System.State] = '${escapeWiqlString(filter.state.trim())}'`);
+  }
+
+  const iteration = filter.iteration?.trim() ?? '';
+  if (iteration.length > 0) {
+    conditions.push(`[System.IterationPath] UNDER '${escapeWiqlString(iteration)}'`);
+  }
+
+  const areaClause = underAny('System.AreaPath', nonEmptyValues(filter.areaPaths));
+  if (areaClause !== null) {
+    conditions.push(areaClause);
+  }
+
+  const tagClause = containsAny('System.Tags', nonEmptyValues(filter.tags));
+  if (tagClause !== null) {
+    conditions.push(tagClause);
+  }
+
+  const ids = (filter.ids ?? []).filter((id) => Number.isSafeInteger(id) && id > 0);
+  if (ids.length > 0) {
+    conditions.push(`[System.Id] IN (${ids.join(',')})`);
+  }
+
+  if (filter.changedSince && filter.changedSince.trim().length > 0) {
+    conditions.push(`[System.ChangedDate] >= '${escapeWiqlString(filter.changedSince.trim())}'`);
+  }
+
+  return `SELECT [System.Id] FROM WorkItems WHERE ${conditions.join(' AND ')} ORDER BY [System.ChangedDate] DESC`;
+}
+
 export async function searchWorkItems(
   client: AzureDevOpsClient,
   filter: SearchWorkItemsFilter,
@@ -660,30 +756,41 @@ export async function searchWorkItems(
 ): Promise<WorkItemSummary[]> {
   const project = filter.project ?? config.project;
   const top = Math.min(Math.max(filter.top ?? 50, 1), 200);
-  const conditions: string[] = [`[System.TeamProject] = '${escapeWiqlString(project)}'`];
-
-  if (filter.titleContains) {
-    conditions.push(`[System.Title] CONTAINS '${escapeWiqlString(filter.titleContains)}'`);
-  }
-  if (filter.assignedTo) {
-    const assignedTo = filter.assignedTo.trim();
-    if (assignedTo === '@Me') {
-      conditions.push('[System.AssignedTo] = @Me');
-    } else {
-      conditions.push(`[System.AssignedTo] = '${escapeWiqlString(assignedTo)}'`);
-    }
-  }
-  if (filter.type) conditions.push(`[System.WorkItemType] = '${escapeWiqlString(filter.type)}'`);
-  if (filter.state) conditions.push(`[System.State] = '${escapeWiqlString(filter.state)}'`);
-  if (filter.iteration) {
-    conditions.push(`[System.IterationPath] UNDER '${escapeWiqlString(filter.iteration)}'`);
-  }
-  if (filter.changedSince) {
-    conditions.push(`[System.ChangedDate] >= '${escapeWiqlString(filter.changedSince)}'`);
-  }
-
-  const wiql = `SELECT [System.Id] FROM WorkItems WHERE ${conditions.join(' AND ')} ORDER BY [System.ChangedDate] DESC`;
+  const wiql = buildSearchWorkItemsWiql(project, filter);
   return queryWorkItems(client, wiql, top);
+}
+
+export async function searchWorkItemIds(
+  client: AzureDevOpsClient,
+  filter: SearchWorkItemsFilter,
+  config: AzureDevOpsConfig,
+): Promise<{ ids: number[]; truncated: boolean }> {
+  const project = filter.project ?? config.project;
+  const boundedIds = (filter.ids ?? []).filter((id) => Number.isSafeInteger(id) && id > 0);
+  const top =
+    boundedIds.length > 0
+      ? Math.min(boundedIds.length, 200)
+      : Math.min(Math.max(filter.top ?? 200, 1), 200);
+  const wiql = buildSearchWorkItemsWiql(project, filter);
+  const witApi = await client.getWorkItemTrackingApi();
+
+  let queryResult;
+  try {
+    queryResult = await witApi.queryByWiql({ query: wiql }, undefined, undefined, top);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`WIQL query error: ${message}`);
+  }
+
+  const ids = (queryResult.workItems ?? [])
+    .slice(0, top)
+    .map((workItem) => workItem.id)
+    .filter((id): id is number => typeof id === 'number');
+
+  return {
+    ids,
+    truncated: boundedIds.length === 0 && ids.length >= top,
+  };
 }
 
 export async function queryWorkItems(

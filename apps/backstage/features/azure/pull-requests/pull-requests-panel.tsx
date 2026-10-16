@@ -2,29 +2,35 @@
 
 import { Alert, App } from "antd";
 import { useState } from "react";
-import type { PullRequestCandidate } from "@hrms/azure-devops";
+import type { PullRequestCandidate, PullRequestSearchCriteria } from "@hrms/azure-devops";
+import { PULL_REQUEST_SEARCH_LIMIT } from "@hrms/azure-devops/criteria";
 import { PullRequestsForm } from "@/features/azure/pull-requests/pull-requests-form";
 import { PullRequestsTable } from "@/features/azure/pull-requests/pull-requests-table";
 import {
   getDonePullRequestIds,
-  lookupPullRequestsForWorkItems,
   markPullRequestDone,
-  type PullRequestLookupResponse,
+  searchPullRequests,
+  type PullRequestSearchOptions,
+  type PullRequestSearchResult,
 } from "@/features/azure/pull-requests/queries";
 
-export function PullRequestsPanel(): React.JSX.Element {
+export function PullRequestsPanel({
+  options,
+}: {
+  options: PullRequestSearchOptions;
+}): React.JSX.Element {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<PullRequestLookupResponse | null>(null);
+  const [result, setResult] = useState<PullRequestSearchResult | null>(null);
   const [selectedRowKeys, setSelectedRowKeys] = useState<number[]>([]);
   const [doneIds, setDoneIds] = useState<ReadonlySet<number>>(new Set());
   const { message } = App.useApp();
 
-  async function runLookup(ids: string): Promise<void> {
+  async function runLookup(criteria: PullRequestSearchCriteria): Promise<void> {
     setLoading(true);
     setError(null);
     try {
-      const response = await lookupPullRequestsForWorkItems(ids);
+      const response = await searchPullRequests(criteria);
       setResult(response);
       setSelectedRowKeys([]);
       const pullRequestIds = (response.results ?? []).map((candidate) => candidate.pullRequestId);
@@ -107,7 +113,16 @@ export function PullRequestsPanel(): React.JSX.Element {
 
   return (
     <div>
-      <PullRequestsForm loading={loading} onSubmit={(ids) => void runLookup(ids)} />
+      <PullRequestsForm
+        loading={loading}
+        options={options}
+        onClear={() => {
+          setResult(null);
+          setError(null);
+          setSelectedRowKeys([]);
+        }}
+        onSubmit={(criteria) => void runLookup(criteria)}
+      />
 
       {error ? (
         <Alert className="mb-4" description={error} showIcon title="Lookup failed" type="error" />
@@ -125,6 +140,16 @@ export function PullRequestsPanel(): React.JSX.Element {
           }
           showIcon
           title="Some work items could not be resolved"
+          type="warning"
+        />
+      ) : null}
+
+      {result?.truncated ? (
+        <Alert
+          className="mb-4"
+          description="Narrow the date, authors, or work-item filters to see everything that matches."
+          showIcon
+          title={`This search hit the ${PULL_REQUEST_SEARCH_LIMIT} item limit`}
           type="warning"
         />
       ) : null}

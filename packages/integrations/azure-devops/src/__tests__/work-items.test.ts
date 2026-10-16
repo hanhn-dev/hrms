@@ -5,7 +5,7 @@ import {
 } from 'azure-devops-node-api/interfaces/WorkItemTrackingInterfaces.js';
 import type { AzureDevOpsClient } from '../client.js';
 import type { AzureDevOpsConfig, ListWorkItemsFilter } from '../types.js';
-import { getWorkItem, getWorkItemHierarchyContext, getWorkItemsByIds, listWorkItems, parseWorkItemIdsInput, queryWorkItems, searchWorkItems } from '../work-items.js';
+import { buildSearchWorkItemsWiql, getWorkItem, getWorkItemHierarchyContext, getWorkItemsByIds, listWorkItems, parseWorkItemIdsInput, queryWorkItems, searchWorkItems } from '../work-items.js';
 
 const mockConfig: AzureDevOpsConfig = {
   orgUrl: 'https://dev.azure.com/myorg',
@@ -823,6 +823,34 @@ describe('searchWorkItems', () => {
     await searchWorkItems(mockClient, { assignedTo: 'Jane Smith' }, mockConfig);
     const calledWiql: string = (mockWitApi.queryByWiql.mock.calls[0]?.[0] as { query: string }).query;
     expect(calledWiql).toContain("[System.AssignedTo] = 'Jane Smith'");
+  });
+});
+
+describe('buildSearchWorkItemsWiql', () => {
+  it('ANDs filters and ORs values inside one filter', () => {
+    const wiql = buildSearchWorkItemsWiql('TDG HRMS', {
+      areaPaths: ['TDG HRMS\\Ganges\\COB', 'TDG HRMS\\Ganges\\Leave'],
+      types: ['Bug', 'Task'],
+      states: ['Active'],
+      assignees: ['Alice', 'Bob'],
+      tags: ['release'],
+      titleContains: 'login',
+      iteration: 'TDG HRMS\\Ganges\\Sprint 1',
+      ids: [101, 102],
+    });
+
+    expect(wiql).toContain("[System.TeamProject] = 'TDG HRMS'");
+    expect(wiql).toContain(
+      "([System.AreaPath] UNDER 'TDG HRMS\\Ganges\\COB' OR [System.AreaPath] UNDER 'TDG HRMS\\Ganges\\Leave')",
+    );
+    expect(wiql).toContain("([System.WorkItemType] = 'Bug' OR [System.WorkItemType] = 'Task')");
+    expect(wiql).toContain("[System.State] = 'Active'");
+    expect(wiql).toContain("([System.AssignedTo] = 'Alice' OR [System.AssignedTo] = 'Bob')");
+    expect(wiql).toContain("[System.Tags] CONTAINS 'release'");
+    expect(wiql).toContain("[System.Title] CONTAINS 'login'");
+    expect(wiql).toContain("[System.IterationPath] UNDER 'TDG HRMS\\Ganges\\Sprint 1'");
+    expect(wiql).toContain('[System.Id] IN (101,102)');
+    expect(wiql).toContain(' AND ');
   });
 });
 

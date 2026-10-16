@@ -279,7 +279,7 @@ export function PullRequestsTable({
       <Table<PullRequestCandidate>
         columns={columns}
         dataSource={results}
-        locale={{ emptyText: "No pull requests found for these work items." }}
+        locale={{ emptyText: "No pull requests found." }}
         pagination={false}
         rowKey="pullRequestId"
         rowSelection={{
