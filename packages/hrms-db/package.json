@@ -8,6 +8,10 @@
       "types": "./src/index.ts",
       "default": "./src/index.ts"
     },
+    "./module-name-search": {
+      "types": "./src/dbs/module-name-search.ts",
+      "default": "./src/dbs/module-name-search.ts"
+    },
     "./data-fix": {
       "types": "./src/employer/data-fix/guards.ts",
       "default": "./src/employer/data-fix/guards.ts"

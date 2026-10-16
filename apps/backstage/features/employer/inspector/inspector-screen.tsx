@@ -41,9 +41,9 @@ export async function InspectorScreen({
 }: {
   employerId: number;
 }): Promise<React.JSX.Element> {
-  const [employers, writesEnabled] = await Promise.all([
+  const [employers, environment] = await Promise.all([
     listInspectorEmployers(),
-    getSelectedEnvironment().then((environment) => areWritesEnabled(environment)),
+    getSelectedEnvironment(),
   ]);
 
   return (
@@ -51,8 +51,9 @@ export async function InspectorScreen({
       <PageHelp source="inspector" notes={INSPECTOR_NOTES} />
       <InspectorTabs
         employers={employers}
+        environment={environment}
         routeEmployerId={employerId}
-        writesEnabled={writesEnabled}
+        writesEnabled={areWritesEnabled(environment)}
       />
     </div>
   );

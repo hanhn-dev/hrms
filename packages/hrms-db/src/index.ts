@@ -200,6 +200,7 @@ export {
   searchValueInTables,
   searchValueExistence,
   listModules,
+  moduleNameSearchTokens,
   getModuleDefinition,
   findScriptObject,
   findScriptObjectKinds,

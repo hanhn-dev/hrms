@@ -11,6 +11,8 @@ import {
   collapsedModuleNameQuery,
   moduleNameSearchTokens,
 } from "./module-name-search";
+
+export { moduleNameSearchTokens } from "./module-name-search";
 import { assertSelectOnly, wrapSelectForLimit } from "./select-guard";
 import { serializeRow } from "./serialize-row";
 import { captureQueryScript } from "../shared/query-script";

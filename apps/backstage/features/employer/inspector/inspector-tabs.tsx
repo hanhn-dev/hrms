@@ -12,10 +12,12 @@ const SCRIPT_HELP =
   "Scripts are database-wide and ignore the employer filter. The script opens formatted. Violet names are input parameters, rose names are locals, cyan names are table aliases, amber values are numbers, and bold dark pink names are SQL Server built-ins such as CAST, STRING_AGG, and sp_help. Click a name to jump to its declaration. Object chips use the studio colors: blue tables, orange procedures, cyan functions, purple views. The list beside the script groups those objects and names. View script opens another tab. Execute asks for parameters and shows the result in the same window. Compare loads the open procedure, function, view, or table from two environments and highlights the lines and words that differ. The list beside the diff jumps to each difference. Ctrl+Tab and Ctrl+Shift+Tab move between tabs. Ctrl+W closes the current tab.";
 
 export function InspectorTabs({
+  environment,
   routeEmployerId,
   employers,
   writesEnabled,
 }: {
+  environment: string;
   routeEmployerId: number;
   employers: InspectorEmployer[];
   writesEnabled: boolean;
@@ -55,7 +57,7 @@ export function InspectorTabs({
         />
       </div>
       <div className={tab === "script" ? undefined : "hidden"}>
-        <ScriptPanel writesEnabled={writesEnabled} />
+        <ScriptPanel environment={environment} writesEnabled={writesEnabled} />
       </div>
     </Card>
   );

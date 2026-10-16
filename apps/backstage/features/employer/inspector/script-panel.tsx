@@ -26,6 +26,17 @@ import {
   type ResolvedScript,
   type ScriptObjectKind,
 } from "@/features/employer/inspector/queries";
+import {
+  forgetRecentObject,
+  matchRecentObjects,
+  mergeObjectOptions,
+  readRecentObjects,
+  recentObjectsStorageKey,
+  recordRecentObject,
+  type ObjectSearchOption,
+  type RecentObject,
+} from "@/features/employer/inspector/recent-objects";
+import { getSetting, setSetting } from "@/shared/client-db/settings-db";
 
 const MIN_QUERY_LENGTH = 2;
 
@@ -71,6 +82,27 @@ function lookupKey(schema: string, name: string): string {
   return `lookup:${schema}.${name}`.toLowerCase();
 }
 
+function objectSelectOptions(options: readonly ObjectSearchOption[]): Array<{
+  label: string;
+  options: Array<{ value: string; label: string }>;
+}> {
+  return (["recent", "catalog"] as const).flatMap((source) => {
+    const items = options.filter((item) => item.source === source);
+    if (items.length === 0) {
+      return [];
+    }
+    return [
+      {
+        label: source === "recent" ? "Recent" : "Catalog",
+        options: items.map((item) => ({
+          value: `${item.schema}.${item.name}`,
+          label: `${item.schema}.${item.name}`,
+        })),
+      },
+    ];
+  });
+}
+
 function sameObject(tab: ScriptTab, schema: string, name: string): boolean {
   return (
     tab.schema.toLowerCase() === schema.toLowerCase() &&
@@ -80,15 +112,21 @@ function sameObject(tab: ScriptTab, schema: string, name: string): boolean {
 }
 
 export function ScriptPanel({
+  environment,
   writesEnabled,
 }: {
+  environment: string;
   writesEnabled: boolean;
 }): React.JSX.Element {
   const [kind, setKind] = useState<InspectorObjectKind>("storedProcedure");
   const [query, setQuery] = useState("");
   const debouncedQuery = useDebouncedValue(query.trim(), 300);
-  const [options, setOptions] = useState<Array<{ schema: string; name: string }>>([]);
+  const [recents, setRecents] = useState<RecentObject[]>([]);
+  const [catalog, setCatalog] = useState<Array<{ schema: string; name: string }>>([]);
+  const [catalogQuery, setCatalogQuery] = useState("");
   const [loadingOptions, setLoadingOptions] = useState(false);
+  const recentsRef = useRef<RecentObject[]>([]);
+  const persistChain = useRef(Promise.resolve());
   const [selected, setSelected] = useState<string | undefined>(undefined);
   const [tabs, setTabs] = useState<ScriptTab[]>([]);
   const [activeKey, setActiveKey] = useState<string | undefined>(undefined);
@@ -97,8 +135,37 @@ export function ScriptPanel({
   const rootRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    let cancelled = false;
+    void getSetting(recentObjectsStorageKey(environment))
+      .then((raw) => {
+        if (cancelled) {
+          return;
+        }
+        const next = recentsRef.current.reduce(
+          (rows, item) => recordRecentObject(rows, item, item.viewedAt),
+          readRecentObjects(raw),
+        );
+        recentsRef.current = next;
+        setRecents(next);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [environment]);
+
+  useEffect(() => {
+    if (query.trim().length < MIN_QUERY_LENGTH) {
+      setLoadingOptions(false);
+    } else {
+      setLoadingOptions(true);
+    }
+  }, [query]);
+
+  useEffect(() => {
     if (debouncedQuery.length < MIN_QUERY_LENGTH) {
-      setOptions([]);
+      setCatalog([]);
+      setCatalogQuery("");
       setLoadingOptions(false);
       return;
     }
@@ -112,12 +179,14 @@ export function ScriptPanel({
     void request
       .then((rows) => {
         if (!cancelled) {
-          setOptions(rows);
+          setCatalog(rows);
+          setCatalogQuery(debouncedQuery);
         }
       })
       .catch((err: unknown) => {
         if (!cancelled) {
-          setOptions([]);
+          setCatalog([]);
+          setCatalogQuery(debouncedQuery);
           setError(err instanceof Error ? err.message : String(err));
         }
       })
@@ -132,6 +201,41 @@ export function ScriptPanel({
     };
   }, [kind, debouncedQuery]);
 
+  function persistRecents(next: RecentObject[]): void {
+    const key = recentObjectsStorageKey(environment);
+    persistChain.current = persistChain.current
+      .catch(() => undefined)
+      .then(() => setSetting(key, next));
+  }
+
+  function rememberObject(object: {
+    kind: InspectorObjectKind;
+    schema: string;
+    name: string;
+  }): void {
+    const next = recordRecentObject(recentsRef.current, object, new Date().toISOString());
+    recentsRef.current = next;
+    setRecents(next);
+    persistRecents(next);
+  }
+
+  function forgetObject(target: {
+    schema: string;
+    name: string;
+    kind?: InspectorObjectKind;
+  }): void {
+    const next = forgetRecentObject(recentsRef.current, target);
+    recentsRef.current = next;
+    setRecents(next);
+    persistRecents(next);
+  }
+
+  const searchOptions = useMemo(() => {
+    const catalogRows =
+      catalogQuery === query.trim() && query.trim().length >= MIN_QUERY_LENGTH ? catalog : [];
+    return mergeObjectOptions(matchRecentObjects(recents, kind, query), catalogRows);
+  }, [catalog, catalogQuery, kind, query, recents]);
+
   function focusExisting(schema: string, name: string): boolean {
     const existing = tabs.find(
       (tab) => sameObject(tab, schema, name) || tab.key === lookupKey(schema, name),
@@ -140,6 +244,9 @@ export function ScriptPanel({
       return false;
     }
     setActiveKey(existing.key);
+    if (existing.kind !== "lookup") {
+      rememberObject({ kind: existing.kind, schema: existing.schema, name: existing.name });
+    }
     return true;
   }
 
@@ -170,6 +277,15 @@ export function ScriptPanel({
     startTransition(async () => {
       try {
         const definition = await getModuleDefinition({ schema, name, kind: moduleKind });
+        if (definition.unavailableReason?.startsWith("Unable to find")) {
+          forgetObject({ kind: moduleKind, schema, name });
+        } else {
+          rememberObject({
+            kind: definition.kind,
+            schema: definition.schema,
+            name: definition.name,
+          });
+        }
         setTabs((current) =>
           current.map((tab) =>
             tab.key === key
@@ -227,6 +343,15 @@ export function ScriptPanel({
     startTransition(async () => {
       try {
         const resolved = await resolveScriptObject({ schema, name });
+        if (resolved) {
+          rememberObject({
+            kind: resolved.kind,
+            schema: resolved.schema,
+            name: resolved.name,
+          });
+        } else {
+          forgetObject({ schema, name });
+        }
         setTabs((current) => {
           if (!resolved) {
             return current.map((tab) =>
@@ -290,6 +415,15 @@ export function ScriptPanel({
             schema: tab.schema,
             name: tab.name,
           });
+          if (resolved) {
+            rememberObject({
+              kind: resolved.kind,
+              schema: resolved.schema,
+              name: resolved.name,
+            });
+          } else {
+            forgetObject({ schema: tab.schema, name: tab.name });
+          }
           setTabs((current) =>
             current.map((item) => {
               if (item.key !== tab.key) {
@@ -320,6 +454,15 @@ export function ScriptPanel({
           name: tab.name,
           kind,
         });
+        if (definition.unavailableReason?.startsWith("Unable to find")) {
+          forgetObject({ kind, schema: tab.schema, name: tab.name });
+        } else {
+          rememberObject({
+            kind: definition.kind,
+            schema: definition.schema,
+            name: definition.name,
+          });
+        }
         setTabs((current) =>
           current.map((item) =>
             item.key === tab.key
@@ -407,7 +550,6 @@ export function ScriptPanel({
               onChange={(next) => {
                 setKind(next as InspectorObjectKind);
                 setSelected(undefined);
-                setOptions([]);
                 setQuery("");
               }}
               options={[
@@ -431,14 +573,13 @@ export function ScriptPanel({
             value={selected}
             searchValue={query}
             loading={loadingOptions}
-            options={options.map((item) => ({
-              value: `${item.schema}.${item.name}`,
-              label: `${item.schema}.${item.name}`,
-            }))}
+            options={objectSelectOptions(searchOptions)}
             notFoundContent={
               query.trim().length < MIN_QUERY_LENGTH
-                ? "Type at least 2 characters"
-                : "No matches"
+                ? "No recent objects"
+                : loadingOptions
+                  ? null
+                  : "No matches"
             }
             onSearch={setQuery}
             onChange={(next: string | undefined) => {

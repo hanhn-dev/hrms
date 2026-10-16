@@ -120,7 +120,9 @@ ORDER BY Fields.SectionID, Fields.DisplayOrder, Fields.FieldName,Fields.FieldID
 
 SELECT TOP 100 * FROM TEmployeeDetail_Fields_Master WHERE FieldName LIKE '%Date of Birth%'
 
-SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME LIKE '%educa%'
+SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME LIKE '%past%'
 
 
-sp_help 'TEducationDetails'
+sp_help 'TPastEmploymentDetails'
+
+SELECT TOP 100 * FROM sys.dm_
