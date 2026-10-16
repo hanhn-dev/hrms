@@ -1,10 +1,20 @@
 "use client";
 
-import { useState } from "react";
-import { Button, Popover, Space, Tooltip, Typography } from "antd";
+import { useEffect, useMemo, useState } from "react";
+import { Button, Input, Popover, Space, Table, Tooltip, Typography } from "antd";
 import { KIND_COLOR } from "@/features/dbs/kind-style";
+import {
+  listInspectorTableColumns,
+  type ScriptObjectKind,
+} from "@/features/employer/inspector/queries";
 import type { SqlSymbol } from "@/features/employer/inspector/script-symbols";
-import type { ScriptObjectKind } from "@/features/employer/inspector/queries";
+import {
+  columnRowClass,
+  filterTableColumnRows,
+  usedObjectPopoverContent,
+  type TableColumnRow,
+} from "@/features/employer/inspector/script-used-object-popover";
+import { HighlightMatch } from "@/shared/ui/highlight-match";
 
 const GROUP_ORDER: ScriptObjectKind[] = [
   "table",
@@ -25,6 +35,105 @@ export type UsedObject = {
   name: string;
   kind: ScriptObjectKind;
 };
+
+function TableColumnList({
+  schema,
+  name,
+  open,
+}: {
+  schema: string;
+  name: string;
+  open: boolean;
+}): React.JSX.Element {
+  const [rows, setRows] = useState<TableColumnRow[] | null>(null);
+  const [query, setQuery] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const visibleRows = useMemo(
+    () => (rows ? filterTableColumnRows(rows, query) : []),
+    [query, rows],
+  );
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    let cancelled = false;
+    setRows(null);
+    setQuery("");
+    setError(null);
+    void listInspectorTableColumns({ schema, name })
+      .then((columns) => {
+        if (cancelled) {
+          return;
+        }
+        const content = usedObjectPopoverContent("table", columns);
+        if (content.kind === "columns") {
+          setRows(content.rows);
+        }
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : String(err));
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [name, open, schema]);
+
+  if (error) {
+    return <Typography.Text type="danger">{error}</Typography.Text>;
+  }
+  if (!rows) {
+    return <Typography.Text type="secondary">Loading columns…</Typography.Text>;
+  }
+  if (rows.length === 0) {
+    return <Typography.Text type="secondary">No columns.</Typography.Text>;
+  }
+  return (
+    <div className="flex w-[36rem] flex-col gap-2">
+      <Input
+        allowClear
+        placeholder="Search columns"
+        value={query}
+        onChange={(event) => {
+          setQuery(event.target.value);
+        }}
+      />
+      <Table<TableColumnRow>
+        columns={[
+          {
+            title: "Column",
+            dataIndex: "name",
+            ellipsis: true,
+            render: (value: string) => <HighlightMatch query={query} text={value} />,
+          },
+          {
+            title: "Type",
+            dataIndex: "type",
+            ellipsis: true,
+            render: (value: string) => <HighlightMatch query={query} text={value} />,
+          },
+          {
+            title: "Length",
+            dataIndex: "length",
+            width: 88,
+            render: (value: string) => <HighlightMatch query={query} text={value} />,
+          },
+          { title: "Null", dataIndex: "nullable", width: 72 },
+          { title: "Identity", dataIndex: "identity", width: 80 },
+        ]}
+        dataSource={visibleRows}
+        locale={{ emptyText: "No matching columns." }}
+        pagination={false}
+        rowClassName={columnRowClass}
+        rowKey="name"
+        scroll={{ y: 256 }}
+        size="small"
+      />
+    </div>
+  );
+}
 
 function objectKey(schema: string, name: string): string {
   return `${schema}.${name}`.toLowerCase();
@@ -92,32 +201,48 @@ export function ScriptUsedObjects({
                     const key = `${item.kind}:${objectKey(item.schema, item.name)}`;
                     const isCurrent = objectKey(item.schema, item.name) === currentKey;
                     const qualifiedName = `${item.schema}.${item.name}`;
+                    const popover = usedObjectPopoverContent(item.kind, null);
                     return (
                       <Popover
                         key={key}
                         content={
-                          <Space className="w-40" orientation="vertical">
-                            <Button
-                              className="w-full"
-                              disabled={isCurrent}
-                              onClick={() => {
-                                setOpenKey(null);
-                                onView(item);
-                              }}
-                            >
-                              View script
-                            </Button>
-                            <Button
-                              className="w-full"
-                              type="primary"
-                              onClick={() => {
-                                setOpenKey(null);
-                                onExecute(item);
-                              }}
-                            >
-                              Execute
-                            </Button>
-                          </Space>
+                          popover.kind === "columns" ? (
+                            <TableColumnList
+                              name={item.name}
+                              open={openKey === key}
+                              schema={item.schema}
+                            />
+                          ) : (
+                            <Space className="w-40" orientation="vertical">
+                              {popover.actions.map((action) =>
+                                action === "View script" ? (
+                                  <Button
+                                    className="w-full"
+                                    disabled={isCurrent}
+                                    key={action}
+                                    onClick={() => {
+                                      setOpenKey(null);
+                                      onView(item);
+                                    }}
+                                  >
+                                    {action}
+                                  </Button>
+                                ) : (
+                                  <Button
+                                    className="w-full"
+                                    key={action}
+                                    type="primary"
+                                    onClick={() => {
+                                      setOpenKey(null);
+                                      onExecute(item);
+                                    }}
+                                  >
+                                    {action}
+                                  </Button>
+                                ),
+                              )}
+                            </Space>
+                          )
                         }
                         open={openKey === key}
                         placement="left"

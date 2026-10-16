@@ -3,9 +3,12 @@
 import {
   findScriptObject,
   findScriptObjectKinds,
+  formatTableLength,
+  formatTableType,
   getModuleDefinition as getModuleDefinitionFromDb,
   getTableDefinition as getTableDefinitionFromDb,
   listEmployers as listEmployersFromDb,
+  listTableColumnDefinitions as listTableColumnDefinitionsFromDb,
   listModules as listModulesFromDb,
   listSearchTargets as listSearchTargetsFromDb,
   listTableColumns as listTableColumnsFromDb,
@@ -241,6 +244,33 @@ export async function resolveScriptObject(input: {
     definition: definition.definition,
     unavailableReason: definition.unavailableReason,
   };
+}
+
+export type InspectorTableColumn = {
+  name: string;
+  type: string;
+  length: string;
+  nullable: boolean;
+  identity: boolean;
+  primaryKey: boolean;
+  foreignKey: boolean;
+};
+
+export async function listInspectorTableColumns(input: {
+  schema: string;
+  name: string;
+}): Promise<InspectorTableColumn[]> {
+  await requireRootAdmin();
+  const columns = await listTableColumnDefinitionsFromDb(await getHrmsDb(), input);
+  return columns.map((column) => ({
+    name: column.name,
+    type: formatTableType(column),
+    length: formatTableLength(column),
+    nullable: column.nullable,
+    identity: column.identity,
+    primaryKey: column.primaryKey,
+    foreignKey: column.foreignKey,
+  }));
 }
 
 export async function resolveScriptObjectKinds(

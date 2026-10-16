@@ -7,6 +7,7 @@ export type TableColumnDefinition = {
   nullable: boolean;
   identity: boolean;
   primaryKey: boolean;
+  foreignKey: boolean;
 };
 
 const LENGTH_TYPES = new Set([
@@ -50,6 +51,17 @@ export function formatTableType(
     return `float(${column.precision})`;
   }
   return typeName;
+}
+
+export function formatTableLength(
+  column: Pick<TableColumnDefinition, "typeName" | "maxLength" | "precision" | "scale">,
+): string {
+  const formatted = formatTableType(column);
+  const open = formatted.indexOf("(");
+  if (open === -1 || !formatted.endsWith(")")) {
+    return "";
+  }
+  return formatted.slice(open + 1, -1);
 }
 
 export function formatTableDefinitionLine(column: TableColumnDefinition): string {

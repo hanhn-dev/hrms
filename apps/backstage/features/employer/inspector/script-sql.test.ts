@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "vitest";
 import { scriptObjectRefs, tokenizeSql, type SqlToken } from "./script-sql.ts";
-import { bindSql } from "./script-symbols.ts";
+import { bindSql, scriptText } from "./script-symbols.ts";
 import { formatSql } from "./script-format.ts";
 
 function objects(sql: string): string[] {
@@ -193,6 +193,14 @@ JOIN (
       folds.some((fold) => fold.kind === "begin" && fold.startLine === 0),
       true,
     );
+  });
+});
+
+describe("scriptText", () => {
+  it("returns the script shown for the current model", () => {
+    const sql = "CREATE PROCEDURE dbo.SP_Demo AS BEGIN SELECT 1 END";
+    assert.equal(scriptText(bindSql(tokenizeSql(sql))), sql);
+    assert.equal(scriptText(bindSql(tokenizeSql(""))), "");
   });
 });
 

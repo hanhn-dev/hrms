@@ -34,6 +34,10 @@ export type SqlModel = {
   folds: SqlFold[];
 };
 
+export function scriptText(model: SqlModel): string {
+  return model.tokens.map((bound) => bound.token.value).join("");
+}
+
 type Phase = "body" | "seek-module" | "seek-name" | "params";
 
 type Frame = {

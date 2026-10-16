@@ -5,8 +5,11 @@ import { assertSqlIdent, sqlIdent } from "../employee/history/sql";
 import { parseExactNumeric } from "./exact-numeric";
 import {
   formatTableDefinitionLine,
+  formatTableType,
   type TableColumnDefinition,
 } from "./table-definition";
+
+export { formatTableLength, formatTableType, type TableColumnDefinition } from "./table-definition";
 import {
   collapsedModuleNameQuery,
   moduleNameSearchTokens,
@@ -269,6 +272,7 @@ type TableDefinitionRow = {
   IsNullable: number | boolean | bigint;
   IsIdentity: number | boolean | bigint;
   IsPrimaryKey: number | boolean | bigint;
+  IsForeignKey: number | boolean | bigint;
 };
 
 function asDefinitionNumber(value: number | bigint): number {
@@ -279,14 +283,14 @@ function asDefinitionFlag(value: number | boolean | bigint): boolean {
   return value === true || value === 1 || value === 1n;
 }
 
-export async function getTableDefinition(
+export async function listTableColumnDefinitions(
   db: HrmsDb,
   input: { schema: string; name: string },
-): Promise<TableDefinition> {
+): Promise<TableColumnDefinition[]> {
   const schema = assertSqlIdent(input.schema.trim() || "dbo");
   const name = assertSqlIdent(input.name.trim());
   if (isIgnoredSchema(schema)) {
-    return { found: false, lines: [] };
+    return [];
   }
 
   const rows = await db.$queryRaw<TableDefinitionRow[]>`
@@ -298,7 +302,13 @@ export async function getTableDefinition(
         Columns.scale AS ScaleValue,
         CAST(Columns.is_nullable AS int) AS IsNullable,
         CAST(Columns.is_identity AS int) AS IsIdentity,
-        CAST(CASE WHEN PkColumns.column_id IS NULL THEN 0 ELSE 1 END AS int) AS IsPrimaryKey
+        CAST(CASE WHEN PkColumns.column_id IS NULL THEN 0 ELSE 1 END AS int) AS IsPrimaryKey,
+        CAST(CASE WHEN EXISTS (
+            SELECT 1
+            FROM sys.foreign_key_columns AS ForeignKeyColumns
+            WHERE ForeignKeyColumns.parent_object_id = Columns.object_id
+                AND ForeignKeyColumns.parent_column_id = Columns.column_id
+        ) THEN 1 ELSE 0 END AS int) AS IsForeignKey
     FROM sys.columns AS Columns
     INNER JOIN sys.tables AS Tables
         ON Tables.object_id = Columns.object_id
@@ -324,24 +334,28 @@ export async function getTableDefinition(
     ORDER BY Columns.column_id ASC
   `;
 
-  if (rows.length === 0) {
+  return rows.map((row) => ({
+    name: row.ColumnName,
+    typeName: row.TypeName,
+    maxLength: asDefinitionNumber(row.MaxLength),
+    precision: asDefinitionNumber(row.PrecisionValue),
+    scale: asDefinitionNumber(row.ScaleValue),
+    nullable: asDefinitionFlag(row.IsNullable),
+    identity: asDefinitionFlag(row.IsIdentity),
+    primaryKey: asDefinitionFlag(row.IsPrimaryKey),
+    foreignKey: asDefinitionFlag(row.IsForeignKey),
+  }));
+}
+
+export async function getTableDefinition(
+  db: HrmsDb,
+  input: { schema: string; name: string },
+): Promise<TableDefinition> {
+  const columns = await listTableColumnDefinitions(db, input);
+  if (columns.length === 0) {
     return { found: false, lines: [] };
   }
-
-  const lines = rows.map((row) => {
-    const column: TableColumnDefinition = {
-      name: row.ColumnName,
-      typeName: row.TypeName,
-      maxLength: asDefinitionNumber(row.MaxLength),
-      precision: asDefinitionNumber(row.PrecisionValue),
-      scale: asDefinitionNumber(row.ScaleValue),
-      nullable: asDefinitionFlag(row.IsNullable),
-      identity: asDefinitionFlag(row.IsIdentity),
-      primaryKey: asDefinitionFlag(row.IsPrimaryKey),
-    };
-    return formatTableDefinitionLine(column);
-  });
-  return { found: true, lines };
+  return { found: true, lines: columns.map((column) => formatTableDefinitionLine(column)) };
 }
 
 function buildExactPredicates(

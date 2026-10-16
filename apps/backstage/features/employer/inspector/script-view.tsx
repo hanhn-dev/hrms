@@ -2,9 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CaretDownOutlined, CaretRightOutlined } from "@ant-design/icons";
-import { Button, Segmented, Tag, Tooltip, Typography } from "antd";
+import { App, Button, Segmented, Tag, Tooltip, Typography } from "antd";
 import { KIND_COLOR } from "@/features/dbs/kind-style";
-import type { SqlModel, SqlFold } from "@/features/employer/inspector/script-symbols";
+import { scriptText, type SqlModel, type SqlFold } from "@/features/employer/inspector/script-symbols";
 import type { ScriptObjectKind } from "@/features/employer/inspector/queries";
 
 type ScriptMode = "formatted" | "original";
@@ -114,6 +114,7 @@ export function SqlScript({
   onOpenObject: (object: { schema: string; name: string }) => void;
   onCompare: () => void;
 }): React.JSX.Element {
+  const { message } = App.useApp();
   const scrollRef = useRef<HTMLDivElement>(null);
   const pendingScroll = useRef<number | null>(null);
   const lastNonce = useRef<number | null>(null);
@@ -208,6 +209,15 @@ export function SqlScript({
     scrollToken(tokenIndex);
   }, [collapsed, flashToken, scrollGeneration, scrollToken]);
 
+  async function copyScript(): Promise<void> {
+    try {
+      await navigator.clipboard.writeText(scriptText(model));
+      message.success("Script copied.");
+    } catch {
+      message.error("Could not copy the script.");
+    }
+  }
+
   function onSymbolClick(symbolId: string, role: "declaration" | "use"): void {
     const symbol = symbolById.get(symbolId);
     if (!symbol) {
@@ -259,6 +269,9 @@ export function SqlScript({
           }}
         >
           Collapse all
+        </Button>
+        <Button className="ml-auto" size="small" type="primary" onClick={() => void copyScript()}>
+          Copy script
         </Button>
       </div>
       {warning ? (

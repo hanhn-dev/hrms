@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   formatTableDefinitionLine,
+  formatTableLength,
   type TableColumnDefinition,
 } from "./table-definition.ts";
 
@@ -15,6 +16,7 @@ function column(
     nullable: false,
     identity: false,
     primaryKey: false,
+    foreignKey: false,
     ...overrides,
   };
 }
@@ -75,6 +77,26 @@ describe("formatTableDefinitionLine", () => {
         }),
       ),
       "Amount decimal(18,2) NULL",
+    );
+  });
+});
+
+describe("formatTableLength", () => {
+  it("returns the size inside the type, or nothing when the type has no size", () => {
+    assert.equal(formatTableLength(column({ name: "Id", typeName: "int" })), "");
+    assert.equal(
+      formatTableLength(column({ name: "Name", typeName: "nvarchar", maxLength: 400 })),
+      "200",
+    );
+    assert.equal(
+      formatTableLength(column({ name: "Notes", typeName: "nvarchar", maxLength: -1 })),
+      "max",
+    );
+    assert.equal(
+      formatTableLength(
+        column({ name: "Amount", typeName: "decimal", precision: 18, scale: 2 }),
+      ),
+      "18,2",
     );
   });
 });
