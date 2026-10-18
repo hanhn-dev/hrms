@@ -1,8 +1,7 @@
 "use client";
 
-import { Alert, Button, Input, Tabs, Tag } from "antd";
+import { Alert, Button, Tabs, Tag } from "antd";
 import { DataTable } from "@/shared/ui/data-table";
-import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ChangeRequestPanel } from "@/features/employer/workflows/change-request-panel";
 import type {
@@ -118,74 +117,24 @@ export function WorkflowsPanel({
   groupsScript: string;
 }): React.JSX.Element {
   const router = useRouter();
-  const [search, setSearch] = useState("");
-  const query = search.trim().toLowerCase();
-
-  const visibleWorkflows = useMemo(
-    () =>
-      workflows.filter((row) =>
-        matchesQuery(query, [
-          row.workflowName,
-          row.moduleName,
-          row.mappedPageNames,
-        ]),
-      ),
-    [query, workflows],
-  );
   const pageMatched = pageName
     ? pages.filter((row) => namesMatch(row.modulePageName, pageName))
     : pages;
   const pageMissing = pageName != null && pageMatched.length === 0;
-  const pageRows = pageMissing ? pages : pageMatched;
-  const visiblePages = useMemo(
-    () =>
-      pageRows.filter((row) =>
-        matchesQuery(query, [
-          row.modulePageName,
-          row.mappedAppPage,
-          row.moduleName,
-          row.mappings.map((mapping) => mapping.workflowName).join(" "),
-        ]),
-      ),
-    [pageRows, query],
-  );
+  const visiblePages = pageMissing ? pages : pageMatched;
   const groupMatched = groupId == null ? groups : groups.filter((row) => groupIdMatches(row.roleId, groupId));
   const groupMissing = groupId != null && groupMatched.length === 0;
-  const groupRows = groupMissing ? groups : groupMatched;
-  const visibleGroups = useMemo(
-    () =>
-      groupRows.filter((row) =>
-        matchesQuery(query, [
-          row.roleName,
-          row.roleDescription,
-          ...row.members.flatMap((member) => [member.name, member.employmentNumber]),
-        ]),
-      ),
-    [groupRows, query],
-  );
+  const visibleGroups = groupMissing ? groups : groupMatched;
 
   return (
     <>
-      {tab === "requests" ? null : (
-        <div className="mb-4">
-          <Input.Search
-            allowClear
-            className="max-w-sm"
-            placeholder="Search name, module, or page"
-            value={search}
-            onChange={(event) => {
-              setSearch(event.target.value);
-            }}
-          />
-        </div>
-      )}
       {tab === "workflows" ? (
         <>
-          <p className="mb-3 text-slate-600">{visibleWorkflows.length} workflows</p>
+          <p className="mb-3 text-slate-600">{workflows.length} workflows</p>
           <DataTable
                 queryScript={workflowsScript}
                 rowKey="workflowId"
-                dataSource={visibleWorkflows}
+                dataSource={workflows}
                 size="small"
                 scroll={{ x: "max-content" }}
                 columns={[
@@ -197,7 +146,7 @@ export function WorkflowsPanel({
                         employerId={employerId}
                         entity={{ kind: "workflow", workflowId: row.workflowId }}
                       >
-                        <HighlightMatch query={search} text={name} />
+                        <HighlightMatch text={name} />
                       </EntityLink>
                     ),
                   },
@@ -260,7 +209,7 @@ export function WorkflowsPanel({
                         employerId={employerId}
                         entity={{ kind: "workflowPage", pageName: name }}
                       >
-                        <HighlightMatch query={search} text={name} />
+                        <HighlightMatch text={name} />
                       </EntityLink>
                     ),
                   },
@@ -330,7 +279,7 @@ export function WorkflowsPanel({
                         employerId={employerId}
                         entity={{ kind: "workflowGroup", roleId: row.roleId }}
                       >
-                        <HighlightMatch query={search} text={name} />
+                        <HighlightMatch text={name} />
                       </EntityLink>
                     ),
                   },
@@ -401,13 +350,6 @@ export function WorkflowsPanel({
       ) : null}
     </>
   );
-}
-
-function matchesQuery(query: string, values: Array<string | null | undefined>): boolean {
-  if (!query) {
-    return true;
-  }
-  return values.some((value) => value?.toLowerCase().includes(query));
 }
 
 function formatGroupMemberLabel(member: {

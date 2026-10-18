@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Alert, Button, Collapse, Input, Select, Tabs, Tag } from "antd";
+import { Alert, Button, Collapse, Select, Tabs, Tag } from "antd";
 import { DataTable } from "@/shared/ui/data-table";
 import { useRouter } from "next/navigation";
 import { fieldsHref, type FieldSource } from "@/features/employer/fields/fields-source";
@@ -134,7 +134,6 @@ export function FieldsPanel({
   const [entities, setEntities] = useState<string[]>(() =>
     initialEntities(employerFields, templateFields, section, sectionKnown),
   );
-  const [search, setSearch] = useState("");
 
   useEffect(() => {
     if (!field || !sectionKnown) {
@@ -149,16 +148,16 @@ export function FieldsPanel({
   );
 
   const visibleEmployer = useMemo(
-    () => filterCatalogRows(scopedEmployer, entities, search),
-    [entities, scopedEmployer, search],
+    () => filterCatalogRows(scopedEmployer, entities),
+    [entities, scopedEmployer],
   );
   const visibleTemplate = useMemo(
-    () => filterCatalogRows(scopedTemplate, entities, search),
-    [entities, scopedTemplate, search],
+    () => filterCatalogRows(scopedTemplate, entities),
+    [entities, scopedTemplate],
   );
   const visibleCompared = useMemo(
-    () => filterCompareRows(scopedCompared, entities, search),
-    [entities, scopedCompared, search],
+    () => filterCompareRows(scopedCompared, entities),
+    [entities, scopedCompared],
   );
   const highlightField = sectionKnown ? field : null;
 
@@ -175,15 +174,6 @@ export function FieldsPanel({
           placeholder="FieldEntity"
           value={entities}
           onChange={setEntities}
-        />
-        <Input.Search
-          allowClear
-          className="max-w-sm"
-          placeholder="Search FieldName or DisplayText"
-          value={search}
-          onChange={(event) => {
-            setSearch(event.target.value);
-          }}
         />
         {section ? (
           <Button
@@ -754,47 +744,14 @@ function pageForField(fields: FieldCatalogRow[], highlightField: string | null):
   return Math.floor(index / 20) + 1;
 }
 
-function filterCatalogRows(
-  rows: FieldCatalogRow[],
-  entities: string[],
-  search: string,
-): FieldCatalogRow[] {
+function filterCatalogRows(rows: FieldCatalogRow[], entities: string[]): FieldCatalogRow[] {
   const selected = new Set(entities.map((entity) => entity.toLowerCase()));
-  const query = search.trim().toLowerCase();
-  return rows.filter((row) => {
-    if (!selected.has((row.fieldEntity ?? "").trim().toLowerCase())) {
-      return false;
-    }
-    if (!query) {
-      return true;
-    }
-    return (
-      (row.fieldName ?? "").toLowerCase().includes(query) ||
-      (row.displayText ?? "").toLowerCase().includes(query)
-    );
-  });
+  return rows.filter((row) => selected.has((row.fieldEntity ?? "").trim().toLowerCase()));
 }
 
-function filterCompareRows(
-  rows: FieldCompareRow[],
-  entities: string[],
-  search: string,
-): FieldCompareRow[] {
+function filterCompareRows(rows: FieldCompareRow[], entities: string[]): FieldCompareRow[] {
   const selected = new Set(entities.map((entity) => entity.toLowerCase()));
-  const query = search.trim().toLowerCase();
-  return rows.filter((row) => {
-    if (!selected.has((row.fieldEntity ?? "").trim().toLowerCase())) {
-      return false;
-    }
-    if (!query) {
-      return true;
-    }
-    return (
-      (row.fieldName ?? "").toLowerCase().includes(query) ||
-      (row.employer?.displayText ?? "").toLowerCase().includes(query) ||
-      (row.template?.displayText ?? "").toLowerCase().includes(query)
-    );
-  });
+  return rows.filter((row) => selected.has((row.fieldEntity ?? "").trim().toLowerCase()));
 }
 
 function entitySelectOptions(

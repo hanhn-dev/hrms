@@ -1,14 +1,11 @@
-import { captureQueryScript } from "@hrms/db";
-import { Alert, Card } from "antd";
+import { Suspense } from "react";
 import {
   HISTORY_VIEW_TYPES,
   isHistorySectionName,
-  missingObjectName,
   type HistoryViewType,
 } from "@hrms/db";
-import { HistoryPanel } from "@/features/employee/history/history-panel";
-import { getEmployeeHistoryChanges } from "@/features/employee/history/queries";
-import { Employee360Nav, MissingObjectAlert, PageHelp } from "@/shared/ui";
+import { EmployeeHistorySlot } from "@/features/employee/history/history-slots";
+import { Employee360Nav, PageHelp, SectionFallback } from "@/shared/ui";
 
 function parseType(value: string | undefined): HistoryViewType {
   if (value && (HISTORY_VIEW_TYPES as readonly string[]).includes(value)) {
@@ -17,7 +14,7 @@ function parseType(value: string | undefined): HistoryViewType {
   return "History";
 }
 
-export async function EmployeeHistoryScreen({
+export function EmployeeHistoryScreen({
   employerId,
   employmentNumber,
   type: typeRaw,
@@ -33,35 +30,11 @@ export async function EmployeeHistoryScreen({
   from?: string;
   to?: string;
   page?: string;
-}): Promise<React.JSX.Element> {
+}): React.JSX.Element {
   const type = parseType(typeRaw);
-  const section =
-    sectionRaw && isHistorySectionName(sectionRaw) ? sectionRaw : null;
+  const section = sectionRaw && isHistorySectionName(sectionRaw) ? sectionRaw : null;
   const pageNumber = Math.max(1, Number(pageRaw ?? "1") || 1);
   const pageSize = 30;
-
-  let result: Awaited<ReturnType<typeof getEmployeeHistoryChanges>> = null;
-  let queryScript = "";
-  let missingObject: string | null = null;
-  try {
-    const loaded = await captureQueryScript(() =>
-      getEmployeeHistoryChanges(employerId, employmentNumber, {
-        type,
-        section,
-        from: from ?? null,
-        to: to ?? null,
-        pageNumber,
-        pageSize,
-      }),
-    );
-    result = loaded.result;
-    queryScript = loaded.script;
-  } catch (error) {
-    missingObject = missingObjectName(error);
-    if (!missingObject) {
-      throw error;
-    }
-  }
 
   return (
     <>
@@ -84,31 +57,19 @@ export async function EmployeeHistoryScreen({
           },
         ]}
       />
-      <Employee360Nav
-        employerId={employerId}
-        employmentNumber={employmentNumber}
-      />
-      {missingObject ? (
-        <MissingObjectAlert
-          items={[{ feature: "History", objectName: missingObject }]}
+      <Employee360Nav employerId={employerId} employmentNumber={employmentNumber} />
+      <Suspense fallback={<SectionFallback title="History changes" />}>
+        <EmployeeHistorySlot
+          employerId={employerId}
+          employmentNumber={employmentNumber}
+          from={from ?? null}
+          pageNumber={pageNumber}
+          pageSize={pageSize}
+          section={section}
+          to={to ?? null}
+          type={type}
         />
-      ) : !result ? (
-        <Alert showIcon type="error" title="Employee was not found." />
-      ) : (
-        <Card title="History changes">
-          <HistoryPanel
-            type={type}
-            section={section}
-            from={from ?? null}
-            to={to ?? null}
-            pageNumber={pageNumber}
-            pageSize={pageSize}
-            totalItems={result.totalItems}
-            events={result.data}
-            queryScript={queryScript}
-          />
-        </Card>
-      )}
+      </Suspense>
     </>
   );
 }

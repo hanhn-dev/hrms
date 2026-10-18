@@ -11,6 +11,7 @@ import type { ConfirmWriteConfig, EditableColumn } from "./types";
 
 type EditableTableProps<T extends object> = Omit<TableProps<T>, "columns" | "components"> & {
   columns: Array<EditableColumn<T>>;
+  columnFilter?: boolean;
   writesEnabled?: boolean;
   confirmWrite?: ConfirmWriteConfig<T>;
   onRefresh?: () => void | Promise<void>;
@@ -20,6 +21,7 @@ type EditableTableProps<T extends object> = Omit<TableProps<T>, "columns" | "com
 
 export function EditableTable<T extends object>({
   columns,
+  columnFilter,
   writesEnabled = false,
   confirmWrite,
   rowKey,
@@ -201,6 +203,7 @@ export function EditableTable<T extends object>({
     <Form form={form} component={false}>
       <DataTable<T>
         {...tableProps}
+        columnFilter={columnFilter}
         columns={mergedColumns as TableProps<T>["columns"]}
         onRefresh={onRefresh}
         queryScript={queryScript}

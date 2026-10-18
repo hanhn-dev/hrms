@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import {
   Alert,
   Button,
-  Input,
   Segmented,
   Space,
   Tag,
@@ -17,7 +16,6 @@ import {
   ChangeRequestIdButton,
   useChangeRequestView,
 } from "@/features/employer/workflows/change-request-view";
-import { changeRequestApproverSearchValues } from "@/features/employer/workflows/change-request-approver-label";
 import {
   ChangeRequestApprovers,
   changeKindFromRow,
@@ -58,7 +56,6 @@ export function ChangeRequestPanel({
 }): React.JSX.Element {
   const router = useRouter();
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("pending");
-  const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [detail, setDetail] = useState<ChangeRequestDetail | null>(null);
   const [detailScript, setDetailScript] = useState("");
@@ -73,29 +70,8 @@ export function ChangeRequestPanel({
   });
 
   const visible = useMemo(() => {
-    const query = search.trim().toLowerCase();
-    return requests.filter((row) => {
-      if (statusFilter !== "all" && row.status !== statusFilter) {
-        return false;
-      }
-      if (!query) {
-        return true;
-      }
-      return [
-        String(row.changeRequestId),
-        row.employeeName,
-        row.employmentNumber,
-        row.pageName,
-        row.sectionNames,
-        row.createdByName,
-        row.createdByEmploymentNumber,
-        row.workflowName,
-        ...changeRequestApproverSearchValues(row.approvers),
-      ]
-        .filter(Boolean)
-        .some((value) => String(value).toLowerCase().includes(query));
-    });
-  }, [requests, search, statusFilter]);
+    return requests.filter((row) => statusFilter === "all" || row.status === statusFilter);
+  }, [requests, statusFilter]);
 
   async function openRequest(
     changeRequestId: number,
@@ -161,15 +137,6 @@ export function ChangeRequestPanel({
             value={statusFilter}
             onChange={(value) => {
               setStatusFilter(value as StatusFilter);
-            }}
-          />
-          <Input.Search
-            allowClear
-            className="max-w-sm"
-            placeholder="Search name, emp no, page, section, or approver"
-            value={search}
-            onChange={(event) => {
-              setSearch(event.target.value);
             }}
           />
         </div>

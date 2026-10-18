@@ -2,9 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { App, Button, Collapse, Empty, Input, Segmented, Space, Tag } from "antd";
+import { App, Button, Collapse, Empty, Segmented, Space, Tag } from "antd";
 import { DataTable } from "@/shared/ui/data-table";
-import { changeRequestApproverSearchValues } from "@/features/employer/workflows/change-request-approver-label";
 import {
   ChangeRequestApprovers,
   splitNames,
@@ -55,7 +54,6 @@ export function ChangeRequestsPanel({
   const router = useRouter();
   const { message } = App.useApp();
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
-  const [search, setSearch] = useState("");
   const [openOverride, setOpenOverride] = useState<{
     signature: string;
     keys: string[];
@@ -99,31 +97,11 @@ export function ChangeRequestsPanel({
   }, [requests]);
 
   const visible = useMemo(() => {
-    const query = search.trim().toLowerCase();
-    return requests.filter((row) => {
-      if (statusFilter !== "all" && row.status !== statusFilter) {
-        return false;
-      }
-      if (!query) {
-        return true;
-      }
-      return [
-        String(row.changeRequestId),
-        row.sectionNames,
-        row.workflowName,
-        row.createdByName,
-        row.createdByEmploymentNumber,
-        ...changeRequestApproverSearchValues(row.approvers),
-      ]
-        .filter(Boolean)
-        .some((value) => String(value).toLowerCase().includes(query));
-    });
-  }, [requests, search, statusFilter]);
+    return requests.filter((row) => statusFilter === "all" || row.status === statusFilter);
+  }, [requests, statusFilter]);
 
   const groups = useMemo(() => groupChangeRequestsByWorkflow(visible), [visible]);
-  const groupSignature = `${statusFilter}|${search.trim().toLowerCase()}|${groups
-    .map((group) => group.key)
-    .join(",")}`;
+  const groupSignature = `${statusFilter}|${groups.map((group) => group.key).join(",")}`;
   const activeKeys =
     openOverride?.signature === groupSignature
       ? openOverride.keys
@@ -145,15 +123,6 @@ export function ChangeRequestsPanel({
             value={statusFilter}
             onChange={(value) => {
               setStatusFilter(value as StatusFilter);
-            }}
-          />
-          <Input.Search
-            allowClear
-            className="max-w-sm"
-            placeholder="Search id, section, workflow, requester, or approver"
-            value={search}
-            onChange={(event) => {
-              setSearch(event.target.value);
             }}
           />
         </div>

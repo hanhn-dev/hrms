@@ -1,4 +1,5 @@
-import { cache } from "react";
+import { cache, Suspense } from "react";
+import { Alert } from "antd";
 import { captureQueryScript, compareUploadHeaders } from "@hrms/db";
 import { isMissingObjectError } from "@hrms/db/uploads";
 import type { UploadTypeKey } from "@hrms/db/uploads";
@@ -12,10 +13,13 @@ import {
   JobSectionDataCard,
   JobSectionsCard,
   JobStagingCard,
+  JobSummary,
 } from "@/features/employer/uploads/job-panel";
+import { resolveUploadSelection } from "@/features/employer/uploads/job-selection";
 import {
   getCreationFinalize,
   getCreationStagingRow,
+  getUpload,
   getUploadBatch,
   getUploadLiveRow,
   listCreationStaging,
@@ -31,10 +35,154 @@ import {
 } from "@/features/employer/uploads/queries";
 import { areWritesEnabled } from "@/shared/auth";
 import { getSelectedEnvironment } from "@/shared/db";
+import { SectionFallback } from "@/shared/ui/section-fallback";
 
 const loadCatalog = cache((employerId: number, type: UploadTypeKey, countryId: number) =>
   listUploadCatalog(employerId, type, countryId),
 );
+
+const loadUploadCapture = cache((employerId: number, uploadId: number) =>
+  captureQueryScript(() => getUpload(employerId, uploadId)),
+);
+
+export type JobStreamQuery = {
+  employerId: number;
+  uploadId: number;
+  uploadSectionId: number | null;
+  sectionId: number | null;
+  errorClass: UploadErrorClass;
+  employeeId: number | null;
+  workEmail: string | null;
+  batchId: number | null;
+};
+
+async function loadJob(input: JobStreamQuery) {
+  const loaded = await loadUploadCapture(input.employerId, input.uploadId);
+  const upload = loaded.result;
+  if (!upload) {
+    return null;
+  }
+  const resolved = resolveUploadSelection({
+    sections: upload.sections,
+    uploadSectionId: input.uploadSectionId,
+    sectionId: input.sectionId,
+    errorClass: input.errorClass,
+    invalid: upload.invalid,
+    unprocessed: upload.unprocessed,
+  });
+  return { loaded, upload, resolved };
+}
+
+export async function JobSummarySlot(input: JobStreamQuery): Promise<React.JSX.Element> {
+  const job = await loadJob(input);
+  if (!job) {
+    return <Alert showIcon type="error" title="Upload was not found for this employer." />;
+  }
+  return (
+    <>
+      <JobSummary employerId={input.employerId} upload={job.upload} />
+      {job.upload.type === "creation" ? (
+        <Suspense fallback={<SectionFallback title="Creation staging" />}>
+          <UploadStagingSlot
+            employerId={input.employerId}
+            errorClass={job.resolved.errorClass}
+            selectedSection={job.resolved.section}
+            upload={job.upload}
+          />
+        </Suspense>
+      ) : null}
+    </>
+  );
+}
+
+export async function UploadSectionsStream(
+  input: JobStreamQuery,
+): Promise<React.JSX.Element | null> {
+  const job = await loadJob(input);
+  if (!job) {
+    return null;
+  }
+  return (
+    <UploadSectionsSlot
+      employerId={input.employerId}
+      errorClass={job.resolved.errorClass}
+      sectionsScript={job.loaded.script}
+      selectedSection={job.resolved.section}
+      upload={job.upload}
+    />
+  );
+}
+
+export async function UploadSectionDataStream(
+  input: JobStreamQuery,
+): Promise<React.JSX.Element | null> {
+  const job = await loadJob(input);
+  if (!job) {
+    return null;
+  }
+  return (
+    <UploadSectionDataSlot
+      employerId={input.employerId}
+      errorClass={job.resolved.errorClass}
+      selectedSection={job.resolved.section}
+      upload={job.upload}
+    />
+  );
+}
+
+export async function UploadRowErrorsStream(
+  input: JobStreamQuery,
+): Promise<React.JSX.Element | null> {
+  const job = await loadJob(input);
+  if (!job) {
+    return null;
+  }
+  return (
+    <UploadRowErrorsSlot
+      employerId={input.employerId}
+      errorClass={job.resolved.errorClass}
+      selectedSection={job.resolved.section}
+      upload={job.upload}
+    />
+  );
+}
+
+export async function UploadEmployeeStream(
+  input: JobStreamQuery,
+): Promise<React.JSX.Element | null> {
+  const job = await loadJob(input);
+  if (!job) {
+    return null;
+  }
+  return (
+    <UploadEmployeeSlot
+      employeeId={input.employeeId}
+      employerId={input.employerId}
+      errorClass={job.resolved.errorClass}
+      selectedSection={job.resolved.section}
+      upload={job.upload}
+      workEmail={input.workEmail}
+    />
+  );
+}
+
+export async function UploadBatchesStream(
+  input: JobStreamQuery,
+): Promise<React.JSX.Element | null> {
+  const job = await loadJob(input);
+  if (!job) {
+    return null;
+  }
+  return (
+    <UploadBatchesSlot
+      batchId={input.batchId}
+      employerId={input.employerId}
+      errorClass={job.resolved.errorClass}
+      selectedSection={job.resolved.section}
+      upload={job.upload}
+    />
+  );
+}
 
 export async function UploadSectionsSlot({
   employerId,

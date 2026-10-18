@@ -240,6 +240,8 @@ export interface ExecuteStoredProcedureRequest {
   readonly name: string;
   readonly payload: unknown;
   readonly dryRun?: boolean;
+  /** When true, SQL Server also returns the actual plan for this execution. */
+  readonly includePlan?: boolean;
 }
 
 export interface OperationResult {
@@ -262,4 +264,6 @@ export interface StoredProcedureExecutionResult extends OperationResult {
   readonly output: Record<string, unknown> | null;
   readonly returnValue: number | null;
   readonly rowsAffected: readonly number[] | null;
+  /** Actual showplan XML documents. Null when a plan was not requested. */
+  readonly executionPlans: readonly string[] | null;
 }

@@ -24,9 +24,10 @@ export function HighlightMatch({
   query,
 }: {
   text: string;
-  query: string;
+  query?: string;
 }): React.JSX.Element {
-  const ranges = matchRanges(text, query);
+  const contextQuery = useSearchQuery();
+  const ranges = matchRanges(text, query ?? contextQuery);
   if (ranges.length === 0) {
     return <>{text}</>;
   }

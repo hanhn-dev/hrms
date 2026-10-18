@@ -1,20 +1,29 @@
 "use client";
 
-import { CopyOutlined, ReloadOutlined } from "@ant-design/icons";
-import { App, Button, Table, Tooltip } from "antd";
+import { CopyOutlined, ReloadOutlined, SearchOutlined } from "@ant-design/icons";
+import { App, Button, Input, Table, Tooltip } from "antd";
 import type { TableProps } from "antd";
 import type { ColumnGroupType, ColumnsType, ColumnType } from "antd/es/table";
+import type { TablePaginationConfig } from "antd/es/table/interface";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import {
   columnCopyText,
   type ColumnDataIndex,
 } from "@/shared/ui/column-values";
+import {
+  columnCellText,
+  matchesColumnFilter,
+  rowMatchesTableSearch,
+  shouldApplyDefaultFilter,
+} from "@/shared/ui/data-table-filter";
 import { runTableRefresh } from "@/shared/ui/data-table-refresh";
 import { TableCompareButton } from "@/shared/ui/data-table-compare-button";
 import { TableSqlButton } from "@/shared/ui/data-table-sql-button";
+import { HighlightMatch, SearchQueryProvider } from "@/shared/ui/highlight-match";
 
 export type DataTableProps<RecordType extends object> = TableProps<RecordType> & {
+  columnFilter?: boolean;
   onRefresh?: () => void | Promise<void>;
   queryScript: string;
   skipRefresh?: boolean;
@@ -70,11 +79,129 @@ function withColumnCopy<RecordType extends object>(
   };
 }
 
+function withColumnFilter<RecordType extends object>(
+  column: ColumnType<RecordType> | ColumnGroupType<RecordType>,
+): ColumnType<RecordType> | ColumnGroupType<RecordType> {
+  if (isColumnGroup(column)) {
+    return {
+      ...column,
+      children: column.children.map((child) => withColumnFilter(child)),
+    };
+  }
+  if (!shouldApplyDefaultFilter(column)) {
+    return column;
+  }
+  const label =
+    typeof column.title === "string" && column.title.trim() !== ""
+      ? column.title
+      : "column";
+  return {
+    ...column,
+    filterOnClose: false,
+    filterDropdown: ({ confirm, selectedKeys, setSelectedKeys }) => (
+      <ColumnFilterDropdown
+        confirm={confirm}
+        label={label}
+        selectedKeys={selectedKeys}
+        setSelectedKeys={setSelectedKeys}
+      />
+    ),
+    onFilter: (value, record) => matchesColumnFilter(columnCellText(column, record), value),
+  };
+}
+
+function ColumnFilterDropdown({
+  confirm,
+  label,
+  selectedKeys,
+  setSelectedKeys,
+}: {
+  confirm: (param?: { closeDropdown: boolean }) => void;
+  label: string;
+  selectedKeys: readonly React.Key[];
+  setSelectedKeys: (selectedKeys: React.Key[]) => void;
+}): React.JSX.Element {
+  const value = selectedKeys[0] == null ? "" : String(selectedKeys[0]);
+  return (
+    <div className="p-2" onKeyDown={(event) => event.stopPropagation()}>
+      <Input
+        allowClear
+        aria-label={`Filter ${label}`}
+        placeholder={`Filter ${label}`}
+        size="small"
+        value={value}
+        onChange={(event) => {
+          const next = event.target.value;
+          setSelectedKeys(next === "" ? [] : [next]);
+          confirm({ closeDropdown: false });
+        }}
+      />
+    </div>
+  );
+}
+
+function withSearchHighlight<RecordType extends object>(
+  column: ColumnType<RecordType> | ColumnGroupType<RecordType>,
+  query: string,
+): ColumnType<RecordType> | ColumnGroupType<RecordType> {
+  if (query.trim() === "") {
+    return column;
+  }
+  if (isColumnGroup(column)) {
+    return {
+      ...column,
+      children: column.children.map((child) => withSearchHighlight(child, query)),
+    };
+  }
+  const originalRender = column.render;
+  return {
+    ...column,
+    render: (value, record, index) => {
+      const node =
+        typeof originalRender === "function" ? originalRender(value, record, index) : value;
+      if (typeof node === "string" || typeof node === "number") {
+        return <HighlightMatch query={query} text={String(node)} />;
+      }
+      return node;
+    },
+  };
+}
+
+function isServerPaged(pagination: TableProps<unknown>["pagination"]): boolean {
+  return (
+    typeof pagination === "object" &&
+    pagination != null &&
+    typeof pagination.current === "number" &&
+    typeof pagination.total === "number"
+  );
+}
+
+function clientPagination(
+  pagination: TableProps<unknown>["pagination"],
+  page: number,
+  onPage: (page: number, pageSize: number) => void,
+): TableProps<unknown>["pagination"] {
+  if (pagination === false || isServerPaged(pagination)) {
+    return pagination;
+  }
+  const config: TablePaginationConfig = pagination ?? {};
+  return {
+    ...config,
+    current: page,
+    onChange: (nextPage, nextSize) => {
+      onPage(nextPage, nextSize);
+      config.onChange?.(nextPage, nextSize);
+    },
+  };
+}
+
 function copyColumns<RecordType extends object>(
   columns: ColumnsType<RecordType> | undefined,
   rows: readonly RecordType[],
+  columnFilter: boolean,
 ): ColumnsType<RecordType> | undefined {
-  return columns?.map((column) => withColumnCopy(column, rows));
+  const filtered = columnFilter ? columns?.map((column) => withColumnFilter(column)) : columns;
+  return filtered?.map((column) => withColumnCopy(column, rows));
 }
 
 function CopyColumnButton<RecordType extends object>({
@@ -120,6 +247,8 @@ function CopyColumnButton<RecordType extends object>({
   );
 }
 
+const SEARCH_DEBOUNCE_MS = 200;
+
 function isPromise(value: unknown): value is Promise<void> {
   return (
     typeof value === "object" &&
@@ -130,6 +259,7 @@ function isPromise(value: unknown): value is Promise<void> {
 }
 
 export function DataTable<RecordType extends object>({
+  columnFilter = true,
   onRefresh,
   queryScript,
   skipRefresh = false,
@@ -137,11 +267,32 @@ export function DataTable<RecordType extends object>({
   loading,
   columns,
   dataSource,
+  locale,
+  pagination,
   ...tableProps
 }: DataTableProps<RecordType>): React.JSX.Element {
   const router = useRouter();
   const [pagePending, startTransition] = useTransition();
+  const [, startSearchTransition] = useTransition();
   const [customPending, setCustomPending] = useState(false);
+  const [query, setQuery] = useState("");
+  const [filterQuery, setFilterQuery] = useState("");
+  const [page, setPage] = useState(1);
+  const serverPaged = isServerPaged(pagination);
+
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      startSearchTransition(() => {
+        setFilterQuery(query);
+        if (!serverPaged) {
+          setPage(1);
+        }
+      });
+    }, SEARCH_DEBOUNCE_MS);
+    return () => {
+      clearTimeout(timeout);
+    };
+  }, [query, serverPaged]);
   const refreshing = pagePending || customPending;
   const reloadLabel = skipRefresh
     ? "Commit or discard edits before reloading."
@@ -176,6 +327,29 @@ export function DataTable<RecordType extends object>({
     });
   }
 
+  const searchActive = filterQuery.trim() !== "";
+  const sourceRows = Array.isArray(dataSource) ? dataSource : [];
+  const visibleRows = useMemo(
+    () =>
+      searchActive
+        ? sourceRows.filter((row) => rowMatchesTableSearch(columns, row, filterQuery))
+        : dataSource,
+    [columns, dataSource, filterQuery, searchActive, sourceRows],
+  );
+  const visibleLocale =
+    locale?.emptyText != null || !searchActive
+      ? locale
+      : { ...locale, emptyText: "No rows match." };
+  const highlightedColumns = useMemo(
+    () =>
+      copyColumns(
+        columns,
+        Array.isArray(visibleRows) ? visibleRows : sourceRows,
+        columnFilter,
+      )?.map((column) => withSearchHighlight(column, filterQuery)),
+    [columnFilter, columns, filterQuery, sourceRows, visibleRows],
+  );
+
   const reloadButton = (
     <Button
       aria-label="Reload from database"
@@ -190,23 +364,41 @@ export function DataTable<RecordType extends object>({
   );
 
   return (
-    <Table<RecordType>
-      {...tableProps}
-      columns={copyColumns(columns, Array.isArray(dataSource) ? dataSource : [])}
-      dataSource={dataSource}
-      loading={refreshing ? true : loading}
-      title={(currentPageData) => (
-        <div className="flex items-center gap-2">
-          <div className="min-w-0 flex-1">
-            {typeof title === "function" ? title(currentPageData) : null}
+    <SearchQueryProvider query={filterQuery}>
+      <Table<RecordType>
+        {...tableProps}
+        columns={highlightedColumns}
+        dataSource={visibleRows}
+        loading={refreshing ? true : loading}
+        locale={visibleLocale}
+        pagination={clientPagination(pagination, page, (nextPage) => {
+          setPage(nextPage);
+        })}
+        title={(currentPageData) => (
+          <div className="flex items-center gap-2">
+            <Input
+              allowClear
+              aria-label="Search table"
+              className="w-56 shrink-0"
+              placeholder="Search"
+              prefix={<SearchOutlined />}
+              size="small"
+              value={query}
+              onChange={(event) => {
+                setQuery(event.target.value);
+              }}
+            />
+            <div className="min-w-0 flex-1">
+              {typeof title === "function" ? title(currentPageData) : null}
+            </div>
+            <TableSqlButton script={queryScript} />
+            <TableCompareButton script={queryScript} />
+            <Tooltip title={reloadLabel}>
+              {skipRefresh ? <span>{reloadButton}</span> : reloadButton}
+            </Tooltip>
           </div>
-          <TableSqlButton script={queryScript} />
-          <TableCompareButton script={queryScript} />
-          <Tooltip title={reloadLabel}>
-            {skipRefresh ? <span>{reloadButton}</span> : reloadButton}
-          </Tooltip>
-        </div>
-      )}
-    />
+        )}
+      />
+    </SearchQueryProvider>
   );
 }

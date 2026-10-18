@@ -1,27 +1,14 @@
-import { captureQueryScript } from "@hrms/db";
-import { Card } from "antd";
-import { SectionsPanel } from "@/features/employee/sections/sections-panel";
-import { getEmployeeSectionCounts } from "@/features/employee/sections/queries";
-import { Employee360Nav, MissingObjectAlert, PageHelp } from "@/shared/ui";
+import { Suspense } from "react";
+import { EmployeeSectionsSlot } from "@/features/employee/sections/sections-slots";
+import { Employee360Nav, PageHelp, SectionFallback } from "@/shared/ui";
 
-export async function EmployeeSectionsScreen({
+export function EmployeeSectionsScreen({
   employerId,
   employmentNumber,
 }: {
   employerId: number;
   employmentNumber: string;
-}): Promise<React.JSX.Element> {
-  const loaded = await captureQueryScript(() =>
-    getEmployeeSectionCounts(employerId, employmentNumber),
-  );
-  const rows = loaded.result;
-  const unavailable = rows.flatMap((row) =>
-    row.missingObjects.map((objectName) => ({
-      feature: row.label,
-      objectName,
-    })),
-  );
-
+}): React.JSX.Element {
   return (
     <>
       <PageHelp
@@ -50,19 +37,10 @@ export async function EmployeeSectionsScreen({
           },
         ]}
       />
-      <Employee360Nav
-        employerId={employerId}
-        employmentNumber={employmentNumber}
-      />
-      <MissingObjectAlert items={unavailable} />
-      <Card title="Section summary">
-        <SectionsPanel
-          employerId={employerId}
-          employmentNumber={employmentNumber}
-          queryScript={loaded.script}
-          rows={rows}
-        />
-      </Card>
+      <Employee360Nav employerId={employerId} employmentNumber={employmentNumber} />
+      <Suspense fallback={<SectionFallback title="Section summary" />}>
+        <EmployeeSectionsSlot employerId={employerId} employmentNumber={employmentNumber} />
+      </Suspense>
     </>
   );
 }

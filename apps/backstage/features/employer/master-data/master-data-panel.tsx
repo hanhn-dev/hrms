@@ -23,11 +23,7 @@ import {
   commitMasterDataChange,
   previewMasterDataChange,
 } from "@/features/employer/master-data/mutations";
-import {
-  CATALOG_GROUPS,
-  filterCatalogItems,
-  filterDataRows,
-} from "@/features/employer/master-data/catalog-view";
+import { CATALOG_GROUPS, filterCatalogItems } from "@/features/employer/master-data/catalog-view";
 import { ConfirmWriteModal, HighlightMatch, SearchSelect } from "@/shared/ui";
 
 type EditorState =
@@ -121,11 +117,9 @@ export function MasterDataPanel({
 }): React.JSX.Element {
   const router = useRouter();
   const [catalogQuery, setCatalogQuery] = useState("");
-  const [rowQuery, setRowQuery] = useState("");
   const [editor, setEditor] = useState<EditorState | null>(null);
   const [confirm, setConfirm] = useState<ConfirmState | null>(null);
   const visibleCatalog = filterCatalogItems(catalog, catalogQuery);
-  const visibleRows = filterDataRows(rows, rowQuery);
   const editingRow =
     editor?.mode === "update" && selected
       ? rows.find((row) => rowId(selected, row) === editor.id) ?? null
@@ -171,7 +165,6 @@ export function MasterDataPanel({
                           className="justify-start px-2"
                           type={active ? "primary" : "text"}
                           onClick={() => {
-                            setRowQuery("");
                             router.push(`/employers/${employerId}/master-data?list=${item.key}`);
                           }}
                         >
@@ -207,23 +200,13 @@ export function MasterDataPanel({
       >
         {selected ? (
           <>
-            <Input.Search
-              allowClear
-              aria-label={`Search ${selected.label}`}
-              className="mb-3 max-w-md"
-              placeholder={`Search ${selected.label.toLowerCase()}`}
-              value={rowQuery}
-              onChange={(event) => {
-                setRowQuery(event.target.value);
-              }}
-            />
             <DataTable<MasterDataRow>
               queryScript={queryScript}
               rowKey={(row) => String(rowId(selected, row) ?? row[selected.idColumn])}
-              dataSource={visibleRows}
+              dataSource={rows}
               pagination={{ pageSize: 20, showSizeChanger: true }}
               scroll={{ x: true }}
-              locale={{ emptyText: rowQuery.trim() ? "No rows match." : "No rows." }}
+              locale={{ emptyText: "No rows." }}
               columns={[
                 {
                   title: "Id",
@@ -249,7 +232,7 @@ export function MasterDataPanel({
                     if (!text) {
                       return null;
                     }
-                    return <HighlightMatch query={rowQuery} text={text} />;
+                    return <HighlightMatch text={text} />;
                   },
                 })),
                 {

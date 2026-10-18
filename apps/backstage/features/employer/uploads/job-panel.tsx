@@ -1,6 +1,6 @@
 "use client";
 
-import { Alert, Button, Card, Descriptions, List, Modal, Segmented, Tag } from "antd";
+import { Alert, Button, Card, Descriptions, Listy, Modal, Segmented, Tag } from "antd";
 import { DataTable } from "@/shared/ui/data-table";
 import Link from "next/link";
 import { useState } from "react";
@@ -839,14 +839,7 @@ function RowErrorList({ errors }: { errors: string[] }): React.JSX.Element {
     key: `${position}:${text}`,
     text,
   }));
-  return (
-    <List
-      dataSource={items}
-      rowKey="key"
-      renderItem={(item) => <List.Item>{item.text}</List.Item>}
-      size="small"
-    />
-  );
+  return <Listy items={items} rowKey="key" itemRender={(item) => item.text} />;
 }
 
 function RowErrorsTable({

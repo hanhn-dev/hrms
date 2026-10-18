@@ -1,7 +1,20 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import { Alert, Button, Input, Modal, Space, Table, Tag, Typography } from "antd";
+import { CopyOutlined } from "@ant-design/icons";
+import {
+  Alert,
+  App,
+  Button,
+  Checkbox,
+  Input,
+  Modal,
+  Space,
+  Table,
+  Tag,
+  Tooltip,
+  Typography,
+} from "antd";
 import { KIND_COLOR, KIND_LABEL } from "@/features/dbs/kind-style";
 import {
   confirmExecuteProcedure,
@@ -15,6 +28,8 @@ import {
   QUERY_RESULT_ROW_KEY,
   withRowKeys,
 } from "@/features/dbs/with-row-keys";
+import { ExecutionPlanDiagrams } from "@/features/employer/inspector/query-plan-view";
+import { formatExecScript } from "@/features/employer/inspector/script-exec-text";
 import type { UsedObject } from "@/features/employer/inspector/script-used-objects";
 import { formatDate } from "@/shared/format-date";
 
@@ -28,6 +43,8 @@ type ResultSet = {
 type ExecOutcome = {
   summary: string;
   sets: ResultSet[];
+  plans: readonly string[] | null;
+  planWarning: string | null;
 };
 
 const PREVIEW_ROWS = 20;
@@ -64,39 +81,68 @@ function ParameterFields({
   values: Readonly<Record<string, string>>;
   onChange: (name: string, value: string) => void;
 }): React.JSX.Element {
+  const { message } = App.useApp();
+
+  async function copyScript(): Promise<void> {
+    try {
+      await navigator.clipboard.writeText(
+        formatExecScript(schema, name, parameters, values),
+      );
+      message.success("Script copied.");
+    } catch {
+      message.error("Could not copy the script.");
+    }
+  }
+
   return (
-    <div className="grid grid-cols-[auto_11rem_minmax(8rem,1fr)_auto] items-center gap-x-2 overflow-auto rounded bg-slate-50 p-3 font-mono text-xs leading-6 text-slate-800 dark:bg-slate-900 dark:text-slate-100">
-      <div className="col-span-4">
-        <span className="font-semibold text-blue-700 dark:text-blue-300">EXEC</span>
-        {" "}
-        {schema}.{name}
+    <div className="relative">
+      <div className="absolute right-1 top-1 z-10">
+        <Tooltip title="Copy script">
+          <Button
+            aria-label="Copy script"
+            htmlType="button"
+            icon={<CopyOutlined />}
+            size="small"
+            type="text"
+            onClick={() => {
+              void copyScript();
+            }}
+          />
+        </Tooltip>
       </div>
-      {parameters.map((param, index) => {
-        const output = param.mode === "out" || param.mode === "inout";
-        const last = index === parameters.length - 1;
-        return (
-          <label className="contents" key={param.name}>
-            <span className="pl-6">{param.name}</span>
-            <span className="truncate text-slate-400">{param.dataType}</span>
-            <span className="flex min-w-0 items-center border-b border-slate-200 dark:border-slate-700">
-              <span className="shrink-0">=</span>
-              <Input
-                className="font-mono text-xs"
-                size="small"
-                value={values[param.name] ?? ""}
-                variant="borderless"
-                onChange={(event) => {
-                  onChange(param.name, event.target.value);
-                }}
-              />
-            </span>
-            <span className="text-slate-500">
-              {output ? "OUTPUT" : null}
-              {last ? null : ","}
-            </span>
-          </label>
-        );
-      })}
+      <div className="grid grid-cols-[auto_11rem_minmax(8rem,1fr)_auto] items-center gap-x-2 overflow-auto rounded bg-slate-50 py-3 pl-3 pr-8 font-mono text-xs leading-6 text-slate-800 dark:bg-slate-900 dark:text-slate-100">
+        <div className="col-span-4">
+          <span className="font-semibold text-blue-700 dark:text-blue-300">EXEC</span>
+          {" "}
+          {schema}.{name}
+        </div>
+        {parameters.map((param, index) => {
+          const output = param.mode === "out" || param.mode === "inout";
+          const last = index === parameters.length - 1;
+          return (
+            <label className="contents" key={param.name}>
+              <span className="pl-6">{param.name}</span>
+              <span className="truncate text-slate-400">{param.dataType}</span>
+              <span className="flex min-w-0 items-center border-b border-slate-200 dark:border-slate-700">
+                <span className="shrink-0">=</span>
+                <Input
+                  className="font-mono text-xs"
+                  size="small"
+                  value={values[param.name] ?? ""}
+                  variant="borderless"
+                  onChange={(event) => {
+                    onChange(param.name, event.target.value);
+                  }}
+                />
+              </span>
+              <span className="text-slate-500">
+                {output ? "OUTPUT" : null}
+                {last ? null : ","}
+              </span>
+            </label>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -145,6 +191,7 @@ export function ScriptExecuteModal({
   const [parametersLoaded, setParametersLoaded] = useState(false);
   const [parameters, setParameters] = useState<RoutineParameter[]>([]);
   const [paramValues, setParamValues] = useState<Record<string, string>>({});
+  const [includePlan, setIncludePlan] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [outcome, setOutcome] = useState<ExecOutcome | null>(null);
   const [pending, startTransition] = useTransition();
@@ -155,6 +202,7 @@ export function ScriptExecuteModal({
   useEffect(() => {
     setError(null);
     setOutcome(null);
+    setIncludePlan(true);
     setParameters([]);
     setParamValues({});
     if (!object || !isRoutine) {
@@ -219,6 +267,8 @@ export function ScriptExecuteModal({
           setOutcome({
             summary: rowSummary(result.rowCount, result.truncated),
             sets: [{ title: "Rows", rows: result.rows }],
+            plans: null,
+            planWarning: null,
           });
           return;
         }
@@ -239,6 +289,8 @@ export function ScriptExecuteModal({
                 rows: result.rows,
               },
             ],
+            plans: null,
+            planWarning: null,
           });
           return;
         }
@@ -258,7 +310,9 @@ export function ScriptExecuteModal({
           );
           return;
         }
-        const result = await confirmExecuteProcedure(preview.token);
+        const result = await confirmExecuteProcedure(preview.token, {
+          includePlan: target.kind === "storedProcedure" && includePlan,
+        });
         if (!result.ok) {
           setOutcome(null);
           setError(result.message || result.error || "Execution failed.");
@@ -275,6 +329,14 @@ export function ScriptExecuteModal({
         setOutcome({
           summary: `Return value: ${String(result.returnValue)}. ${setCount} result set${setCount === 1 ? "" : "s"}.`,
           sets,
+          plans:
+            target.kind === "storedProcedure" && includePlan
+              ? [...(result.executionPlans ?? [])]
+              : null,
+          planWarning:
+            result.warnings.find((warning) =>
+              warning.startsWith("Execution plan was not captured"),
+            ) ?? null,
         });
       } catch (err) {
         setOutcome(null);
@@ -286,6 +348,7 @@ export function ScriptExecuteModal({
   return (
     <Modal
       classNames={{ body: "max-h-[calc(100vh-14rem)] overflow-auto" }}
+      width="96vw"
       destroyOnHidden
       footer={
         <Space>
@@ -355,6 +418,16 @@ export function ScriptExecuteModal({
             />
           )
         ) : null}
+        {object?.kind === "storedProcedure" && !procedureBlocked && !detailsLoading ? (
+          <Checkbox
+            checked={includePlan}
+            onChange={(event) => {
+              setIncludePlan(event.target.checked);
+            }}
+          >
+            Include execution plan
+          </Checkbox>
+        ) : null}
         {outcome ? (
           <Space className="w-full" orientation="vertical" size="small">
             <Alert showIcon title={outcome.summary} type="success" />
@@ -366,6 +439,16 @@ export function ScriptExecuteModal({
                 </div>
               </div>
             ))}
+            {outcome.plans && outcome.plans.length > 0 ? (
+              <ExecutionPlanDiagrams plans={outcome.plans} />
+            ) : null}
+            {outcome.plans && outcome.plans.length === 0 ? (
+              <Alert
+                showIcon
+                title={outcome.planWarning ?? "No execution plan was returned."}
+                type="warning"
+              />
+            ) : null}
           </Space>
         ) : null}
       </Space>

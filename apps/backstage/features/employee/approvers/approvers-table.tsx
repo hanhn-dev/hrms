@@ -1,13 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { Input, Tag, Typography } from "antd";
+import { Tag, Typography } from "antd";
 import { DataTable } from "@/shared/ui/data-table";
-import {
-  approverLabel,
-  filterApproverRows,
-  personLabel,
-} from "@/features/employee/approvers/approvers-display";
+import { approverLabel, personLabel } from "@/features/employee/approvers/approvers-display";
 import type { EmployeeApproverPerson, EmployeeApprovers } from "@/features/employee/approvers/queries";
 import { EntityLink } from "@/shared/entity-link/entity-link";
 import { HighlightMatch } from "@/shared/ui/highlight-match";
@@ -21,12 +16,6 @@ export function ApproversTable({
   result: EmployeeApprovers;
   queryScript: string;
 }): React.JSX.Element {
-  const [query, setQuery] = useState("");
-  const rows = useMemo(
-    () => filterApproverRows(result.rows, query),
-    [query, result.rows],
-  );
-
   return (
     <>
       <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -43,17 +32,10 @@ export function ApproversTable({
           person={result.reportingManager}
         />
       </div>
-      <Input
-        allowClear
-        className="mb-4 max-w-md"
-        placeholder="Search module, page, or workflow"
-        value={query}
-        onChange={(event) => setQuery(event.target.value)}
-      />
       <DataTable
         queryScript={queryScript}
         rowKey="rowKey"
-        dataSource={rows}
+        dataSource={result.rows}
         size="small"
         scroll={{ x: "max-content" }}
         pagination={{
@@ -62,9 +44,7 @@ export function ApproversTable({
           showTotal: (total) => `${total} rows`,
         }}
         locale={{
-          emptyText: query.trim()
-            ? "No workflows matched."
-            : "No workflow pages are enabled for this employer.",
+          emptyText: "No workflow pages are enabled for this employer.",
         }}
         columns={[
           {
@@ -81,20 +61,20 @@ export function ApproversTable({
             title: "Module",
             dataIndex: "moduleName",
             width: 160,
-            render: (value: string) => <HighlightMatch query={query} text={value} />,
+            render: (value: string) => <HighlightMatch text={value} />,
           },
           {
             title: "Page",
             dataIndex: "pageName",
             width: 220,
-            render: (value: string) => <HighlightMatch query={query} text={value} />,
+            render: (value: string) => <HighlightMatch text={value} />,
           },
           {
             title: "Workflow",
             dataIndex: "workflowName",
             width: 280,
             render: (_value: string | null, row) => (
-              <WorkflowCell employerId={employerId} query={query} row={row} />
+              <WorkflowCell employerId={employerId} row={row} />
             ),
           },
           { title: "How it applies", dataIndex: "scopeLabel", width: 220 },
@@ -160,11 +140,9 @@ function ContextPerson({
 
 function WorkflowCell({
   employerId,
-  query,
   row,
 }: {
   employerId: number;
-  query: string;
   row: EmployeeApprovers["rows"][number];
 }): React.JSX.Element {
   if (row.workflowId == null || !row.workflowName) {
@@ -176,7 +154,7 @@ function WorkflowCell({
         employerId={employerId}
         entity={{ kind: "workflow", workflowId: row.workflowId }}
       >
-        <HighlightMatch query={query} text={row.workflowName} />
+        <HighlightMatch text={row.workflowName} />
       </EntityLink>
       {row.skipWorkFlow ? <Tag className="m-0">Skip</Tag> : null}
       {row.autoApproved ? <Tag className="m-0">Auto-approve</Tag> : null}

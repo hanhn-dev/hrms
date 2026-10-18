@@ -1,6 +1,6 @@
 "use client";
 
-import { Input, Select, Tag } from "antd";
+import { Select, Tag } from "antd";
 import { DataTable } from "@/shared/ui/data-table";
 import { useRouter } from "next/navigation";
 import {
@@ -44,22 +44,6 @@ export function JobsTable({
                 type,
                 status: next ?? null,
                 uploadId,
-              }),
-            );
-          }}
-        />
-        <Input.Search
-          allowClear
-          className="max-w-xs"
-          defaultValue={uploadId ? String(uploadId) : ""}
-          placeholder="UploadID"
-          onSearch={(value) => {
-            const parsed = Number(value.trim());
-            router.push(
-              uploadsHref(employerId, {
-                type,
-                status,
-                uploadId: Number.isInteger(parsed) && parsed > 0 ? parsed : null,
               }),
             );
           }}

@@ -1,24 +1,14 @@
-import { captureQueryScript } from "@hrms/db";
-import { Alert } from "antd";
-import { ChangeRequestsPanel } from "@/features/employee/change-requests/change-requests-panel";
-import { listEmployeeChangeRequests } from "@/features/employee/change-requests/queries";
-import { areWritesEnabled } from "@/shared/auth";
-import { getSelectedEnvironment } from "@/shared/db";
-import { Employee360Nav, PageHelp } from "@/shared/ui";
+import { Suspense } from "react";
+import { EmployeeChangeRequestsSlot } from "@/features/employee/change-requests/change-requests-slots";
+import { Employee360Nav, PageHelp, SectionFallback } from "@/shared/ui";
 
-export async function EmployeeChangeRequestsScreen({
+export function EmployeeChangeRequestsScreen({
   employerId,
   employmentNumber,
 }: {
   employerId: number;
   employmentNumber: string;
-}): Promise<React.JSX.Element> {
-  const writesEnabled = areWritesEnabled(await getSelectedEnvironment());
-  const loaded = await captureQueryScript(() =>
-    listEmployeeChangeRequests(employerId, employmentNumber),
-  );
-  const requests = loaded.result;
-
+}): React.JSX.Element {
   return (
     <>
       <PageHelp
@@ -48,16 +38,12 @@ export async function EmployeeChangeRequestsScreen({
         ]}
       />
       <Employee360Nav employerId={employerId} employmentNumber={employmentNumber} />
-      {requests == null ? (
-        <Alert showIcon type="error" title="Employee was not found." />
-      ) : (
-        <ChangeRequestsPanel
+      <Suspense fallback={<SectionFallback title="Change requests" />}>
+        <EmployeeChangeRequestsSlot
           employerId={employerId}
-          queryScript={loaded.script}
-          requests={requests}
-          writesEnabled={writesEnabled}
+          employmentNumber={employmentNumber}
         />
-      )}
+      </Suspense>
     </>
   );
 }

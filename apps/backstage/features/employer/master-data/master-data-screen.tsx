@@ -1,23 +1,14 @@
-import { captureQueryScript } from "@hrms/db";
-import { Alert } from "antd";
-import { areWritesEnabled } from "@/shared/auth";
-import { getSelectedEnvironment } from "@/shared/db";
-import { PageHelp } from "@/shared/ui";
-import { MasterDataPanel } from "@/features/employer/master-data/master-data-panel";
-import { loadMasterData } from "@/features/employer/master-data/queries";
+import { Suspense } from "react";
+import { MasterDataSlot } from "@/features/employer/master-data/master-data-slots";
+import { PageHelp, SectionFallback } from "@/shared/ui";
 
-export async function MasterDataScreen({
+export function MasterDataScreen({
   employerId,
   listKey,
 }: {
   employerId: number;
   listKey: string | null;
-}): Promise<React.JSX.Element> {
-  const [page, writesEnabled] = await Promise.all([
-    captureQueryScript(() => loadMasterData(employerId, listKey)),
-    getSelectedEnvironment().then((environment) => areWritesEnabled(environment)),
-  ]);
-
+}): React.JSX.Element {
   return (
     <>
       <PageHelp
@@ -39,23 +30,9 @@ export async function MasterDataScreen({
           },
         ]}
       />
-      {page.result.catalog.length === 0 ? (
-        <Alert
-          showIcon
-          type="warning"
-          title="No master lists were found in this database."
-        />
-      ) : (
-        <MasterDataPanel
-          catalog={page.result.catalog}
-          employerId={employerId}
-          lookups={page.result.lookups}
-          queryScript={page.script}
-          rows={page.result.rows}
-          selected={page.result.selected}
-          writesEnabled={writesEnabled}
-        />
-      )}
+      <Suspense fallback={<SectionFallback title="Master data" />}>
+        <MasterDataSlot employerId={employerId} listKey={listKey} />
+      </Suspense>
     </>
   );
 }

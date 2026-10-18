@@ -1,24 +1,18 @@
 import { Suspense } from "react";
-import { Alert, Card, Descriptions } from "antd";
-import { getEmployerSettings } from "@/features/employer/settings/queries";
+import { Card } from "antd";
 import {
   CustomerSettingsSlot,
+  EmployerIdentitySlot,
   LicensedModulesSlot,
 } from "@/features/employer/settings/settings-slots";
-import { HintIcon, SectionFallback } from "@/shared/ui";
+import { SectionFallback } from "@/shared/ui";
 import { PageHelp } from "@/shared/ui/shell-header-context";
 
-export async function EmployerSettingsScreen({
+export function EmployerSettingsScreen({
   employerId,
 }: {
   employerId: number;
-}): Promise<React.JSX.Element> {
-  const settings = await getEmployerSettings(employerId);
-
-  if (!settings) {
-    return <Alert showIcon type="error" title="Employer was not found." />;
-  }
-
+}): React.JSX.Element {
   return (
     <>
       <PageHelp
@@ -47,75 +41,9 @@ export async function EmployerSettingsScreen({
           },
         ]}
       />
-      <Card className="mb-4" title="Employer settings">
-        <Descriptions
-          bordered
-          column={2}
-          size="small"
-          items={[
-            { key: "employerId", label: "EmployerId", children: settings.employerId },
-            {
-              key: "active",
-              label: "Active",
-              children: String(settings.isActive ?? ""),
-            },
-            {
-              key: "parent",
-              label: "Parent",
-              children: settings.parentEmployerId ?? "—",
-            },
-            {
-              key: "root",
-              label: "Root",
-              children: settings.rootEmployerId ?? "—",
-            },
-            {
-              key: "licenseCount",
-              label: "License count",
-              children: settings.licenseCount ?? "—",
-            },
-            {
-              key: "failedAttempts",
-              label: "Failed attempts",
-              children: settings.failedAttempts ?? "—",
-            },
-            {
-              key: "passwordExpires",
-              label: "Password expires",
-              children: settings.passwordExpires ?? "—",
-            },
-            {
-              key: "passwordChangeLimit",
-              label: "Password change limit",
-              children: settings.passwordChangeLimit ?? "—",
-            },
-            { key: "timeZone", label: "Time zone", children: settings.timeZone ?? "—" },
-            {
-              key: "uiCulture",
-              label: "UI culture",
-              children: settings.uiCulture ?? "—",
-            },
-            {
-              key: "tabDetailsRowCount",
-              label: (
-                <span className="inline-flex items-center gap-1">
-                  TTabDetails rows
-                  <HintIcon
-                    title={settings.tabMasterNote}
-                    tone={settings.tabDetailsRowCount === 0 ? "warning" : "success"}
-                  />
-                </span>
-              ),
-              children: settings.tabDetailsRowCount,
-            },
-            {
-              key: "userTabGrantCount",
-              label: "TUserTabDetails rows",
-              children: settings.userTabGrantCount,
-            },
-          ]}
-        />
-      </Card>
+      <Suspense fallback={<SectionFallback title="Employer settings" />}>
+        <EmployerIdentitySlot employerId={employerId} />
+      </Suspense>
       <Suspense fallback={<SectionFallback title="Customer settings" />}>
         <CustomerSettingsSlot employerId={employerId} />
       </Suspense>

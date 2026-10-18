@@ -30,6 +30,8 @@
     "sql-formatter": "^15.9.0",
     "zod": "^4.4.3",
     "@hrms/database-inspector": "*",
+    "@hrms/inspector": "*",
+    "@hrms/showplan": "*",
     "@xyflow/react": "^12.12.0",
     "diff": "^8.0.4"
   },

@@ -1,9 +1,17 @@
 /** @type {import('next').NextConfig} */
 const path = require("path");
 
+const repoRoot = path.join(__dirname, "../..");
+const inspectorLoader = {
+  loader: require.resolve("@hrms/inspector/loader"),
+  options: { root: repoRoot },
+};
+
 module.exports = {
   transpilePackages: [
     "@hrms/db",
+    "@hrms/inspector",
+    "@hrms/showplan",
     "antd",
     "@ant-design/icons",
     "@ant-design/cssinjs",
@@ -14,12 +22,30 @@ module.exports = {
   ],
   serverExternalPackages: ["@prisma/client", "@prisma/adapter-mssql"],
   turbopack: {
-    root: path.join(__dirname, "../.."),
+    root: repoRoot,
+    rules: {
+      "*.tsx": {
+        condition: { all: ["development", { not: "foreign" }] },
+        loaders: [inspectorLoader],
+      },
+      "*.jsx": {
+        condition: { all: ["development", { not: "foreign" }] },
+        loaders: [inspectorLoader],
+      },
+    },
   },
-  webpack: (config) => {
+  webpack: (config, { dev }) => {
     config.resolve.extensionAlias = {
       ".js": [".ts", ".tsx", ".js"],
     };
+    if (dev) {
+      config.module.rules.push({
+        test: /\.[jt]sx$/,
+        exclude: /node_modules/,
+        enforce: "pre",
+        use: [inspectorLoader],
+      });
+    }
     return config;
   },
   async redirects() {

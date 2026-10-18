@@ -1,10 +1,9 @@
 "use client";
 
-import { Input, Tag } from "antd";
+import { Tag } from "antd";
 import { DataTable } from "@/shared/ui/data-table";
 import Link from "next/link";
-import { useMemo, useState } from "react";
-import { employerMatchesQuery } from "@/features/employer/picker/filter-employers";
+import { useMemo } from "react";
 import type { EmployerListItem } from "@/features/employer/picker/queries";
 import { HighlightMatch } from "@/shared/ui";
 
@@ -32,13 +31,8 @@ export function EmployerPickerTable({
   employers: EmployerListItem[];
   queryScript: string;
 }): React.JSX.Element {
-  const [query, setQuery] = useState("");
-  const [page, setPage] = useState(1);
-
-  const filteredEmployers = useMemo(() => {
-    const list = employers.filter((employer) => employerMatchesQuery(employer, query));
-
-    return [...list].sort((a, b) => {
+  const sortedEmployers = useMemo(() => {
+    return [...employers].sort((a, b) => {
       const aActive = isActiveFlag(a.isActive);
       const bActive = isActiveFlag(b.isActive);
       if (aActive !== bActive) {
@@ -46,40 +40,19 @@ export function EmployerPickerTable({
       }
       return a.employerId - b.employerId;
     });
-  }, [employers, query]);
+  }, [employers]);
 
   return (
     <DataTable
       queryScript={queryScript}
       rowKey="employerId"
-      dataSource={filteredEmployers}
+      dataSource={sortedEmployers}
       scroll={{ x: "max-content" }}
       pagination={{
-        current: page,
         pageSize: 20,
         showSizeChanger: true,
-        onChange: setPage,
       }}
-      locale={{
-        emptyText: query.trim()
-          ? "No employers matched."
-          : "No employers found.",
-      }}
-      title={() => (
-        <Input.Search
-          allowClear
-          placeholder="Search name or id"
-          value={query}
-          onChange={(event) => {
-            setQuery(event.target.value);
-            setPage(1);
-          }}
-          onSearch={(value) => {
-            setQuery(value);
-            setPage(1);
-          }}
-        />
-      )}
+      locale={{ emptyText: "No employers found." }}
       columns={[
         {
           title: "Employer",
@@ -90,7 +63,7 @@ export function EmployerPickerTable({
             compareText(a.employerName, b.employerName),
           render: (name: string, row: EmployerListItem) => (
             <Link href={`/employers/${row.employerId}`}>
-              <HighlightMatch query={query} text={name} />
+              <HighlightMatch text={name} />
             </Link>
           ),
         },
@@ -101,7 +74,7 @@ export function EmployerPickerTable({
           sorter: (a: EmployerListItem, b: EmployerListItem) =>
             a.employerId - b.employerId,
           render: (employerId: number) => (
-            <HighlightMatch query={query} text={String(employerId)} />
+            <HighlightMatch text={String(employerId)} />
           ),
         },
         {

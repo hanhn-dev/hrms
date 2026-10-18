@@ -108,5 +108,6 @@ function unsupportedStoredProcedureExecution(
     output: null,
     returnValue: null,
     rowsAffected: null,
+    executionPlans: null,
   };
 }

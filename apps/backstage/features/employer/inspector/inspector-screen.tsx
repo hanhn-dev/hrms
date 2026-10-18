@@ -1,8 +1,7 @@
-import { InspectorTabs } from "@/features/employer/inspector/inspector-tabs";
-import { listInspectorEmployers } from "@/features/employer/inspector/queries";
-import { areWritesEnabled } from "@/shared/auth";
-import { getSelectedEnvironment } from "@/shared/db";
+import { Suspense } from "react";
+import { InspectorSlot } from "@/features/employer/inspector/inspector-slots";
 import type { PageHelpNote } from "@/shared/ui/page-help";
+import { SectionFallback } from "@/shared/ui/section-fallback";
 import { PageHelp } from "@/shared/ui/shell-header-context";
 
 const INSPECTOR_NOTES: PageHelpNote[] = [
@@ -36,25 +35,17 @@ const INSPECTOR_NOTES: PageHelpNote[] = [
   },
 ];
 
-export async function InspectorScreen({
+export function InspectorScreen({
   employerId,
 }: {
   employerId: number;
-}): Promise<React.JSX.Element> {
-  const [employers, environment] = await Promise.all([
-    listInspectorEmployers(),
-    getSelectedEnvironment(),
-  ]);
-
+}): React.JSX.Element {
   return (
     <div className="flex flex-col gap-4">
       <PageHelp source="inspector" notes={INSPECTOR_NOTES} />
-      <InspectorTabs
-        employers={employers}
-        environment={environment}
-        routeEmployerId={employerId}
-        writesEnabled={areWritesEnabled(environment)}
-      />
+      <Suspense fallback={<SectionFallback title="Inspector" />}>
+        <InspectorSlot employerId={employerId} />
+      </Suspense>
     </div>
   );
 }

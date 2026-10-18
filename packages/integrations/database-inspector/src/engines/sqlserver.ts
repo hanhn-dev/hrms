@@ -37,6 +37,8 @@ import {
   normalizeErrorMessage,
   normalizeRoutineParameterMode,
 } from './shared.js';
+import { buildPlanCaptureBatch, extractPlanCaptureRow } from './plan-capture.js';
+import { splitShowplanRecordsets } from './showplan-recordsets.js';
 import { mapSqlServerObjectType } from './sqlserver-object-type.js';
 
 export { mapSqlServerObjectType } from './sqlserver-object-type.js';
@@ -329,7 +331,7 @@ export async function executeSqlServerStoredProcedure(
     await ensureSqlServerObjectExists(pool, request.schema, request.name, 'storedProcedure');
     const parameters = await loadSqlServerExecuteParameters(pool, request.schema, request.name);
     mapping = mapPayloadToProcedureParameters(parameters, payload);
-    const sql = [buildNamedExecSql(request.schema, request.name, mapping.boundParameters)];
+    const statements = [buildNamedExecSql(request.schema, request.name, mapping.boundParameters)];
 
     if (!mapping.ok) {
       return {
@@ -337,7 +339,7 @@ export async function executeSqlServerStoredProcedure(
         operation: EXECUTE_OPERATION,
         engine: config.engine,
         affectedObjects: [objectId],
-        sql,
+        sql: statements,
         message: mapping.error ?? 'Unable to map payload to procedure parameters.',
         warnings: mapping.warnings,
         error: mapping.error,
@@ -349,6 +351,7 @@ export async function executeSqlServerStoredProcedure(
         output: null,
         returnValue: null,
         rowsAffected: null,
+        executionPlans: null,
       };
     }
 
@@ -358,7 +361,7 @@ export async function executeSqlServerStoredProcedure(
         operation: EXECUTE_OPERATION,
         engine: config.engine,
         affectedObjects: [objectId],
-        sql,
+        sql: statements,
         message: `Mapped payload onto ${objectId} without executing.`,
         warnings: mapping.warnings,
         error: null,
@@ -370,54 +373,39 @@ export async function executeSqlServerStoredProcedure(
         output: null,
         returnValue: null,
         rowsAffected: null,
+        executionPlans: null,
       };
     }
 
-    const boundByName = new Map(
-      mapping.boundParameters.map((item) => [normalizeParameterName(item.name), item]),
-    );
-    const dbRequest = pool.request();
-
-    for (const parameter of parameters) {
-      const bound = boundByName.get(normalizeParameterName(parameter.name));
-      const sqlType = toMssqlType(parameter);
-      const bindName = parameter.name.startsWith('@') ? parameter.name.slice(1) : parameter.name;
-      const isOutput = parameter.mode === 'out' || parameter.mode === 'inout';
-
-      if (bound) {
-        if (isOutput) {
-          dbRequest.output(bindName, sqlType, bound.value);
-        } else {
-          dbRequest.input(bindName, sqlType, bound.value);
-        }
-      } else if (isOutput) {
-        dbRequest.output(bindName, sqlType);
-      }
+    const includePlan = request.includePlan === true;
+    const procedureName = `${quoteSqlIdentifier(request.schema)}.${quoteSqlIdentifier(request.name)}`;
+    if (!includePlan) {
+      return await executeBoundProcedure(pool.request.bind(pool), {
+        config,
+        request,
+        objectId,
+        sqlText: statements,
+        mapping,
+        parameters,
+        procedureName,
+      });
     }
 
-    const result = await dbRequest.execute(
-      `${quoteSqlIdentifier(request.schema)}.${quoteSqlIdentifier(request.name)}`,
-    );
-    const capped = capRecordsets(result.recordsets);
-
-    return {
-      ok: true,
-      operation: EXECUTE_OPERATION,
-      engine: config.engine,
-      affectedObjects: [objectId],
-      sql,
-      message: `Executed ${objectId}.`,
-      warnings: [...mapping.warnings, ...capped.warnings],
-      error: null,
-      boundParameters: mapping.boundParameters,
-      unmatchedPayloadKeys: mapping.unmatchedPayloadKeys,
-      omittedParameters: mapping.omittedParameters,
-      dryRun: false,
-      recordsets: capped.recordsets,
-      output: (result.output ?? {}) as Record<string, unknown>,
-      returnValue: toReturnValue(result.returnValue),
-      rowsAffected: Array.isArray(result.rowsAffected) ? result.rowsAffected : [],
-    };
+    const connection: unknown = await pool.acquire();
+    const parent = pinSqlConnection(pool, connection);
+    try {
+      return await executeBoundProcedure(() => new sql.Request(parent as never), {
+        config,
+        request,
+        objectId,
+        sqlText: statements,
+        mapping,
+        parameters,
+        procedureName,
+      });
+    } finally {
+      pool.release(connection);
+    }
   } catch (error) {
     return createExecutionErrorResult(config, request, error, dryRun, mapping);
   } finally {
@@ -1315,6 +1303,109 @@ function createExecutionErrorResult(
     output: null,
     returnValue: null,
     rowsAffected: null,
+    executionPlans: null,
+  };
+}
+
+type BoundProcedureContext = {
+  config: DatabaseMcpConfig;
+  request: ExecuteStoredProcedureRequest;
+  objectId: string;
+  sqlText: readonly string[];
+  mapping: PayloadMappingResult;
+  parameters: readonly SqlServerExecuteParameter[];
+  procedureName: string;
+};
+
+async function executeBoundProcedure(
+  createRequest: () => SqlServerPool,
+  context: BoundProcedureContext,
+): Promise<StoredProcedureExecutionResult> {
+  const includePlan = context.request.includePlan === true;
+  const planWarnings: string[] = [];
+
+  try {
+    const dbRequest = createRequest();
+    const boundByName = new Map(
+      context.mapping.boundParameters.map((item) => [normalizeParameterName(item.name), item]),
+    );
+
+    for (const parameter of context.parameters) {
+      const bound = boundByName.get(normalizeParameterName(parameter.name));
+      const sqlType = toMssqlType(parameter);
+      const bindName = parameter.name.startsWith('@') ? parameter.name.slice(1) : parameter.name;
+      const isOutput = parameter.mode === 'out' || parameter.mode === 'inout';
+
+      if (bound) {
+        if (isOutput && !includePlan) {
+          dbRequest.output(bindName, sqlType, bound.value);
+        } else {
+          dbRequest.input(bindName, sqlType, bound.value);
+        }
+      } else if (isOutput && !includePlan) {
+        dbRequest.output(bindName, sqlType);
+      }
+    }
+
+    const result = includePlan
+      ? await dbRequest.batch(buildPlanCaptureBatch(
+        context.request.schema,
+        context.request.name,
+        context.parameters,
+        new Set(boundByName.keys()),
+      ))
+      : await dbRequest.execute(context.procedureName);
+    const split = includePlan ? splitShowplanRecordsets(result.recordsets) : null;
+    const captured = split ? extractPlanCaptureRow(split.recordsets) : null;
+    const capped = capRecordsets(captured ? captured.recordsets : result.recordsets);
+
+    return {
+      ok: true,
+      operation: EXECUTE_OPERATION,
+      engine: context.config.engine,
+      affectedObjects: [context.objectId],
+      sql: context.sqlText,
+      message: `Executed ${context.objectId}.`,
+      warnings: [...context.mapping.warnings, ...capped.warnings, ...planWarnings],
+      error: null,
+      boundParameters: context.mapping.boundParameters,
+      unmatchedPayloadKeys: context.mapping.unmatchedPayloadKeys,
+      omittedParameters: context.mapping.omittedParameters,
+      dryRun: false,
+      recordsets: capped.recordsets,
+      output: captured ? captured.output : (result.output ?? {}) as Record<string, unknown>,
+      returnValue: toReturnValue(captured ? captured.returnValue : result.returnValue),
+      rowsAffected: Array.isArray(result.rowsAffected) ? result.rowsAffected : [],
+      executionPlans: split ? split.executionPlans : null,
+    };
+  } finally {
+    if (includePlan) {
+      await createRequest().batch('SET STATISTICS XML OFF').catch(() => undefined);
+    }
+  }
+}
+
+function pinSqlConnection(
+  pool: { config?: { stream?: boolean; arrayRowMode?: boolean } },
+  connection: unknown,
+) {
+  const config = pool.config ?? {};
+  return {
+    config,
+    connected: true as const,
+    acquire(
+      _requester: unknown,
+      callback?: (err: Error | null, connection: unknown, config: unknown) => void,
+    ) {
+      if (typeof callback === 'function') {
+        callback(null, connection, config);
+        return this;
+      }
+      return Promise.resolve(connection);
+    },
+    release() {
+      return this;
+    },
   };
 }
 

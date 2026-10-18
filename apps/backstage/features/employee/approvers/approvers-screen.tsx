@@ -1,21 +1,14 @@
-import { captureQueryScript } from "@hrms/db";
-import { Alert } from "antd";
-import { ApproversTable } from "@/features/employee/approvers/approvers-table";
-import { listEmployeeApprovers } from "@/features/employee/approvers/queries";
-import { Employee360Nav, PageHelp } from "@/shared/ui";
+import { Suspense } from "react";
+import { EmployeeApproversSlot } from "@/features/employee/approvers/approvers-slots";
+import { Employee360Nav, PageHelp, SectionFallback } from "@/shared/ui";
 
-export async function EmployeeApproversScreen({
+export function EmployeeApproversScreen({
   employerId,
   employmentNumber,
 }: {
   employerId: number;
   employmentNumber: string;
-}): Promise<React.JSX.Element> {
-  const loaded = await captureQueryScript(() =>
-    listEmployeeApprovers(employerId, employmentNumber),
-  );
-  const result = loaded.result;
-
+}): React.JSX.Element {
   return (
     <>
       <PageHelp
@@ -38,15 +31,9 @@ export async function EmployeeApproversScreen({
         ]}
       />
       <Employee360Nav employerId={employerId} employmentNumber={employmentNumber} />
-      {!result ? (
-        <Alert showIcon type="error" title="Employee was not found." />
-      ) : (
-        <ApproversTable
-          employerId={employerId}
-          queryScript={loaded.script}
-          result={result}
-        />
-      )}
+      <Suspense fallback={<SectionFallback title="Approvers" />}>
+        <EmployeeApproversSlot employerId={employerId} employmentNumber={employmentNumber} />
+      </Suspense>
     </>
   );
 }

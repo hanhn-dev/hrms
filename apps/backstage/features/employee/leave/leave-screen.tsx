@@ -1,27 +1,18 @@
-import { captureQueryScript } from "@hrms/db";
-import { Alert, Card } from "antd";
-import { DataTable, Employee360Nav } from "@/shared/ui";
-import { getEmployeeLeaveBalances } from "@/features/employee/leave/queries";
-import { formatDate } from "@/shared/format-date";
+import { Suspense } from "react";
+import { Alert } from "antd";
+import { EmployeeLeaveSlot } from "@/features/employee/leave/leave-slots";
+import { Employee360Nav, SectionFallback } from "@/shared/ui";
 
-export async function EmployeeLeaveScreen({
+export function EmployeeLeaveScreen({
   employerId,
   employmentNumber,
 }: {
   employerId: number;
   employmentNumber: string;
-}): Promise<React.JSX.Element> {
-  const loaded = await captureQueryScript(() =>
-    getEmployeeLeaveBalances(employerId, employmentNumber),
-  );
-  const balances = loaded.result;
-
+}): React.JSX.Element {
   return (
     <>
-      <Employee360Nav
-        employerId={employerId}
-        employmentNumber={employmentNumber}
-      />
+      <Employee360Nav employerId={employerId} employmentNumber={employmentNumber} />
       <Alert
         className="mb-4"
         showIcon
@@ -29,25 +20,9 @@ export async function EmployeeLeaveScreen({
         title="Raw tLeaveBalance rows"
         description="This is the stored balance, not SP_LA_GetEmployeeLeaveBalanceDetails eligibility/pending math."
       />
-      <Card>
-        <DataTable
-          queryScript={loaded.script}
-          rowKey="transId"
-          dataSource={balances.map((row) => ({
-            ...row,
-            lastUpdateDate: formatDate(row.lastUpdateDate),
-          }))}
-          size="small"
-          scroll={{ x: "max-content" }}
-          columns={[
-            { title: "TransId", dataIndex: "transId", width: 100 },
-            { title: "Code", dataIndex: "leaveType", width: 100 },
-            { title: "Name", dataIndex: "leaveName" },
-            { title: "Balance days", dataIndex: "balanceDays", width: 140 },
-            { title: "Last updated", dataIndex: "lastUpdateDate" },
-          ]}
-        />
-      </Card>
+      <Suspense fallback={<SectionFallback title="Leave balances" />}>
+        <EmployeeLeaveSlot employerId={employerId} employmentNumber={employmentNumber} />
+      </Suspense>
     </>
   );
 }

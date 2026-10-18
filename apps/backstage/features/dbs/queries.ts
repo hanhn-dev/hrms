@@ -234,7 +234,9 @@ export async function previewExecuteProcedure(input: {
 
 export async function confirmExecuteProcedure(
   token: string,
+  options?: { includePlan?: boolean },
 ): Promise<StoredProcedureExecutionResult> {
+  // includePlan is display-only and stays outside the signed confirm token.
   await requireRootAdmin();
   const payload = verifyConfirmToken(token, procedureConfirmSchema);
   assertWritesEnabled(payload.env);
@@ -244,6 +246,7 @@ export async function confirmExecuteProcedure(
     name: payload.name,
     payload: payload.payload,
     dryRun: false,
+    includePlan: options?.includePlan === true,
   });
 }
 

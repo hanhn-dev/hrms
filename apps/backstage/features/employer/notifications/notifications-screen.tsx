@@ -1,50 +1,16 @@
-import { captureQueryScript } from "@hrms/db";
-import { NotificationsPanel } from "@/features/employer/notifications/notifications-panel";
-import {
-  resolveEmailWindow,
-  type NotificationsQuery,
-} from "@/features/employer/notifications/notifications-source";
-import {
-  listEmailNotifications,
-  listPendingInbox,
-} from "@/features/employer/notifications/queries";
+import { Suspense } from "react";
+import { NotificationsSlot } from "@/features/employer/notifications/notifications-slots";
+import type { NotificationsQuery } from "@/features/employer/notifications/notifications-source";
+import { SectionFallback } from "@/shared/ui/section-fallback";
 import { PageHelp } from "@/shared/ui/shell-header-context";
 
-export async function NotificationsScreen({
+export function NotificationsScreen({
   employerId,
   query,
 }: {
   employerId: number;
   query: NotificationsQuery;
-}): Promise<React.JSX.Element> {
-  const window = resolveEmailWindow(query);
-  const [email, inbox] = await Promise.all([
-    query.tab === "email"
-      ? captureQueryScript(() =>
-          listEmailNotifications(employerId, {
-            module: query.module,
-            status: query.status,
-            template: query.template,
-            transId: query.transId,
-            createdFrom: window.from,
-            createdTo: window.to,
-            page: query.page,
-          }),
-        )
-      : Promise.resolve(null),
-    query.tab === "inbox"
-      ? captureQueryScript(() =>
-          listPendingInbox(employerId, {
-            side: query.side,
-            category: query.category,
-            requestType: query.requestType,
-            employee: query.employee,
-            page: query.page,
-          }),
-        )
-      : Promise.resolve(null),
-  ]);
-
+}): React.JSX.Element {
   return (
     <>
       <PageHelp
@@ -73,17 +39,13 @@ export async function NotificationsScreen({
           },
         ]}
       />
-      <NotificationsPanel
-        appliedFrom={window.from ? window.from.toISOString() : null}
-        appliedTo={window.to ? window.to.toISOString() : null}
-        email={email?.result ?? null}
-        emailScript={email?.script ?? ""}
-        employerId={employerId}
-        inbox={inbox?.result ?? null}
-        inboxScript={inbox?.script ?? ""}
-        query={query}
-        usingDefaultWindow={window.usingDefaultWindow}
-      />
+      <Suspense
+        fallback={
+          <SectionFallback title={query.tab === "inbox" ? "Inbox" : "Email"} />
+        }
+      >
+        <NotificationsSlot employerId={employerId} query={query} />
+      </Suspense>
     </>
   );
 }
