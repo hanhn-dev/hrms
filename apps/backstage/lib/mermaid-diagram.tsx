@@ -69,6 +69,8 @@ export function Mermaid({ chart }: { chart: string }): React.JSX.Element {
     return () => {
       cancelled = true;
     };
+    // resetTransform is recreated each render and only resets a ref.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- resetTransform closes over refs
   }, [chart, id]);
 
   useEffect(() => {
@@ -78,6 +80,7 @@ export function Mermaid({ chart }: { chart: string }): React.JSX.Element {
     };
     document.addEventListener("fullscreenchange", onFullscreenChange);
     return () => document.removeEventListener("fullscreenchange", onFullscreenChange);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   if (error) {

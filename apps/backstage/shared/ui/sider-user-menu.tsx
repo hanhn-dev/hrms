@@ -1,11 +1,35 @@
 "use client";
 
-import { HomeOutlined, LogoutOutlined } from "@ant-design/icons";
+import {
+  BookOutlined,
+  CloudOutlined,
+  DatabaseOutlined,
+  HomeOutlined,
+  LogoutOutlined,
+  NodeIndexOutlined,
+  ReadOutlined,
+  SettingOutlined,
+} from "@ant-design/icons";
 import { Avatar, Dropdown, Tooltip } from "antd";
 import { signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import {
+  accountMenuLinks,
+  signOutMenuItem,
+  type AccountMenuLink,
+} from "@/shared/ui/account-menu-links";
 import { CollapsedEnvironmentPicker } from "@/shared/ui/collapsed-environment-picker";
 import { EnvironmentSelect } from "@/shared/ui/environment-select";
+
+const accountMenuIcons: Record<AccountMenuLink["key"], React.ReactNode> = {
+  home: <HomeOutlined />,
+  docs: <ReadOutlined />,
+  wiki: <BookOutlined />,
+  dbs: <DatabaseOutlined />,
+  azure: <CloudOutlined />,
+  flows: <NodeIndexOutlined />,
+  settings: <SettingOutlined />,
+};
 
 function initialsFromName(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -57,23 +81,25 @@ export function SiderUserMenu({
         menu={{
           className: "!border-0 !bg-transparent !p-1 !shadow-none",
           items: [
+            ...accountMenuLinks.map((link) => ({
+              key: link.key,
+              icon: accountMenuIcons[link.key],
+              label: link.label,
+            })),
+            { type: "divider" },
             {
-              key: "home",
-              icon: <HomeOutlined />,
-              label: "All employers",
-            },
-            {
-              key: "signout",
+              key: signOutMenuItem.key,
               icon: <LogoutOutlined />,
-              label: "Sign out",
+              label: signOutMenuItem.label,
             },
           ],
           onClick: ({ key }) => {
-            if (key === "home") {
-              router.push("/employers");
+            const link = accountMenuLinks.find((item) => item.key === key);
+            if (link) {
+              router.push(link.href);
               return;
             }
-            if (key === "signout") {
+            if (key === signOutMenuItem.key) {
               void signOut({ callbackUrl: "/login" });
             }
           },

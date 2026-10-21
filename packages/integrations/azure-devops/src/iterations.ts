@@ -3,11 +3,11 @@ import { getAzureDevOpsErrorMessage, type AzureDevOpsClient } from './client.js'
 import { listWorkItems } from './work-items.js';
 import type { AzureDevOpsConfig, TeamIteration, TeamIterationTimeframe, WorkItemSummary } from './types.js';
 
-function toIsoDate(value: Date | undefined): string | null {
-  if (value === undefined) {
+function toIsoDate(value: Date | null | undefined): string | null {
+  if (value == null || Number.isNaN(value.getTime())) {
     return null;
   }
-  return Number.isNaN(value.getTime()) ? null : value.toISOString();
+  return value.toISOString();
 }
 
 function normalizeTimeFrame(timeFrame: TimeFrame | undefined): TeamIterationTimeframe | null {

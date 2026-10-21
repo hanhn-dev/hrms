@@ -72,6 +72,33 @@ describe('listTeamIterations', () => {
     expect(mockWorkApi.getTeamIterations).toHaveBeenCalledWith(mockClient.teamContext, 'current');
   });
 
+  it('keeps iterations whose start and finish dates are null', async () => {
+    mockWorkApi.getTeamIterations.mockResolvedValue([
+      {
+        id: 'iter-root',
+        name: 'MyProject',
+        path: 'MyProject',
+        attributes: {
+          startDate: null,
+          finishDate: null,
+        },
+      },
+    ]);
+
+    const result = await listTeamIterations(mockClient);
+
+    expect(result).toEqual([
+      {
+        id: 'iter-root',
+        name: 'MyProject',
+        path: 'MyProject',
+        timeFrame: null,
+        startDate: null,
+        finishDate: null,
+      },
+    ]);
+  });
+
   it('drops iterations missing required identifying fields', async () => {
     mockWorkApi.getTeamIterations.mockResolvedValue([{ id: 'iter-1' }, { name: 'No id' }]);
     const result = await listTeamIterations(mockClient);

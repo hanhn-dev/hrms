@@ -348,7 +348,6 @@ export function ScriptExecuteModal({
   return (
     <Modal
       classNames={{ body: "max-h-[calc(100vh-14rem)] overflow-auto" }}
-      width="96vw"
       destroyOnHidden
       footer={
         <Space>
