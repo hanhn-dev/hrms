@@ -34,6 +34,8 @@ export function shouldApplyDefaultFilter(column: DefaultFilterColumn): boolean {
 
 export type SearchableColumn = DefaultFilterColumn & {
   children?: readonly SearchableColumn[];
+  /** When false, the column is skipped by global table search. Default true. */
+  tableSearch?: boolean;
 };
 
 /** A blank query matches every row. Otherwise any visible cell may match. */
@@ -52,11 +54,59 @@ export function rowMatchesTableSearch(
   return columns.some((column) => columnMatchesTableSearch(column, record, needle));
 }
 
+/**
+ * Precompute lowercase searchable text per row so filtering is a single
+ * `includes` instead of re-running column renders on every query change.
+ */
+export function buildRowSearchTexts(
+  columns: readonly SearchableColumn[] | undefined,
+  rows: readonly object[],
+): string[] {
+  if (columns == null || columns.length === 0 || rows.length === 0) {
+    return rows.map(() => "");
+  }
+  return rows.map((row) => rowSearchText(columns, row));
+}
+
+function rowSearchText(columns: readonly SearchableColumn[], record: object): string {
+  const parts: string[] = [];
+  for (const column of columns) {
+    appendColumnSearchText(column, record, parts);
+  }
+  return parts.join("\0").toLowerCase();
+}
+
+function appendColumnSearchText(
+  column: SearchableColumn,
+  record: object,
+  parts: string[],
+): void {
+  if (column.tableSearch === false) {
+    return;
+  }
+  if (Array.isArray(column.children)) {
+    for (const child of column.children) {
+      appendColumnSearchText(child, record, parts);
+    }
+    return;
+  }
+  if (column.key === EDITABLE_ACTIONS_KEY) {
+    return;
+  }
+  const text = columnCellText(column, record).trim();
+  if (text !== "") {
+    parts.push(text);
+  }
+}
+
 function columnMatchesTableSearch(
   column: SearchableColumn,
   record: object,
   query: string,
 ): boolean {
+  if (column.tableSearch === false) {
+    return false;
+  }
   if (Array.isArray(column.children)) {
     return column.children.some((child) => columnMatchesTableSearch(child, record, query));
   }

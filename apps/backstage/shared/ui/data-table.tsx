@@ -6,15 +6,15 @@ import type { TableProps } from "antd";
 import type { ColumnGroupType, ColumnsType, ColumnType } from "antd/es/table";
 import type { TablePaginationConfig } from "antd/es/table/interface";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import {
   columnCopyText,
   type ColumnDataIndex,
 } from "@/shared/ui/column-values";
 import {
+  buildRowSearchTexts,
   columnCellText,
   matchesColumnFilter,
-  rowMatchesTableSearch,
   shouldApplyDefaultFilter,
 } from "@/shared/ui/data-table-filter";
 import { runTableRefresh } from "@/shared/ui/data-table-refresh";
@@ -249,6 +249,41 @@ function CopyColumnButton<RecordType extends object>({
 
 const SEARCH_DEBOUNCE_MS = 200;
 
+/**
+ * Owns local input state so keystrokes do not re-render the parent Table.
+ * Only the debounced value is reported upward.
+ */
+function TableSearchInput({
+  onFilterQueryChange,
+}: {
+  onFilterQueryChange: (query: string) => void;
+}): React.JSX.Element {
+  const [query, setQuery] = useState("");
+
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      onFilterQueryChange(query);
+    }, SEARCH_DEBOUNCE_MS);
+    return () => {
+      clearTimeout(timeout);
+    };
+  }, [query, onFilterQueryChange]);
+
+  return (
+    <Input
+      allowClear
+      aria-label="Search table"
+      className="min-w-0 flex-1"
+      placeholder="Search"
+      prefix={<SearchOutlined />}
+      value={query}
+      onChange={(event) => {
+        setQuery(event.target.value);
+      }}
+    />
+  );
+}
+
 function isPromise(value: unknown): value is Promise<void> {
   return (
     typeof value === "object" &&
@@ -269,30 +304,29 @@ export function DataTable<RecordType extends object>({
   dataSource,
   locale,
   pagination,
+  styles,
   ...tableProps
 }: DataTableProps<RecordType>): React.JSX.Element {
   const router = useRouter();
   const [pagePending, startTransition] = useTransition();
   const [, startSearchTransition] = useTransition();
   const [customPending, setCustomPending] = useState(false);
-  const [query, setQuery] = useState("");
   const [filterQuery, setFilterQuery] = useState("");
   const [page, setPage] = useState(1);
   const serverPaged = isServerPaged(pagination);
 
-  useEffect(() => {
-    const timeout = setTimeout(() => {
+  const onFilterQueryChange = useCallback(
+    (next: string) => {
       startSearchTransition(() => {
-        setFilterQuery(query);
+        setFilterQuery(next);
         if (!serverPaged) {
           setPage(1);
         }
       });
-    }, SEARCH_DEBOUNCE_MS);
-    return () => {
-      clearTimeout(timeout);
-    };
-  }, [query, serverPaged]);
+    },
+    [serverPaged],
+  );
+
   const refreshing = pagePending || customPending;
   const reloadLabel = skipRefresh
     ? "Commit or discard edits before reloading."
@@ -329,25 +363,30 @@ export function DataTable<RecordType extends object>({
 
   const searchActive = filterQuery.trim() !== "";
   const sourceRows = Array.isArray(dataSource) ? dataSource : [];
-  const visibleRows = useMemo(
-    () =>
-      searchActive
-        ? sourceRows.filter((row) => rowMatchesTableSearch(columns, row, filterQuery))
-        : dataSource,
-    [columns, dataSource, filterQuery, searchActive, sourceRows],
+  const rowSearchTexts = useMemo(
+    () => buildRowSearchTexts(columns, sourceRows),
+    [columns, sourceRows],
   );
+  const visibleRows = useMemo(() => {
+    if (!searchActive) {
+      return dataSource;
+    }
+    const needle = filterQuery.trim().toLowerCase();
+    return sourceRows.filter((_, index) => rowSearchTexts[index]?.includes(needle) === true);
+  }, [dataSource, filterQuery, rowSearchTexts, searchActive, sourceRows]);
   const visibleLocale =
     locale?.emptyText != null || !searchActive
       ? locale
       : { ...locale, emptyText: "No rows match." };
+
+  const copyRows = Array.isArray(visibleRows) ? visibleRows : sourceRows;
+  const baseColumns = useMemo(
+    () => copyColumns(columns, copyRows, columnFilter),
+    [columnFilter, columns, copyRows],
+  );
   const highlightedColumns = useMemo(
-    () =>
-      copyColumns(
-        columns,
-        Array.isArray(visibleRows) ? visibleRows : sourceRows,
-        columnFilter,
-      )?.map((column) => withSearchHighlight(column, filterQuery)),
-    [columnFilter, columns, filterQuery, sourceRows, visibleRows],
+    () => baseColumns?.map((column) => withSearchHighlight(column, filterQuery)),
+    [baseColumns, filterQuery],
   );
 
   const reloadButton = (
@@ -363,6 +402,13 @@ export function DataTable<RecordType extends object>({
     />
   );
 
+  const callerStyles =
+    styles != null && typeof styles === "object" ? styles : undefined;
+  const callerTitleStyles =
+    callerStyles?.title != null && typeof callerStyles.title === "object"
+      ? callerStyles.title
+      : undefined;
+
   return (
     <SearchQueryProvider query={filterQuery}>
       <Table<RecordType>
@@ -374,28 +420,26 @@ export function DataTable<RecordType extends object>({
         pagination={clientPagination(pagination, page, (nextPage) => {
           setPage(nextPage);
         })}
+        styles={{
+          ...callerStyles,
+          title: {
+            ...callerTitleStyles,
+            paddingInline: 0,
+          },
+        }}
         title={(currentPageData) => (
           <div className="flex items-center gap-2">
-            <Input
-              allowClear
-              aria-label="Search table"
-              className="w-56 shrink-0"
-              placeholder="Search"
-              prefix={<SearchOutlined />}
-              size="small"
-              value={query}
-              onChange={(event) => {
-                setQuery(event.target.value);
-              }}
-            />
-            <div className="min-w-0 flex-1">
-              {typeof title === "function" ? title(currentPageData) : null}
+            <TableSearchInput onFilterQueryChange={onFilterQueryChange} />
+            {typeof title === "function" ? (
+              <div className="min-w-0 shrink-0">{title(currentPageData)}</div>
+            ) : null}
+            <div className="flex shrink-0 items-center gap-1">
+              <TableSqlButton script={queryScript} />
+              <TableCompareButton script={queryScript} />
+              <Tooltip title={reloadLabel}>
+                {skipRefresh ? <span>{reloadButton}</span> : reloadButton}
+              </Tooltip>
             </div>
-            <TableSqlButton script={queryScript} />
-            <TableCompareButton script={queryScript} />
-            <Tooltip title={reloadLabel}>
-              {skipRefresh ? <span>{reloadButton}</span> : reloadButton}
-            </Tooltip>
           </div>
         )}
       />

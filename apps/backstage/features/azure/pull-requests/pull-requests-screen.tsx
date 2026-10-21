@@ -30,12 +30,21 @@ const HELP = [
 
 export async function PullRequestsScreen(): Promise<React.JSX.Element> {
   return (
-    <div className="h-screen overflow-y-auto">
-      <div className="mx-auto max-w-6xl p-6">
-        <PageHeader extra={<AzureNav active="pull-requests" />} notes={HELP} title="Pull requests" />
-        <Suspense fallback={<SectionFallback title="Pull request search" />}>
-          <PullRequestsSearchSlot />
-        </Suspense>
+    <div className="flex h-screen flex-col overflow-hidden">
+      <div className="flex min-h-0 flex-1 flex-col p-3 md:p-4">
+        <div className="shrink-0">
+          <PageHeader
+            compact
+            extra={<AzureNav active="pull-requests" />}
+            notes={HELP}
+            title="Pull requests"
+          />
+        </div>
+        <div className="flex min-h-0 flex-1 flex-col">
+          <Suspense fallback={<SectionFallback title="Pull request search" />}>
+            <PullRequestsSearchSlot />
+          </Suspense>
+        </div>
       </div>
     </div>
   );

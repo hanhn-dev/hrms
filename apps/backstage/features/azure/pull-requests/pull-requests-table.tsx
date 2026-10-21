@@ -8,7 +8,6 @@ import type { PullRequestCandidate } from "@hrms/azure-devops";
 import { buildCherryPickCommand } from "@/features/azure/pull-requests/build-cherry-pick-command";
 import { useWorkItemView } from "@/features/azure/pull-requests/work-item-view";
 import { formatDate } from "@/shared/format-date";
-import { Text } from "@/shared/ui";
 
 const STATUS_COLORS: Record<string, string> = {
   active: "blue",
@@ -24,7 +23,7 @@ const COLUMN_LABELS: Record<ColumnKey, string> = {
   title: "Title",
   author: "Author",
   status: "Status",
-  targetBranch: "Target branch",
+  targetBranch: "Target",
   done: "Done",
 };
 
@@ -185,14 +184,21 @@ export function PullRequestsTable({
     },
     {
       key: "targetBranch",
-      title: "Target branch",
+      title: "Target",
       dataIndex: "targetBranch",
-      width: 220,
+      width: 100,
       ellipsis: true,
       filters: targetBranchFilters,
       filterSearch: true,
       onFilter: (value, record) => normalizeBranchName(record.targetBranch) === (value as string),
-      render: (branch: string) => <Text code>{normalizeBranchName(branch)}</Text>,
+      render: (branch: string) => {
+        const name = normalizeBranchName(branch);
+        return (
+          <Tag className="m-0 max-w-full truncate" title={name}>
+            {name}
+          </Tag>
+        );
+      },
     },
     {
       key: "done",

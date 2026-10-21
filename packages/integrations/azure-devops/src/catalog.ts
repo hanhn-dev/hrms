@@ -1,6 +1,6 @@
 import { TreeStructureGroup, type WorkItemClassificationNode } from 'azure-devops-node-api/interfaces/WorkItemTrackingInterfaces.js';
 import { getAzureDevOpsErrorMessage, type AzureDevOpsClient } from './client.js';
-import type { AreaModule, TeamMember } from './types.js';
+import type { AreaModule, ProjectTeam, TeamMember } from './types.js';
 
 const AREA_DEPTH = 10;
 
@@ -43,6 +43,36 @@ function flattenAreaNodes(
   for (const child of node.children ?? []) {
     flattenAreaNodes(child, project, modules, false);
   }
+}
+
+/**
+ * Lists teams in the configured Azure DevOps project (Core API `getTeams`).
+ */
+export async function listProjectTeams(client: AzureDevOpsClient): Promise<ProjectTeam[]> {
+  const project = client.config.project;
+  if (typeof project !== 'string' || project.length === 0) {
+    throw new Error('Azure DevOps config is missing a project');
+  }
+
+  const coreApi = await client.getCoreApi();
+  let teams;
+  try {
+    teams = await coreApi.getTeams(project);
+  } catch (error) {
+    throw new Error(`Azure DevOps core API error: ${getAzureDevOpsErrorMessage(error)}`);
+  }
+
+  const mapped: ProjectTeam[] = [];
+  for (const team of teams ?? []) {
+    const id = team.id?.trim();
+    const name = team.name?.trim();
+    if (!id || !name) {
+      continue;
+    }
+    mapped.push({ id, name });
+  }
+
+  return mapped.sort((left, right) => left.name.localeCompare(right.name));
 }
 
 export async function listTeamMembers(client: AzureDevOpsClient): Promise<TeamMember[]> {

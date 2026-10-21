@@ -31,18 +31,8 @@ describe('listTeamIterations', () => {
     vi.clearAllMocks();
   });
 
-  it('maps and sorts iterations by start date', async () => {
+  it('maps and sorts iterations by start then finish descending', async () => {
     mockWorkApi.getTeamIterations.mockResolvedValue([
-      {
-        id: 'iter-2',
-        name: 'Sprint 2',
-        path: 'MyProject\\Sprint 2',
-        attributes: {
-          timeFrame: TimeFrame.Future,
-          startDate: new Date('2026-02-01T00:00:00Z'),
-          finishDate: new Date('2026-02-14T00:00:00Z'),
-        },
-      },
       {
         id: 'iter-1',
         name: 'Sprint 1',
@@ -53,23 +43,65 @@ describe('listTeamIterations', () => {
           finishDate: new Date('2026-01-14T00:00:00Z'),
         },
       },
+      {
+        id: 'iter-2',
+        name: 'Sprint 2',
+        path: 'MyProject\\Sprint 2',
+        attributes: {
+          timeFrame: TimeFrame.Future,
+          startDate: new Date('2026-02-01T00:00:00Z'),
+          finishDate: new Date('2026-02-14T00:00:00Z'),
+        },
+      },
     ]);
 
     const result = await listTeamIterations(mockClient);
 
-    expect(mockWorkApi.getTeamIterations).toHaveBeenCalledWith(mockClient.teamContext, undefined);
+    expect(mockWorkApi.getTeamIterations).toHaveBeenCalledWith(mockClient.teamContext);
     expect(result).toHaveLength(2);
-    expect(result[0]!.id).toBe('iter-1');
-    expect(result[0]!.timeFrame).toBe('current');
-    expect(result[0]!.startDate).toBe('2026-01-01T00:00:00.000Z');
-    expect(result[1]!.id).toBe('iter-2');
-    expect(result[1]!.timeFrame).toBe('future');
+    expect(result[0]!.id).toBe('iter-2');
+    expect(result[0]!.timeFrame).toBe('future');
+    expect(result[0]!.startDate).toBe('2026-02-01T00:00:00.000Z');
+    expect(result[1]!.id).toBe('iter-1');
+    expect(result[1]!.timeFrame).toBe('current');
   });
 
-  it('passes the timeframe filter through to the Work API', async () => {
+  it('always fetches all iterations and filters timeframe locally', async () => {
+    mockWorkApi.getTeamIterations.mockResolvedValue([
+      {
+        id: 'iter-1',
+        name: 'Sprint 1',
+        path: 'MyProject\\Sprint 1',
+        attributes: { timeFrame: TimeFrame.Current },
+      },
+      {
+        id: 'iter-2',
+        name: 'Sprint 2',
+        path: 'MyProject\\Sprint 2',
+        attributes: { timeFrame: TimeFrame.Past },
+      },
+    ]);
+
+    const result = await listTeamIterations(mockClient, 'past');
+
+    expect(mockWorkApi.getTeamIterations).toHaveBeenCalledWith(mockClient.teamContext);
+    expect(result).toHaveLength(1);
+    expect(result[0]!.id).toBe('iter-2');
+  });
+
+  it('overrides the team context when a team name is provided', async () => {
     mockWorkApi.getTeamIterations.mockResolvedValue([]);
-    await listTeamIterations(mockClient, 'current');
-    expect(mockWorkApi.getTeamIterations).toHaveBeenCalledWith(mockClient.teamContext, 'current');
+    await listTeamIterations(mockClient, undefined, 'Other Team');
+    expect(mockWorkApi.getTeamIterations).toHaveBeenCalledWith({
+      project: 'MyProject',
+      team: 'Other Team',
+    });
+  });
+
+  it('ignores blank team overrides and keeps the configured team', async () => {
+    mockWorkApi.getTeamIterations.mockResolvedValue([]);
+    await listTeamIterations(mockClient, 'past', '   ');
+    expect(mockWorkApi.getTeamIterations).toHaveBeenCalledWith(mockClient.teamContext);
   });
 
   it('keeps iterations whose start and finish dates are null', async () => {

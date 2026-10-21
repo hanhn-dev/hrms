@@ -24,11 +24,43 @@ export type HrmsMssqlConfig = {
   database: string;
   user: string;
   password: string;
+  connectionTimeout: number;
+  requestTimeout: number;
   options: {
     encrypt: boolean;
     trustServerCertificate: boolean;
   };
+  pool: {
+    max: number;
+    min: number;
+    /** Drop idle sockets before firewalls/NAT kill them (~30s default). */
+    idleTimeoutMillis: number;
+  };
 };
+
+const MSSQL_DEFAULTS = {
+  connectionTimeout: 15_000,
+  requestTimeout: 60_000,
+  pool: {
+    max: 10,
+    min: 0,
+    idleTimeoutMillis: 30_000,
+  },
+} as const;
+
+function withDriverDefaults(
+  config: Omit<
+    HrmsMssqlConfig,
+    "connectionTimeout" | "requestTimeout" | "pool"
+  >,
+): HrmsMssqlConfig {
+  return {
+    ...config,
+    connectionTimeout: MSSQL_DEFAULTS.connectionTimeout,
+    requestTimeout: MSSQL_DEFAULTS.requestTimeout,
+    pool: { ...MSSQL_DEFAULTS.pool },
+  };
+}
 
 function parseConnectionString(connectionString: string): HrmsMssqlConfig {
   const trimmed = connectionString.trim();
@@ -47,7 +79,7 @@ function parseConnectionString(connectionString: string): HrmsMssqlConfig {
     if (!database || !user || !password) {
       throw new Error("connectionString is missing database, user, or password.");
     }
-    return {
+    return withDriverDefaults({
       server: jdbc[1] ?? "",
       port: Number(jdbc[2] || 1433),
       database,
@@ -58,7 +90,7 @@ function parseConnectionString(connectionString: string): HrmsMssqlConfig {
         trustServerCertificate:
           (params.trustservercertificate ?? "false").toLowerCase() === "true",
       },
-    };
+    });
   }
   const ado = Object.fromEntries(
     trimmed.split(";").filter(Boolean).map((part) => {
@@ -74,7 +106,7 @@ function parseConnectionString(connectionString: string): HrmsMssqlConfig {
     throw new Error("connectionString is missing server, database, user, or password.");
   }
   const portMatch = server.match(/,(\d+)$/);
-  return {
+  return withDriverDefaults({
     server: portMatch ? server.slice(0, portMatch.index) : server,
     port: portMatch ? Number(portMatch[1]) : 1433,
     database,
@@ -85,7 +117,7 @@ function parseConnectionString(connectionString: string): HrmsMssqlConfig {
       trustServerCertificate:
         (ado.trustservercertificate ?? "true").toLowerCase() === "true",
     },
-  };
+  });
 }
 
 export function toMssqlConfig(input: HrmsDbConfig): HrmsMssqlConfig {
@@ -93,7 +125,7 @@ export function toMssqlConfig(input: HrmsDbConfig): HrmsMssqlConfig {
   if ("connectionString" in config) {
     return parseConnectionString(config.connectionString);
   }
-  return {
+  return withDriverDefaults({
     server: config.server,
     port: config.port ?? 1433,
     database: config.database,
@@ -103,5 +135,5 @@ export function toMssqlConfig(input: HrmsDbConfig): HrmsMssqlConfig {
       encrypt: config.encrypt ?? false,
       trustServerCertificate: config.trustServerCertificate ?? true,
     },
-  };
+  });
 }

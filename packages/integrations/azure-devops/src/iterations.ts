@@ -38,33 +38,57 @@ function mapTeamIteration(iteration: TeamSettingsIteration): TeamIteration | nul
   };
 }
 
-function sortByStartDate(left: TeamIteration, right: TeamIteration): number {
-  const leftValue = left.startDate ?? '';
-  const rightValue = right.startDate ?? '';
-  return leftValue.localeCompare(rightValue);
+/** Newest sprints first: start DESC, then finish DESC; undated rows sink. */
+function sortByStartThenFinishDesc(left: TeamIteration, right: TeamIteration): number {
+  const leftStart = left.startDate ?? '';
+  const rightStart = right.startDate ?? '';
+  if (leftStart !== rightStart) {
+    return rightStart.localeCompare(leftStart);
+  }
+  const leftFinish = left.finishDate ?? '';
+  const rightFinish = right.finishDate ?? '';
+  return rightFinish.localeCompare(leftFinish);
 }
 
 /**
- * Lists the configured team's sprints (Azure DevOps Team Iterations), including
- * start/finish dates and whether each is past, current, or future.
+ * Lists a team's sprints (Azure DevOps Team Iterations), including start/finish
+ * dates and whether each is past, current, or future. When `team` is omitted,
+ * uses the client's configured team context.
+ *
+ * The optional `timeframe` argument is applied **after** the Work API response.
+ * Azure DevOps `$timeframe` only accepts `current` reliably; `past` / `future`
+ * are rejected by the service, so we always fetch the full team list and filter
+ * locally when a timeframe is requested.
  */
 export async function listTeamIterations(
   client: AzureDevOpsClient,
   timeframe?: TeamIterationTimeframe,
+  team?: string,
 ): Promise<TeamIteration[]> {
   const workApi = await client.getWorkApi();
+  const trimmedTeam = team?.trim();
+  const teamContext =
+    trimmedTeam && trimmedTeam.length > 0
+      ? { ...client.teamContext, team: trimmedTeam }
+      : client.teamContext;
 
   let rawIterations: TeamSettingsIteration[];
   try {
-    rawIterations = await workApi.getTeamIterations(client.teamContext, timeframe);
+    rawIterations = await workApi.getTeamIterations(teamContext);
   } catch (error) {
     throw new Error(`Azure DevOps work API error: ${getAzureDevOpsErrorMessage(error)}`);
   }
 
-  return rawIterations
+  const mapped = rawIterations
     .map(mapTeamIteration)
     .filter((iteration): iteration is TeamIteration => iteration !== null)
-    .sort(sortByStartDate);
+    .sort(sortByStartThenFinishDesc);
+
+  if (timeframe == null) {
+    return mapped;
+  }
+
+  return mapped.filter((iteration) => iteration.timeFrame === timeframe);
 }
 
 /**

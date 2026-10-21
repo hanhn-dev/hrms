@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { createElement, useState } from "react";
 import { describe, it } from "vitest";
 import {
+  buildRowSearchTexts,
   columnCellText,
   matchesColumnFilter,
   rowMatchesTableSearch,
@@ -102,6 +103,45 @@ describe("rowMatchesTableSearch", () => {
     assert.equal(rowMatchesTableSearch(columns, row, "Edit"), false);
     assert.equal(rowMatchesTableSearch(undefined, row, "joining"), false);
     assert.equal(rowMatchesTableSearch([], row, "joining"), false);
+  });
+
+  it("skips columns with tableSearch false", () => {
+    const withOptOut = [
+      { title: "Name", dataIndex: "fullName" },
+      { title: "Skills", dataIndex: "skillCount", tableSearch: false as const },
+    ];
+    const employee = { fullName: "Ada Lovelace", skillCount: 42 };
+    assert.equal(rowMatchesTableSearch(withOptOut, employee, "Ada"), true);
+    assert.equal(rowMatchesTableSearch(withOptOut, employee, "42"), false);
+  });
+});
+
+describe("buildRowSearchTexts", () => {
+  it("builds lowercase haystacks and skips opted-out columns", () => {
+    const columns = [
+      { title: "Name", dataIndex: "fullName" },
+      { title: "Skills", dataIndex: "skillCount", tableSearch: false as const },
+      {
+        key: "editable-actions",
+        title: "",
+        render: () => "Edit",
+      },
+    ];
+    const rows = [
+      { fullName: "Ada Lovelace", skillCount: 42 },
+      { fullName: "Grace Hopper", skillCount: 7 },
+    ];
+    const texts = buildRowSearchTexts(columns, rows);
+    assert.equal(texts.length, 2);
+    assert.equal(texts[0]?.includes("ada lovelace"), true);
+    assert.equal(texts[0]?.includes("42"), false);
+    assert.equal(texts[0]?.includes("edit"), false);
+    assert.equal(texts[1]?.includes("grace hopper"), true);
+  });
+
+  it("returns empty strings when there are no columns", () => {
+    assert.deepEqual(buildRowSearchTexts(undefined, [{ name: "a" }]), [""]);
+    assert.deepEqual(buildRowSearchTexts([], [{ name: "a" }]), [""]);
   });
 });
 

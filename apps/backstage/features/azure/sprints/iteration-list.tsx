@@ -7,26 +7,43 @@ import type { TeamIteration } from "@hrms/azure-devops";
 import { formatDate } from "@/shared/format-date";
 
 const TIME_FRAME_COLORS: Record<string, string> = {
-  current: "blue",
-  future: "default",
-  past: "default",
+  current: "processing",
+  future: "success",
+  past: "warning",
 };
+
+function sprintHref(
+  iterationPath: string,
+  filterQuery?: Record<string, string | undefined>,
+): string {
+  const params = new URLSearchParams();
+  if (filterQuery) {
+    for (const [key, value] of Object.entries(filterQuery)) {
+      if (value != null && value.length > 0) {
+        params.set(key, value);
+      }
+    }
+  }
+  params.set("iteration", iterationPath);
+  const query = params.toString();
+  return query ? `/azure/sprints?${query}` : `/azure/sprints?iteration=${encodeURIComponent(iterationPath)}`;
+}
 
 export function IterationList({
   iterations,
   selectedIterationPath,
+  filterQuery,
 }: {
   iterations: TeamIteration[];
   selectedIterationPath?: string;
+  filterQuery?: Record<string, string | undefined>;
 }): React.JSX.Element {
   const columns: ColumnsType<TeamIteration> = [
     {
       title: "Sprint",
       dataIndex: "name",
       render: (name: string, row) => (
-        <Link href={`/azure/sprints?iteration=${encodeURIComponent(row.path)}`}>
-          {name}
-        </Link>
+        <Link href={sprintHref(row.path, filterQuery)}>{name}</Link>
       ),
     },
     {
@@ -60,10 +77,12 @@ export function IterationList({
       dataSource={iterations}
       columns={columns}
       pagination={false}
+      size="middle"
+      scroll={{ x: true }}
       rowClassName={(row) =>
         row.path === selectedIterationPath ? "bg-blue-50 dark:bg-blue-950" : ""
       }
-      locale={{ emptyText: "No sprints found for the configured team." }}
+      locale={{ emptyText: "No sprints found for this team and filter set." }}
     />
   );
 }

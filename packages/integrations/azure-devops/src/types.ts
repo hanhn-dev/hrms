@@ -311,6 +311,11 @@ export interface TeamMember {
   readonly displayName: string;
 }
 
+export interface ProjectTeam {
+  readonly id: string;
+  readonly name: string;
+}
+
 export interface AreaModule {
   readonly name: string;
   readonly path: string;

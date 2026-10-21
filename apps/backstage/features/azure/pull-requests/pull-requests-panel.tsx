@@ -1,9 +1,14 @@
 "use client";
 
-import { Alert, App } from "antd";
+import { MenuFoldOutlined, MenuUnfoldOutlined } from "@ant-design/icons";
+import { Alert, App, Button, Layout, Tooltip } from "antd";
 import { useState } from "react";
 import type { PullRequestCandidate, PullRequestSearchCriteria } from "@hrms/azure-devops";
 import { PULL_REQUEST_SEARCH_LIMIT } from "@hrms/azure-devops/criteria";
+import {
+  FILTER_SIDER_COLLAPSED_WIDTH,
+  FILTER_SIDER_WIDTH,
+} from "@/features/azure/pull-requests/filter-sider";
 import { PullRequestsForm } from "@/features/azure/pull-requests/pull-requests-form";
 import { PullRequestsTable } from "@/features/azure/pull-requests/pull-requests-table";
 import {
@@ -24,6 +29,7 @@ export function PullRequestsPanel({
   const [result, setResult] = useState<PullRequestSearchResult | null>(null);
   const [selectedRowKeys, setSelectedRowKeys] = useState<number[]>([]);
   const [doneIds, setDoneIds] = useState<ReadonlySet<number>>(new Set());
+  const [collapsed, setCollapsed] = useState(false);
   const { message } = App.useApp();
 
   async function runLookup(criteria: PullRequestSearchCriteria): Promise<void> {
@@ -112,58 +118,108 @@ export function PullRequestsPanel({
   const results: readonly PullRequestCandidate[] = result?.results ?? [];
 
   return (
-    <div>
-      <PullRequestsForm
-        loading={loading}
-        options={options}
-        onClear={() => {
-          setResult(null);
-          setError(null);
-          setSelectedRowKeys([]);
+    <Layout
+      className="min-h-0 flex-1 overflow-hidden !bg-transparent max-md:!flex-col"
+      hasSider
+    >
+      <Layout.Sider
+        className="!bg-transparent max-md:!max-w-none max-md:!flex-none"
+        classNames={{
+          body: "flex h-full min-h-0 flex-col overflow-hidden max-md:max-h-[45vh]",
         }}
-        onSubmit={(criteria) => void runLookup(criteria)}
-      />
+        collapsed={collapsed}
+        collapsedWidth={FILTER_SIDER_COLLAPSED_WIDTH}
+        collapsible
+        theme="light"
+        trigger={null}
+        width={FILTER_SIDER_WIDTH}
+      >
+        <div className="flex shrink-0 items-center justify-between gap-1 pb-2">
+          <span className="text-sm font-medium text-slate-700 dark:text-slate-200">Filters</span>
+          <Tooltip title="Collapse filters">
+            <Button
+              aria-label="Collapse filters"
+              icon={<MenuFoldOutlined />}
+              type="text"
+              onClick={() => {
+                setCollapsed(true);
+              }}
+            />
+          </Tooltip>
+        </div>
+        <div className="min-h-0 flex-1 overflow-hidden">
+          <PullRequestsForm
+            loading={loading}
+            options={options}
+            onClear={() => {
+              setResult(null);
+              setError(null);
+              setSelectedRowKeys([]);
+            }}
+            onSubmit={(criteria) => void runLookup(criteria)}
+          />
+        </div>
+      </Layout.Sider>
 
-      {error ? (
-        <Alert className="mb-4" description={error} showIcon title="Lookup failed" type="error" />
-      ) : null}
+      <Layout.Content className="flex min-h-0 min-w-0 flex-col overflow-auto md:pl-4">
+        {collapsed ? (
+          <div className="mb-2 shrink-0">
+            <Tooltip title="Expand filters">
+              <Button
+                aria-label="Expand filters"
+                icon={<MenuUnfoldOutlined />}
+                type="text"
+                onClick={() => {
+                  setCollapsed(false);
+                }}
+              >
+                Filters
+              </Button>
+            </Tooltip>
+          </div>
+        ) : null}
 
-      {result && result.issues.length > 0 ? (
-        <Alert
-          className="mb-4"
-          description={
-            <ul className="list-disc pl-5">
-              {result.issues.map((issue) => (
-                <li key={`${issue.workItemId ?? "invalid"}-${issue.input}`}>{issue.message}</li>
-              ))}
-            </ul>
-          }
-          showIcon
-          title="Some work items could not be resolved"
-          type="warning"
-        />
-      ) : null}
+        {error ? (
+          <Alert className="mb-4" description={error} showIcon title="Lookup failed" type="error" />
+        ) : null}
 
-      {result?.truncated ? (
-        <Alert
-          className="mb-4"
-          description="Narrow the date, authors, or work-item filters to see everything that matches."
-          showIcon
-          title={`This search hit the ${PULL_REQUEST_SEARCH_LIMIT} item limit`}
-          type="warning"
-        />
-      ) : null}
+        {result && result.issues.length > 0 ? (
+          <Alert
+            className="mb-4"
+            description={
+              <ul className="list-disc pl-5">
+                {result.issues.map((issue) => (
+                  <li key={`${issue.workItemId ?? "invalid"}-${issue.input}`}>{issue.message}</li>
+                ))}
+              </ul>
+            }
+            showIcon
+            title="Some work items could not be resolved"
+            type="warning"
+          />
+        ) : null}
 
-      {result ? (
-        <PullRequestsTable
-          doneIds={doneIds}
-          onBulkMarkDone={(pullRequestIds) => void markManyDone(pullRequestIds)}
-          onSelectionChange={setSelectedRowKeys}
-          onToggleDone={(pullRequestId, done) => void toggleDone(pullRequestId, done)}
-          results={results}
-          selectedRowKeys={selectedRowKeys}
-        />
-      ) : null}
-    </div>
+        {result?.truncated ? (
+          <Alert
+            className="mb-4"
+            description="Narrow the date, authors, or work-item filters to see everything that matches."
+            showIcon
+            title={`This search hit the ${PULL_REQUEST_SEARCH_LIMIT} item limit`}
+            type="warning"
+          />
+        ) : null}
+
+        {result ? (
+          <PullRequestsTable
+            doneIds={doneIds}
+            onBulkMarkDone={(pullRequestIds) => void markManyDone(pullRequestIds)}
+            onSelectionChange={setSelectedRowKeys}
+            onToggleDone={(pullRequestId, done) => void toggleDone(pullRequestId, done)}
+            results={results}
+            selectedRowKeys={selectedRowKeys}
+          />
+        ) : null}
+      </Layout.Content>
+    </Layout>
   );
 }

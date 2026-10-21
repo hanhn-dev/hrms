@@ -125,4 +125,14 @@ SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME LIKE '%past%'
 
 sp_help 'TPastEmploymentDetails'
 
-SELECT TOP 100 * FROM sys.dm_
+
+
+
+DECLARE @FieldIDs VARCHAR(MAX);
+SELECT @FieldIDs = STRING_AGG(FieldID, ',') FROM TEmployeeDetail_Fields AS edf
+INNER JOIN TEmployeeDetail_Section AS eds ON edf.SectionID = eds.SectionID
+WHERE edf.EmployerID = 10 AND eds.Section LIKE '%Current Employment%'AND edf.IsActive = 1
+EXEC SP_MyDetails_GetEmployeeDetailsForGivenFields '1431', '62071'
+
+EXEC dbo.SP_Mydetails_GetNomineeDetails
+	@employeeId = 1431

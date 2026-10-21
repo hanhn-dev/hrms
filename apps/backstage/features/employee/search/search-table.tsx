@@ -1,6 +1,7 @@
 "use client";
 
 import { Tag } from "antd";
+import { useMemo } from "react";
 import { DataTable } from "@/shared/ui/data-table";
 import type { ColumnsType } from "antd/es/table";
 import type { EmployeeSearchHit } from "@/features/employee/search/queries";
@@ -38,6 +39,10 @@ const COUNT_FILTERS = [
   { text: "≥ 5", value: "gte:5" },
 ] as const;
 
+type EmployeeColumn = ColumnsType<EmployeeSearchHit>[number] & {
+  tableSearch?: boolean;
+};
+
 function matchesCountFilter(count: number, raw: unknown): boolean {
   const value = String(raw);
   if (value.startsWith("eq:")) {
@@ -49,9 +54,7 @@ function matchesCountFilter(count: number, raw: unknown): boolean {
   return true;
 }
 
-function sectionCountColumns(
-  unavailableFields: ReadonlySet<string>,
-): ColumnsType<EmployeeSearchHit> {
+function sectionCountColumns(unavailableFields: ReadonlySet<string>): EmployeeColumn[] {
   return SECTION_COLUMNS.map((section) => {
     const unavailable = unavailableFields.has(section.field);
     return {
@@ -60,6 +63,7 @@ function sectionCountColumns(
       key: section.field,
       width: 120,
       align: "right" as const,
+      tableSearch: false,
       sorter: unavailable
         ? undefined
         : (a: EmployeeSearchHit, b: EmployeeSearchHit) =>
@@ -87,6 +91,71 @@ export function EmployeeSearchTable({
   unavailableFields?: readonly string[];
   queryScript: string;
 }): React.JSX.Element {
+  const unavailable = useMemo(() => new Set(unavailableFields), [unavailableFields]);
+  const columns = useMemo((): ColumnsType<EmployeeSearchHit> => {
+    const roleFilters = Array.from(
+      new Set(results.map((row) => row.roleName?.trim() || "—").filter(Boolean)),
+    )
+      .sort((a, b) => a.localeCompare(b))
+      .map((role) => ({ text: role, value: role }));
+
+    return [
+      {
+        title: "Employee ID",
+        dataIndex: "employeeId",
+        width: 140,
+        sorter: (a, b) => a.employeeId - b.employeeId,
+      },
+      {
+        title: "Employment no.",
+        dataIndex: "employmentNumber",
+        width: 160,
+        sorter: (a, b) => a.employmentNumber.localeCompare(b.employmentNumber),
+        render: (value: string) => (
+          <EntityLink
+            employerId={employerId}
+            entity={{ kind: "employee", employmentNumber: value }}
+          >
+            {value}
+          </EntityLink>
+        ),
+      },
+      {
+        title: "Name",
+        dataIndex: "fullName",
+        width: 240,
+        ellipsis: true,
+        sorter: (a, b) => a.fullName.localeCompare(b.fullName),
+      },
+      {
+        title: "Email",
+        dataIndex: "workEmail",
+        width: 280,
+        ellipsis: true,
+      },
+      {
+        title: "Role",
+        dataIndex: "roleName",
+        width: 180,
+        ellipsis: true,
+        filters: roleFilters,
+        onFilter: (value, record) => (record.roleName?.trim() || "—") === String(value),
+      },
+      {
+        title: "Status",
+        dataIndex: "employeeStatus",
+        width: 160,
+        filters: [...EMPLOYEE_STATUS_FILTERS],
+        onFilter: (value, record) =>
+          matchesEmployeeStatusFilter(record.employeeStatus, value),
+        render: (value: string | null) => (
+          <Tag color={employeeStatusColor(value)}>{employeeStatusLabel(value)}</Tag>
+        ),
+      },
+      ...sectionCountColumns(unavailable),
+    ];
+  }, [employerId, results, unavailable]);
+
   return (
     <DataTable
       queryScript={queryScript}
@@ -103,71 +172,7 @@ export function EmployeeSearchTable({
           ? "No employees matched."
           : "No employees found for this employer.",
       }}
-      columns={[
-        {
-          title: "Employee ID",
-          dataIndex: "employeeId",
-          width: 140,
-          sorter: (a, b) => a.employeeId - b.employeeId,
-        },
-        {
-          title: "Employment no.",
-          dataIndex: "employmentNumber",
-          width: 160,
-          sorter: (a, b) =>
-            a.employmentNumber.localeCompare(b.employmentNumber),
-          render: (value: string) => (
-            <EntityLink
-              employerId={employerId}
-              entity={{ kind: "employee", employmentNumber: value }}
-            >
-              {value}
-            </EntityLink>
-          ),
-        },
-        {
-          title: "Name",
-          dataIndex: "fullName",
-          width: 240,
-          ellipsis: true,
-          sorter: (a, b) => a.fullName.localeCompare(b.fullName),
-        },
-        {
-          title: "Email",
-          dataIndex: "workEmail",
-          width: 280,
-          ellipsis: true,
-        },
-        {
-          title: "Role",
-          dataIndex: "roleName",
-          width: 180,
-          ellipsis: true,
-          filters: Array.from(
-            new Set(
-              results
-                .map((row) => row.roleName?.trim() || "—")
-                .filter(Boolean),
-            ),
-          )
-            .sort((a, b) => a.localeCompare(b))
-            .map((role) => ({ text: role, value: role })),
-          onFilter: (value, record) =>
-            (record.roleName?.trim() || "—") === String(value),
-        },
-        {
-          title: "Status",
-          dataIndex: "employeeStatus",
-          width: 160,
-          filters: [...EMPLOYEE_STATUS_FILTERS],
-          onFilter: (value, record) =>
-            matchesEmployeeStatusFilter(record.employeeStatus, value),
-          render: (value: string | null) => (
-            <Tag color={employeeStatusColor(value)}>{employeeStatusLabel(value)}</Tag>
-          ),
-        },
-        ...sectionCountColumns(new Set(unavailableFields)),
-      ]}
+      columns={columns}
     />
   );
 }
