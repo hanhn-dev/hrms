@@ -15,7 +15,7 @@ Edit `.env`:
 | --- | --- | --- |
 | `AZURE_DEVOPS_ORG_URL` | Yes | Organization URL, e.g. `https://dev.azure.com/your-org` |
 | `AZURE_DEVOPS_PROJECT` | Yes | Default project name |
-| `AZURE_DEVOPS_TOKEN` | Yes | PAT with **Work Items (Read)** scope |
+| `AZURE_DEVOPS_TOKEN` | Yes | PAT with **Work Items (Read & Write)** scope (Write required for `az_create_work_item`) |
 
 Smoke-check (the process waits on stdio; Ctrl+C to stop):
 

@@ -1,6 +1,8 @@
 import { McpServer, ResourceTemplate } from '@modelcontextprotocol/sdk/server/mcp.js';
 import {
   AzureDevOpsClient,
+  CREATE_WORK_ITEM_DEFAULTS,
+  WORK_ITEM_TYPE_OPTIONS,
   getWorkItem,
   getWorkItemHierarchyContext,
   listWorkItems,
@@ -10,6 +12,7 @@ import type { AzureDevOpsConfig } from '@hrms/azure-devops';
 import { z } from 'zod';
 import { buildDraftSpecFromWorkItemPrompt } from './prompts/draft-spec-from-work-item.js';
 import { createWorkItemImageResourceHandler } from './resources/work-item-image-resource.js';
+import { createCreateWorkItemHandler } from './tools/create-work-item.js';
 import { createGetPullRequestHandler } from './tools/get-pull-request.js';
 import { createGetWorkItemCommentsHandler } from './tools/get-work-item-comments.js';
 import { createGetWorkItemImageHandler } from './tools/get-work-item-image.js';
@@ -63,6 +66,75 @@ export function createServer(config: AzureDevOpsConfig): McpServer {
   const getWorkItemRevisionsHandler = createGetWorkItemRevisionsHandler(client);
   const listPullRequestThreadsHandler = createListPullRequestThreadsHandler(client);
   const searchWorkItemsHandler = createSearchWorkItemsHandler(client, config);
+  const createWorkItemHandler = createCreateWorkItemHandler(client, config);
+
+  registerTool(
+    server,
+    'az_create_work_item',
+    'Create a new Azure DevOps work item and return the investigation packet. Defaults: type Product Backlog Item, assignedTo Hanh Nguyen, area TDG HRMS\\Employee Management, iteration TDG HRMS\\Team Sprinter. Pass a fuller sprint IterationPath when needed. Use parentId to link a Task under a PBI.',
+    {
+      title: z.string().min(1).describe('Work item title (required)'),
+      description: z.string().optional().describe('Description (plain text or HTML)'),
+      type: z
+        .enum(WORK_ITEM_TYPE_OPTIONS)
+        .optional()
+        .describe(`Work item type (default: ${CREATE_WORK_ITEM_DEFAULTS.type})`),
+      assignedTo: z
+        .string()
+        .min(1)
+        .optional()
+        .describe(`Assignee display name (default: ${CREATE_WORK_ITEM_DEFAULTS.assignedTo})`),
+      areaPath: z
+        .string()
+        .min(1)
+        .optional()
+        .describe(`Area path (default: ${CREATE_WORK_ITEM_DEFAULTS.areaPath})`),
+      iterationPath: z
+        .string()
+        .min(1)
+        .optional()
+        .describe(
+          `Iteration path (default: ${CREATE_WORK_ITEM_DEFAULTS.iterationPath}). Prefer the current sprint path when known.`,
+        ),
+      tags: z.array(z.string().min(1)).optional().describe('Tags to set on the work item'),
+      priority: z
+        .number()
+        .int()
+        .min(1)
+        .max(4)
+        .optional()
+        .describe('Priority 1 (highest) through 4 (lowest)'),
+      acceptanceCriteria: z
+        .string()
+        .optional()
+        .describe('Acceptance criteria (plain text or HTML); useful for Product Backlog Items'),
+      parentId: z
+        .number()
+        .int()
+        .positive()
+        .optional()
+        .describe('Parent work item ID (Hierarchy-Reverse link)'),
+      project: z
+        .string()
+        .min(1)
+        .optional()
+        .describe('Azure DevOps project name; defaults to configured project'),
+    },
+    async (args) =>
+      createWorkItemHandler({
+        title: args.title as string,
+        description: args.description as string | undefined,
+        type: args.type as (typeof WORK_ITEM_TYPE_OPTIONS)[number] | undefined,
+        assignedTo: args.assignedTo as string | undefined,
+        areaPath: args.areaPath as string | undefined,
+        iterationPath: args.iterationPath as string | undefined,
+        tags: args.tags as string[] | undefined,
+        priority: args.priority as number | undefined,
+        acceptanceCriteria: args.acceptanceCriteria as string | undefined,
+        parentId: args.parentId as number | undefined,
+        project: args.project as string | undefined,
+      }),
+  );
 
   registerTool(
     server,

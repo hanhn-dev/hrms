@@ -9,6 +9,14 @@ vi.mock('@hrms/azure-devops', () => ({
       getAttachmentContent: vi.fn().mockResolvedValue(Buffer.from('image-bytes')),
     };
   }),
+  CREATE_WORK_ITEM_DEFAULTS: {
+    type: 'Product Backlog Item',
+    assignedTo: 'Hanh Nguyen',
+    areaPath: 'TDG HRMS\\Employee Management',
+    iterationPath: 'TDG HRMS\\Team Sprinter',
+  },
+  WORK_ITEM_TYPE_OPTIONS: ['Product Backlog Item', 'Bug', 'Task'],
+  createWorkItem: vi.fn(),
   getPullRequestDetail: vi.fn(),
   getWorkItem: vi.fn(),
   getWorkItemHierarchyContext: vi.fn(),
@@ -24,6 +32,7 @@ vi.mock('@hrms/azure-devops', () => ({
 }));
 
 import {
+  createWorkItem,
   getPullRequestDetail,
   getWorkItem,
   getWorkItemHierarchyContext,
@@ -341,6 +350,7 @@ describe('createServer', () => {
 
       expect(toolNames).toEqual(
         expect.arrayContaining([
+          'az_create_work_item',
           'az_get_work_item',
           'az_get_work_item_hierarchy_context',
           'az_get_work_items',
@@ -375,6 +385,50 @@ describe('createServer', () => {
       expect(getWorkItem).toHaveBeenCalledWith(expect.anything(), 135898);
       expect(result.isError).toBeFalsy();
       expect(JSON.parse(content[0]!.text)).toMatchObject({ id: 135898 });
+    } finally {
+      await session.close();
+    }
+  });
+
+  it('registers az_create_work_item and passes title through to createWorkItem', async () => {
+    vi.mocked(createWorkItem).mockResolvedValue({
+      ...mockWorkItem,
+      id: 9999,
+      title: 'New PBI',
+      state: 'New',
+    });
+    const session = await connectClientAndServer();
+
+    try {
+      const tools = await session.client.listTools();
+      const createTool = tools.tools.find(({ name }) => name === 'az_create_work_item');
+      expect(createTool?.inputSchema).toMatchObject({
+        type: 'object',
+        properties: {
+          title: { type: 'string' },
+          description: { type: 'string' },
+          type: {},
+          assignedTo: { type: 'string' },
+          areaPath: { type: 'string' },
+          iterationPath: { type: 'string' },
+          parentId: { type: 'integer' },
+        },
+        required: ['title'],
+      });
+
+      const result = await session.client.callTool({
+        name: 'az_create_work_item',
+        arguments: { title: 'New PBI', description: 'From agent' },
+      });
+      const content = result.content as Array<{ type: 'text'; text: string }>;
+
+      expect(createWorkItem).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ title: 'New PBI', description: 'From agent' }),
+        expect.anything(),
+      );
+      expect(result.isError).toBeFalsy();
+      expect(JSON.parse(content[0]!.text)).toMatchObject({ id: 9999, title: 'New PBI' });
     } finally {
       await session.close();
     }

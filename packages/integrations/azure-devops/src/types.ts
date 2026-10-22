@@ -344,7 +344,35 @@ export interface PullRequestSearchResult {
 }
 
 export const WORK_ITEM_TYPE_OPTIONS = ['Product Backlog Item', 'Bug', 'Task'] as const;
+export type WorkItemTypeOption = (typeof WORK_ITEM_TYPE_OPTIONS)[number];
 export const WORK_ITEM_STATE_OPTIONS = ['New', 'Active', 'Resolved', 'Closed', 'Done'] as const;
+
+/** Defaults applied by `createWorkItem` when optional fields are omitted. */
+export const CREATE_WORK_ITEM_DEFAULTS = {
+  type: 'Product Backlog Item',
+  assignedTo: 'Hanh Nguyen',
+  areaPath: 'TDG HRMS\\Employee Management',
+  iterationPath: 'TDG HRMS\\Team Sprinter',
+} as const satisfies {
+  type: WorkItemTypeOption;
+  assignedTo: string;
+  areaPath: string;
+  iterationPath: string;
+};
+
+export interface CreateWorkItemInput {
+  readonly title: string;
+  readonly description?: string;
+  readonly type?: WorkItemTypeOption;
+  readonly assignedTo?: string;
+  readonly areaPath?: string;
+  readonly iterationPath?: string;
+  readonly tags?: readonly string[];
+  readonly priority?: number;
+  readonly acceptanceCriteria?: string;
+  readonly parentId?: number;
+  readonly project?: string;
+}
 export const PULL_REQUEST_STATUS_OPTIONS = ['active', 'completed', 'abandoned'] as const;
 export const PULL_REQUEST_SEARCH_LIMIT = 200;
 

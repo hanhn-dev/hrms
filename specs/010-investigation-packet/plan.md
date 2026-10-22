@@ -137,7 +137,7 @@ Always constrain `[System.TeamProject]` to config/project. Reuse `escapeWiqlStri
 
 ## Slice 4 — Routing copy
 
-No behaviour change. Rewrite every `registerTool` description to include when-to-use and the next tool. Add `.describe()` on every Zod field. Update `apps/az-mcp/CLAUDE.md` and root `CLAUDE.md` catalogs.
+No behaviour change. Rewrite every `registerTool` description to include when-to-use and the next tool. Add `.describe()` on every Zod field. Update `apps/az-mcp/CLAUDE.md` and root `AGENTS.md` catalogs.
 
 Example for `az_get_work_item`:
 
@@ -165,7 +165,7 @@ Do not add MCP `readOnlyHint` unless the current `registerTool` helper can pass 
 | `apps/az-mcp/src/resources/work-item-image-resource.ts` | 1 (shared reader) |
 | `apps/az-mcp/src/__tests__/server.test.ts` | 1–4 |
 | five `mockWorkItem` fixtures | 1 |
-| `CLAUDE.md`, `apps/az-mcp/CLAUDE.md` | 4 |
+| `AGENTS.md`, `apps/az-mcp/CLAUDE.md` | 4 |
 | `specs/001-azure-workitems-mcp/contracts/mcp-tools.md` | 4 (pointer to 010 contract) |
 
 ## Defaults

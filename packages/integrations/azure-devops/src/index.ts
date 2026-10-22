@@ -55,6 +55,8 @@ export type {
 	WorkItemSpecContextChild,
 	WorkItemRequestEntry,
 	WorkItemSummary,
+	WorkItemTypeOption,
+	CreateWorkItemInput,
 	PullRequestThread,
 	PullRequestThreadComment,
 	PullRequestThreadsRequest,
@@ -63,6 +65,7 @@ export type {
 	TeamIterationTimeframe,
 } from './types.js';
 export {
+	CREATE_WORK_ITEM_DEFAULTS,
 	PULL_REQUEST_SEARCH_LIMIT,
 	PULL_REQUEST_STATUS_OPTIONS,
 	WORK_ITEM_STATE_OPTIONS,
@@ -113,7 +116,21 @@ export {
 	listTeamMembers,
 	toWorkItemAreaPath,
 } from './catalog.js';
-export { getWorkItem, getWorkItemHierarchyContext, getWorkItemsByIds, listWorkItems, mapWorkItemLinks, parseWorkItemIdsInput, queryWorkItems, searchWorkItemIds, searchWorkItems, buildSearchWorkItemsWiql, withWorkItemLinkTitles } from './work-items.js';
+export {
+	createWorkItem,
+	getWorkItem,
+	getWorkItemHierarchyContext,
+	getWorkItemsByIds,
+	listWorkItems,
+	mapWorkItemLinks,
+	parseWorkItemIdsInput,
+	queryWorkItems,
+	searchWorkItemIds,
+	searchWorkItems,
+	buildSearchWorkItemsWiql,
+	textToWorkItemHtml,
+	withWorkItemLinkTitles,
+} from './work-items.js';
 export { getWorkItemComments } from './work-item-comments.js';
 export { getWorkItemSpecContext } from './work-item-spec-context.js';
 export { getWorkItemFieldRevisions } from './work-item-revisions.js';

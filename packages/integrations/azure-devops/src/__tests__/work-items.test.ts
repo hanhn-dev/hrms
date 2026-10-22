@@ -5,7 +5,19 @@ import {
 } from 'azure-devops-node-api/interfaces/WorkItemTrackingInterfaces.js';
 import type { AzureDevOpsClient } from '../client.js';
 import type { AzureDevOpsConfig, ListWorkItemsFilter } from '../types.js';
-import { buildSearchWorkItemsWiql, getWorkItem, getWorkItemHierarchyContext, getWorkItemsByIds, listWorkItems, parseWorkItemIdsInput, queryWorkItems, searchWorkItems } from '../work-items.js';
+import { CREATE_WORK_ITEM_DEFAULTS } from '../types.js';
+import {
+  buildSearchWorkItemsWiql,
+  createWorkItem,
+  getWorkItem,
+  getWorkItemHierarchyContext,
+  getWorkItemsByIds,
+  listWorkItems,
+  parseWorkItemIdsInput,
+  queryWorkItems,
+  searchWorkItems,
+  textToWorkItemHtml,
+} from '../work-items.js';
 
 const mockConfig: AzureDevOpsConfig = {
   orgUrl: 'https://dev.azure.com/myorg',
@@ -18,6 +30,7 @@ const mockWitApi = {
   getWorkItemsBatch: vi.fn(),
   queryByWiql: vi.fn(),
   getWorkItems: vi.fn(),
+  createWorkItem: vi.fn(),
 };
 
 const mockClient = {
@@ -1119,5 +1132,138 @@ describe('getWorkItemHierarchyContext', () => {
     mockWitApi.getWorkItem.mockRejectedValueOnce(new Error('Work item 200 not found'));
 
     await expect(getWorkItemHierarchyContext(mockClient, 200)).rejects.toThrow('Work item 200 not found');
+  });
+});
+
+describe('textToWorkItemHtml', () => {
+  it('wraps plain text paragraphs and escapes HTML', () => {
+    expect(textToWorkItemHtml('Hello <world>\n\nNext')).toBe(
+      '<p>Hello &lt;world&gt;</p><p>Next</p>',
+    );
+  });
+
+  it('passes through strings that already look like HTML', () => {
+    expect(textToWorkItemHtml('<div>Ready</div>')).toBe('<div>Ready</div>');
+  });
+});
+
+describe('createWorkItem', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockWitApi.createWorkItem.mockResolvedValue({ id: 9999 });
+    mockWitApi.getWorkItem.mockResolvedValue({
+      ...rawWorkItem,
+      id: 9999,
+      fields: {
+        ...rawWorkItem.fields,
+        'System.Title': 'New PBI',
+        'System.WorkItemType': 'Product Backlog Item',
+        'System.AssignedTo': { displayName: CREATE_WORK_ITEM_DEFAULTS.assignedTo },
+        'System.AreaPath': CREATE_WORK_ITEM_DEFAULTS.areaPath,
+        'System.IterationPath': CREATE_WORK_ITEM_DEFAULTS.iterationPath,
+      },
+      relations: [],
+    });
+    vi.mocked(mockClient.getAttachmentMetadata).mockResolvedValue({
+      contentType: 'image/png',
+      size: 2048,
+    });
+  });
+
+  it('creates with defaults and returns the mapped work item', async () => {
+    const result = await createWorkItem(mockClient, { title: 'New PBI' }, mockConfig);
+
+    expect(mockWitApi.createWorkItem).toHaveBeenCalledWith(
+      undefined,
+      expect.arrayContaining([
+        { op: 'add', path: '/fields/System.Title', value: 'New PBI' },
+        {
+          op: 'add',
+          path: '/fields/System.AssignedTo',
+          value: CREATE_WORK_ITEM_DEFAULTS.assignedTo,
+        },
+        {
+          op: 'add',
+          path: '/fields/System.AreaPath',
+          value: CREATE_WORK_ITEM_DEFAULTS.areaPath,
+        },
+        {
+          op: 'add',
+          path: '/fields/System.IterationPath',
+          value: CREATE_WORK_ITEM_DEFAULTS.iterationPath,
+        },
+      ]),
+      'MyProject',
+      'Product Backlog Item',
+      undefined,
+      undefined,
+      undefined,
+      WorkItemExpand.Relations,
+    );
+    expect(result.id).toBe(9999);
+    expect(result.title).toBe('New PBI');
+    expect(result.assignedTo).toBe(CREATE_WORK_ITEM_DEFAULTS.assignedTo);
+  });
+
+  it('allows type override, description HTML, tags, priority, and parent relation', async () => {
+    await createWorkItem(
+      mockClient,
+      {
+        title: 'Perf bug',
+        type: 'Bug',
+        description: 'Line one\n\nLine two',
+        tags: ['perf', 'db'],
+        priority: 2,
+        parentId: 178336,
+        assignedTo: 'Other User',
+        areaPath: 'TDG HRMS\\Other',
+        iterationPath: 'TDG HRMS\\Team Sprinter\\Sprint 1',
+      },
+      mockConfig,
+    );
+
+    const patch = mockWitApi.createWorkItem.mock.calls[0]![1] as Array<{
+      op: string;
+      path: string;
+      value: unknown;
+    }>;
+    expect(mockWitApi.createWorkItem.mock.calls[0]![3]).toBe('Bug');
+    expect(patch).toEqual(
+      expect.arrayContaining([
+        { op: 'add', path: '/fields/System.Title', value: 'Perf bug' },
+        { op: 'add', path: '/fields/System.AssignedTo', value: 'Other User' },
+        {
+          op: 'add',
+          path: '/fields/System.Description',
+          value: '<p>Line one</p><p>Line two</p>',
+        },
+        { op: 'add', path: '/fields/System.Tags', value: 'perf; db' },
+        { op: 'add', path: '/fields/Microsoft.VSTS.Common.Priority', value: 2 },
+        {
+          op: 'add',
+          path: '/relations/-',
+          value: {
+            rel: 'System.LinkTypes.Hierarchy-Reverse',
+            url: 'https://dev.azure.com/myorg/_apis/wit/workItems/178336',
+          },
+        },
+      ]),
+    );
+  });
+
+  it('rejects empty title and unsupported type', async () => {
+    await expect(createWorkItem(mockClient, { title: '   ' }, mockConfig)).rejects.toThrow(
+      'Work item title is required',
+    );
+    await expect(
+      createWorkItem(mockClient, { title: 'x', type: 'Epic' as 'Task' }, mockConfig),
+    ).rejects.toThrow('Unsupported work item type');
+  });
+
+  it('surfaces Azure DevOps API errors', async () => {
+    mockWitApi.createWorkItem.mockRejectedValue(new Error('TF401232: area path not found'));
+    await expect(createWorkItem(mockClient, { title: 'x' }, mockConfig)).rejects.toThrow(
+      'Azure DevOps API error',
+    );
   });
 });

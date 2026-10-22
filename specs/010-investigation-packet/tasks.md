@@ -86,7 +86,7 @@ npm test --workspace=az-mcp
 ## Slice 4 — Routing copy + docs
 
 - [ ] T026 [S4] Rewrite every `registerTool` description (when-to-use / when-not / next tool) and add Zod `.describe()` on every parameter in `apps/az-mcp/src/server.ts`
-- [ ] T027 [S4] Update `apps/az-mcp/CLAUDE.md` canonical names and root `CLAUDE.md` az-mcp tools list
+- [ ] T027 [S4] Update `apps/az-mcp/CLAUDE.md` canonical names and root `AGENTS.md` az-mcp tools list
 - [ ] T028 [S4] Point `specs/001-azure-workitems-mcp/contracts/mcp-tools.md` at this feature’s contract for the widened catalog
 
 **Checkpoint**: `listTools()` descriptions are enough to route get vs hierarchy vs search vs comments vs image vs threads.

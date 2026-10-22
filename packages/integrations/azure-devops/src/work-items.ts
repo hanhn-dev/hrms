@@ -12,25 +12,29 @@ import {
 import { buildWorkItemCoverage, htmlFieldHasContent } from './coverage.js';
 import { extractInlineImages, htmlToMarkdown } from './html-to-text.js';
 import { parseAcceptanceCriteria } from './parse-acceptance-criteria.js';
-import type {
-  AzureDevOpsConfig,
-  ImageAttachmentContext,
-  ListWorkItemsFilter,
-  MultiWorkItemRequest,
-  PullRequestLookupIssue,
-  SearchWorkItemsFilter,
-  WorkItem,
-  WorkItemAttachment,
-  WorkItemBatchResult,
-  WorkItemBatchResultEntry,
-  WorkItemBatchResultStatus,
-  WorkItemHierarchyContextEntry,
-  WorkItemHierarchyContextOmission,
-  WorkItemHierarchyContextResponse,
-  WorkItemLink,
-  WorkItemLinkKind,
-  WorkItemRequestEntry,
-  WorkItemSummary,
+import {
+  CREATE_WORK_ITEM_DEFAULTS,
+  WORK_ITEM_TYPE_OPTIONS,
+  type AzureDevOpsConfig,
+  type CreateWorkItemInput,
+  type ImageAttachmentContext,
+  type ListWorkItemsFilter,
+  type MultiWorkItemRequest,
+  type PullRequestLookupIssue,
+  type SearchWorkItemsFilter,
+  type WorkItem,
+  type WorkItemAttachment,
+  type WorkItemBatchResult,
+  type WorkItemBatchResultEntry,
+  type WorkItemBatchResultStatus,
+  type WorkItemHierarchyContextEntry,
+  type WorkItemHierarchyContextOmission,
+  type WorkItemHierarchyContextResponse,
+  type WorkItemLink,
+  type WorkItemLinkKind,
+  type WorkItemRequestEntry,
+  type WorkItemSummary,
+  type WorkItemTypeOption,
 } from './types.js';
 
 const IMAGE_ATTACHMENT_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.svg'] as const;
@@ -633,6 +637,173 @@ export async function getWorkItem(client: AzureDevOpsClient, id: number): Promis
     throw new Error(`Work item ${id} not found`);
   }
   return mapWorkItem(client, raw, client.config.orgUrl);
+}
+
+/** True when the value already starts with a markup tag (pass through unchanged). */
+function looksLikeHtmlDocument(value: string): boolean {
+  return /^\s*<[a-z!/?]/i.test(value);
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+/**
+ * Converts plain text to simple HTML for ADO rich-text fields.
+ * Strings that already look like HTML documents are passed through unchanged.
+ */
+export function textToWorkItemHtml(value: string): string {
+  const trimmed = value.trim();
+  if (trimmed.length === 0) {
+    return '';
+  }
+  if (looksLikeHtmlDocument(trimmed)) {
+    return trimmed;
+  }
+
+  return trimmed
+    .split(/\n{2,}/)
+    .map((paragraph) => {
+      const withBreaks = escapeHtml(paragraph).replace(/\n/g, '<br>');
+      return `<p>${withBreaks}</p>`;
+    })
+    .join('');
+}
+
+/** JSON Patch op for WIT create/update. ADO accepts the string form `"add"`. */
+type WorkItemPatchOperation = {
+  op: 'add';
+  path: string;
+  value: unknown;
+};
+
+function addFieldPatch(document: WorkItemPatchOperation[], field: string, value: unknown): void {
+  document.push({
+    op: 'add',
+    path: `/fields/${field}`,
+    value,
+  });
+}
+
+function resolveWorkItemType(type: string | undefined): WorkItemTypeOption {
+  if (type === undefined || type.trim().length === 0) {
+    return CREATE_WORK_ITEM_DEFAULTS.type;
+  }
+  const trimmed = type.trim();
+  if ((WORK_ITEM_TYPE_OPTIONS as readonly string[]).includes(trimmed)) {
+    return trimmed as WorkItemTypeOption;
+  }
+  throw new Error(
+    `Unsupported work item type: ${trimmed}. Expected one of: ${WORK_ITEM_TYPE_OPTIONS.join(', ')}`,
+  );
+}
+
+function buildCreateWorkItemPatch(
+  input: CreateWorkItemInput,
+  orgUrl: string,
+): { type: WorkItemTypeOption; document: WorkItemPatchOperation[] } {
+  const title = input.title.trim();
+  if (title.length === 0) {
+    throw new Error('Work item title is required');
+  }
+
+  const type = resolveWorkItemType(input.type);
+  const assignedTo = (input.assignedTo ?? CREATE_WORK_ITEM_DEFAULTS.assignedTo).trim();
+  const areaPath = (input.areaPath ?? CREATE_WORK_ITEM_DEFAULTS.areaPath).trim();
+  const iterationPath = (input.iterationPath ?? CREATE_WORK_ITEM_DEFAULTS.iterationPath).trim();
+
+  const document: WorkItemPatchOperation[] = [];
+  addFieldPatch(document, 'System.Title', title);
+  if (assignedTo.length > 0) {
+    addFieldPatch(document, 'System.AssignedTo', assignedTo);
+  }
+  if (areaPath.length > 0) {
+    addFieldPatch(document, 'System.AreaPath', areaPath);
+  }
+  if (iterationPath.length > 0) {
+    addFieldPatch(document, 'System.IterationPath', iterationPath);
+  }
+
+  if (input.description !== undefined && input.description.trim().length > 0) {
+    addFieldPatch(document, 'System.Description', textToWorkItemHtml(input.description));
+  }
+  if (input.acceptanceCriteria !== undefined && input.acceptanceCriteria.trim().length > 0) {
+    addFieldPatch(
+      document,
+      'Microsoft.VSTS.Common.AcceptanceCriteria',
+      textToWorkItemHtml(input.acceptanceCriteria),
+    );
+  }
+  if (input.priority !== undefined) {
+    if (!Number.isFinite(input.priority) || input.priority < 1 || input.priority > 4) {
+      throw new Error('Work item priority must be an integer from 1 to 4');
+    }
+    addFieldPatch(document, 'Microsoft.VSTS.Common.Priority', Math.trunc(input.priority));
+  }
+  if (input.tags !== undefined && input.tags.length > 0) {
+    const tags = input.tags.map((tag) => tag.trim()).filter((tag) => tag.length > 0);
+    if (tags.length > 0) {
+      addFieldPatch(document, 'System.Tags', tags.join('; '));
+    }
+  }
+  if (input.parentId !== undefined) {
+    if (!Number.isInteger(input.parentId) || input.parentId <= 0) {
+      throw new Error('parentId must be a positive integer');
+    }
+    document.push({
+      op: 'add',
+      path: '/relations/-',
+      value: {
+        rel: 'System.LinkTypes.Hierarchy-Reverse',
+        url: `${orgUrl.replace(/\/+$/, '')}/_apis/wit/workItems/${input.parentId}`,
+      },
+    });
+  }
+
+  return { type, document };
+}
+
+/**
+ * Creates a work item via the WIT JSON Patch API, then returns the mapped investigation packet.
+ */
+export async function createWorkItem(
+  client: AzureDevOpsClient,
+  input: CreateWorkItemInput,
+  config: AzureDevOpsConfig,
+): Promise<WorkItem> {
+  const project = (input.project ?? config.project).trim();
+  if (project.length === 0) {
+    throw new Error('Azure DevOps project is required to create a work item');
+  }
+
+  const { type, document } = buildCreateWorkItemPatch(input, config.orgUrl);
+  const witApi = await client.getWorkItemTrackingApi();
+  let created: AzureWorkItem;
+  try {
+    created = await witApi.createWorkItem(
+      undefined,
+      document,
+      project,
+      type,
+      undefined,
+      undefined,
+      undefined,
+      WorkItemExpand.Relations,
+    );
+  } catch (error) {
+    throw new Error(`Azure DevOps API error: ${getAzureDevOpsErrorMessage(error)}`);
+  }
+
+  const createdId = created?.id;
+  if (typeof createdId !== 'number' || !Number.isInteger(createdId) || createdId <= 0) {
+    throw new Error('Azure DevOps createWorkItem did not return a work item id');
+  }
+
+  return getWorkItem(client, createdId);
 }
 
 export async function listWorkItems(

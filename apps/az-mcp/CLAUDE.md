@@ -5,7 +5,7 @@ This file provides guidance to Claude Code when working in `apps/az-mcp`.
 ## Tool naming convention
 
 - Every public Azure DevOps MCP tool exposed by this app uses the `az_` prefix, with the remainder in descriptive snake_case. Treat the prefixed name as canonical everywhere it's referenced.
-- Current canonical names: `az_get_work_item`, `az_get_work_items`, `az_get_work_item_hierarchy_context`, `az_get_work_item_comments`, `az_get_work_item_image`, `az_get_work_item_spec_context`, `az_get_work_item_revisions`, `az_get_pull_request`, `az_list_pull_request_threads`, `az_get_work_item_pull_requests`, `az_list_work_items`, `az_search_work_items`, `az_query_work_items`.
+- Current canonical names: `az_create_work_item`, `az_get_work_item`, `az_get_work_items`, `az_get_work_item_hierarchy_context`, `az_get_work_item_comments`, `az_get_work_item_image`, `az_get_work_item_spec_context`, `az_get_work_item_revisions`, `az_get_pull_request`, `az_list_pull_request_threads`, `az_get_work_item_pull_requests`, `az_list_work_items`, `az_search_work_items`, `az_query_work_items`.
 - Prompt: `az_draft_spec_from_work_item` (recipe only; generation stays in the agent).
 - `src/server.ts` is the runtime source of truth for the public tool catalog — check it before trusting any other doc, test, or example.
 
@@ -14,7 +14,7 @@ This file provides guidance to Claude Code when working in `apps/az-mcp`.
 When a change adds or renames a public tool name, propagate it beyond `src/server.ts`:
 
 - Tool invocation and registration tests.
-- Root-level and app-level docs, prompts, plans, and examples that mention tool names (e.g. root `CLAUDE.md`'s az-mcp tools table).
+- Root-level and app-level docs, prompts, plans, and examples that mention tool names (e.g. root `AGENTS.md`'s az-mcp tools table).
 - Any checklist or validation artifact asserting specific tool names.
 
 Before calling the rename done, confirm: every affected name begins with `az_`, no stale unprefixed reference remains unless a backward-compatibility decision was made and stated explicitly, and the tool catalog agrees with the surrounding guidance.
