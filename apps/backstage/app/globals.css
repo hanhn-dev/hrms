@@ -53,6 +53,14 @@ html[data-read-mode] [data-feature-toc] {
     background: var(--ant-color-warning-bg-hover, #fff1b8);
   }
 
+  .ant-table-tbody > tr.pr-row-done > td {
+    background: var(--ant-color-success-bg, #f6ffed);
+  }
+
+  .ant-table-tbody > tr.pr-row-done:hover > td {
+    background: var(--ant-color-success-bg-hover, #d9f7be);
+  }
+
   /* Keep sort arrows adjacent to title text on left-aligned columns */
   .ant-table-wrapper th:not([class*="align-right"]):not([class*="align-center"]) .ant-table-column-sorters {
     display: inline-flex;

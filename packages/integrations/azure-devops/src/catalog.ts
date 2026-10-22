@@ -79,6 +79,20 @@ export async function listProjectTeams(client: AzureDevOpsClient): Promise<Proje
   return mapped.sort((left, right) => left.name.localeCompare(right.name));
 }
 
+function mapTeamMembers(
+  members: readonly { identity?: { id?: string; displayName?: string } | null }[] | null | undefined,
+  byId: Map<string, TeamMember>,
+): void {
+  for (const member of members ?? []) {
+    const id = member.identity?.id?.trim();
+    const displayName = member.identity?.displayName?.trim();
+    if (!id || !displayName) {
+      continue;
+    }
+    byId.set(id, { id, displayName });
+  }
+}
+
 export async function listTeamMembers(client: AzureDevOpsClient): Promise<TeamMember[]> {
   const project = client.teamContext.project;
   const team = client.teamContext.team;
@@ -97,13 +111,33 @@ export async function listTeamMembers(client: AzureDevOpsClient): Promise<TeamMe
   }
 
   const byId = new Map<string, TeamMember>();
-  for (const member of members ?? []) {
-    const id = member.identity?.id?.trim();
-    const displayName = member.identity?.displayName?.trim();
-    if (!id || !displayName) {
-      continue;
+  mapTeamMembers(members, byId);
+  return [...byId.values()].sort((left, right) => left.displayName.localeCompare(right.displayName));
+}
+
+/**
+ * Lists unique members across every team in the configured Azure DevOps project.
+ */
+export async function listProjectMembers(client: AzureDevOpsClient): Promise<TeamMember[]> {
+  const project = client.config.project;
+  if (typeof project !== 'string' || project.length === 0) {
+    throw new Error('Azure DevOps config is missing a project');
+  }
+
+  const teams = await listProjectTeams(client);
+  const coreApi = await client.getCoreApi();
+  const byId = new Map<string, TeamMember>();
+
+  for (const team of teams) {
+    let members;
+    try {
+      members = await withAzureDevOpsTimeout(
+        coreApi.getTeamMembersWithExtendedProperties(project, team.name),
+      );
+    } catch (error) {
+      throw new Error(`Azure DevOps core API error: ${getAzureDevOpsErrorMessage(error)}`);
     }
-    byId.set(id, { id, displayName });
+    mapTeamMembers(members, byId);
   }
 
   return [...byId.values()].sort((left, right) => left.displayName.localeCompare(right.displayName));

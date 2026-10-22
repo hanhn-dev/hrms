@@ -120,6 +120,19 @@ describe('filterPullRequestCandidates', () => {
 
     expect(result.map((row) => row.pullRequestId)).toEqual([1, 3]);
   });
+
+  it('drops pull requests with no merged date when dateField is merged and the range is empty', () => {
+    const result = filterPullRequestCandidates(
+      rows,
+      criteria({
+        dateField: 'merged',
+        dateFrom: null,
+        dateTo: null,
+      }),
+    );
+
+    expect(result.map((row) => row.pullRequestId)).toEqual([1, 3]);
+  });
 });
 
 describe('searchPullRequests', () => {

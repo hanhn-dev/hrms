@@ -19,7 +19,7 @@ export function emptyPullRequestSearchCriteria(): PullRequestSearchCriteria {
     assignees: [],
     tags: '',
     titleContains: '',
-    dateField: 'opened',
+    dateField: 'merged',
     dateFrom: null,
     dateTo: null,
     authorIds: [],
@@ -79,11 +79,17 @@ function matchesDate(
   dateFrom: string | null,
   dateTo: string | null,
 ): boolean {
+  const day = dateOnly(dateField === 'merged' ? candidate.mergedDate : candidate.openedDate);
+
+  // Merged mode always requires a merge date, even with no range bounds.
+  if (dateField === 'merged' && day === null) {
+    return false;
+  }
+
   if (dateFrom === null && dateTo === null) {
     return true;
   }
 
-  const day = dateOnly(dateField === 'merged' ? candidate.mergedDate : candidate.openedDate);
   if (day === null) {
     return false;
   }
@@ -101,7 +107,7 @@ function matchesDate(
 
 /**
  * AND across author, status, and date. Values inside author and status are OR.
- * A merged range drops pull requests that have no closed date.
+ * dateField "merged" drops pull requests that have no closed date (with or without a range).
  */
 export function filterPullRequestCandidates(
   candidates: readonly PullRequestCandidate[],

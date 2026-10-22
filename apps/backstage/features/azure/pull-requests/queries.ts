@@ -3,8 +3,8 @@
 import {
   getWorkItem,
   listAreaModules,
+  listProjectMembers,
   listTeamIterations,
-  listTeamMembers,
   searchPullRequests as searchPullRequestsInAzure,
   type AreaModule,
   type PullRequestSearchCriteria,
@@ -32,7 +32,7 @@ export async function loadPullRequestSearchOptions(): Promise<PullRequestSearchO
   await requireRootAdmin();
   const client = getAzureDevOpsClient();
   const [teamMembers, modules, iterations] = await Promise.all([
-    listTeamMembers(client),
+    listProjectMembers(client),
     listAreaModules(client),
     listTeamIterations(client),
   ]);

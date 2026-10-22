@@ -77,27 +77,38 @@ export function PullRequestsTable({
 }): React.JSX.Element {
   const [hiddenColumns, setHiddenColumns] = useState<ReadonlySet<ColumnKey>>(new Set());
   const [sort, setSort] = useState<CherryPickSort>(DEFAULT_SORT);
+  const [showDone, setShowDone] = useState(false);
   const { message } = App.useApp();
   const { openView: openWorkItemView, modal: workItemModal } = useWorkItemView();
 
+  const doneCount = useMemo(
+    () => results.filter((row) => doneIds.has(row.pullRequestId)).length,
+    [results, doneIds],
+  );
+
+  const visibleResults = useMemo(
+    () => (showDone ? results : results.filter((row) => !doneIds.has(row.pullRequestId))),
+    [results, doneIds, showDone],
+  );
+
   const authorFilters = useMemo(
-    () => buildFilterOptions(results.flatMap((row) => (row.author ? [row.author] : []))),
-    [results],
+    () => buildFilterOptions(visibleResults.flatMap((row) => (row.author ? [row.author] : []))),
+    [visibleResults],
   );
 
   const statusFilters = useMemo(
-    () => buildFilterOptions(results.map((row) => row.status)),
-    [results],
+    () => buildFilterOptions(visibleResults.map((row) => row.status)),
+    [visibleResults],
   );
 
   const targetBranchFilters = useMemo(
-    () => buildFilterOptions(results.map((row) => normalizeBranchName(row.targetBranch))),
-    [results],
+    () => buildFilterOptions(visibleResults.map((row) => normalizeBranchName(row.targetBranch))),
+    [visibleResults],
   );
 
   const selectedCandidates = useMemo(
-    () => orderSelectedCandidates(results, selectedRowKeys, sort),
-    [results, selectedRowKeys, sort],
+    () => orderSelectedCandidates(visibleResults, selectedRowKeys, sort),
+    [visibleResults, selectedRowKeys, sort],
   );
 
   const cherryPickPlan = useMemo(
@@ -255,7 +266,23 @@ export function PullRequestsTable({
       {workItemModal}
       <div className="mb-2 flex items-center justify-between gap-2">
         <div className="text-sm text-slate-600 dark:text-slate-300">
-          {results.length} pull request{results.length === 1 ? "" : "s"} found
+          {visibleResults.length} pull request{visibleResults.length === 1 ? "" : "s"} found
+          {doneCount > 0 ? (
+            <span className="ml-2">
+              ·{" "}
+              {showDone
+                ? `including ${doneCount} marked done`
+                : `${doneCount} marked done hidden`}{" "}
+              <Button
+                className="!h-auto !p-0 align-baseline"
+                size="small"
+                type="link"
+                onClick={() => setShowDone((current) => !current)}
+              >
+                {showDone ? "Hide" : "Show"}
+              </Button>
+            </span>
+          ) : null}
           {selectedRowKeys.length > 0 ? (
             <span className="ml-2 font-medium text-slate-900 dark:text-slate-50">
               · {selectedRowKeys.length} selected
@@ -317,10 +344,11 @@ export function PullRequestsTable({
 
       <Table<PullRequestCandidate>
         columns={columns}
-        dataSource={results}
+        dataSource={[...visibleResults]}
         locale={{ emptyText: "No pull requests found." }}
         onChange={handleTableChange}
         pagination={false}
+        rowClassName={(row) => (doneIds.has(row.pullRequestId) ? "pr-row-done" : "")}
         rowKey="pullRequestId"
         rowSelection={{
           selectedRowKeys,

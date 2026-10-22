@@ -52,8 +52,9 @@ export function SearchSelect(props: SelectProps): React.JSX.Element {
         ...showSearchConfig,
         onSearch: handleSearch,
         searchValue: query,
+        // Default to label so options with id values still match typed display names.
+        optionFilterProp: optionFilterProp ?? "label",
         ...(filterOption !== undefined ? { filterOption } : {}),
-        ...(optionFilterProp !== undefined ? { optionFilterProp } : {}),
         ...(autoClearSearchValue !== undefined ? { autoClearSearchValue } : {}),
       }}
     />

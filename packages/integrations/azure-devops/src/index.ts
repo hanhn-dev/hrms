@@ -106,7 +106,13 @@ export {
 	isPullRequestSearchCriteriaEmpty,
 	searchPullRequests,
 } from './pull-request-search.js';
-export { listAreaModules, listProjectTeams, listTeamMembers, toWorkItemAreaPath } from './catalog.js';
+export {
+	listAreaModules,
+	listProjectMembers,
+	listProjectTeams,
+	listTeamMembers,
+	toWorkItemAreaPath,
+} from './catalog.js';
 export { getWorkItem, getWorkItemHierarchyContext, getWorkItemsByIds, listWorkItems, mapWorkItemLinks, parseWorkItemIdsInput, queryWorkItems, searchWorkItemIds, searchWorkItems, buildSearchWorkItemsWiql, withWorkItemLinkTitles } from './work-items.js';
 export { getWorkItemComments } from './work-item-comments.js';
 export { getWorkItemSpecContext } from './work-item-spec-context.js';

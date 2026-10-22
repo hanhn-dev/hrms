@@ -1,7 +1,7 @@
 "use client";
 
 import { SearchOutlined } from "@ant-design/icons";
-import { Button, DatePicker, Input, Radio, Tabs } from "antd";
+import { Button, DatePicker, Input, Radio, Select, Tabs } from "antd";
 import type { Dayjs } from "dayjs";
 import dayjs from "dayjs";
 import { useMemo, useState } from "react";
@@ -15,6 +15,10 @@ import {
 } from "@hrms/azure-devops/criteria";
 import type { PullRequestSearchOptions } from "@/features/azure/pull-requests/queries";
 import { canSearchPullRequests } from "@/features/azure/pull-requests/search-criteria";
+import {
+  joinWorkItemIdTags,
+  splitWorkItemIdTags,
+} from "@/features/azure/pull-requests/work-item-id-tags";
 import { SearchSelect, Text } from "@/shared/ui";
 
 function Field({
@@ -101,17 +105,26 @@ export function PullRequestsForm({
       ? null
       : [criteria.dateFrom ? dayjs(criteria.dateFrom) : null, criteria.dateTo ? dayjs(criteria.dateTo) : null];
 
+  const workItemIdTags = (
+    <Field label="Work item IDs">
+      <Select
+        allowClear
+        className="w-full"
+        mode="tags"
+        notFoundContent={null}
+        open={false}
+        placeholder="12345, 45678, 8910"
+        suffixIcon={null}
+        tokenSeparators={[","]}
+        value={splitWorkItemIdTags(criteria.workItemIds)}
+        onChange={(tags: string[]) => patch({ workItemIds: joinWorkItemIdTags(tags) })}
+      />
+    </Field>
+  );
+
   const workItemFields = (
     <div className="grid gap-3">
-      <Field label="Work item IDs">
-        <Input
-          allowClear
-          className="w-full"
-          placeholder="12345, 45678, 8910"
-          value={criteria.workItemIds}
-          onChange={(event) => patch({ workItemIds: event.target.value })}
-        />
-      </Field>
+      {workItemIdTags}
       <Field label="Module">
         <SearchSelect
           allowClear
@@ -197,20 +210,7 @@ export function PullRequestsForm({
 
   const pullRequestFields = (
     <div className="grid gap-3">
-      <Field label="Work item IDs">
-        <Input
-          allowClear
-          className="w-full"
-          placeholder="12345, 45678, 8910"
-          value={criteria.workItemIds}
-          onChange={(event) => patch({ workItemIds: event.target.value })}
-          onPressEnter={() => {
-            if (ready) {
-              onSubmit(criteria);
-            }
-          }}
-        />
-      </Field>
+      {workItemIdTags}
       <Field label="Date applies to">
         <Radio.Group
           className="w-full"
@@ -236,7 +236,8 @@ export function PullRequestsForm({
       </Field>
       {criteria.dateField === "merged" ? (
         <Text type="secondary">
-          Active pull requests have no merged date, so a merged range leaves them out.
+          Active pull requests have no merged date, so choosing Merged leaves them out. An
+          optional date range narrows further by merge day.
         </Text>
       ) : null}
       <Field label="Authors">
@@ -244,6 +245,7 @@ export function PullRequestsForm({
           allowClear
           className="w-full"
           mode="multiple"
+          optionFilterProp="label"
           options={authorOptions}
           placeholder="Team member"
           value={[...criteria.authorIds]}
