@@ -184,11 +184,13 @@ model TMenuDetails {
 }
 
 model TRolePagesMapping {
-  transId    BigInt @id @default(autoincrement()) @map("TransId")
-  roleId     Int    @map("RoleID")
-  pageId     Int    @map("PageId")
-  createdBy  Int    @map("CreatedBy")
-  employerId Int?   @map("Employerid")
+  transId         BigInt    @id @default(autoincrement()) @map("TransId")
+  roleId          Int       @map("RoleID")
+  pageId          Int       @map("PageId")
+  createdBy       Int       @map("CreatedBy")
+  employerId      Int?      @map("Employerid")
+  locationIds     String?   @map("LocationIds")
+  businessUnitIds String?   @map("BusinessUnitIds")
 
   @@map("TRolePagesMapping")
 }

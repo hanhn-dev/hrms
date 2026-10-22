@@ -33,4 +33,4 @@ src/
 
 `dbs/` is system-scoped (optional `employerId` on data APIs). Do not nest it under `employer/`.
 
-New query code goes in the matching leaf. Register new public names on the root barrel (`src/index.ts`). Apps import `from "@hrms/db"`. The access tree helpers also stay available as `@hrms/db/tree`.
+New query code goes in the matching leaf. Register new public names on the root barrel (`src/index.ts`). Apps import `from "@hrms/db"`. Pure helpers that Client Components need stay on subpaths so they never pull Prisma/`client.ts` — e.g. `@hrms/db/ids`, `@hrms/db/tree`, `@hrms/db/org-unit-tree`.

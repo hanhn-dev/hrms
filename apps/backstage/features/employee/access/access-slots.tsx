@@ -1,6 +1,7 @@
 import { Card } from "antd";
 import { AccessActions } from "@/features/employee/access/access-actions";
 import { AccessTreesTabs } from "@/features/employee/access/access-trees-tabs";
+import { LocationBuScopeCard } from "@/features/employee/access/location-bu-scope-card";
 import { getEmployeeAccess } from "@/features/employee/access/queries";
 import { areWritesEnabled } from "@/shared/auth";
 import { getSelectedEnvironment } from "@/shared/db";
@@ -28,6 +29,10 @@ export async function EmployeeAccessSlot({
           writesEnabled={writesEnabled}
         />
       </Card>
+      <LocationBuScopeCard
+        employerId={employerId}
+        scope={access.locationBuScope}
+      />
       <Card>
         <AccessTreesTabs
           employerId={employerId}

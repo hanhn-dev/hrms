@@ -28,3 +28,7 @@ export {
   type GrantRevokeMode,
   type TabRight,
 } from "./writes";
+export {
+  getEmployeeLocationBuScope,
+  type EmployeeLocationBuScope,
+} from "./location-bu";

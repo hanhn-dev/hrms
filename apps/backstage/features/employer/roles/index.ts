@@ -1,2 +1,6 @@
 export { RolesScreen } from "./roles-screen";
-export { listRolePageGrants, listRoles } from "./queries";
+export {
+  getRoleLocationBuScope,
+  listRolePageGrants,
+  listRoles,
+} from "./queries";

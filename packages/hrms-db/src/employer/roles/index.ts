@@ -1,6 +1,29 @@
 import type { HrmsDb } from "../../shared/client";
 import { parseEmployerId, roleIdSchema } from "../../shared/ids";
 
+export {
+  LOCATION_BU_IDS_MAX_LENGTH,
+  countEmployeesInLocationBuScope,
+  employeeMatchesLocationBuScope,
+  getRoleLocationBuScope,
+  mergeAccessIdLists,
+  normalizeCommaIdList,
+  parseCommaIdList,
+  setRoleLocationBu,
+  type RoleLocationBuScope,
+} from "./location-bu";
+export {
+  buildOrgUnitTree,
+  collectOrgUnitIds,
+  listEmployerBusinessUnits,
+  listEmployerLocations,
+  withMissingBusinessUnitOptions,
+  withMissingLocationOptions,
+  type EmployerBusinessUnitOption,
+  type EmployerLocationOption,
+  type OrgUnitTreeNode,
+} from "./scope-options";
+
 export type RoleRow = {
   roleId: number;
   roleName: string;

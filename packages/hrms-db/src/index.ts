@@ -26,8 +26,10 @@ export {
   listUserPageRows,
   listUserRolePreview,
   menuIdsForGrant,
+  getEmployeeLocationBuScope,
   type GrantRevokeMode,
   type TabRight,
+  type EmployeeLocationBuScope,
 } from "./employee/access";
 
 export {
@@ -300,8 +302,26 @@ export {
 export {
   listRolePageGrants,
   listRoles,
+  LOCATION_BU_IDS_MAX_LENGTH,
+  countEmployeesInLocationBuScope,
+  employeeMatchesLocationBuScope,
+  getRoleLocationBuScope,
+  mergeAccessIdLists,
+  normalizeCommaIdList,
+  parseCommaIdList,
+  setRoleLocationBu,
+  buildOrgUnitTree,
+  collectOrgUnitIds,
+  listEmployerBusinessUnits,
+  listEmployerLocations,
+  withMissingBusinessUnitOptions,
+  withMissingLocationOptions,
   type RolePageGrant,
   type RoleRow,
+  type RoleLocationBuScope,
+  type EmployerBusinessUnitOption,
+  type EmployerLocationOption,
+  type OrgUnitTreeNode,
 } from "./employer/roles";
 
 export {
