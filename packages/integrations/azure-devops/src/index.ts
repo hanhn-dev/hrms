@@ -69,10 +69,12 @@ export {
 	WORK_ITEM_TYPE_OPTIONS,
 } from './types.js';
 export {
+	AZURE_DEVOPS_REQUEST_TIMEOUT_MS,
 	AzureDevOpsClient,
 	classifyPullRequestLookupError,
 	classifyWorkItemLookupError,
 	getAzureDevOpsErrorMessage,
+	withAzureDevOpsTimeout,
 } from './client.js';
 export { loadConfig } from './config.js';
 export {

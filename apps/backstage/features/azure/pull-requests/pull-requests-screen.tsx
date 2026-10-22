@@ -17,7 +17,7 @@ const HELP = [
     type: "info" as const,
     title: "Command only — nothing runs here",
     description:
-      "Selecting rows builds a single `git cherry-pick -m 1 <hashes>` command from each PR's merge commit. Copy it and run it in your own local git checkout.",
+      "Selecting rows builds a single `git cherry-pick -m 1 --allow-empty --keep-redundant-commits <hashes>` command from each PR's merge commit, in the table's current row order (default: Merged oldest → newest). Already-on-branch patches stay in the sequence instead of aborting. Copy it and run it in your own local git checkout.",
   },
   {
     id: "merge-commit",

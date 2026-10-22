@@ -151,7 +151,7 @@ const mockPullRequestLookupResponse: PullRequestLookupResponse = {
   issues: [],
   cherryPick: {
     commitHashes: ['merge-501'],
-    command: 'git cherry-pick -m 1 merge-501',
+    command: 'git cherry-pick -m 1 --allow-empty --keep-redundant-commits merge-501',
     skippedPullRequestIds: [],
   },
   facets: null,

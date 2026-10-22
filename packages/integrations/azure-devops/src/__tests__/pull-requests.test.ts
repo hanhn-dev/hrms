@@ -120,7 +120,7 @@ describe('getWorkItemPullRequests', () => {
 		expect(result.results).toHaveLength(2);
 		expect(result.cherryPick).toEqual({
 			commitHashes: ['merge-501'],
-			command: 'git cherry-pick -m 1 merge-501',
+			command: 'git cherry-pick -m 1 --allow-empty --keep-redundant-commits merge-501',
 			skippedPullRequestIds: [502],
 		});
 		expect(result.results?.[0]).toMatchObject({
@@ -261,7 +261,7 @@ describe('getWorkItemPullRequests', () => {
 		expect(result.matchingTotal).toBe(1);
 		expect(result.cherryPick).toEqual({
 			commitHashes: ['merge-503'],
-			command: 'git cherry-pick -m 1 merge-503',
+			command: 'git cherry-pick -m 1 --allow-empty --keep-redundant-commits merge-503',
 			skippedPullRequestIds: [],
 		});
 		expect(result.results?.map((candidate) => candidate.pullRequestId)).toEqual([503]);
@@ -400,7 +400,7 @@ describe('getWorkItemPullRequests', () => {
 		expect(result.matchingTotal).toBe(2);
 		expect(result.cherryPick).toEqual({
 			commitHashes: ['merge-501', 'merge-502'],
-			command: 'git cherry-pick -m 1 merge-501 merge-502',
+			command: 'git cherry-pick -m 1 --allow-empty --keep-redundant-commits merge-501 merge-502',
 			skippedPullRequestIds: [],
 		});
 		expect(result.results?.map((candidate) => candidate.pullRequestId)).toEqual([501, 502]);
@@ -484,7 +484,7 @@ describe('getWorkItemPullRequests', () => {
 		expect(result.matchingTotal).toBe(3);
 		expect(result.cherryPick).toEqual({
 			commitHashes: ['merge-501', 'merge-502', 'merge-503'],
-			command: 'git cherry-pick -m 1 merge-501 merge-502 merge-503',
+			command: 'git cherry-pick -m 1 --allow-empty --keep-redundant-commits merge-501 merge-502 merge-503',
 			skippedPullRequestIds: [],
 		});
 		expect(result.results?.map((candidate) => candidate.pullRequestId)).toEqual([501, 502, 503]);
@@ -537,7 +537,7 @@ describe('getWorkItemPullRequests', () => {
 
 		expect(result.cherryPick).toEqual({
 			commitHashes: ['merge-701', 'merge-702'],
-			command: 'git cherry-pick -m 1 merge-701 merge-702',
+			command: 'git cherry-pick -m 1 --allow-empty --keep-redundant-commits merge-701 merge-702',
 			skippedPullRequestIds: [],
 		});
 	});

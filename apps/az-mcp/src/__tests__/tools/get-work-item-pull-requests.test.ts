@@ -19,7 +19,7 @@ const mockLookupResponse: PullRequestLookupResponse = {
 	issues: [],
 	cherryPick: {
 		commitHashes: ['merge-501'],
-		command: 'git cherry-pick -m 1 merge-501',
+		command: 'git cherry-pick -m 1 --allow-empty --keep-redundant-commits merge-501',
 		skippedPullRequestIds: [],
 	},
 	facets: null,
@@ -104,7 +104,7 @@ describe('az_get_work_item_pull_requests tool handler', () => {
 			candidateTotal: 2,
 			matchingTotal: 1,
 			cherryPick: {
-				command: 'git cherry-pick -m 1 merge-501',
+				command: 'git cherry-pick -m 1 --allow-empty --keep-redundant-commits merge-501',
 			},
 		});
 	});
@@ -173,7 +173,7 @@ describe('az_get_work_item_pull_requests tool handler', () => {
 			candidateTotal: 2,
 			matchingTotal: 1,
 			cherryPick: {
-				command: 'git cherry-pick -m 1 merge-501',
+				command: 'git cherry-pick -m 1 --allow-empty --keep-redundant-commits merge-501',
 			},
 		});
 	});

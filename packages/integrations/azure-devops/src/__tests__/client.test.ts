@@ -1,11 +1,23 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Readable } from 'node:stream';
-import { AzureDevOpsClient } from '../client.js';
+import { AzureDevOpsClient, withAzureDevOpsTimeout } from '../client.js';
 
 const client = new AzureDevOpsClient({
   orgUrl: 'https://dev.azure.com/example',
   project: 'Project',
   token: 'pat-token',
+});
+
+describe('withAzureDevOpsTimeout', () => {
+  it('resolves when the work finishes before the timeout', async () => {
+    await expect(withAzureDevOpsTimeout(Promise.resolve('ok'), 1_000)).resolves.toBe('ok');
+  });
+
+  it('rejects when the work exceeds the timeout', async () => {
+    await expect(
+      withAzureDevOpsTimeout(new Promise(() => {}), 20),
+    ).rejects.toThrow(/timed out after 20ms/);
+  });
 });
 
 describe('AzureDevOpsClient.getAttachmentMetadata', () => {
@@ -31,7 +43,10 @@ describe('AzureDevOpsClient.getAttachmentMetadata', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock).toHaveBeenCalledWith(
       'https://dev.azure.com/example/_apis/wit/attachments/1',
-      expect.objectContaining({ method: 'HEAD' }),
+      expect.objectContaining({
+        method: 'HEAD',
+        signal: expect.any(AbortSignal),
+      }),
     );
   });
 

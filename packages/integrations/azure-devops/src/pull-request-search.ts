@@ -4,7 +4,11 @@ import {
   type GitPullRequest,
   type GitPullRequestSearchCriteria,
 } from 'azure-devops-node-api/interfaces/GitInterfaces.js';
-import { getAzureDevOpsErrorMessage, type AzureDevOpsClient } from './client.js';
+import {
+  getAzureDevOpsErrorMessage,
+  withAzureDevOpsTimeout,
+  type AzureDevOpsClient,
+} from './client.js';
 import { mapGitPullRequestToCandidate, getWorkItemPullRequests } from './pull-requests.js';
 import {
   filterPullRequestCandidates,
@@ -254,6 +258,13 @@ export async function searchPullRequests(
     throw new Error('Enter at least one search criterion.');
   }
 
+  return withAzureDevOpsTimeout(searchPullRequestsBounded(client, criteria));
+}
+
+async function searchPullRequestsBounded(
+  client: AzureDevOpsClient,
+  criteria: PullRequestSearchCriteria,
+): Promise<PullRequestSearchResult> {
   if (!hasWorkItemSearchCriteria(criteria)) {
     return searchPullRequestsDirectly(client, criteria);
   }

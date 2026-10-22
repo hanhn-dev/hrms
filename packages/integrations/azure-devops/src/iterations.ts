@@ -1,5 +1,9 @@
 import { TimeFrame, type TeamSettingsIteration } from 'azure-devops-node-api/interfaces/WorkInterfaces.js';
-import { getAzureDevOpsErrorMessage, type AzureDevOpsClient } from './client.js';
+import {
+  getAzureDevOpsErrorMessage,
+  withAzureDevOpsTimeout,
+  type AzureDevOpsClient,
+} from './client.js';
 import { listWorkItems } from './work-items.js';
 import type { AzureDevOpsConfig, TeamIteration, TeamIterationTimeframe, WorkItemSummary } from './types.js';
 
@@ -74,7 +78,7 @@ export async function listTeamIterations(
 
   let rawIterations: TeamSettingsIteration[];
   try {
-    rawIterations = await workApi.getTeamIterations(teamContext);
+    rawIterations = await withAzureDevOpsTimeout(workApi.getTeamIterations(teamContext));
   } catch (error) {
     throw new Error(`Azure DevOps work API error: ${getAzureDevOpsErrorMessage(error)}`);
   }
@@ -102,5 +106,7 @@ export async function getIterationWorkItems(
   iterationPath: string,
   config: AzureDevOpsConfig,
 ): Promise<WorkItemSummary[]> {
-  return listWorkItems(client, { iteration: iterationPath, top: 200 }, config);
+  return withAzureDevOpsTimeout(
+    listWorkItems(client, { iteration: iterationPath, top: 200 }, config),
+  );
 }

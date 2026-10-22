@@ -1,5 +1,9 @@
 import { TreeStructureGroup, type WorkItemClassificationNode } from 'azure-devops-node-api/interfaces/WorkItemTrackingInterfaces.js';
-import { getAzureDevOpsErrorMessage, type AzureDevOpsClient } from './client.js';
+import {
+  getAzureDevOpsErrorMessage,
+  withAzureDevOpsTimeout,
+  type AzureDevOpsClient,
+} from './client.js';
 import type { AreaModule, ProjectTeam, TeamMember } from './types.js';
 
 const AREA_DEPTH = 10;
@@ -57,7 +61,7 @@ export async function listProjectTeams(client: AzureDevOpsClient): Promise<Proje
   const coreApi = await client.getCoreApi();
   let teams;
   try {
-    teams = await coreApi.getTeams(project);
+    teams = await withAzureDevOpsTimeout(coreApi.getTeams(project));
   } catch (error) {
     throw new Error(`Azure DevOps core API error: ${getAzureDevOpsErrorMessage(error)}`);
   }
@@ -85,7 +89,9 @@ export async function listTeamMembers(client: AzureDevOpsClient): Promise<TeamMe
   const coreApi = await client.getCoreApi();
   let members;
   try {
-    members = await coreApi.getTeamMembersWithExtendedProperties(project, team);
+    members = await withAzureDevOpsTimeout(
+      coreApi.getTeamMembersWithExtendedProperties(project, team),
+    );
   } catch (error) {
     throw new Error(`Azure DevOps core API error: ${getAzureDevOpsErrorMessage(error)}`);
   }
@@ -109,7 +115,9 @@ export async function listAreaModules(client: AzureDevOpsClient): Promise<AreaMo
 
   let root: WorkItemClassificationNode;
   try {
-    root = await witApi.getClassificationNode(project, TreeStructureGroup.Areas, undefined, AREA_DEPTH);
+    root = await withAzureDevOpsTimeout(
+      witApi.getClassificationNode(project, TreeStructureGroup.Areas, undefined, AREA_DEPTH),
+    );
   } catch (error) {
     throw new Error(`Azure DevOps area path error: ${getAzureDevOpsErrorMessage(error)}`);
   }

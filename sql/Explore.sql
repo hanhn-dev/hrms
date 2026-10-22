@@ -131,8 +131,11 @@ sp_help 'TPastEmploymentDetails'
 DECLARE @FieldIDs VARCHAR(MAX);
 SELECT @FieldIDs = STRING_AGG(FieldID, ',') FROM TEmployeeDetail_Fields AS edf
 INNER JOIN TEmployeeDetail_Section AS eds ON edf.SectionID = eds.SectionID
-WHERE edf.EmployerID = 10 AND eds.Section LIKE '%Current Employment%'AND edf.IsActive = 1
-EXEC SP_MyDetails_GetEmployeeDetailsForGivenFields '1431', '62071'
+WHERE eds.Section LIKE '%Current Employment%'AND edf.IsActive = 1 AND
+EXEC SP_MyDetails_GetEmployeeDetailsForGivenFields '2595', @FieldIDs
 
 EXEC dbo.SP_Mydetails_GetNomineeDetails
-	@employeeId = 1431
+	@employeeId = 2595
+
+
+SELECT FieldType_JSON_SQL FROM TEmployeeDetail_Fields WHERE SectionID = 14 and FieldName LIKE '%Review%'

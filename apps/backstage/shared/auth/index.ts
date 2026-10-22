@@ -5,6 +5,7 @@ export {
   getAuditUserId,
   isAuthConfigured,
   requireRootAdmin,
+  requireRootAdminPage,
   signIn,
   signOut,
 } from "./auth";

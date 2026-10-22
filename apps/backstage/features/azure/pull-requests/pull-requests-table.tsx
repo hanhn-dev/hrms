@@ -2,10 +2,15 @@
 
 import { CheckOutlined, CopyOutlined, SettingOutlined } from "@ant-design/icons";
 import { App, Button, Checkbox, Dropdown, Table, Tag, Tooltip } from "antd";
-import type { ColumnsType } from "antd/es/table";
+import type { ColumnsType, TableProps } from "antd/es/table";
 import { useMemo, useState } from "react";
 import type { PullRequestCandidate } from "@hrms/azure-devops";
-import { buildCherryPickCommand } from "@/features/azure/pull-requests/build-cherry-pick-command";
+import {
+  buildCherryPickCommand,
+  orderSelectedCandidates,
+  type CherryPickSort,
+  type CherryPickSortKey,
+} from "@/features/azure/pull-requests/build-cherry-pick-command";
 import { useWorkItemView } from "@/features/azure/pull-requests/work-item-view";
 import { formatDate } from "@/shared/format-date";
 
@@ -36,6 +41,11 @@ const ALL_COLUMN_KEYS: readonly ColumnKey[] = [
   "done",
 ];
 
+const DEFAULT_SORT: NonNullable<CherryPickSort> = {
+  key: "mergedDate",
+  order: "ascend",
+};
+
 function normalizeBranchName(branch: string): string {
   return branch.replace(/^refs\/heads\//, "");
 }
@@ -44,6 +54,10 @@ function buildFilterOptions(values: readonly string[]): { text: string; value: s
   return Array.from(new Set(values))
     .sort((left, right) => left.localeCompare(right))
     .map((value) => ({ text: value, value }));
+}
+
+function isCherryPickSortKey(key: unknown): key is CherryPickSortKey {
+  return key === "mergedDate" || key === "title";
 }
 
 export function PullRequestsTable({
@@ -62,6 +76,7 @@ export function PullRequestsTable({
   onBulkMarkDone: (pullRequestIds: number[]) => void;
 }): React.JSX.Element {
   const [hiddenColumns, setHiddenColumns] = useState<ReadonlySet<ColumnKey>>(new Set());
+  const [sort, setSort] = useState<CherryPickSort>(DEFAULT_SORT);
   const { message } = App.useApp();
   const { openView: openWorkItemView, modal: workItemModal } = useWorkItemView();
 
@@ -80,17 +95,17 @@ export function PullRequestsTable({
     [results],
   );
 
-  const selectedCandidates = useMemo<readonly PullRequestCandidate[]>(() => {
-    const selectedSet = new Set(selectedRowKeys);
-    return results.filter((candidate) => selectedSet.has(candidate.pullRequestId));
-  }, [results, selectedRowKeys]);
+  const selectedCandidates = useMemo(
+    () => orderSelectedCandidates(results, selectedRowKeys, sort),
+    [results, selectedRowKeys, sort],
+  );
 
   const cherryPickPlan = useMemo(
     () => buildCherryPickCommand(selectedCandidates),
     [selectedCandidates],
   );
 
-  async function copyCommand(): Promise<void> {
+  async function copyCherryPickCommand(): Promise<void> {
     if (!cherryPickPlan.command) {
       return;
     }
@@ -120,6 +135,23 @@ export function PullRequestsTable({
     });
   }
 
+  const handleTableChange: TableProps<PullRequestCandidate>["onChange"] = (
+    _pagination,
+    _filters,
+    sorter,
+  ) => {
+    const next = Array.isArray(sorter) ? sorter[0] : sorter;
+    if (
+      next &&
+      isCherryPickSortKey(next.columnKey) &&
+      (next.order === "ascend" || next.order === "descend")
+    ) {
+      setSort({ key: next.columnKey, order: next.order });
+      return;
+    }
+    setSort(null);
+  };
+
   const allColumns: (ColumnsType<PullRequestCandidate>[number] & { key: ColumnKey })[] = [
     {
       key: "mergedDate",
@@ -127,7 +159,7 @@ export function PullRequestsTable({
       dataIndex: "mergedDate",
       width: 140,
       sorter: (left, right) => (left.mergedDate ?? "").localeCompare(right.mergedDate ?? ""),
-      defaultSortOrder: "ascend",
+      sortOrder: sort?.key === "mergedDate" ? sort.order : null,
       render: (value: string | null) => formatDate(value),
     },
     {
@@ -135,6 +167,7 @@ export function PullRequestsTable({
       title: "Title",
       dataIndex: "title",
       sorter: (left, right) => left.pullRequestId - right.pullRequestId,
+      sortOrder: sort?.key === "title" ? sort.order : null,
       render: (title: string, row) => (
         <div className="flex flex-col gap-0.5 py-1">
           <div className="flex flex-wrap items-center gap-2">
@@ -248,16 +281,16 @@ export function PullRequestsTable({
           <Tooltip
             title={
               cherryPickPlan.commitHashes.length > 0
-                ? `Copy a git cherry-pick command for ${cherryPickPlan.commitHashes.length} selected commit${cherryPickPlan.commitHashes.length === 1 ? "" : "s"}`
+                ? `Copy a cherry-pick command for ${cherryPickPlan.commitHashes.length} selected commit${cherryPickPlan.commitHashes.length === 1 ? "" : "s"} in current table order`
                 : "Select completed pull requests with a merge commit to build a cherry-pick command"
             }
           >
             <Button
               disabled={cherryPickPlan.commitHashes.length === 0}
               icon={<CopyOutlined />}
-              onClick={() => void copyCommand()}
+              onClick={() => void copyCherryPickCommand()}
             >
-              Copy command
+              Cherry-pick
             </Button>
           </Tooltip>
           <Dropdown
@@ -286,6 +319,7 @@ export function PullRequestsTable({
         columns={columns}
         dataSource={results}
         locale={{ emptyText: "No pull requests found." }}
+        onChange={handleTableChange}
         pagination={false}
         rowKey="pullRequestId"
         rowSelection={{

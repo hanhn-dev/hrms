@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { Suspense } from "react";
 import { AuthStatus } from "@/components/auth/auth-status";
 import { hideDocsChrome } from "@/components/hide-docs-chrome";
+import { OpsNavLink } from "@/components/ops-nav-link";
 import { SiteSearch } from "@/components/site-search";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { TrailBar } from "@/shared/navigation";
@@ -40,24 +41,9 @@ export function SiteHeader(): React.JSX.Element {
         >
           Wiki
         </Link>
-        <Link
-          className="shrink-0 text-sm text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
-          href="/employers"
-        >
-          Console
-        </Link>
-        <Link
-          className="shrink-0 text-sm text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
-          href="/dbs"
-        >
-          Db Studio
-        </Link>
-        <Link
-          className="shrink-0 text-sm text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
-          href="/azure"
-        >
-          Azure DevOps
-        </Link>
+        <OpsNavLink href="/employers">Console</OpsNavLink>
+        <OpsNavLink href="/dbs">Db Studio</OpsNavLink>
+        <OpsNavLink href="/azure">Azure DevOps</OpsNavLink>
         <Link
           className="shrink-0 text-sm text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
           href="/flows"

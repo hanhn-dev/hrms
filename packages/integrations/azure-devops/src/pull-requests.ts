@@ -522,7 +522,10 @@ function buildCherryPickPlan(candidates: readonly PullRequestCandidate[]): PullR
 
   return {
     commitHashes,
-    command: commitHashes.length > 0 ? `git cherry-pick -m 1 ${commitHashes.join(' ')}` : null,
+    command:
+      commitHashes.length > 0
+        ? `git cherry-pick -m 1 --allow-empty --keep-redundant-commits ${commitHashes.join(' ')}`
+        : null,
     skippedPullRequestIds,
   };
 }

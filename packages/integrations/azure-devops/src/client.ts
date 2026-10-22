@@ -12,6 +12,31 @@ export type WorkItemLookupIssueStatus = 'not_found' | 'inaccessible';
 
 const DEFAULT_TEAM_SUFFIX = ' Team';
 
+/** Bounds REST/socket waits so soft-nav Suspense sections fail instead of hanging forever. */
+export const AZURE_DEVOPS_REQUEST_TIMEOUT_MS = 60_000;
+
+/**
+ * Rejects if `promise` does not settle within `timeoutMs`.
+ * Use around Azure DevOps calls that lack a native AbortSignal.
+ */
+export function withAzureDevOpsTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs: number = AZURE_DEVOPS_REQUEST_TIMEOUT_MS,
+): Promise<T> {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => {
+      reject(new Error(`Azure DevOps request timed out after ${timeoutMs}ms`));
+    }, timeoutMs);
+  });
+
+  return Promise.race([promise, timeoutPromise]).finally(() => {
+    if (timeoutId !== undefined) {
+      clearTimeout(timeoutId);
+    }
+  });
+}
+
 export class AzureDevOpsClient {
   readonly config: AzureDevOpsConfig;
   private _coreApi: ICoreApi | null = null;
@@ -23,19 +48,23 @@ export class AzureDevOpsClient {
   constructor(config: AzureDevOpsConfig) {
     this.config = config;
     const authHandler = azdev.getPersonalAccessTokenHandler(config.token);
-    this._connection = new azdev.WebApi(config.orgUrl, authHandler);
+    this._connection = new azdev.WebApi(config.orgUrl, authHandler, {
+      socketTimeout: AZURE_DEVOPS_REQUEST_TIMEOUT_MS,
+      allowRetries: true,
+      maxRetries: 2,
+    });
   }
 
   async getWorkItemTrackingApi(): Promise<IWorkItemTrackingApi> {
     if (this._witApi === null) {
-      this._witApi = await this._connection.getWorkItemTrackingApi();
+      this._witApi = await withAzureDevOpsTimeout(this._connection.getWorkItemTrackingApi());
     }
     return this._witApi;
   }
 
   async getGitApi(): Promise<IGitApi> {
     if (this._gitApi === null) {
-      this._gitApi = await this._connection.getGitApi();
+      this._gitApi = await withAzureDevOpsTimeout(this._connection.getGitApi());
     }
 
     return this._gitApi;
@@ -43,7 +72,7 @@ export class AzureDevOpsClient {
 
   async getCoreApi(): Promise<ICoreApi> {
     if (this._coreApi === null) {
-      this._coreApi = await this._connection.getCoreApi();
+      this._coreApi = await withAzureDevOpsTimeout(this._connection.getCoreApi());
     }
 
     return this._coreApi;
@@ -51,7 +80,7 @@ export class AzureDevOpsClient {
 
   async getWorkApi(): Promise<IWorkApi> {
     if (this._workApi === null) {
-      this._workApi = await this._connection.getWorkApi();
+      this._workApi = await withAzureDevOpsTimeout(this._connection.getWorkApi());
     }
 
     return this._workApi;
@@ -86,13 +115,15 @@ export class AzureDevOpsClient {
     }
 
     const witApi = await this.getWorkItemTrackingApi();
-    const contentStream = await witApi.getAttachmentContent(
-      attachmentReference.id,
-      attachmentReference.fileName ?? undefined,
-      this.config.project,
+    const contentStream = await withAzureDevOpsTimeout(
+      witApi.getAttachmentContent(
+        attachmentReference.id,
+        attachmentReference.fileName ?? undefined,
+        this.config.project,
+      ),
     );
 
-    return streamToBuffer(contentStream);
+    return withAzureDevOpsTimeout(streamToBuffer(contentStream));
   }
 
   private async fetchAttachmentMetadata(
@@ -102,6 +133,7 @@ export class AzureDevOpsClient {
     try {
       const response = await fetch(url, {
         method,
+        signal: AbortSignal.timeout(AZURE_DEVOPS_REQUEST_TIMEOUT_MS),
         headers: {
           Authorization: `Basic ${Buffer.from(`:${this.config.token}`).toString('base64')}`,
         },

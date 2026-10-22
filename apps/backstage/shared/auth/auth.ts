@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { auth, isOpsCredentialsConfigured, signIn, signOut } from "@/auth";
 import { writesAllowedForEnvironment } from "@/shared/db/environments";
 
@@ -37,6 +38,23 @@ export async function requireRootAdmin(): Promise<{
   const session = await auth();
   if (!session?.user?.isRootAdmin) {
     throw new Error("Root admin session required.");
+  }
+  return session.user;
+}
+
+/**
+ * Page-level gate for soft navigation: redirects to `/login` instead of
+ * throwing, so Auth can live inside a Suspense boundary rather than blocking
+ * an async layout (which leaves the App Router stuck on "Rendering...").
+ */
+export async function requireRootAdminPage(): Promise<{
+  name?: string | null;
+  email?: string | null;
+  isRootAdmin: boolean;
+}> {
+  const session = await auth();
+  if (!session?.user?.isRootAdmin) {
+    redirect("/login");
   }
   return session.user;
 }
