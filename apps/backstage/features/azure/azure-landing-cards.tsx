@@ -1,6 +1,10 @@
 "use client";
 
-import { BranchesOutlined, PullRequestOutlined } from "@ant-design/icons";
+import {
+  BranchesOutlined,
+  FileSearchOutlined,
+  PullRequestOutlined,
+} from "@ant-design/icons";
 import { Card } from "antd";
 import Link from "next/link";
 
@@ -21,6 +25,15 @@ export function AzureLandingCards(): React.JSX.Element {
             <PullRequestOutlined />
             Look up every pull request linked to a set of work items and build a
             cherry-pick command.
+          </div>
+        </Card>
+      </Link>
+      <Link href="/azure/work-item-drafts">
+        <Card hoverable title="Work item drafts">
+          <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
+            <FileSearchOutlined />
+            Review SQL performance investigations and publish Product Backlog
+            Items to Azure DevOps.
           </div>
         </Card>
       </Link>

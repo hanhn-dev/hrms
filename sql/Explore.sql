@@ -139,3 +139,8 @@ EXEC dbo.SP_Mydetails_GetNomineeDetails
 
 
 SELECT FieldType_JSON_SQL FROM TEmployeeDetail_Fields WHERE SectionID = 14 and FieldName LIKE '%Review%'
+
+EXEC SP_GetCountryOfEmployment 10
+
+SELECT COUNT(DISTINCT EmailID) FROM TEmployee WHERE EmailID IS NOT NULL
+SELECT COUNT(EmployeeID) FROM TEmployee WHERE EmailID IS NOT NULL

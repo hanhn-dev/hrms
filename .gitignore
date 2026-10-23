@@ -42,5 +42,8 @@ yarn-error.log*
 # Backstage in-app feature proposals (unpublished)
 apps/backstage/content/guides/_proposals/
 
+# Backstage SQL performance work-item drafts (unpublished until Azure DevOps publish)
+apps/backstage/content/azure/_work-item-drafts/
+
 # Backstage local SQLite stores (operator-console-only state, e.g. pull request "done" marks)
 apps/backstage/.data/

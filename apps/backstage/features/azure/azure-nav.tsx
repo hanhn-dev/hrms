@@ -6,7 +6,7 @@ const ACTIVE_LINK_CLASS = "text-sm font-semibold text-slate-900 dark:text-white"
 export function AzureNav({
   active,
 }: {
-  active?: "sprints" | "pull-requests";
+  active?: "sprints" | "pull-requests" | "work-item-drafts";
 }): React.JSX.Element {
   return (
     <nav className="flex items-center gap-4">
@@ -21,6 +21,12 @@ export function AzureNav({
         href="/azure/pull-requests"
       >
         Pull requests
+      </Link>
+      <Link
+        className={active === "work-item-drafts" ? ACTIVE_LINK_CLASS : LINK_CLASS}
+        href="/azure/work-item-drafts"
+      >
+        Work item drafts
       </Link>
       <Link className={LINK_CLASS} href="/employers">
         Console
