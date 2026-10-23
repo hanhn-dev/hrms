@@ -78,6 +78,11 @@ export function FieldsTabBar({
           label: "Compare",
           children: source === "compare" ? children : null,
         },
+        {
+          key: "public",
+          label: "Public fields",
+          children: source === "public" ? children : null,
+        },
       ]}
     />
   );

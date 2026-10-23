@@ -2,14 +2,18 @@
 
 import { z } from "zod";
 import {
+  clearEmployerFieldPublic,
   diffFieldRow,
   fieldRowPatchSchema,
+  formatClearPublicFieldReplaySql,
   formatFieldRowReplaySql,
   formatValidationRuleReplaySql,
   getEmployerFieldRow,
   getEmployerFieldValidationPreview,
   getFieldTypeName,
+  getPublicEmployerField,
   parseValidationRuleJson,
+  publicFieldClearBlockReason,
   updateEmployerFieldRow,
   updateEmployerFieldValidationRule,
   type FieldRowPatch,
@@ -29,6 +33,13 @@ const updateValidationRulePayloadSchema = z.object({
   employerId: z.number().int().positive(),
   fieldId: z.number().int().positive(),
   validationRule: z.string().max(1000).nullable(),
+});
+
+const clearPublicFieldPayloadSchema = z.object({
+  action: z.literal("clear-public-field"),
+  env: z.string().min(1),
+  employerId: z.number().int().positive(),
+  fieldId: z.number().int().positive(),
 });
 
 const updateFieldRowPayloadSchema = z.object({
@@ -245,6 +256,98 @@ export async function commitUpdateFieldRow(
         )
       : [],
     note: "Field updated. Copy the replay SQL to apply the same change on another environment.",
+    sql,
+  };
+}
+
+export async function previewClearPublicField(input: {
+  employerId: number;
+  fieldId: number;
+}): Promise<{
+  token: string;
+  preview: Array<Record<string, unknown>>;
+  note?: string;
+  sql?: string;
+}> {
+  await requireRootAdmin();
+  const env = await getSelectedEnvironment();
+  assertWritesEnabled(env);
+  const current = await getPublicEmployerField(await getHrmsDb(), {
+    employerId: input.employerId,
+    fieldId: input.fieldId,
+  });
+  if (!current) {
+    throw new Error("Field was not found for this employer.");
+  }
+  const block = publicFieldClearBlockReason(current);
+  if (block) {
+    throw new Error(block);
+  }
+  const updatedBy = getAuditUserId();
+  return {
+    token: createConfirmToken({
+      action: "clear-public-field",
+      env,
+      employerId: input.employerId,
+      fieldId: input.fieldId,
+    }),
+    preview: [
+      {
+        Property: "IsPublic",
+        Current: "1",
+        Proposed: "0",
+      },
+    ],
+    note: "Clears TEmployeeDetail_Fields.IsPublic for this employer. Writes a TEmployeeDetail_FieldsConfigHistory snapshot first. Replay SQL matches by natural key, not FieldID.",
+    sql: formatClearPublicFieldReplaySql({
+      env,
+      sourceFieldId: current.fieldId,
+      current,
+      updatedBy,
+    }),
+  };
+}
+
+export async function commitClearPublicField(
+  token: string,
+): Promise<{ after: Array<Record<string, unknown>>; note?: string; sql?: string }> {
+  await requireRootAdmin();
+  const payload = verifyConfirmToken(token, clearPublicFieldPayloadSchema);
+  await assertSameEnvironment(payload.env);
+  assertWritesEnabled(payload.env);
+  const db = await getHrmsDb();
+  const current = await getPublicEmployerField(db, {
+    employerId: payload.employerId,
+    fieldId: payload.fieldId,
+  });
+  if (!current) {
+    throw new Error("Field was not found for this employer.");
+  }
+  const block = publicFieldClearBlockReason(current);
+  if (block) {
+    throw new Error(block);
+  }
+  const updatedBy = getAuditUserId();
+  const sql = formatClearPublicFieldReplaySql({
+    env: payload.env,
+    sourceFieldId: current.fieldId,
+    current,
+    updatedBy,
+  });
+  await clearEmployerFieldPublic(db, {
+    employerId: payload.employerId,
+    fieldId: payload.fieldId,
+    updatedBy,
+  });
+  return {
+    after: [
+      {
+        Property: "IsPublic",
+        Current: "1",
+        Proposed: "0",
+      },
+    ],
+    note: "Field is no longer public. Copy the replay SQL to apply the same change on another environment.",
     sql,
   };
 }

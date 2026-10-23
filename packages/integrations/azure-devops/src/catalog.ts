@@ -93,10 +93,20 @@ function mapTeamMembers(
   }
 }
 
-export async function listTeamMembers(client: AzureDevOpsClient): Promise<TeamMember[]> {
+export async function listTeamMembers(
+  client: AzureDevOpsClient,
+  team?: string,
+): Promise<TeamMember[]> {
   const project = client.teamContext.project;
-  const team = client.teamContext.team;
-  if (typeof project !== 'string' || project.length === 0 || typeof team !== 'string' || team.length === 0) {
+  const trimmedTeam = team?.trim();
+  const resolvedTeam =
+    trimmedTeam && trimmedTeam.length > 0 ? trimmedTeam : client.teamContext.team;
+  if (
+    typeof project !== 'string' ||
+    project.length === 0 ||
+    typeof resolvedTeam !== 'string' ||
+    resolvedTeam.length === 0
+  ) {
     throw new Error('Azure DevOps team context is missing a project or team');
   }
 
@@ -104,7 +114,7 @@ export async function listTeamMembers(client: AzureDevOpsClient): Promise<TeamMe
   let members;
   try {
     members = await withAzureDevOpsTimeout(
-      coreApi.getTeamMembersWithExtendedProperties(project, team),
+      coreApi.getTeamMembersWithExtendedProperties(project, resolvedTeam),
     );
   } catch (error) {
     throw new Error(`Azure DevOps core API error: ${getAzureDevOpsErrorMessage(error)}`);

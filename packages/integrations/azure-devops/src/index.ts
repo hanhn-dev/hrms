@@ -63,6 +63,9 @@ export type {
 	PullRequestThreadsResponse,
 	TeamIteration,
 	TeamIterationTimeframe,
+	TaskboardColumn,
+	TaskboardColumnMapping,
+	TaskboardWorkItemColumn,
 } from './types.js';
 export {
 	CREATE_WORK_ITEM_DEFAULTS,
@@ -136,3 +139,4 @@ export { getWorkItemSpecContext } from './work-item-spec-context.js';
 export { getWorkItemFieldRevisions } from './work-item-revisions.js';
 export { listPullRequestThreads } from './pull-request-threads.js';
 export { getIterationWorkItems, listTeamIterations } from './iterations.js';
+export { listTaskboardColumns, listTaskboardWorkItemColumns } from './taskboard.js';

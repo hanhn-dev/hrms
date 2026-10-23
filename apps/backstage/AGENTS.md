@@ -104,6 +104,7 @@ Ops screens: antd only (no `@hrms/ui`). Docs chrome stays Tailwind. Mount antd p
 | `/employers`, `/login` | Operator console home + root-admin login | `features/employer/picker`, `features/auth` |
 | `/dbs` | Data Builder Studio (schema canvas, SELECT, gated SP exec, env compare) | `features/dbs` |
 | `/azure`, `/azure/sprints`, `/azure/pull-requests` | Azure DevOps operator tools (sprints, PR lookup) | `features/azure/*` |
+| `/azure/board` | Sprint taskboard. Opens on Team Sprinter and the current sprint. | `features/azure/board` |
 | `/azure/work-item-drafts` | Review SQL performance draft PBIs; Publish creates the ADO work item | `features/azure/work-item-drafts` ← `content/azure/_work-item-drafts/` |
 | `/employers/[employerId]/...` | Employer/employee diagnostics and gated writes | `features/employee/*`, `features/employer/*` |
 

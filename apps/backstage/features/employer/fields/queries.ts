@@ -2,6 +2,7 @@ import {
   listEmployerFields as listEmployerFieldsFromDb,
   listFieldTemplate as listFieldTemplateFromDb,
   listFieldTypes as listFieldTypesFromDb,
+  listPublicEmployerFields as listPublicEmployerFieldsFromDb,
 } from "@hrms/db";
 import { requireRootAdmin } from "@/shared/auth";
 import { getHrmsDb } from "@/shared/db";
@@ -11,6 +12,7 @@ export type {
   FieldCompareRow,
   FieldCompareStatus,
   FieldTypeOption,
+  PublicFieldRow,
 } from "@hrms/db";
 export { compareEmployerFieldsToTemplate } from "@hrms/db";
 
@@ -27,4 +29,9 @@ export async function listFieldTemplate() {
 export async function listFieldTypes() {
   await requireRootAdmin();
   return listFieldTypesFromDb(await getHrmsDb());
+}
+
+export async function listPublicEmployerFields(employerId: number) {
+  await requireRootAdmin();
+  return listPublicEmployerFieldsFromDb(await getHrmsDb(), employerId);
 }

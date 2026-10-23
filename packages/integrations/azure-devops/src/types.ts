@@ -544,3 +544,20 @@ export interface TeamIteration {
   readonly startDate: string | null;
   readonly finishDate: string | null;
 }
+
+export interface TaskboardColumnMapping {
+  readonly workItemType: string;
+  readonly state: string;
+}
+
+export interface TaskboardColumn {
+  readonly id: string;
+  readonly name: string;
+  readonly order: number;
+  readonly mappings: readonly TaskboardColumnMapping[];
+}
+
+export interface TaskboardWorkItemColumn {
+  readonly workItemId: number;
+  readonly columnId: string;
+}

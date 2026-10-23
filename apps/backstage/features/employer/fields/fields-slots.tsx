@@ -1,11 +1,13 @@
 import { captureQueryScript } from "@hrms/db";
 import { FieldsPanel } from "@/features/employer/fields/fields-panel";
 import type { FieldSource } from "@/features/employer/fields/fields-source";
+import { PublicFieldsPanel } from "@/features/employer/fields/public-fields-panel";
 import {
   compareEmployerFieldsToTemplate,
   listEmployerFields,
   listFieldTemplate,
   listFieldTypes,
+  listPublicEmployerFields,
 } from "@/features/employer/fields/queries";
 import { areWritesEnabled } from "@/shared/auth";
 import { getSelectedEnvironment } from "@/shared/db";
@@ -37,6 +39,23 @@ export async function FieldsSourceSlot({
         templateFields={templateFields.result}
         templateScript={templateFields.script}
         writesEnabled={false}
+      />
+    );
+  }
+
+  if (source === "public") {
+    const [publicFields, writesEnabled] = await Promise.all([
+      captureQueryScript(() => listPublicEmployerFields(employerId)),
+      getSelectedEnvironment().then((environment) => areWritesEnabled(environment)),
+    ]);
+    return (
+      <PublicFieldsPanel
+        employerId={employerId}
+        field={field}
+        fields={publicFields.result}
+        queryScript={publicFields.script}
+        section={section}
+        writesEnabled={writesEnabled}
       />
     );
   }

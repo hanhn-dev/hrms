@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  AppstoreOutlined,
   BranchesOutlined,
   FileSearchOutlined,
   PullRequestOutlined,
@@ -11,6 +12,14 @@ import Link from "next/link";
 export function AzureLandingCards(): React.JSX.Element {
   return (
     <div className="grid gap-4 sm:grid-cols-2">
+      <Link href="/azure/board">
+        <Card hoverable title="Sprint board">
+          <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
+            <AppstoreOutlined />
+            See the current Team Sprinter sprint, who is on each PBI, and the taskboard.
+          </div>
+        </Card>
+      </Link>
       <Link href="/azure/sprints">
         <Card hoverable title="Sprints">
           <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">

@@ -12,6 +12,15 @@ const TIME_FRAME_COLORS: Record<string, string> = {
   past: "warning",
 };
 
+function boardHref(iterationPath: string, teamName: string): string {
+  const params = new URLSearchParams();
+  if (teamName.length > 0) {
+    params.set("team", teamName);
+  }
+  params.set("iteration", iterationPath);
+  return `/azure/board?${params.toString()}`;
+}
+
 function sprintHref(
   iterationPath: string,
   filterQuery?: Record<string, string | undefined>,
@@ -33,17 +42,29 @@ export function IterationList({
   iterations,
   selectedIterationPath,
   filterQuery,
+  teamName,
 }: {
   iterations: TeamIteration[];
   selectedIterationPath?: string;
   filterQuery?: Record<string, string | undefined>;
+  teamName: string;
 }): React.JSX.Element {
   const columns: ColumnsType<TeamIteration> = [
     {
       title: "Sprint",
       dataIndex: "name",
       render: (name: string, row) => (
-        <Link href={sprintHref(row.path, filterQuery)}>{name}</Link>
+        <span className="inline-flex items-center gap-3">
+          <Link href={sprintHref(row.path, filterQuery)}>{name}</Link>
+          {row.path === selectedIterationPath ? (
+            <Link
+              className="text-sm font-normal text-slate-500 hover:text-slate-900 dark:hover:text-white"
+              href={boardHref(row.path, teamName)}
+            >
+              Open board
+            </Link>
+          ) : null}
+        </span>
       ),
     },
     {

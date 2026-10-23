@@ -36,6 +36,12 @@ export type ChangeRequestListItem = {
   status: ChangeRequestStatus;
   workflowId: number | null;
   workflowName: string | null;
+  workflowIsDefault: boolean;
+  workflowAllLocations: boolean;
+  workflowAllBusinessUnits: boolean;
+  workflowLocationNames: string | null;
+  workflowBusinessUnitNames: string | null;
+  workflowCreatedDate: string | null;
   approvers: ChangeRequestApprover[];
 };
 
@@ -78,6 +84,15 @@ export type ConfiguredApproverGroup = {
   people: ConfiguredApproverPerson[];
 };
 
+type ScopedHeaderRow = HeaderRow & {
+  WorkflowIsDefault: boolean | number | null;
+  WorkflowAllLocations: boolean | number | null;
+  WorkflowAllBusinessUnits: boolean | number | null;
+  WorkflowLocationNames: string | null;
+  WorkflowBusinessUnitNames: string | null;
+  WorkflowCreatedDate: Date | string | null;
+};
+
 type HeaderRow = {
   ChangeRequestId: number;
   EmployeeId: number;
@@ -94,9 +109,19 @@ type HeaderRow = {
   WorkflowName: string | null;
 };
 
+type WorkflowScopeFields = {
+  workflowIsDefault: boolean;
+  workflowAllLocations: boolean;
+  workflowAllBusinessUnits: boolean;
+  workflowLocationNames: string | null;
+  workflowBusinessUnitNames: string | null;
+  workflowCreatedDate: string | null;
+};
+
 function mapHeader(
   row: HeaderRow,
   approvers: ChangeRequestApprover[] = [],
+  scope: WorkflowScopeFields | null = null,
 ): ChangeRequestListItem {
   return {
     changeRequestId: row.ChangeRequestId,
@@ -112,6 +137,12 @@ function mapHeader(
     status: changeRequestStatus(row.IsApproved),
     workflowId: row.WorkflowId,
     workflowName: row.WorkflowName,
+    workflowIsDefault: scope?.workflowIsDefault ?? false,
+    workflowAllLocations: scope?.workflowAllLocations ?? false,
+    workflowAllBusinessUnits: scope?.workflowAllBusinessUnits ?? false,
+    workflowLocationNames: scope?.workflowLocationNames ?? null,
+    workflowBusinessUnitNames: scope?.workflowBusinessUnitNames ?? null,
+    workflowCreatedDate: scope?.workflowCreatedDate ?? null,
     approvers,
   };
 }
@@ -246,18 +277,30 @@ async function loadHeader(
   return rows[0] ?? null;
 }
 
+function workflowScopeFromRow(row: ScopedHeaderRow): WorkflowScopeFields {
+  return {
+    workflowIsDefault: asBool(row.WorkflowIsDefault),
+    workflowAllLocations: asBool(row.WorkflowAllLocations),
+    workflowAllBusinessUnits: asBool(row.WorkflowAllBusinessUnits),
+    workflowLocationNames: row.WorkflowLocationNames,
+    workflowBusinessUnitNames: row.WorkflowBusinessUnitNames,
+    workflowCreatedDate: asIso(row.WorkflowCreatedDate),
+  };
+}
+
 async function listChangeRequestHeaders(
   db: HrmsDb,
   employerId: number,
   employeeId: number | null,
 ): Promise<ChangeRequestListItem[]> {
   const tenantId = parseEmployerId(employerId);
-  const subjectId = employeeId == null ? null : employeeIdSchema.parse(employeeId);
+  const subjectId =
+    employeeId == null ? null : employeeIdSchema.parse(employeeId);
   const employeeFilter =
     subjectId == null
       ? Prisma.empty
       : Prisma.sql`AND ChangeRequest.EmployeeId = ${subjectId}`;
-  const rows = await db.$queryRaw<HeaderRow[]>(Prisma.sql`
+  const rows = await db.$queryRaw<ScopedHeaderRow[]>(Prisma.sql`
     SELECT
         ChangeRequest.ChangeRequestId,
         ChangeRequest.EmployeeId,
@@ -294,7 +337,13 @@ async function listChangeRequestHeaders(
                 AND Queue.RequestType = ${REQUEST_TYPE}
                 AND ISNULL(Queue.IsDeleted, 0) = 0
             ORDER BY Queue.Transid DESC
-        ) AS WorkflowName
+        ) AS WorkflowName,
+        WorkflowScope.WorkflowIsDefault,
+        WorkflowScope.WorkflowAllLocations,
+        WorkflowScope.WorkflowAllBusinessUnits,
+        WorkflowScope.WorkflowLocationNames,
+        WorkflowScope.WorkflowBusinessUnitNames,
+        WorkflowScope.WorkflowCreatedDate
     FROM dbo.TMyDetailsChangeRequests AS ChangeRequest
     INNER JOIN dbo.TEmployee AS Subject
         ON Subject.EmployeeId = ChangeRequest.EmployeeId
@@ -304,6 +353,37 @@ async function listChangeRequestHeaders(
         ON Requester.EmployeeId = ChangeRequest.CreatedBy
     LEFT JOIN dbo.TEmployeeInfo AS RequesterInfo
         ON RequesterInfo.EmployeeId = ChangeRequest.CreatedBy
+    OUTER APPLY (
+        SELECT
+            Management.Isdefault AS WorkflowIsDefault,
+            Management.IsAllLocationSelected AS WorkflowAllLocations,
+            Management.IsAllBUSelected AS WorkflowAllBusinessUnits,
+            Management.CreatedDate AS WorkflowCreatedDate,
+            (
+                SELECT STRING_AGG(Location.LocationName, ', ')
+                    WITHIN GROUP (ORDER BY Location.LocationName)
+                FROM dbo.TWorkFlowLocations AS Mapping
+                INNER JOIN dbo.TLocation AS Location
+                    ON Location.LocationID = Mapping.LocationID
+                WHERE Mapping.WorkFlowID = Management.WorkflowId
+            ) AS WorkflowLocationNames,
+            (
+                SELECT STRING_AGG(BusinessUnit.UnitName, ', ')
+                    WITHIN GROUP (ORDER BY BusinessUnit.UnitName)
+                FROM dbo.TWorkFlowBusinessUnits AS Mapping
+                INNER JOIN dbo.TOrgHierarchyDetails AS BusinessUnit
+                    ON BusinessUnit.UnitID = Mapping.BusinessUnitID
+                WHERE Mapping.WorkFlowID = Management.WorkflowId
+            ) AS WorkflowBusinessUnitNames
+        FROM dbo.TWorkflowManagement AS Management
+        WHERE Management.WorkflowId = (
+            SELECT MAX(Queue.WorkflowId)
+            FROM dbo.TRequestWorkflows AS Queue
+            WHERE Queue.RequestTransid = ChangeRequest.ChangeRequestId
+                AND Queue.RequestType = ${REQUEST_TYPE}
+                AND ISNULL(Queue.IsDeleted, 0) = 0
+        )
+    ) AS WorkflowScope
     WHERE ChangeRequest.EmployerId = ${tenantId}
     ${employeeFilter}
     ORDER BY ChangeRequest.ChangeRequestId DESC
@@ -312,7 +392,13 @@ async function listChangeRequestHeaders(
     db,
     rows.map((row) => row.ChangeRequestId),
   );
-  return rows.map((row) => mapHeader(row, approvers.get(row.ChangeRequestId) ?? []));
+  return rows.map((row) =>
+    mapHeader(
+      row,
+      approvers.get(row.ChangeRequestId) ?? [],
+      workflowScopeFromRow(row),
+    ),
+  );
 }
 
 export async function listChangeRequests(
@@ -426,8 +512,13 @@ async function loadPeople(
   db: HrmsDb,
   employeeIds: number[],
 ): Promise<Map<number, { name: string; employmentNumber: string | null }>> {
-  const unique = [...new Set(employeeIds.filter((id) => Number.isInteger(id) && id > 0))];
-  const people = new Map<number, { name: string; employmentNumber: string | null }>();
+  const unique = [
+    ...new Set(employeeIds.filter((id) => Number.isInteger(id) && id > 0)),
+  ];
+  const people = new Map<
+    number,
+    { name: string; employmentNumber: string | null }
+  >();
   for (const employeeId of unique) {
     const rows = await db.$queryRaw<
       Array<{ FullName: string | null; EmploymentNumber: string | null }>
@@ -463,7 +554,9 @@ async function resolveActorEmployeeIds(
     return input.createdBy ? [input.createdBy] : [input.subjectEmployeeId];
   }
   if (input.roleCode === "F") {
-    const rows = await db.$queryRaw<Array<{ FunctionalManager: number | null }>>`
+    const rows = await db.$queryRaw<
+      Array<{ FunctionalManager: number | null }>
+    >`
       SELECT EmployeeInfo.FunctionalManager
       FROM dbo.TEmployeeInfo AS EmployeeInfo
       WHERE EmployeeInfo.EmployeeId = ${input.subjectEmployeeId}
@@ -599,7 +692,9 @@ export async function requirePendingChangeRequest(
   const parsedWorkflowId = workflowIdSchema.parse(workflowId);
   const parsedChangeRequestId = changeRequestIdSchema.parse(changeRequestId);
   employeeIdSchema.parse(approverEmployeeId);
-  const rows = await db.$queryRaw<Array<HeaderRow & { Comments: string | null }>>`
+  const rows = await db.$queryRaw<
+    Array<HeaderRow & { Comments: string | null }>
+  >`
     SELECT
         ChangeRequest.ChangeRequestId,
         ChangeRequest.EmployeeId,
@@ -631,7 +726,9 @@ export async function requirePendingChangeRequest(
     throw new Error("This change request is already approved or rejected.");
   }
   if (header.Comments != null) {
-    throw new Error("This change request already has comments and cannot be updated.");
+    throw new Error(
+      "This change request already has comments and cannot be updated.",
+    );
   }
   const queue = await db.$queryRaw<Array<{ ManagerId: number }>>`
     SELECT Queue.ManagerId

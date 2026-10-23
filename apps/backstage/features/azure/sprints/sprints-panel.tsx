@@ -67,6 +67,7 @@ export function SprintsPanel({
         }}
         iterations={filtered}
         selectedIterationPath={selectedIterationPath}
+        teamName={team ?? defaultTeam}
       />
     </>
   );

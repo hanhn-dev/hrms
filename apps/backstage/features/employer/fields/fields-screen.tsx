@@ -9,6 +9,7 @@ const SOURCE_TITLE: Record<FieldSource, string> = {
   employer: "Employer fields",
   template: "Template",
   compare: "Compare",
+  public: "Public fields",
 };
 
 export function FieldsScreen({
@@ -66,7 +67,15 @@ export function FieldsScreen({
             id: "template-readonly",
             type: "info",
             title: "Template and Compare are read-only",
-            description: "Inline edit applies to Employer fields only.",
+            description:
+              "Inline edit applies to Employer fields. The Public fields tab only turns IsPublic off.",
+          },
+          {
+            id: "public-fields",
+            type: "info",
+            title: "Public fields lists fields that are already public",
+            description:
+              "Turning a switch off clears IsPublic after preview and confirm. Designation, BusinessUnit, First Name, and Last Name stay public.",
           },
         ]}
       />

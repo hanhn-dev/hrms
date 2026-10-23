@@ -33,3 +33,18 @@ export {
   updateEmployerFieldRow,
   updateEmployerFieldValidationRule,
 } from "./writes";
+export {
+  LOCKED_PUBLIC_FIELD_NAMES,
+  LOCKED_PUBLIC_FIELD_REASON,
+  NOT_PUBLIC_FIELD_REASON,
+  formatClearPublicFieldReplaySql,
+  isLockedPublicFieldName,
+  publicFieldClearBlockReason,
+  type PublicFieldKey,
+} from "./public-fields";
+export {
+  clearEmployerFieldPublic,
+  getPublicEmployerField,
+  listPublicEmployerFields,
+  type PublicFieldRow,
+} from "./public-fields-query";

@@ -1,8 +1,8 @@
 import { Card } from "antd";
+import { DEFAULT_BOARD_TEAM } from "@/features/azure/board/defaults";
 import { IterationWorkItemsTable } from "@/features/azure/sprints/iteration-work-items-table";
 import { SprintsPanel } from "@/features/azure/sprints/sprints-panel";
 import {
-  getConfiguredTeamName,
   listIterationWorkItems,
   listIterations,
   listTeams,
@@ -27,22 +27,22 @@ export async function IterationsSlot({
   q?: string;
 }): Promise<React.JSX.Element> {
   // timeFrame is filtered client-side — ADO $timeframe only accepts "current".
-  const [teams, iterations, defaultTeam] = await Promise.all([
+  const resolvedTeam = team?.trim() || DEFAULT_BOARD_TEAM;
+  const [teams, iterations] = await Promise.all([
     listTeams(),
-    listIterations({ team }),
-    getConfiguredTeamName(),
+    listIterations({ team: resolvedTeam }),
   ]);
 
   return (
     <Card className="mb-4" title="Sprints">
       <SprintsPanel
-        defaultTeam={defaultTeam}
+        defaultTeam={DEFAULT_BOARD_TEAM}
         from={from}
         iterations={iterations}
         pathPrefix={pathPrefix}
         q={q}
         selectedIterationPath={selectedIterationPath}
-        team={team}
+        team={resolvedTeam}
         teams={teams}
         timeFrame={timeFrame}
         to={to}

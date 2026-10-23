@@ -1,9 +1,9 @@
-export const FIELD_SOURCES = ["employer", "template", "compare"] as const;
+export const FIELD_SOURCES = ["employer", "template", "compare", "public"] as const;
 
 export type FieldSource = (typeof FIELD_SOURCES)[number];
 
 export function parseFieldSource(value: string | undefined): FieldSource {
-  if (value === "template" || value === "compare") {
+  if (value === "template" || value === "compare" || value === "public") {
     return value;
   }
   return "employer";

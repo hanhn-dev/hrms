@@ -22,6 +22,8 @@ import type { ChangeRequestListItem } from "@/features/employee/change-requests/
 import {
   expandedWorkflowGroupKeys,
   groupChangeRequestsByWorkflow,
+  requestCountLabel,
+  workflowGroupCaption,
 } from "@/features/employee/change-requests/group";
 import type {
   ChangeRequestDetail,
@@ -58,10 +60,15 @@ export function ChangeRequestsPanel({
     signature: string;
     keys: string[];
   } | null>(null);
-  const [decideStatus, setDecideStatus] = useState<ChangeRequestDecideStatus | null>(null);
-  const [decideDetail, setDecideDetail] = useState<ChangeRequestDetail | null>(null);
+  const [decideStatus, setDecideStatus] =
+    useState<ChangeRequestDecideStatus | null>(null);
+  const [decideDetail, setDecideDetail] = useState<ChangeRequestDetail | null>(
+    null,
+  );
   const [decideScript, setDecideScript] = useState("");
-  const [decideApprovers, setDecideApprovers] = useState<ConfiguredApproverGroup[]>([]);
+  const [decideApprovers, setDecideApprovers] = useState<
+    ConfiguredApproverGroup[]
+  >([]);
   const [decideLoading, setDecideLoading] = useState<{
     changeRequestId: number;
     status: ChangeRequestDecideStatus;
@@ -81,7 +88,9 @@ export function ChangeRequestsPanel({
       setDecideStatus(status);
     } catch (error) {
       message.error(
-        error instanceof Error ? error.message : "Failed to load change request.",
+        error instanceof Error
+          ? error.message
+          : "Failed to load change request.",
       );
     } finally {
       setDecideLoading(null);
@@ -89,7 +98,12 @@ export function ChangeRequestsPanel({
   }
 
   const counts = useMemo(() => {
-    const tally = { all: requests.length, pending: 0, approved: 0, rejected: 0 };
+    const tally = {
+      all: requests.length,
+      pending: 0,
+      approved: 0,
+      rejected: 0,
+    };
     for (const row of requests) {
       tally[row.status] += 1;
     }
@@ -97,10 +111,15 @@ export function ChangeRequestsPanel({
   }, [requests]);
 
   const visible = useMemo(() => {
-    return requests.filter((row) => statusFilter === "all" || row.status === statusFilter);
+    return requests.filter(
+      (row) => statusFilter === "all" || row.status === statusFilter,
+    );
   }, [requests, statusFilter]);
 
-  const groups = useMemo(() => groupChangeRequestsByWorkflow(visible), [visible]);
+  const groups = useMemo(
+    () => groupChangeRequestsByWorkflow(visible),
+    [visible],
+  );
   const groupSignature = `${statusFilter}|${groups.map((group) => group.key).join(",")}`;
   const activeKeys =
     openOverride?.signature === groupSignature
@@ -132,148 +151,170 @@ export function ChangeRequestsPanel({
           <Collapse
             activeKey={activeKeys}
             onChange={(keys) => {
-              const next = Array.isArray(keys) ? keys.map(String) : [String(keys)];
+              const next = Array.isArray(keys)
+                ? keys.map(String)
+                : [String(keys)];
               setOpenOverride({ signature: groupSignature, keys: next });
             }}
-            items={groups.map((group) => ({
-              key: group.key,
-              label: (
-                <Space size={8} wrap>
-                  <EntityLink
-                    appearance="tag"
-                    color="blue"
-                    employerId={employerId}
-                    entity={
-                      group.workflowId != null
-                        ? { kind: "workflow", workflowId: group.workflowId }
-                        : null
+            items={groups.map((group) => {
+              const caption = workflowGroupCaption(
+                group,
+                groups,
+                group.workflowCreatedDate
+                  ? formatDate(group.workflowCreatedDate)
+                  : null,
+              );
+              return {
+                key: group.key,
+                label: (
+                  <Space size={8} wrap>
+                    <EntityLink
+                      appearance="tag"
+                      color="blue"
+                      employerId={employerId}
+                      entity={
+                        group.workflowId != null
+                          ? { kind: "workflow", workflowId: group.workflowId }
+                          : null
+                      }
+                    >
+                      {group.workflowName}
+                    </EntityLink>
+                    {caption ? <Tag>{caption}</Tag> : null}
+                    <Tag>{requestCountLabel(group.requests.length)}</Tag>
+                    {group.pendingCount > 0 ? (
+                      <Tag color="orange">{group.pendingCount} pending</Tag>
+                    ) : null}
+                  </Space>
+                ),
+                children: (
+                  <DataTable
+                    queryScript={queryScript}
+                    rowKey="changeRequestId"
+                    size="small"
+                    dataSource={group.requests}
+                    pagination={false}
+                    rowClassName={(row) =>
+                      row.changeRequestId === changeRequestView.selectedId
+                        ? "ant-table-row-selected"
+                        : ""
                     }
-                  >
-                    {group.workflowName}
-                  </EntityLink>
-                  <Tag>{group.requests.length}</Tag>
-                  {group.pendingCount > 0 ? (
-                    <Tag color="orange">{group.pendingCount} pending</Tag>
-                  ) : null}
-                </Space>
-              ),
-              children: (
-                <DataTable
-                  queryScript={queryScript}
-                  rowKey="changeRequestId"
-                  size="small"
-                  dataSource={group.requests}
-                  pagination={false}
-                  rowClassName={(row) =>
-                    row.changeRequestId === changeRequestView.selectedId
-                      ? "ant-table-row-selected"
-                      : ""
-                  }
-                  onRow={(row) => ({
-                    onClick: () => {
-                      void changeRequestView.openView(row.changeRequestId);
-                    },
-                  })}
-                  columns={[
-                    {
-                      title: "Id",
-                      dataIndex: "changeRequestId",
-                      width: 90,
-                      render: (changeRequestId: number) => (
-                        <ChangeRequestIdButton
-                          changeRequestId={changeRequestId}
-                          onOpen={(id) => {
-                            void changeRequestView.openView(id);
-                          }}
-                        />
-                      ),
-                    },
-                    {
-                      title: "Sections",
-                      render: (_: unknown, row: ChangeRequestListItem) => (
-                        <SectionChips
-                          employerId={employerId}
-                          names={splitNames(row.sectionNames)}
-                        />
-                      ),
-                    },
-                    {
-                      title: "Requested by",
-                      render: (_: unknown, row: ChangeRequestListItem) =>
-                        row.createdByName
-                          ? `${row.createdByName}${
-                              row.createdByEmploymentNumber
-                                ? ` · ${row.createdByEmploymentNumber}`
-                                : ""
-                            }`
-                          : "—",
-                    },
-                    {
-                      title: "Approver",
-                      render: (_: unknown, row: ChangeRequestListItem) => (
-                        <ChangeRequestApprovers
-                          employerId={employerId}
-                          approvers={row.approvers}
-                        />
-                      ),
-                    },
-                    {
-                      title: "Requested",
-                      dataIndex: "requestedDate",
-                      width: 180,
-                      render: (value: string | null) => formatDate(value),
-                    },
-                    {
-                      title: "Status",
-                      dataIndex: "status",
-                      width: 110,
-                      render: (status: ChangeRequestListItem["status"]) => (
-                        <Tag color={STATUS_COLOR[status]}>{status}</Tag>
-                      ),
-                    },
-                    {
-                      title: "Actions",
-                      key: "decideActions",
-                      width: 180,
-                      render: (_: unknown, row: ChangeRequestListItem) => {
-                        const actions = changeRequestDecideActions(row.status);
-                        if (actions.length === 0) {
-                          return null;
-                        }
-                        return (
-                          <Space>
-                            {actions.map((status) => (
-                              <Button
-                                key={status}
-                                danger={status === "Rejected"}
-                                disabled={!writesEnabled}
-                                loading={
-                                  decideLoading?.changeRequestId === row.changeRequestId &&
-                                  decideLoading.status === status
-                                }
-                                size="small"
-                                title={
-                                  writesEnabled
-                                    ? undefined
-                                    : "Writes are disabled for this environment."
-                                }
-                                type={status === "Approved" ? "primary" : "default"}
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  void openDecide(row.changeRequestId, status);
-                                }}
-                              >
-                                {status === "Approved" ? "Approve" : "Reject"}
-                              </Button>
-                            ))}
-                          </Space>
-                        );
+                    onRow={(row) => ({
+                      onClick: () => {
+                        void changeRequestView.openView(row.changeRequestId);
                       },
-                    },
-                  ]}
-                />
-              ),
-            }))}
+                    })}
+                    columns={[
+                      {
+                        title: "Id",
+                        dataIndex: "changeRequestId",
+                        width: 90,
+                        render: (changeRequestId: number) => (
+                          <ChangeRequestIdButton
+                            changeRequestId={changeRequestId}
+                            onOpen={(id) => {
+                              void changeRequestView.openView(id);
+                            }}
+                          />
+                        ),
+                      },
+                      {
+                        title: "Sections",
+                        render: (_: unknown, row: ChangeRequestListItem) => (
+                          <SectionChips
+                            employerId={employerId}
+                            names={splitNames(row.sectionNames)}
+                          />
+                        ),
+                      },
+                      {
+                        title: "Requested by",
+                        render: (_: unknown, row: ChangeRequestListItem) =>
+                          row.createdByName
+                            ? `${row.createdByName}${
+                                row.createdByEmploymentNumber
+                                  ? ` · ${row.createdByEmploymentNumber}`
+                                  : ""
+                              }`
+                            : "—",
+                      },
+                      {
+                        title: "Approver",
+                        render: (_: unknown, row: ChangeRequestListItem) => (
+                          <ChangeRequestApprovers
+                            employerId={employerId}
+                            approvers={row.approvers}
+                          />
+                        ),
+                      },
+                      {
+                        title: "Requested",
+                        dataIndex: "requestedDate",
+                        width: 180,
+                        render: (value: string | null) => formatDate(value),
+                      },
+                      {
+                        title: "Status",
+                        dataIndex: "status",
+                        width: 110,
+                        render: (status: ChangeRequestListItem["status"]) => (
+                          <Tag color={STATUS_COLOR[status]}>{status}</Tag>
+                        ),
+                      },
+                      {
+                        title: "Actions",
+                        key: "decideActions",
+                        width: 180,
+                        render: (_: unknown, row: ChangeRequestListItem) => {
+                          const actions = changeRequestDecideActions(
+                            row.status,
+                          );
+                          if (actions.length === 0) {
+                            return null;
+                          }
+                          return (
+                            <Space>
+                              {actions.map((status) => (
+                                <Button
+                                  key={status}
+                                  danger={status === "Rejected"}
+                                  disabled={!writesEnabled}
+                                  loading={
+                                    decideLoading?.changeRequestId ===
+                                      row.changeRequestId &&
+                                    decideLoading.status === status
+                                  }
+                                  size="small"
+                                  title={
+                                    writesEnabled
+                                      ? undefined
+                                      : "Writes are disabled for this environment."
+                                  }
+                                  type={
+                                    status === "Approved"
+                                      ? "primary"
+                                      : "default"
+                                  }
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    void openDecide(
+                                      row.changeRequestId,
+                                      status,
+                                    );
+                                  }}
+                                >
+                                  {status === "Approved" ? "Approve" : "Reject"}
+                                </Button>
+                              ))}
+                            </Space>
+                          );
+                        },
+                      },
+                    ]}
+                  />
+                ),
+              };
+            })}
           />
         )}
       </Space>

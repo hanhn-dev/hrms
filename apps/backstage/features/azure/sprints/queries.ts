@@ -14,12 +14,6 @@ import { getAzureDevOpsClient } from "@/shared/azure";
 
 export type { ProjectTeam, TeamIteration, TeamIterationTimeframe, WorkItemSummary };
 
-export async function getConfiguredTeamName(): Promise<string> {
-  await requireRootAdmin();
-  const team = getAzureDevOpsClient().teamContext.team;
-  return typeof team === "string" && team.trim().length > 0 ? team.trim() : "";
-}
-
 export async function listTeams(): Promise<ProjectTeam[]> {
   await requireRootAdmin();
   return listProjectTeams(getAzureDevOpsClient());
