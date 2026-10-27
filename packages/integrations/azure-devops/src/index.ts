@@ -123,6 +123,7 @@ export {
 	createWorkItem,
 	getWorkItem,
 	getWorkItemHierarchyContext,
+	getWorkItemScheduleDates,
 	getWorkItemsByIds,
 	listWorkItems,
 	mapWorkItemLinks,
@@ -133,7 +134,10 @@ export {
 	buildSearchWorkItemsWiql,
 	textToWorkItemHtml,
 	withWorkItemLinkTitles,
+	WORK_ITEM_PLANNED_RELEASE_DATE_FIELD,
+	WORK_ITEM_REPORTED_DATE_FIELD,
 } from './work-items.js';
+export type { WorkItemScheduleDates } from './work-items.js';
 export { getWorkItemComments } from './work-item-comments.js';
 export { getWorkItemSpecContext } from './work-item-spec-context.js';
 export { getWorkItemFieldRevisions } from './work-item-revisions.js';

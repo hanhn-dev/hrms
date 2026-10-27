@@ -3,6 +3,7 @@
 import {
   AppstoreOutlined,
   BranchesOutlined,
+  CalendarOutlined,
   FileSearchOutlined,
   PullRequestOutlined,
 } from "@ant-design/icons";
@@ -25,6 +26,15 @@ export function AzureLandingCards(): React.JSX.Element {
           <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
             <BranchesOutlined />
             Browse team iterations and the work items assigned to each sprint.
+          </div>
+        </Card>
+      </Link>
+      <Link href="/azure/roadmap">
+        <Card hoverable title="Roadmap">
+          <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
+            <CalendarOutlined />
+            Place Azure DevOps work items on a timeline and drag them into the order to
+            build them. The plan stays in Backstage.
           </div>
         </Card>
       </Link>

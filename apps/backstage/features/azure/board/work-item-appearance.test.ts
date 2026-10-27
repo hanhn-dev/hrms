@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import { describe, it } from "vitest";
-import { workItemStateColor, workItemTypeBorderColor, workItemTypeColor } from "./work-item-appearance.ts";
+import {
+  workItemStateColor,
+  workItemTypeBarColor,
+  workItemTypeBorderColor,
+  workItemTypeColor,
+} from "./work-item-appearance.ts";
 
 describe("work item chip colors", () => {
   it("uses a distinct color for each common type and state", () => {
@@ -20,5 +25,16 @@ describe("work item chip colors", () => {
 
   it("gives an uncommon type its own color", () => {
     assert.notEqual(workItemTypeColor("Test Suite"), workItemTypeColor("Shared Step"));
+  });
+
+  it("paints each work item type with its own bar color", () => {
+    assert.equal(workItemTypeBarColor("Product Backlog Item"), "#0958d9");
+    assert.equal(workItemTypeBarColor("Bug"), "#cf1322");
+    assert.equal(workItemTypeBarColor("Task"), "#237804");
+    assert.notEqual(workItemTypeBarColor("Product Backlog Item"), workItemTypeBarColor("Bug"));
+    assert.notEqual(workItemTypeBarColor("Bug"), workItemTypeBarColor("Task"));
+    assert.notEqual(workItemTypeBarColor("Test Case"), workItemTypeBarColor("Impediment"));
+    assert.equal(workItemTypeBarColor(undefined), "#475569");
+    assert.notEqual(workItemTypeBarColor("Shared Step"), workItemTypeBarColor("Code Review Request"));
   });
 });

@@ -11,6 +11,7 @@ import {
   createWorkItem,
   getWorkItem,
   getWorkItemHierarchyContext,
+  getWorkItemScheduleDates,
   getWorkItemsByIds,
   listWorkItems,
   parseWorkItemIdsInput,
@@ -1263,6 +1264,59 @@ describe('createWorkItem', () => {
   it('surfaces Azure DevOps API errors', async () => {
     mockWitApi.createWorkItem.mockRejectedValue(new Error('TF401232: area path not found'));
     await expect(createWorkItem(mockClient, { title: 'x' }, mockConfig)).rejects.toThrow(
+      'Azure DevOps API error',
+    );
+  });
+});
+
+describe('getWorkItemScheduleDates', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockClient.getWorkItemTrackingApi = vi.fn().mockResolvedValue(mockWitApi);
+  });
+
+  it('returns nothing for an empty id list', async () => {
+    const result = await getWorkItemScheduleDates(mockClient, []);
+    expect(result.size).toBe(0);
+    expect(mockWitApi.getWorkItems).not.toHaveBeenCalled();
+  });
+
+  it('reads reported and planned release dates as UTC calendar dates', async () => {
+    mockWitApi.getWorkItems.mockResolvedValue([
+      {
+        id: 142316,
+        fields: {
+          'System.CreatedDate': '2026-05-12T06:51:49.587Z',
+          'TDG.PlannedDate1': '2026-06-19T00:00:00Z',
+        },
+      },
+      {
+        id: 145158,
+        fields: {
+          'System.CreatedDate': '2026-10-02T00:00:00Z',
+          'TDG.PlannedDate1': '',
+        },
+      },
+      null,
+    ]);
+    const result = await getWorkItemScheduleDates(mockClient, [142316, 145158, 142316]);
+    expect(mockWitApi.getWorkItems).toHaveBeenCalledWith(
+      [142316, 145158],
+      ['System.CreatedDate', 'TDG.PlannedDate1'],
+    );
+    expect(result.get(142316)).toEqual({
+      reportedOn: '2026-05-12',
+      plannedReleaseOn: '2026-06-19',
+    });
+    expect(result.get(145158)).toEqual({
+      reportedOn: '2026-10-02',
+      plannedReleaseOn: null,
+    });
+  });
+
+  it('surfaces Azure DevOps API errors', async () => {
+    mockWitApi.getWorkItems.mockRejectedValue(new Error('down'));
+    await expect(getWorkItemScheduleDates(mockClient, [142316])).rejects.toThrow(
       'Azure DevOps API error',
     );
   });

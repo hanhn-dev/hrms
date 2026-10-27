@@ -964,6 +964,69 @@ export async function searchWorkItemIds(
   };
 }
 
+export const WORK_ITEM_REPORTED_DATE_FIELD = 'System.CreatedDate';
+export const WORK_ITEM_PLANNED_RELEASE_DATE_FIELD = 'TDG.PlannedDate1';
+
+export type WorkItemScheduleDates = {
+  readonly reportedOn: string | null;
+  readonly plannedReleaseOn: string | null;
+};
+
+function utcDateOnly(value: unknown): string | null {
+  if (value == null) {
+    return null;
+  }
+  const raw = value instanceof Date ? value.toISOString() : typeof value === 'string' ? value.trim() : '';
+  if (raw.length === 0) {
+    return null;
+  }
+  const parsed = new Date(raw);
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+  return parsed.toISOString().slice(0, 10);
+}
+
+/**
+ * Reported Date (`System.CreatedDate`) and Planned Release Date (`TDG.PlannedDate1`)
+ * for roadmap bars. Other work-item lists do not request these fields.
+ */
+export async function getWorkItemScheduleDates(
+  client: AzureDevOpsClient,
+  ids: readonly number[],
+): Promise<Map<number, WorkItemScheduleDates>> {
+  const uniqueIds = Array.from(new Set(ids.filter((id) => Number.isSafeInteger(id) && id > 0)));
+  const dates = new Map<number, WorkItemScheduleDates>();
+  if (uniqueIds.length === 0) {
+    return dates;
+  }
+
+  const witApi = await client.getWorkItemTrackingApi();
+  try {
+    for (let start = 0; start < uniqueIds.length; start += 200) {
+      const batchIds = uniqueIds.slice(start, start + 200);
+      const items = await witApi.getWorkItems(batchIds, [
+        WORK_ITEM_REPORTED_DATE_FIELD,
+        WORK_ITEM_PLANNED_RELEASE_DATE_FIELD,
+      ]);
+      for (const item of items ?? []) {
+        if (item?.id == null) {
+          continue;
+        }
+        const fields = item.fields ?? {};
+        dates.set(item.id, {
+          reportedOn: utcDateOnly(fields[WORK_ITEM_REPORTED_DATE_FIELD]),
+          plannedReleaseOn: utcDateOnly(fields[WORK_ITEM_PLANNED_RELEASE_DATE_FIELD]),
+        });
+      }
+    }
+  } catch (error) {
+    throw new Error(`Azure DevOps API error: ${getAzureDevOpsErrorMessage(error)}`);
+  }
+
+  return dates;
+}
+
 export async function queryWorkItems(
   client: AzureDevOpsClient,
   wiql: string,
