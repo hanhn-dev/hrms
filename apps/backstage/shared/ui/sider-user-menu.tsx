@@ -14,7 +14,7 @@ import { Avatar, Dropdown, Tooltip } from "antd";
 import { signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import {
-  accountMenuLinks,
+  accountLinksForRoles,
   signOutMenuItem,
   type AccountMenuLink,
 } from "@/shared/ui/account-menu-links";
@@ -47,12 +47,14 @@ function initialsFromName(name: string): string {
 export function SiderUserMenu({
   collapsed,
   userName,
+  roles,
   writesEnabled,
   environment,
   environments,
 }: {
   collapsed: boolean;
   userName: string;
+  roles: readonly string[];
   writesEnabled: boolean;
   environment: string;
   environments: string[];
@@ -60,6 +62,7 @@ export function SiderUserMenu({
   const router = useRouter();
   const initials = initialsFromName(userName);
   const roleLabel = writesEnabled ? "Writes on" : "Read-only";
+  const links = accountLinksForRoles(roles);
 
   return (
     <div
@@ -81,7 +84,7 @@ export function SiderUserMenu({
         menu={{
           className: "!border-0 !bg-transparent !p-1 !shadow-none",
           items: [
-            ...accountMenuLinks.map((link) => ({
+            ...links.map((link) => ({
               key: link.key,
               icon: accountMenuIcons[link.key],
               label: link.label,
@@ -94,7 +97,7 @@ export function SiderUserMenu({
             },
           ],
           onClick: ({ key }) => {
-            const link = accountMenuLinks.find((item) => item.key === key);
+            const link = links.find((item) => item.key === key);
             if (link) {
               router.push(link.href);
               return;

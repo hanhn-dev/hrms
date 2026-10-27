@@ -4,7 +4,7 @@ import { commitDataFix, commitDataFixBatch, previewDataFix } from "@hrms/db";
 import {
   assertWritesEnabled,
   createConfirmToken,
-  requireRootAdmin,
+  requireFeature,
   verifyConfirmToken,
 } from "@/shared/auth";
 import { assertSameEnvironment, getHrmsDb, getSelectedEnvironment } from "@/shared/db";
@@ -21,7 +21,7 @@ export async function previewDataFixChange(input: unknown): Promise<{
   preview: Array<Record<string, string>>;
   note: string;
 }> {
-  await requireRootAdmin();
+  await requireFeature("employers");
   const env = await getSelectedEnvironment();
   assertWritesEnabled(env);
   const parsed = parseDataFixWriteInput(input);
@@ -51,7 +51,7 @@ export async function commitDataFixChange(token: string): Promise<{
   after: Array<Record<string, string>>;
   note: string;
 }> {
-  await requireRootAdmin();
+  await requireFeature("employers");
   const payload = verifyConfirmToken(token, dataFixWriteTokenSchema);
   await assertSameEnvironment(payload.env);
   assertWritesEnabled(payload.env);
@@ -77,7 +77,7 @@ export async function previewDataFixBatch(input: unknown): Promise<{
   preview: Array<Record<string, string>>;
   note: string;
 }> {
-  await requireRootAdmin();
+  await requireFeature("employers");
   const env = await getSelectedEnvironment();
   assertWritesEnabled(env);
   const parsed = parseDataFixBatchInput(input);
@@ -105,7 +105,7 @@ export async function commitDataFixBatchChange(token: string): Promise<{
   after: Array<Record<string, string>>;
   note: string;
 }> {
-  await requireRootAdmin();
+  await requireFeature("employers");
   const payload = verifyConfirmToken(token, dataFixBatchTokenSchema);
   await assertSameEnvironment(payload.env);
   assertWritesEnabled(payload.env);

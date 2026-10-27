@@ -6,7 +6,7 @@ import {
   assertWritesEnabled,
   createConfirmToken,
   getAuditUserId,
-  requireRootAdmin,
+  requireFeature,
   verifyConfirmToken,
 } from "@/shared/auth";
 import { assertSameEnvironment, getHrmsDb, getSelectedEnvironment } from "@/shared/db";
@@ -29,7 +29,7 @@ export async function previewUnlockAccount(input: {
   preview: Array<Record<string, unknown>>;
   note?: string;
 }> {
-  await requireRootAdmin();
+  await requireFeature("employers");
   const env = await getSelectedEnvironment();
   assertWritesEnabled(env);
   const identity = await requireResolvedEmployee(
@@ -56,7 +56,7 @@ export async function previewUnlockAccount(input: {
 export async function commitUnlockAccount(
   token: string,
 ): Promise<{ after: Array<Record<string, unknown>>; note?: string }> {
-  await requireRootAdmin();
+  await requireFeature("employers");
   const payload = verifyConfirmToken(token, unlockPayloadSchema);
   await assertSameEnvironment(payload.env);
   assertWritesEnabled(payload.env);
@@ -89,7 +89,7 @@ export async function previewResetPassword(input: {
   preview: Array<Record<string, unknown>>;
   note?: string;
 }> {
-  await requireRootAdmin();
+  await requireFeature("employers");
   const env = await getSelectedEnvironment();
   assertWritesEnabled(env);
   const identity = await requireResolvedEmployee(
@@ -116,7 +116,7 @@ export async function previewResetPassword(input: {
 export async function commitResetPassword(
   token: string,
 ): Promise<{ after: Array<Record<string, unknown>>; note?: string }> {
-  await requireRootAdmin();
+  await requireFeature("employers");
   const payload = verifyConfirmToken(token, resetPasswordPayloadSchema);
   await assertSameEnvironment(payload.env);
   assertWritesEnabled(payload.env);

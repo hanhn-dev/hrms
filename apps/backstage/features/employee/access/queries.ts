@@ -2,7 +2,7 @@ import {
   getEmployeeLocationBuScope,
   loadEmployeeAccess,
 } from "@hrms/db";
-import { requireRootAdmin } from "@/shared/auth";
+import { requireFeature } from "@/shared/auth";
 import { getHrmsDb } from "@/shared/db";
 import { requireResolvedEmployee } from "@/shared/employee";
 
@@ -17,7 +17,7 @@ export async function getEmployeeAccess(
   employerId: number,
   employmentNumber: string,
 ) {
-  await requireRootAdmin();
+  await requireFeature("employers");
   const identity = await requireResolvedEmployee(employerId, employmentNumber);
   const db = await getHrmsDb();
   const [access, locationBuScope] = await Promise.all([

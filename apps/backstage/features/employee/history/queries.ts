@@ -5,7 +5,7 @@ import {
   type HistoryChangeResponse,
   type HistoryViewType,
 } from "@hrms/db";
-import { requireRootAdmin } from "@/shared/auth";
+import { requireFeature } from "@/shared/auth";
 import { getHrmsDb } from "@/shared/db";
 
 export type { HistoryChangeResponse, HistoryChangeEvent } from "@hrms/db";
@@ -22,7 +22,7 @@ export async function getEmployeeHistoryChanges(
     pageSize?: number;
   },
 ): Promise<HistoryChangeResponse | null> {
-  await requireRootAdmin();
+  await requireFeature("employers");
   const db = await getHrmsDb();
   const identity = await resolveEmployee(db, employerId, employmentNumber);
   if (!identity) {
@@ -41,6 +41,6 @@ export async function getEmployeeHistoryChanges(
 }
 
 export async function getHistorySectionOptions() {
-  await requireRootAdmin();
+  await requireFeature("employers");
   return listHistorySectionOptions();
 }

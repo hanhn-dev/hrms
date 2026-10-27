@@ -12,6 +12,7 @@ describe("hideDocsChrome", () => {
     assert.equal(hideDocsChrome("/azure/sprints"), true);
     assert.equal(hideDocsChrome("/azure/pull-requests"), true);
     assert.equal(hideDocsChrome("/login"), true);
+    assert.equal(hideDocsChrome("/forbidden"), true);
   });
 
   it("keeps chrome visible on docs, wiki, and other site routes", () => {

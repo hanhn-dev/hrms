@@ -1,74 +1,64 @@
-"use client";
-
-import { Alert, Button, Card, Form, Input, Typography } from "antd";
-import { signIn } from "next-auth/react";
-import { useState } from "react";
+import {
+  signInWithDev,
+  signInWithEntra,
+} from "@/components/auth/auth-actions";
+import {
+  AuthNotice,
+  authNoticePrimaryClass,
+  authNoticeSecondaryClass,
+} from "@/features/auth/auth-notice";
+import { loginFailure, type LoginFailure } from "@/features/auth/login-failure";
 
 export function LoginScreen({
-  configured,
+  error,
+  entra,
+  dev,
+  callbackUrl,
 }: {
-  configured: boolean;
+  error?: string;
+  entra: boolean;
+  dev: boolean;
+  callbackUrl: string;
 }): React.JSX.Element {
-  const [error, setError] = useState<string | null>(null);
-  const [pending, setPending] = useState(false);
+  const failure: LoginFailure | null = error
+    ? loginFailure(error)
+    : !entra && !dev
+      ? loginFailure("Configuration")
+      : null;
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-50 p-6">
-      <Card className="w-full max-w-md">
-        <Typography.Title level={3}>Backstage Features</Typography.Title>
-        <Typography.Paragraph type="secondary">
-          Local root admin. This operator can select any employer.
-        </Typography.Paragraph>
-        {!configured ? (
-          <Alert
-            showIcon
-            type="error"
-            title="Auth is not configured"
-            description="Set AUTH_SECRET, TROUBLESHOOTER_ADMIN_USERNAME, and TROUBLESHOOTER_ADMIN_PASSWORD."
-          />
-        ) : (
-          <Form
-            layout="vertical"
-            onFinish={(values: { username: string; password: string }) => {
-              setPending(true);
-              setError(null);
-              void signIn("credentials", {
-                username: values.username,
-                password: values.password,
-                redirect: false,
-              }).then((result) => {
-                setPending(false);
-                if (!result || result.error) {
-                  setError("Invalid username or password.");
-                  return;
+    <AuthNotice
+      title={failure?.title ?? "Sign in to Backstage"}
+      body={
+        failure?.body ??
+        "Use your Microsoft work account to open docs and the areas assigned to you."
+      }
+      reference={failure?.reference}
+      actions={
+        <>
+          {entra ? (
+            <form action={signInWithEntra}>
+              <input name="callbackUrl" type="hidden" value={callbackUrl} />
+              <button className={authNoticePrimaryClass()} type="submit">
+                Sign in with Microsoft
+              </button>
+            </form>
+          ) : null}
+          {dev ? (
+            <form action={signInWithDev}>
+              <input name="callbackUrl" type="hidden" value={callbackUrl} />
+              <button
+                className={
+                  entra ? authNoticeSecondaryClass() : authNoticePrimaryClass()
                 }
-                window.location.assign("/employers");
-              });
-            }}
-          >
-            {error ? (
-              <Alert className="mb-4" showIcon type="error" title={error} />
-            ) : null}
-            <Form.Item
-              label="Username"
-              name="username"
-              rules={[{ required: true }]}
-            >
-              <Input autoComplete="username" />
-            </Form.Item>
-            <Form.Item
-              label="Password"
-              name="password"
-              rules={[{ required: true }]}
-            >
-              <Input.Password autoComplete="current-password" />
-            </Form.Item>
-            <Button block htmlType="submit" loading={pending} type="primary">
-              Sign in
-            </Button>
-          </Form>
-        )}
-      </Card>
-    </div>
+                type="submit"
+              >
+                Dev sign in
+              </button>
+            </form>
+          ) : null}
+        </>
+      }
+    />
   );
 }

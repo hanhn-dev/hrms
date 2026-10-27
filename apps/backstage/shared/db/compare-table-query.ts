@@ -2,7 +2,7 @@
 
 import { executeSelectForCompare } from "@hrms/db";
 import type { HrmsDb } from "@hrms/db";
-import { requireRootAdmin } from "@/shared/auth";
+import { requireFeature } from "@/shared/auth";
 import { getHrmsDb, getSelectedEnvironment, listConfiguredEnvironments } from "@/shared/db";
 import {
   resolveComparePair,
@@ -15,7 +15,7 @@ export async function listTableCompareEnvironments(): Promise<{
   environments: string[];
   selected: string;
 }> {
-  await requireRootAdmin();
+  await requireFeature("employers");
   return {
     environments: listConfiguredEnvironments(),
     selected: await getSelectedEnvironment(),
@@ -26,7 +26,7 @@ export async function compareTableQuery(input: {
   script: string;
   rightEnv: string;
 }): Promise<CompareTableQueryResult> {
-  await requireRootAdmin();
+  await requireFeature("employers");
   const statements = splitCapturedScript(input.script);
   if (statements.length === 0) {
     throw new Error("No SQL was recorded for this table.");

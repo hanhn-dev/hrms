@@ -17,7 +17,7 @@ import {
   type UploadListFilters,
   type UploadTypeKey,
 } from "@hrms/db";
-import { requireRootAdmin } from "@/shared/auth";
+import { requireFeature } from "@/shared/auth";
 import { getHrmsDb } from "@/shared/db";
 
 export type {
@@ -46,7 +46,7 @@ export type {
 export { compareUploadHeaders, UPLOAD_TYPE_LABELS } from "@hrms/db";
 
 export async function listUploadCountries(employerId: number) {
-  await requireRootAdmin();
+  await requireFeature("employers");
   return listUploadCountriesFromDb(await getHrmsDb(), employerId);
 }
 
@@ -55,17 +55,17 @@ export async function listUploadCatalog(
   type: UploadTypeKey,
   countryId: number,
 ) {
-  await requireRootAdmin();
+  await requireFeature("employers");
   return listUploadCatalogFromDb(await getHrmsDb(), employerId, type, countryId);
 }
 
 export async function listUploads(employerId: number, filters: UploadListFilters) {
-  await requireRootAdmin();
+  await requireFeature("employers");
   return listUploadsFromDb(await getHrmsDb(), employerId, filters);
 }
 
 export async function getUpload(employerId: number, uploadId: number) {
-  await requireRootAdmin();
+  await requireFeature("employers");
   return getUploadFromDb(await getHrmsDb(), employerId, uploadId);
 }
 
@@ -74,7 +74,7 @@ export async function listUploadSectionData(
   uploadId: number,
   uploadSectionId: number | null,
 ) {
-  await requireRootAdmin();
+  await requireFeature("employers");
   return listUploadSectionDataFromDb(
     await getHrmsDb(),
     employerId,
@@ -90,7 +90,7 @@ export async function listUploadRowErrors(
   errorClass: Exclude<UploadErrorClass, "system">,
   catalogFields: UploadCatalogField[],
 ) {
-  await requireRootAdmin();
+  await requireFeature("employers");
   return listUploadRowErrorsFromDb(
     await getHrmsDb(),
     employerId,
@@ -102,7 +102,7 @@ export async function listUploadRowErrors(
 }
 
 export async function listUploadBatches(employerId: number, uploadId: number) {
-  await requireRootAdmin();
+  await requireFeature("employers");
   return listUploadBatchesFromDb(await getHrmsDb(), employerId, uploadId);
 }
 
@@ -111,22 +111,22 @@ export async function getUploadBatch(
   uploadId: number,
   batchId: number,
 ) {
-  await requireRootAdmin();
+  await requireFeature("employers");
   return getUploadBatchFromDb(await getHrmsDb(), employerId, uploadId, batchId);
 }
 
 export async function listUploadExecutionErrors(employerId: number, uploadId: number) {
-  await requireRootAdmin();
+  await requireFeature("employers");
   return listUploadExecutionErrorsFromDb(await getHrmsDb(), employerId, uploadId);
 }
 
 export async function listCreationStaging(employerId: number, uploadId: number) {
-  await requireRootAdmin();
+  await requireFeature("employers");
   return listCreationStagingFromDb(await getHrmsDb(), employerId, uploadId);
 }
 
 export async function getCreationFinalize(employerId: number, uploadId: number) {
-  await requireRootAdmin();
+  await requireFeature("employers");
   return getCreationFinalizeFromDb(await getHrmsDb(), employerId, uploadId);
 }
 
@@ -134,7 +134,7 @@ export async function getUploadLiveRow(
   employerId: number,
   identity: { employeeId?: number | null; workEmail?: string | null },
 ) {
-  await requireRootAdmin();
+  await requireFeature("employers");
   return getUploadLiveRowFromDb(await getHrmsDb(), employerId, identity);
 }
 
@@ -143,6 +143,6 @@ export async function getCreationStagingRow(
   uploadId: number,
   workEmail: string,
 ) {
-  await requireRootAdmin();
+  await requireFeature("employers");
   return getCreationStagingRowFromDb(await getHrmsDb(), employerId, uploadId, workEmail);
 }

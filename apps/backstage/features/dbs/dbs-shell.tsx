@@ -15,6 +15,7 @@ import type { EmployerOption } from "@/features/dbs/queries";
 
 export function DbsShell({
   userName,
+  roles,
   environment,
   environments,
   writesEnabled,
@@ -24,6 +25,7 @@ export function DbsShell({
   children,
 }: {
   userName: string;
+  roles: readonly string[];
   environment: string;
   environments: string[];
   writesEnabled: boolean;
@@ -63,6 +65,7 @@ export function DbsShell({
               collapsed={false}
               environment={environment}
               environments={environments}
+              roles={roles}
               userName={userName}
               writesEnabled={writesEnabled}
             />

@@ -22,7 +22,7 @@ import {
   assertWritesEnabled,
   createConfirmToken,
   getAuditUserId,
-  requireRootAdmin,
+  requireFeature,
   verifyConfirmToken,
 } from "@/shared/auth";
 import { assertSameEnvironment, getHrmsDb, getSelectedEnvironment } from "@/shared/db";
@@ -67,7 +67,7 @@ export async function previewUpdateValidationRule(input: {
   note?: string;
   sql?: string;
 }> {
-  await requireRootAdmin();
+  await requireFeature("employers");
   const env = await getSelectedEnvironment();
   assertWritesEnabled(env);
   const parsed = parseValidationRuleJson(input.validationRule);
@@ -111,7 +111,7 @@ export async function previewUpdateValidationRule(input: {
 export async function commitUpdateValidationRule(
   token: string,
 ): Promise<{ after: Array<Record<string, unknown>>; note?: string; sql?: string }> {
-  await requireRootAdmin();
+  await requireFeature("employers");
   const payload = verifyConfirmToken(token, updateValidationRulePayloadSchema);
   await assertSameEnvironment(payload.env);
   assertWritesEnabled(payload.env);
@@ -157,7 +157,7 @@ export async function previewUpdateFieldRow(input: {
   note?: string;
   sql?: string;
 }> {
-  await requireRootAdmin();
+  await requireFeature("employers");
   const env = await getSelectedEnvironment();
   assertWritesEnabled(env);
   const patch = patchFromValues(input.values);
@@ -206,7 +206,7 @@ export async function previewUpdateFieldRow(input: {
 export async function commitUpdateFieldRow(
   token: string,
 ): Promise<{ after: Array<Record<string, unknown>>; note?: string; sql?: string }> {
-  await requireRootAdmin();
+  await requireFeature("employers");
   const payload = verifyConfirmToken(token, updateFieldRowPayloadSchema);
   await assertSameEnvironment(payload.env);
   assertWritesEnabled(payload.env);
@@ -269,7 +269,7 @@ export async function previewClearPublicField(input: {
   note?: string;
   sql?: string;
 }> {
-  await requireRootAdmin();
+  await requireFeature("employers");
   const env = await getSelectedEnvironment();
   assertWritesEnabled(env);
   const current = await getPublicEmployerField(await getHrmsDb(), {
@@ -311,7 +311,7 @@ export async function previewClearPublicField(input: {
 export async function commitClearPublicField(
   token: string,
 ): Promise<{ after: Array<Record<string, unknown>>; note?: string; sql?: string }> {
-  await requireRootAdmin();
+  await requireFeature("employers");
   const payload = verifyConfirmToken(token, clearPublicFieldPayloadSchema);
   await assertSameEnvironment(payload.env);
   assertWritesEnabled(payload.env);

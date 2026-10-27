@@ -93,6 +93,7 @@ export function AppShell({
   employers,
   writesEnabled,
   userName,
+  roles,
   environment,
   environments,
   children,
@@ -101,6 +102,7 @@ export function AppShell({
   employers: ShellEmployer[];
   writesEnabled: boolean;
   userName: string;
+  roles: readonly string[];
   environment: string;
   environments: string[];
   children: React.ReactNode;
@@ -286,6 +288,7 @@ export function AppShell({
             collapsed={collapsed}
             environment={environment}
             environments={environments}
+            roles={roles}
             userName={userName}
             writesEnabled={writesEnabled}
           />

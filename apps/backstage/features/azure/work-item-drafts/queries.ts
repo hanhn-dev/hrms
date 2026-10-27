@@ -8,7 +8,7 @@ import {
   markDraftRejected,
   type WorkItemDraft,
 } from "@/features/azure/work-item-drafts/drafts";
-import { requireRootAdmin } from "@/shared/auth";
+import { requireFeature } from "@/shared/auth";
 import { getAzureDevOpsClient } from "@/shared/azure";
 
 export type { WorkItemDraft };
@@ -19,17 +19,17 @@ export type PublishDraftResult = {
 };
 
 export async function listWorkItemDrafts(): Promise<WorkItemDraft[]> {
-  await requireRootAdmin();
+  await requireFeature("azure");
   return listDrafts();
 }
 
 export async function getWorkItemDraft(id: string): Promise<WorkItemDraft | null> {
-  await requireRootAdmin();
+  await requireFeature("azure");
   return getDraft(id) ?? null;
 }
 
 export async function publishWorkItemDraft(id: string): Promise<PublishDraftResult> {
-  await requireRootAdmin();
+  await requireFeature("azure");
   const draft = getDraft(id);
   if (!draft) {
     throw new Error("Draft not found");
@@ -64,6 +64,6 @@ export async function rejectWorkItemDraft(
   id: string,
   reason?: string,
 ): Promise<WorkItemDraft> {
-  await requireRootAdmin();
+  await requireFeature("azure");
   return markDraftRejected(id, reason);
 }

@@ -129,9 +129,9 @@ Uses the feature-based layout above. `app/(ops)/` is the thin route map for empl
 - Components are `antd` only; icons are `@ant-design/icons` only.
 - Data access goes through `@hrms/db`. Do not use raw `mssql` or HRMS stored procedures from employer/employee features.
 - **Exception — Data Builder Studio (`features/dbs`):** may call `@hrms/database-inspector` for catalog/object details and gated procedure execute, plus `@hrms/db` dbs helpers for SELECT-only SQL and row preview. Do not copy that pattern into other ops features.
-- Ops auth: `TROUBLESHOOTER_ADMIN_*` Credentials provider (session `isRootAdmin`). Docs edit/proposals use Entra / `Backstage.Admin` (`isAdmin`).
+- Ops auth uses the same Microsoft session. `Backstage.Employers` opens `/employers`, `Backstage.Dbs` opens `/dbs`, and `Backstage.Azure` opens `/azure`. `Backstage.Admin` can open every area and approve guide proposals.
 - Writes require `TROUBLESHOOTER_WRITES_ENABLED=1`, non-production `NODE_ENV`, and the cookie-selected env in `TROUBLESHOOTER_WRITES_ENVS`.
-- Site chrome (Docs/Wiki/Console header) is hidden on `/employers/*`, `/dbs`, and `/login`; employer pages use `AppShell`, dbs uses `DbsShell`.
+- Site chrome (Docs/Wiki/Console header) is hidden on `/employers/*`, `/dbs`, `/azure`, `/login`, and `/forbidden`; employer pages use `AppShell`, dbs uses `DbsShell`.
 - Display dates through `@/shared/format-date` (`DD-MMM-YYYY`, plus `HH:mm:ss` when timed). Do not render raw ISO strings.
 - Named entities use `EntityLink` from `@/shared/entity-link`. Kinds and canonical URLs are in the operator-console rule `troubleshooter.mdc` under **Entity links**.
 - Server Components: no dotted Ant Design subcomponents (`Typography.Title`) — import `Title` / `Text` / `Paragraph` from `@/shared/ui` or `antd/es/...`. Pass serializable `items` to `Descriptions`. Table `columns` with `render` belong in `"use client"` files. Use Alert `title`, not `message`. Helper copy goes in `PageHelp`, not full-width banners.
@@ -140,9 +140,9 @@ Uses the feature-based layout above. `app/(ops)/` is the thin route map for empl
 
 Latest URL stays stable (`/docs/guides/lms/reports`). When published `last-analyzed` is a previous calendar day, the next publish copies that file to `<slug>/<last-analyzed>.md` first (immutable if it already exists), then overwrites latest with today's date.
 
-In-app **Edit** (Entra sign-in) files a proposal. The live page does not change until an Admin (`Backstage.Admin` app role) approves. Reject requires a reason. `/document-feature` is a privileged regen: if `_proposals` has a pending row for that slug, **stop**. Otherwise freeze-then-overwrite as above. Same-day republish does not create a second archive.
+In-app **Edit** (Microsoft sign-in) files a proposal. The live page does not change until an Admin (`Backstage.Admin` app role) approves. Reject requires a reason. `/document-feature` is a privileged regen: if `_proposals` has a pending row for that slug, **stop**. Otherwise freeze-then-overwrite as above. Same-day republish does not create a second archive.
 
-Auth env lives in `apps/backstage/.env.example`. Redirect URI: `http://localhost:5001/api/auth/callback/microsoft-entra-id`. App role: `Backstage.Admin`. Local mock: `BACKSTAGE_DEV_AUTH=1` (optional `BACKSTAGE_DEV_ADMIN=1`) — never in production.
+Auth env lives in `apps/backstage/.env.example`. Redirect URI: `http://localhost:5001/api/auth/callback/microsoft-entra-id`. App roles: `Backstage.Admin`, `Backstage.Employers`, `Backstage.Dbs`, `Backstage.Azure`. Every signed-in tenant user can read docs. Local development can set `BACKSTAGE_AUTH_DISABLED=1` to skip sign-in (ignored when `NODE_ENV` is production). Mock login when auth is on: `BACKSTAGE_DEV_AUTH=1`, optional `BACKSTAGE_DEV_ADMIN=1` or `BACKSTAGE_DEV_ROLES` — never in production.
 
 ## Feature guides
 

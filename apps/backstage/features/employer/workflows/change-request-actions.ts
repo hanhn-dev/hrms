@@ -1,11 +1,11 @@
 "use server";
 
 import { captureQueryScript, getChangeRequest, listConfiguredApprovers } from "@hrms/db";
-import { requireRootAdmin } from "@/shared/auth";
+import { requireFeature } from "@/shared/auth";
 import { getHrmsDb } from "@/shared/db";
 
 export async function getChangeRequestDetail(employerId: number, changeRequestId: number) {
-  await requireRootAdmin();
+  await requireFeature("employers");
   const db = await getHrmsDb();
   const loaded = await captureQueryScript(() =>
     Promise.all([

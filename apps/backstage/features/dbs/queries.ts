@@ -31,7 +31,7 @@ import {
 import {
   assertWritesEnabled,
   createConfirmToken,
-  requireRootAdmin,
+  requireFeature,
   verifyConfirmToken,
 } from "@/shared/auth";
 import {
@@ -66,7 +66,7 @@ export type EmployerOption = {
 };
 
 export async function listEmployerOptions(): Promise<EmployerOption[]> {
-  await requireRootAdmin();
+  await requireFeature("dbs");
   const rows = await listEmployersFromDb(await getHrmsDb());
   return rows.map((row) => ({
     employerId: row.employerId,
@@ -75,19 +75,19 @@ export async function listEmployerOptions(): Promise<EmployerOption[]> {
 }
 
 export async function listTables(q?: string): Promise<ExploreTable[]> {
-  await requireRootAdmin();
+  await requireFeature("dbs");
   return listTablesFromDb(await getHrmsDb(), { q });
 }
 
 export async function listTableColumns(tableName: string, schemaName?: string) {
-  await requireRootAdmin();
+  await requireFeature("dbs");
   return listTableColumnsFromDb(await getHrmsDb(), tableName, schemaName);
 }
 
 export async function searchValueInTables(
   input: ExploreSearchInput,
 ): Promise<ExploreSearchTableResult[]> {
-  await requireRootAdmin();
+  await requireFeature("dbs");
   return searchValueInTablesFromDb(await getHrmsDb(), input);
 }
 
@@ -96,7 +96,7 @@ export async function executeFunction(input: {
   name: string;
   payload: Record<string, unknown>;
 }): Promise<ExecuteFunctionResult> {
-  await requireRootAdmin();
+  await requireFeature("dbs");
   return executeFunctionFromDb(await getHrmsDb(), {
     schema: input.schema,
     name: input.name,
@@ -110,7 +110,7 @@ export async function previewTableRows(input: {
   employerId?: number | null;
   top?: number;
 }): Promise<PreviewTableRowsResult> {
-  await requireRootAdmin();
+  await requireFeature("dbs");
   return previewTableRowsFromDb(await getHrmsDb(), input);
 }
 
@@ -118,7 +118,7 @@ export async function runSelect(input: {
   sql: string;
   maxRows?: number;
 }): Promise<ExecuteSelectResult & { queryScript: string }> {
-  await requireRootAdmin();
+  await requireFeature("dbs");
   const db = await getHrmsDb();
   const loaded = await captureQueryScript(() => executeSelectFromDb(db, input));
   return { ...loaded.result, queryScript: loaded.script };
@@ -130,7 +130,7 @@ export async function fetchCatalog(input?: {
   includeRelationships?: boolean;
   q?: string;
 }): Promise<DatabaseCatalog> {
-  await requireRootAdmin();
+  await requireFeature("dbs");
   const catalog = await getCatalog(await getInspectorConfig(), {
     schema: input?.schema,
     kinds: input?.kinds,
@@ -175,7 +175,7 @@ export async function fetchObjectDetails(input: {
   includeDependencies?: boolean;
   includeStructure?: boolean;
 }): Promise<DatabaseObjectDetails> {
-  await requireRootAdmin();
+  await requireFeature("dbs");
   return getObjectDetails(await getInspectorConfig(), {
     schema: input.schema,
     name: input.name,
@@ -208,7 +208,7 @@ export async function previewExecuteProcedure(input: {
   dryRun: StoredProcedureExecutionResult;
   token: string;
 }> {
-  await requireRootAdmin();
+  await requireFeature("dbs");
   const env = await getSelectedEnvironment();
   assertWritesEnabled(env);
   const config = await getInspectorConfig(env);
@@ -237,7 +237,7 @@ export async function confirmExecuteProcedure(
   options?: { includePlan?: boolean },
 ): Promise<StoredProcedureExecutionResult> {
   // includePlan is display-only and stays outside the signed confirm token.
-  await requireRootAdmin();
+  await requireFeature("dbs");
   const payload = verifyConfirmToken(token, procedureConfirmSchema);
   assertWritesEnabled(payload.env);
   await assertSameEnvironment(payload.env);
@@ -313,7 +313,7 @@ export async function compareEnvironments(input: {
   kinds?: DatabaseObjectKind[];
   q?: string;
 }): Promise<EnvCompareResult> {
-  await requireRootAdmin();
+  await requireFeature("dbs");
   const leftEnv = await getSelectedEnvironment();
   const rightEnv = input.rightEnv.trim().toUpperCase();
   if (!listConfiguredEnvironments().includes(rightEnv)) {

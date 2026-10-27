@@ -1,12 +1,66 @@
 import { redirect } from "next/navigation";
-import { auth, isOpsCredentialsConfigured, signIn, signOut } from "@/auth";
+import { auth, signIn, signOut } from "@/auth";
+import {
+  canAccess,
+  isAuthDisabled,
+  localFullAccessRoles,
+  type Feature,
+} from "@/shared/auth/access";
 import { writesAllowedForEnvironment } from "@/shared/db/environments";
 
 export { auth, signIn, signOut };
 
-/** Ops login: local Troubleshooter root-admin credentials. */
-export function isAuthConfigured(): boolean {
-  return isOpsCredentialsConfigured();
+export type GateUser = {
+  oid: string;
+  name: string | null;
+  email: string | null;
+  roles: string[];
+  isAdmin: boolean;
+};
+
+export function localFullAccessUser(): GateUser {
+  const roles = localFullAccessRoles();
+  return {
+    oid: "local-auth-disabled",
+    name: "Auth off",
+    email: null,
+    roles,
+    isAdmin: true,
+  };
+}
+
+export async function currentGateUser(): Promise<GateUser | null> {
+  if (isAuthDisabled()) {
+    return localFullAccessUser();
+  }
+  const session = await auth();
+  const user = session?.user;
+  if (!user?.oid) {
+    return null;
+  }
+  const roles = Array.isArray(user.roles) ? user.roles : [];
+  return {
+    oid: user.oid,
+    name: user.name ?? null,
+    email: user.email ?? null,
+    roles,
+    isAdmin: roles.includes("Backstage.Admin") || user.isAdmin === true,
+  };
+}
+
+export async function requireFeature(feature: Feature): Promise<GateUser> {
+  const user = await currentGateUser();
+  if (!user) {
+    redirect("/login");
+  }
+  if (!canAccess(user.roles, feature)) {
+    redirect(`/forbidden?area=${feature}`);
+  }
+  return user;
+}
+
+export async function requireFeaturePage(feature: Feature): Promise<GateUser> {
+  return requireFeature(feature);
 }
 
 export function areWritesEnabled(environment: string): boolean {
@@ -28,35 +82,6 @@ export function getAuditUserId(): number {
     );
   }
   return parsed;
-}
-
-export async function requireRootAdmin(): Promise<{
-  name?: string | null;
-  email?: string | null;
-  isRootAdmin: boolean;
-}> {
-  const session = await auth();
-  if (!session?.user?.isRootAdmin) {
-    throw new Error("Root admin session required.");
-  }
-  return session.user;
-}
-
-/**
- * Page-level gate for soft navigation: redirects to `/login` instead of
- * throwing, so Auth can live inside a Suspense boundary rather than blocking
- * an async layout (which leaves the App Router stuck on "Rendering...").
- */
-export async function requireRootAdminPage(): Promise<{
-  name?: string | null;
-  email?: string | null;
-  isRootAdmin: boolean;
-}> {
-  const session = await auth();
-  if (!session?.user?.isRootAdmin) {
-    redirect("/login");
-  }
-  return session.user;
 }
 
 export function assertWritesEnabled(environment: string): void {

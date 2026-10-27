@@ -7,7 +7,7 @@ import {
   withMissingBusinessUnitOptions,
   withMissingLocationOptions,
 } from "@hrms/db";
-import { requireRootAdmin } from "@/shared/auth";
+import { requireFeature } from "@/shared/auth";
 import { getHrmsDb } from "@/shared/db";
 
 export type {
@@ -19,7 +19,7 @@ export type {
 } from "@hrms/db";
 
 export async function listRoles(employerId: number) {
-  await requireRootAdmin();
+  await requireFeature("employers");
   return listRolesFromDb(await getHrmsDb(), employerId);
 }
 
@@ -27,7 +27,7 @@ export async function listRolePageGrants(
   employerId: number,
   roleId: number | null,
 ) {
-  await requireRootAdmin();
+  await requireFeature("employers");
   return listRolePageGrantsFromDb(await getHrmsDb(), employerId, roleId);
 }
 
@@ -35,7 +35,7 @@ export async function getRoleLocationBuScope(
   employerId: number,
   roleId: number | null,
 ) {
-  await requireRootAdmin();
+  await requireFeature("employers");
   if (roleId == null) {
     return null;
   }
@@ -47,7 +47,7 @@ export async function listRoleScopeOptions(
   selectedLocationIds: string | null | undefined,
   selectedBusinessUnitIds: string | null | undefined,
 ) {
-  await requireRootAdmin();
+  await requireFeature("employers");
   const db = await getHrmsDb();
   const [locations, businessUnits] = await Promise.all([
     listEmployerLocationsFromDb(db, employerId),

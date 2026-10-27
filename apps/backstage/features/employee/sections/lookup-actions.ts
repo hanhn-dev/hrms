@@ -2,7 +2,7 @@
 
 import { getSectionLookupRow, type SectionLookupDetail } from "@hrms/db";
 import { z } from "zod";
-import { requireRootAdmin } from "@/shared/auth";
+import { requireFeature } from "@/shared/auth";
 import { getHrmsDb } from "@/shared/db";
 
 const inputSchema = z.object({
@@ -14,7 +14,7 @@ export async function loadSectionLookupRow(
   lookupKey: string,
   id: number,
 ): Promise<SectionLookupDetail> {
-  await requireRootAdmin();
+  await requireFeature("employers");
   const parsed = inputSchema.parse({ lookupKey, id });
   return getSectionLookupRow(await getHrmsDb(), parsed.lookupKey, parsed.id);
 }

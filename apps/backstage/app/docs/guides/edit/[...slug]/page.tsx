@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { auth, isAuthConfigured } from "@/auth";
 import { FeatureEditor } from "@/components/guides/feature-editor";
 import {
   featureFileExists,
@@ -9,6 +8,7 @@ import {
   readFeatureRaw,
 } from "@/lib/guides";
 import { getPendingProposal } from "@/lib/proposals";
+import { currentGateUser } from "@/shared/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -17,13 +17,9 @@ export default async function FeatureEditPage({
 }: {
   params: Promise<{ slug: string[] }>;
 }): Promise<React.JSX.Element> {
-  if (!isAuthConfigured()) {
-    redirect("/docs/guides");
-  }
-
-  const session = await auth();
-  if (!session?.user) {
-    redirect("/docs/guides");
+  const user = await currentGateUser();
+  if (!user) {
+    redirect("/login");
   }
 
   const { slug: segments } = await params;

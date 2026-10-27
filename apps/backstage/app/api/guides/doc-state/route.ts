@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth, isAuthConfigured } from "@/auth";
+import { currentGateUser } from "@/shared/auth";
 import { featureFileExists, isFeatureArchiveSlug } from "@/lib/guides";
 import { canAccessProposal, getPendingProposal } from "@/lib/proposals";
 
@@ -13,14 +13,14 @@ export async function GET(request: Request): Promise<NextResponse> {
     });
   }
 
-  const session = isAuthConfigured() ? await auth() : null;
+  const user = await currentGateUser();
   const pending = getPendingProposal(slug);
   const canOpen = Boolean(
-    pending && session?.user && canAccessProposal(pending, session.user),
+    pending && user && canAccessProposal(pending, user),
   );
 
   return NextResponse.json({
-    canEdit: Boolean(session?.user) && !pending,
+    canEdit: Boolean(user) && !pending,
     hasPending: Boolean(pending),
     pendingHref:
       canOpen && pending ? `/docs/guides/proposals/${pending.id}` : undefined,

@@ -26,7 +26,7 @@ import {
   type ScriptObjectKind,
   type SearchTarget,
 } from "@hrms/db";
-import { requireRootAdmin } from "@/shared/auth";
+import { requireFeature } from "@/shared/auth";
 import { getHrmsDb, getSelectedEnvironment, listConfiguredEnvironments } from "@/shared/db";
 import { parseEnvironmentName } from "@/shared/db/environments";
 
@@ -48,7 +48,7 @@ export type InspectorEmployer = {
 };
 
 export async function listInspectorEmployers(): Promise<InspectorEmployer[]> {
-  await requireRootAdmin();
+  await requireFeature("employers");
   const rows = await listEmployersFromDb(await getHrmsDb());
   return rows.map((row) => ({
     employerId: row.employerId,
@@ -57,14 +57,14 @@ export async function listInspectorEmployers(): Promise<InspectorEmployer[]> {
 }
 
 export async function listSearchTargets(): Promise<SearchTarget[]> {
-  await requireRootAdmin();
+  await requireFeature("employers");
   return listSearchTargetsFromDb(await getHrmsDb());
 }
 
 export async function searchValueExistence(
   input: ExistenceSearchInput,
 ): Promise<{ hits: ExistenceTableResult[]; queryScript: string }> {
-  await requireRootAdmin();
+  await requireFeature("employers");
   const db = await getHrmsDb();
   const loaded = await captureQueryScript(() =>
     searchValueExistenceFromDb(db, input),
@@ -79,7 +79,7 @@ export async function searchInspectorTable(input: {
   mode: ExploreSearchMode;
   employerId: number | null;
 }): Promise<ExploreSearchTableResult> {
-  await requireRootAdmin();
+  await requireFeature("employers");
   const qualified = `${input.schema}.${input.table}`;
   const results = await searchValueInTablesFromDb(await getHrmsDb(), {
     tables: [qualified],
@@ -98,14 +98,14 @@ export async function listModules(input: {
   kind: ModuleKind;
   q?: string;
 }): Promise<ModuleSummary[]> {
-  await requireRootAdmin();
+  await requireFeature("employers");
   return listModulesFromDb(await getHrmsDb(), input);
 }
 
 export async function listInspectorTables(input: {
   q?: string;
 }): Promise<Array<{ schema: string; name: string }>> {
-  await requireRootAdmin();
+  await requireFeature("employers");
   return listTablesFromDb(await getHrmsDb(), { q: input.q });
 }
 
@@ -113,7 +113,7 @@ export async function listInspectorEnvironments(): Promise<{
   environments: string[];
   selected: string;
 }> {
-  await requireRootAdmin();
+  await requireFeature("employers");
   return {
     environments: listConfiguredEnvironments(),
     selected: await getSelectedEnvironment(),
@@ -148,7 +148,7 @@ export async function getObjectDefinitionForEnvironment(input: {
   kind: InspectorObjectKind;
   env: string;
 }): Promise<ObjectEnvironmentDefinition> {
-  await requireRootAdmin();
+  await requireFeature("employers");
   const kind = assertInspectorObjectKind(input.kind);
   const env = parseEnvironmentName(input.env);
   if (!env) {
@@ -191,7 +191,7 @@ export async function getModuleDefinition(input: {
   name: string;
   kind: ModuleKind;
 }): Promise<ModuleDefinition> {
-  await requireRootAdmin();
+  await requireFeature("employers");
   return getModuleDefinitionFromDb(await getHrmsDb(), input);
 }
 
@@ -214,7 +214,7 @@ export async function resolveScriptObject(input: {
   schema: string;
   name: string;
 }): Promise<ResolvedScript | null> {
-  await requireRootAdmin();
+  await requireFeature("employers");
   const db = await getHrmsDb();
   const found = await findScriptObject(db, input);
   if (!found) {
@@ -260,7 +260,7 @@ export async function listInspectorTableColumns(input: {
   schema: string;
   name: string;
 }): Promise<InspectorTableColumn[]> {
-  await requireRootAdmin();
+  await requireFeature("employers");
   const columns = await listTableColumnDefinitionsFromDb(await getHrmsDb(), input);
   return columns.map((column) => ({
     name: column.name,
@@ -276,7 +276,7 @@ export async function listInspectorTableColumns(input: {
 export async function resolveScriptObjectKinds(
   objects: ReadonlyArray<{ schema: string; name: string }>,
 ): Promise<Array<{ schema: string; name: string; kind: ScriptObjectKind }>> {
-  await requireRootAdmin();
+  await requireFeature("employers");
   if (objects.length === 0) {
     return [];
   }

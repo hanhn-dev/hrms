@@ -16,7 +16,7 @@ import {
   type WorkItem,
   type WorkItemSummary,
 } from "@hrms/azure-devops";
-import { requireRootAdmin } from "@/shared/auth";
+import { requireFeature } from "@/shared/auth";
 import { getAzureDevOpsClient } from "@/shared/azure";
 
 export type SprintBoardData = {
@@ -44,17 +44,17 @@ function toSummary(item: WorkItem): WorkItemSummary {
 }
 
 export async function listTeams(): Promise<ProjectTeam[]> {
-  await requireRootAdmin();
+  await requireFeature("azure");
   return listProjectTeams(getAzureDevOpsClient());
 }
 
 export async function listIterations(team: string): Promise<TeamIteration[]> {
-  await requireRootAdmin();
+  await requireFeature("azure");
   return listTeamIterations(getAzureDevOpsClient(), undefined, team);
 }
 
 export async function listMembers(team: string): Promise<TeamMember[]> {
-  await requireRootAdmin();
+  await requireFeature("azure");
   return listTeamMembers(getAzureDevOpsClient(), team);
 }
 
@@ -63,7 +63,7 @@ export async function loadSprintBoard(
   iterationId: string,
   iterationPath: string,
 ): Promise<SprintBoardData> {
-  await requireRootAdmin();
+  await requireFeature("azure");
   const client = getAzureDevOpsClient();
   const [columns, placements, workItems] = await Promise.all([
     listTaskboardColumns(client, team),

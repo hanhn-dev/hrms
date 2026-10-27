@@ -2,6 +2,7 @@ import { format } from "sql-formatter";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { findRepoRoot, readRepoFile, REPO_IDS } from "@/features/flows/paths";
+import { requireUser } from "@/lib/api-auth";
 
 const bodySchema = z.object({
   roots: z.object({
@@ -18,6 +19,8 @@ const bodySchema = z.object({
 });
 
 export async function POST(request: Request): Promise<NextResponse> {
+  const gate = await requireUser();
+  if (!gate.ok) return gate.response;
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ script: null }, { status: 400 });
   const start = parsed.data.roots[parsed.data.source.repo];

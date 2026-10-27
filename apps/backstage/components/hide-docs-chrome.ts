@@ -6,7 +6,9 @@ export function hideDocsChrome(pathname: string): boolean {
     pathname.startsWith("/dbs/") ||
     pathname === "/azure" ||
     pathname.startsWith("/azure/") ||
-    pathname === "/login" ||
-    pathname.startsWith("/login/")
-  );
+  pathname === "/login" ||
+  pathname.startsWith("/login/") ||
+  pathname === "/forbidden" ||
+  pathname.startsWith("/forbidden/")
+);
 }

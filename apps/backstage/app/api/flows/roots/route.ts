@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { findRepoRoot, REPO_IDS, type RepoId } from "@/features/flows/paths";
+import { requireUser } from "@/lib/api-auth";
 
 const bodySchema = z.object({
   repo: z.enum(REPO_IDS),
@@ -19,7 +20,9 @@ const DEFAULT_ROOTS: Record<RepoId, readonly string[]> = {
   "hrms-sdk": ["D:/hrms-sdk"],
 };
 
-export function GET(): NextResponse {
+export async function GET(): Promise<NextResponse> {
+  const gate = await requireUser();
+  if (!gate.ok) return gate.response;
   const roots: Partial<Record<RepoId, string>> = {};
   for (const repo of REPO_IDS) {
     const starts = [ENV_ROOTS[repo], ...DEFAULT_ROOTS[repo]].filter((value): value is string => Boolean(value));
@@ -35,6 +38,8 @@ export function GET(): NextResponse {
 }
 
 export async function POST(request: Request): Promise<NextResponse> {
+  const gate = await requireUser();
+  if (!gate.ok) return gate.response;
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
     return NextResponse.json({ error: "Choose one of the three checkouts." }, { status: 400 });

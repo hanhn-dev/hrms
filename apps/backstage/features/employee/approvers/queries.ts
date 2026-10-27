@@ -1,5 +1,5 @@
 import { listEmployeeApprovers as listEmployeeApproversFromDb } from "@hrms/db";
-import { requireRootAdmin } from "@/shared/auth";
+import { requireFeature } from "@/shared/auth";
 import { getHrmsDb } from "@/shared/db";
 
 export type {
@@ -12,7 +12,7 @@ export async function listEmployeeApprovers(
   employerId: number,
   employmentNumber: string,
 ) {
-  await requireRootAdmin();
+  await requireFeature("employers");
   return listEmployeeApproversFromDb(
     await getHrmsDb(),
     employerId,

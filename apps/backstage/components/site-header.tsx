@@ -3,11 +3,12 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Suspense } from "react";
-import { AuthStatus } from "@/components/auth/auth-status";
+import { AuthStatus, useBackstageSession } from "@/components/auth/auth-status";
 import { hideDocsChrome } from "@/components/hide-docs-chrome";
 import { OpsNavLink } from "@/components/ops-nav-link";
 import { SiteSearch } from "@/components/site-search";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { canAccess, type Feature } from "@/shared/auth/access";
 import { TrailBar } from "@/shared/navigation";
 
 export function SiteHeader(): React.JSX.Element {
@@ -15,6 +16,10 @@ export function SiteHeader(): React.JSX.Element {
   // Keep a stable DOM tree (never return null) so soft-nav to /dbs does not
   // trip a hydration mismatch while the App Router is still rendering.
   const hidden = hideDocsChrome(pathname);
+  const session = useBackstageSession();
+  const roles = session?.user?.roles ?? [];
+  const showFeature = (feature: Feature): boolean =>
+    Boolean(session?.authDisabled) || canAccess(roles, feature);
 
   return (
     <header
@@ -41,9 +46,15 @@ export function SiteHeader(): React.JSX.Element {
         >
           Wiki
         </Link>
-        <OpsNavLink href="/employers">Console</OpsNavLink>
-        <OpsNavLink href="/dbs">Db Studio</OpsNavLink>
-        <OpsNavLink href="/azure">Azure DevOps</OpsNavLink>
+        {showFeature("employers") ? (
+          <OpsNavLink href="/employers">Console</OpsNavLink>
+        ) : null}
+        {showFeature("dbs") ? (
+          <OpsNavLink href="/dbs">Db Studio</OpsNavLink>
+        ) : null}
+        {showFeature("azure") ? (
+          <OpsNavLink href="/azure">Azure DevOps</OpsNavLink>
+        ) : null}
         <Link
           className="shrink-0 text-sm text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
           href="/flows"

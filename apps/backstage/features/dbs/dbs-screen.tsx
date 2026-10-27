@@ -24,12 +24,14 @@ const DbsStudio = dynamic(
 
 export function DbsScreenClient({
   userName,
+  roles,
   environment,
   environments,
   writesEnabled,
   initialEmployers,
 }: {
   userName: string;
+  roles: readonly string[];
   environment: string;
   environments: string[];
   writesEnabled: boolean;
@@ -62,6 +64,7 @@ export function DbsScreenClient({
   return (
     <DbsShell
       userName={userName}
+      roles={roles}
       environment={environment}
       environments={environments}
       writesEnabled={writesEnabled}

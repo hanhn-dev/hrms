@@ -1,10 +1,10 @@
 import { searchEmployees as searchEmployeesFromDb } from "@hrms/db";
-import { requireRootAdmin } from "@/shared/auth";
+import { requireFeature } from "@/shared/auth";
 import { getHrmsDb } from "@/shared/db";
 
 export type { EmployeeSearchHit, EmployeeSearchResult } from "@hrms/db";
 
 export async function searchEmployees(employerId: number, search: string) {
-  await requireRootAdmin();
+  await requireFeature("employers");
   return searchEmployeesFromDb(await getHrmsDb(), employerId, search);
 }

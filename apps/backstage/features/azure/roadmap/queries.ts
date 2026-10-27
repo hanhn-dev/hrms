@@ -33,7 +33,7 @@ import {
   type RoadmapSprint,
   type RoadmapSprintLane,
 } from "@/features/azure/roadmap/sprints";
-import { requireRootAdmin } from "@/shared/auth";
+import { requireFeature } from "@/shared/auth";
 import { getAzureDevOpsClient } from "@/shared/azure/client";
 
 function save(next: Roadmap): Roadmap {
@@ -63,12 +63,12 @@ function failureText(reason: unknown): string {
 }
 
 export async function listRoadmapTeams(): Promise<ProjectTeam[]> {
-  await requireRootAdmin();
+  await requireFeature("azure");
   return listProjectTeams(getAzureDevOpsClient());
 }
 
 export async function loadRoadmapSprintLanes(teams: readonly string[]): Promise<RoadmapSprintLoad> {
-  await requireRootAdmin();
+  await requireFeature("azure");
   if (teams.length === 0) {
     return { sprints: [], error: null };
   }
@@ -178,7 +178,7 @@ export async function loadRoadmapSprintLanes(teams: readonly string[]): Promise<
 }
 
 export async function loadRoadmap(): Promise<Roadmap> {
-  await requireRootAdmin();
+  await requireFeature("azure");
   const roadmap = readRoadmap();
   const ids = [
     ...new Set(roadmap.windows.flatMap((window) => window.items.map((item) => item.workItemId))),
@@ -226,7 +226,7 @@ export async function loadRoadmap(): Promise<Roadmap> {
 }
 
 export async function addRoadmapWindow(input: RoadmapWindowInput): Promise<Roadmap> {
-  await requireRootAdmin();
+  await requireFeature("azure");
   return save(createWindow(readRoadmap(), input));
 }
 
@@ -234,17 +234,17 @@ export async function updateRoadmapWindow(
   windowId: string,
   input: RoadmapWindowInput,
 ): Promise<Roadmap> {
-  await requireRootAdmin();
+  await requireFeature("azure");
   return save(updateWindow(readRoadmap(), windowId, input));
 }
 
 export async function deleteRoadmapWindow(windowId: string): Promise<Roadmap> {
-  await requireRootAdmin();
+  await requireFeature("azure");
   return save(deleteWindow(readRoadmap(), windowId));
 }
 
 export async function addRoadmapItem(windowId: string, rawId: string): Promise<Roadmap> {
-  await requireRootAdmin();
+  await requireFeature("azure");
   const workItemId = parseWorkItemId(rawId);
   let title: string;
   let type = "";
@@ -263,7 +263,7 @@ export async function addRoadmapItem(windowId: string, rawId: string): Promise<R
 }
 
 export async function removeRoadmapItem(itemId: string): Promise<Roadmap> {
-  await requireRootAdmin();
+  await requireFeature("azure");
   return save(removeItem(readRoadmap(), itemId));
 }
 
@@ -272,7 +272,7 @@ export async function scheduleRoadmapItem(
   startsOn: string,
   endsOn: string,
 ): Promise<Roadmap> {
-  await requireRootAdmin();
+  await requireFeature("azure");
   return save(scheduleItem(readRoadmap(), itemId, startsOn, endsOn));
 }
 
@@ -282,6 +282,6 @@ export async function placeRoadmapItem(
   targetIndex: number,
   range?: { startsOn: string; endsOn: string },
 ): Promise<Roadmap> {
-  await requireRootAdmin();
+  await requireFeature("azure");
   return save(placeItem(readRoadmap(), itemId, windowId, targetIndex, range));
 }

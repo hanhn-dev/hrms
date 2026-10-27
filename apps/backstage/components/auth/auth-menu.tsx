@@ -9,15 +9,25 @@ import {
 
 export function AuthMenu({
   configured,
+  authDisabled,
   providers,
   signedInName,
   isAdmin,
 }: {
   configured: boolean;
+  authDisabled: boolean;
   providers: Array<"microsoft-entra-id" | "dev">;
   signedInName?: string;
   isAdmin: boolean;
 }): React.JSX.Element | null {
+  if (authDisabled) {
+    return (
+      <span className="text-sm text-slate-500 dark:text-slate-400">
+        Auth off
+      </span>
+    );
+  }
+
   if (!configured) return null;
 
   if (!signedInName) {

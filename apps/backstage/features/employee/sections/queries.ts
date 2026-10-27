@@ -12,7 +12,7 @@ import {
   type SectionLookupRef,
   type SectionRecordRow,
 } from "@hrms/db";
-import { requireRootAdmin } from "@/shared/auth";
+import { requireFeature } from "@/shared/auth";
 import { getHrmsDb } from "@/shared/db";
 
 export type {
@@ -27,7 +27,7 @@ export async function getEmployeeSectionCounts(
   employerId: number,
   employmentNumber: string,
 ): Promise<EmployeeSectionCount[]> {
-  await requireRootAdmin();
+  await requireFeature("employers");
   return getEmployeeSectionCountsFromDb(
     await getHrmsDb(),
     employerId,
@@ -48,7 +48,7 @@ export async function loadSectionRecords(input: {
   employmentNumber: string;
   sectionId: number;
 }): Promise<SectionRecordsLoad> {
-  await requireRootAdmin();
+  await requireFeature("employers");
   const db = await getHrmsDb();
   const recordsLoaded = await captureQueryScript(() => listSectionRecords(db, input));
   return {
@@ -64,7 +64,7 @@ export async function loadPendingSectionRecords(input: {
   fields: SectionFormField[];
   liveRecords: SectionRecordRow[];
 }): Promise<{ pending: PendingSectionRow[]; pendingScript: string }> {
-  await requireRootAdmin();
+  await requireFeature("employers");
   const db = await getHrmsDb();
   const pendingLoaded = await captureQueryScript(() =>
     listPendingSectionRecords(db, input),
@@ -89,7 +89,7 @@ export async function getSectionRecordsPage(input: {
   recordsScript: string;
   pendingScript: string;
 }> {
-  await requireRootAdmin();
+  await requireFeature("employers");
   if (!isCrudSectionId(input.sectionId)) {
     const spec = sectionRecordSpecForId(input.sectionId);
     return {

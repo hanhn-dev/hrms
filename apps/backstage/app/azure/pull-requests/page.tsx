@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { PullRequestsScreen } from "@/features/azure/pull-requests";
-import { requireRootAdminPage } from "@/shared/auth";
+import { requireFeaturePage } from "@/shared/auth";
 import { SectionFallback } from "@/shared/ui/section-fallback";
 
 export default function AzurePullRequestsPage(): React.JSX.Element {
@@ -12,6 +12,6 @@ export default function AzurePullRequestsPage(): React.JSX.Element {
 }
 
 async function AzurePullRequestsPageBody(): Promise<React.JSX.Element> {
-  await requireRootAdminPage();
+  await requireFeaturePage("azure");
   return <PullRequestsScreen />;
 }

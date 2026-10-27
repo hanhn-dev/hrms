@@ -3,25 +3,31 @@
 import { useEffect, useState } from "react";
 import { AuthMenu } from "./auth-menu";
 
-interface SessionState {
+export interface BackstageSessionState {
   configured: boolean;
+  authDisabled: boolean;
   providers: Array<"microsoft-entra-id" | "dev">;
-  user: { name?: string; isAdmin: boolean } | null;
+  user: { name?: string; isAdmin: boolean; roles: string[] } | null;
 }
 
-export function AuthStatus(): React.JSX.Element | null {
-  const [state, setState] = useState<SessionState | undefined>();
+export function useBackstageSession(): BackstageSessionState | undefined {
+  const [state, setState] = useState<BackstageSessionState | undefined>();
 
   useEffect(() => {
     let cancelled = false;
     void fetch("/api/session")
-      .then((response) => response.json() as Promise<SessionState>)
+      .then((response) => response.json() as Promise<BackstageSessionState>)
       .then((next) => {
         if (!cancelled) setState(next);
       })
       .catch(() => {
         if (!cancelled) {
-          setState({ configured: false, providers: [], user: null });
+          setState({
+            configured: false,
+            authDisabled: false,
+            providers: [],
+            user: null,
+          });
         }
       });
     return () => {
@@ -29,14 +35,20 @@ export function AuthStatus(): React.JSX.Element | null {
     };
   }, []);
 
+  return state;
+}
+
+export function AuthStatus(): React.JSX.Element | null {
+  const state = useBackstageSession();
   if (!state) return null;
 
   return (
     <AuthMenu
+      authDisabled={state.authDisabled}
       configured={state.configured}
       isAdmin={Boolean(state.user?.isAdmin)}
       providers={state.providers}
-      signedInName={state.user?.name}
+      signedInName={state.authDisabled ? "Auth off" : state.user?.name}
     />
   );
 }

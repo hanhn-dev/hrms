@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import type { TeamIterationTimeframe } from "@hrms/azure-devops";
 import { SprintsScreen } from "@/features/azure/sprints";
-import { requireRootAdminPage } from "@/shared/auth";
+import { requireFeaturePage } from "@/shared/auth";
 import { SectionFallback } from "@/shared/ui/section-fallback";
 
 const TIME_FRAMES = new Set<TeamIterationTimeframe>(["past", "current", "future"]);
@@ -46,7 +46,7 @@ async function AzureSprintsPageBody({
     q?: string;
   }>;
 }): Promise<React.JSX.Element> {
-  await requireRootAdminPage();
+  await requireFeaturePage("azure");
   const params = await searchParams;
   return (
     <SprintsScreen

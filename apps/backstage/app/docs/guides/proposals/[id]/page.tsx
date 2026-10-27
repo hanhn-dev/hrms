@@ -1,8 +1,8 @@
 import { notFound, redirect } from "next/navigation";
-import { auth, isAuthConfigured } from "@/auth";
 import { ProposalReview } from "@/components/guides/proposal-review";
 import { readFeatureRaw } from "@/lib/guides";
 import { canAccessProposal, getProposal } from "@/lib/proposals";
+import { currentGateUser } from "@/shared/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -11,12 +11,9 @@ export default async function ProposalPage({
 }: {
   params: Promise<{ id: string }>;
 }): Promise<React.JSX.Element> {
-  if (!isAuthConfigured()) {
-    redirect("/docs/guides");
-  }
-  const session = await auth();
-  if (!session?.user) {
-    redirect("/docs/guides");
+  const user = await currentGateUser();
+  if (!user) {
+    redirect("/login");
   }
 
   const { id } = await params;
@@ -24,14 +21,14 @@ export default async function ProposalPage({
   if (!proposal) {
     notFound();
   }
-  if (!canAccessProposal(proposal, session.user)) {
+  if (!canAccessProposal(proposal, user)) {
     redirect("/docs/guides");
   }
 
   return (
     <ProposalReview
-      isAdmin={session.user.isAdmin}
-      isAuthor={proposal.author.oid === session.user.oid}
+      isAdmin={user.isAdmin}
+      isAuthor={proposal.author.oid === user.oid}
       proposal={proposal}
       publishedMarkdown={readFeatureRaw(proposal.slug)}
     />

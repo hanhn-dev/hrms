@@ -3,8 +3,11 @@ import { format } from "sql-formatter";
 import { NextResponse } from "next/server";
 import { isProcedureName, procedureDocHref } from "@/features/flows/procedure-doc";
 import { getInspectorConfig } from "@/shared/db/inspector";
+import { requireUser } from "@/lib/api-auth";
 
 export async function GET(request: Request): Promise<NextResponse> {
+  const gate = await requireUser();
+  if (!gate.ok) return gate.response;
   const url = new URL(request.url);
   const database = url.searchParams.get("database") ?? "";
   const name = url.searchParams.get("name") ?? "";

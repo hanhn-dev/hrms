@@ -1,17 +1,17 @@
 import { redirect } from "next/navigation";
-import { auth, isAuthConfigured } from "@/auth";
 import { ProposalList } from "@/components/guides/proposal-list";
 import { listProposals } from "@/lib/proposals";
+import { canAccess, currentGateUser } from "@/shared/auth";
 
 export const dynamic = "force-dynamic";
 
 export default async function ProposalsPage(): Promise<React.JSX.Element> {
-  if (!isAuthConfigured()) {
-    redirect("/docs/guides");
+  const user = await currentGateUser();
+  if (!user) {
+    redirect("/login");
   }
-  const session = await auth();
-  if (!session?.user.isAdmin) {
-    redirect("/docs/guides");
+  if (!canAccess(user.roles, "guides")) {
+    redirect("/forbidden?area=guides");
   }
 
   return (

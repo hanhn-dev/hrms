@@ -12,7 +12,7 @@ import {
   assertWritesEnabled,
   createConfirmToken,
   getAuditUserId,
-  requireRootAdmin,
+  requireFeature,
   verifyConfirmToken,
 } from "@/shared/auth";
 import { assertSameEnvironment, getHrmsDb, getSelectedEnvironment } from "@/shared/db";
@@ -55,7 +55,7 @@ export async function previewAssignRole(input: {
   preview: Array<Record<string, unknown>>;
   note?: string;
 }> {
-  await requireRootAdmin();
+  await requireFeature("employers");
   const env = await getSelectedEnvironment();
   assertWritesEnabled(env);
   const identity = await requireResolvedEmployee(
@@ -86,7 +86,7 @@ export async function previewAssignRole(input: {
 export async function commitAssignRole(
   token: string,
 ): Promise<{ after: Array<Record<string, unknown>>; note?: string }> {
-  await requireRootAdmin();
+  await requireFeature("employers");
   const payload = verifyConfirmToken(token, assignRolePayloadSchema);
   await assertSameEnvironment(payload.env);
   assertWritesEnabled(payload.env);
@@ -116,7 +116,7 @@ export async function previewGrantRevokeUserPages(input: {
   preview: Array<Record<string, unknown>>;
   note?: string;
 }> {
-  await requireRootAdmin();
+  await requireFeature("employers");
   const env = await getSelectedEnvironment();
   assertWritesEnabled(env);
   const identity = await requireResolvedEmployee(
@@ -173,7 +173,7 @@ export async function previewGrantRevokeUserPages(input: {
 export async function commitGrantRevokeUserPages(
   token: string,
 ): Promise<{ after: Array<Record<string, unknown>>; note?: string }> {
-  await requireRootAdmin();
+  await requireFeature("employers");
   const payload = verifyConfirmToken(token, grantRevokePayloadSchema);
   await assertSameEnvironment(payload.env);
   assertWritesEnabled(payload.env);

@@ -3,7 +3,7 @@ import {
   getEmployerSettings as getEmployerSettingsFromDb,
   listLicensedModules as listLicensedModulesFromDb,
 } from "@hrms/db";
-import { requireRootAdmin } from "@/shared/auth";
+import { requireFeature } from "@/shared/auth";
 import { getHrmsDb } from "@/shared/db";
 
 export type {
@@ -13,16 +13,16 @@ export type {
 } from "@hrms/db";
 
 export async function getEmployerSettings(employerId: number) {
-  await requireRootAdmin();
+  await requireFeature("employers");
   return getEmployerSettingsFromDb(await getHrmsDb(), employerId);
 }
 
 export async function listLicensedModules(employerId: number) {
-  await requireRootAdmin();
+  await requireFeature("employers");
   return listLicensedModulesFromDb(await getHrmsDb(), employerId);
 }
 
 export async function getCustomerSettings(employerId: number) {
-  await requireRootAdmin();
+  await requireFeature("employers");
   return getCustomerSettingsFromDb(await getHrmsDb(), employerId);
 }

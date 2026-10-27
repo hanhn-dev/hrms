@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import { describe, it } from "vitest";
-import { accountMenuLinks, signOutMenuItem } from "./account-menu-links.ts";
+import {
+  accountLinksForRoles,
+  accountMenuLinks,
+  signOutMenuItem,
+} from "./account-menu-links.ts";
 
 describe("accountMenuLinks", () => {
   it("lists All employers and the site destinations in menu order", () => {
@@ -28,6 +32,23 @@ describe("accountMenuLinks", () => {
     assert.equal(
       accountMenuLinks.some((link) => link.key === signOutMenuItem.key),
       false,
+    );
+  });
+});
+
+describe("accountLinksForRoles", () => {
+  it("hides operator destinations the roles do not include", () => {
+    assert.deepEqual(
+      accountLinksForRoles(["Backstage.Azure"]).map((link) => link.href),
+      ["/docs", "/wiki", "/azure", "/flows", "/settings"],
+    );
+    assert.equal(
+      accountLinksForRoles(["Backstage.Admin"]).length,
+      accountMenuLinks.length,
+    );
+    assert.deepEqual(
+      accountLinksForRoles([]).map((link) => link.href),
+      ["/docs", "/wiki", "/flows", "/settings"],
     );
   });
 });

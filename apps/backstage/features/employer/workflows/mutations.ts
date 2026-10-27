@@ -16,7 +16,7 @@ import {
   assertWritesEnabled,
   createConfirmToken,
   getAuditUserId,
-  requireRootAdmin,
+  requireFeature,
   verifyConfirmToken,
 } from "@/shared/auth";
 import { assertSameEnvironment, getHrmsDb, getSelectedEnvironment } from "@/shared/db";
@@ -114,7 +114,7 @@ export async function previewCreateWorkflowHeader(
   preview: Array<Record<string, unknown>>;
   note?: string;
 }> {
-  await requireRootAdmin();
+  await requireFeature("employers");
   const env = await getSelectedEnvironment();
   assertWritesEnabled(env);
   const parsed = headerFieldsSchema.parse(input);
@@ -150,7 +150,7 @@ export async function commitCreateWorkflowHeader(token: string): Promise<{
   after: Array<Record<string, unknown>>;
   note?: string;
 }> {
-  await requireRootAdmin();
+  await requireFeature("employers");
   const payload = verifyConfirmToken(token, createHeaderPayloadSchema);
   await assertSameEnvironment(payload.env);
   assertWritesEnabled(payload.env);
@@ -171,7 +171,7 @@ export async function previewUpdateWorkflowHeader(
   preview: Array<Record<string, unknown>>;
   note?: string;
 }> {
-  await requireRootAdmin();
+  await requireFeature("employers");
   const env = await getSelectedEnvironment();
   assertWritesEnabled(env);
   const parsed = headerFieldsSchema.extend({
@@ -213,7 +213,7 @@ export async function commitUpdateWorkflowHeader(token: string): Promise<{
   after: Array<Record<string, unknown>>;
   note?: string;
 }> {
-  await requireRootAdmin();
+  await requireFeature("employers");
   const payload = verifyConfirmToken(token, updateHeaderPayloadSchema);
   await assertSameEnvironment(payload.env);
   assertWritesEnabled(payload.env);
@@ -241,7 +241,7 @@ export async function previewUpdateWorkflowTree(input: {
   preview: Array<Record<string, unknown>>;
   note?: string;
 }> {
-  await requireRootAdmin();
+  await requireFeature("employers");
   const env = await getSelectedEnvironment();
   assertWritesEnabled(env);
   const tree = treeSchema.parse(input.tree) as WorkflowTree;
@@ -276,7 +276,7 @@ export async function commitUpdateWorkflowTree(token: string): Promise<{
   after: Array<Record<string, unknown>>;
   note?: string;
 }> {
-  await requireRootAdmin();
+  await requireFeature("employers");
   const payload = verifyConfirmToken(token, updateTreePayloadSchema);
   await assertSameEnvironment(payload.env);
   assertWritesEnabled(payload.env);
@@ -319,7 +319,7 @@ export async function previewDecideChangeRequest(
   preview: Array<Record<string, unknown>>;
   note?: string;
 }> {
-  await requireRootAdmin();
+  await requireFeature("employers");
   const env = await getSelectedEnvironment();
   assertWritesEnabled(env);
   const parsed = decideChangeRequestSchema.parse(input);
@@ -339,7 +339,7 @@ export async function commitDecideChangeRequest(token: string): Promise<{
   after: Array<Record<string, unknown>>;
   note?: string;
 }> {
-  await requireRootAdmin();
+  await requireFeature("employers");
   const payload = verifyConfirmToken(token, decideChangeRequestPayloadSchema);
   await assertSameEnvironment(payload.env);
   assertWritesEnabled(payload.env);

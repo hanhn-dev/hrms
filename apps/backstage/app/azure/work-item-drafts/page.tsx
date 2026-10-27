@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { WorkItemDraftsScreen } from "@/features/azure/work-item-drafts";
-import { requireRootAdminPage } from "@/shared/auth";
+import { requireFeaturePage } from "@/shared/auth";
 import { SectionFallback } from "@/shared/ui/section-fallback";
 
 export default function AzureWorkItemDraftsPage(): React.JSX.Element {
@@ -12,6 +12,6 @@ export default function AzureWorkItemDraftsPage(): React.JSX.Element {
 }
 
 async function AzureWorkItemDraftsPageBody(): Promise<React.JSX.Element> {
-  await requireRootAdminPage();
+  await requireFeaturePage("azure");
   return <WorkItemDraftsScreen />;
 }

@@ -3,7 +3,7 @@ import {
   resolveEmployee as resolveEmployeeFromDb,
   type ResolvedEmployee,
 } from "@hrms/db";
-import { requireRootAdmin } from "@/shared/auth";
+import { requireFeature } from "@/shared/auth";
 import { getHrmsDb } from "@/shared/db";
 
 export type { ResolvedEmployee };
@@ -24,7 +24,7 @@ export async function getEmployeeShell(
   employerId: number,
   employmentNumber: string,
 ): Promise<EmployeeShell | null> {
-  await requireRootAdmin();
+  await requireFeature("employers");
   const employee = await resolveEmployee(employerId, employmentNumber);
   if (!employee) {
     return null;

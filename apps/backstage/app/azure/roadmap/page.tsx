@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { RoadmapScreen } from "@/features/azure/roadmap";
 import { resolveRoadmapTeams } from "@/features/azure/roadmap/sprints";
-import { requireRootAdminPage } from "@/shared/auth";
+import { requireFeaturePage } from "@/shared/auth";
 import { SectionFallback } from "@/shared/ui/section-fallback";
 
 type RoadmapSearchParams = {
@@ -25,7 +25,7 @@ async function AzureRoadmapPageBody({
 }: {
   searchParams: Promise<RoadmapSearchParams>;
 }): Promise<React.JSX.Element> {
-  await requireRootAdminPage();
+  await requireFeaturePage("azure");
   const params = await searchParams;
   return <RoadmapScreen selectedTeams={resolveRoadmapTeams(params.teams)} />;
 }

@@ -12,7 +12,7 @@ import {
   type DataFixColumnTarget,
   type DataFixTableHit,
 } from "@hrms/db";
-import { requireRootAdmin } from "@/shared/auth";
+import { requireFeature } from "@/shared/auth";
 import { getHrmsDb } from "@/shared/db";
 
 export type { ColumnFilterInput, DataFixBrowse, DataFixColumnHit, DataFixColumnTarget, DataFixTableHit };
@@ -20,7 +20,7 @@ export type { ColumnFilterInput, DataFixBrowse, DataFixColumnHit, DataFixColumnT
 export async function searchColumns(
   query: string,
 ): Promise<{ hits: DataFixColumnHit[]; queryScript: string }> {
-  await requireRootAdmin();
+  await requireFeature("employers");
   const db = await getHrmsDb();
   const loaded = await captureQueryScript(() => searchDataFixColumns(db, query));
   return { hits: loaded.result, queryScript: loaded.script };
@@ -29,7 +29,7 @@ export async function searchColumns(
 export async function searchTables(
   query: string,
 ): Promise<{ hits: DataFixTableHit[]; queryScript: string }> {
-  await requireRootAdmin();
+  await requireFeature("employers");
   const db = await getHrmsDb();
   const loaded = await captureQueryScript(() => searchDataFixTables(db, query));
   return { hits: loaded.result, queryScript: loaded.script };
@@ -43,7 +43,7 @@ export async function browseTable(input: {
   newestFirst?: boolean;
   columnFilters?: ColumnFilterInput[];
 }): Promise<DataFixBrowse & { queryScript: string }> {
-  await requireRootAdmin();
+  await requireFeature("employers");
   const db = await getHrmsDb();
   const loaded = await captureQueryScript(() => browseDataFixTable(db, input));
   return { ...loaded.result, queryScript: loaded.script };
@@ -54,6 +54,6 @@ export async function openColumn(input: {
   table: string;
   column: string;
 }): Promise<DataFixColumnTarget | null> {
-  await requireRootAdmin();
+  await requireFeature("employers");
   return loadDataFixColumn(await getHrmsDb(), input);
 }

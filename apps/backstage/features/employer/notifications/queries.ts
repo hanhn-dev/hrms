@@ -4,7 +4,7 @@ import {
   type EmailNotificationFilters,
   type PendingInboxFilters,
 } from "@hrms/db";
-import { requireRootAdmin } from "@/shared/auth";
+import { requireFeature } from "@/shared/auth";
 import { getHrmsDb } from "@/shared/db";
 
 export type {
@@ -21,7 +21,7 @@ export async function listEmailNotifications(
   employerId: number,
   filters: EmailNotificationFilters,
 ) {
-  await requireRootAdmin();
+  await requireFeature("employers");
   return listEmailNotificationsFromDb(await getHrmsDb(), employerId, filters);
 }
 
@@ -29,6 +29,6 @@ export async function listPendingInbox(
   employerId: number,
   filters: PendingInboxFilters,
 ) {
-  await requireRootAdmin();
+  await requireFeature("employers");
   return listPendingInboxFromDb(await getHrmsDb(), employerId, filters);
 }

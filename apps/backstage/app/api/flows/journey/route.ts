@@ -1,8 +1,11 @@
 import { NextResponse } from "next/server";
 import { loadFlowGraph } from "@/features/flows/load-graph";
 import { buildJourney } from "@/features/flows/query";
+import { requireUser } from "@/lib/api-auth";
 
-export function GET(request: Request): NextResponse {
+export async function GET(request: Request): Promise<NextResponse> {
+  const gate = await requireUser();
+  if (!gate.ok) return gate.response;
   const id = new URL(request.url).searchParams.get("id") ?? "";
   if (!id) return NextResponse.json({ journey: null }, { status: 400 });
   try {

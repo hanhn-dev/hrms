@@ -5,7 +5,7 @@ import {
   assertWritesEnabled,
   createConfirmToken,
   getAuditUserId,
-  requireRootAdmin,
+  requireFeature,
   verifyConfirmToken,
 } from "@/shared/auth";
 import { assertSameEnvironment, getHrmsDb, getSelectedEnvironment } from "@/shared/db";
@@ -37,7 +37,7 @@ export async function previewMasterDataChange(input: unknown): Promise<{
   preview: Array<Record<string, unknown>>;
   note?: string;
 }> {
-  await requireRootAdmin();
+  await requireFeature("employers");
   const env = await getSelectedEnvironment();
   assertWritesEnabled(env);
   const parsed = parseMasterDataWriteInput(input);
@@ -67,7 +67,7 @@ export async function previewMasterDataChange(input: unknown): Promise<{
 export async function commitMasterDataChange(
   token: string,
 ): Promise<{ after: Array<Record<string, unknown>>; note?: string }> {
-  await requireRootAdmin();
+  await requireFeature("employers");
   const payload = verifyConfirmToken(token, masterDataWriteTokenSchema);
   await assertSameEnvironment(payload.env);
   assertWritesEnabled(payload.env);

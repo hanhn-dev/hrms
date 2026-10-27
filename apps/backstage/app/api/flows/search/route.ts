@@ -1,10 +1,13 @@
 import { NextResponse } from "next/server";
 import { searchFeatureDocs } from "@/features/flows/feature-search";
+import { requireUser } from "@/lib/api-auth";
 import { loadFlowGraph } from "@/features/flows/load-graph";
 import { searchNodes } from "@/features/flows/query";
 import { getCurrentFlowDocs } from "@/lib/flow-docs";
 
-export function GET(request: Request): NextResponse {
+export async function GET(request: Request): Promise<NextResponse> {
+  const gate = await requireUser();
+  if (!gate.ok) return gate.response;
   const query = new URL(request.url).searchParams.get("q") ?? "";
   const features = searchFeatureDocs(
     getCurrentFlowDocs().map((doc) => ({

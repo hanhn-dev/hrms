@@ -8,7 +8,7 @@ import {
   scheduleSprintItem,
 } from "@/features/azure/roadmap/roadmap";
 import { readRoadmap, writeRoadmap } from "@/features/azure/roadmap/roadmap-store";
-import { requireRootAdmin } from "@/shared/auth";
+import { requireApiFeature } from "@/lib/api-auth";
 
 const ScheduleBody = z.object({
   op: z.literal("schedule"),
@@ -60,11 +60,8 @@ const Body = z.discriminatedUnion("op", [
 ]);
 
 export async function POST(request: Request): Promise<NextResponse> {
-  try {
-    await requireRootAdmin();
-  } catch {
-    return NextResponse.json({ error: "Root admin session required." }, { status: 401 });
-  }
+  const gate = await requireApiFeature("azure");
+  if (!gate.ok) return gate.response;
   const parsed = Body.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
     return NextResponse.json({ error: "Could not save the roadmap." }, { status: 400 });

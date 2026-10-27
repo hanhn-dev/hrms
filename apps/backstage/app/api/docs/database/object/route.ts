@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { loadDatabaseObject, loadObjectKinds } from "@/features/docs/object-panel/load-object";
+import { requireUser } from "@/lib/api-auth";
 
 const querySchema = z.object({
   schema: z.string().trim().min(1).max(128),
@@ -20,6 +21,8 @@ const kindsSchema = z.object({
 });
 
 export async function GET(request: Request): Promise<NextResponse> {
+  const gate = await requireUser();
+  if (!gate.ok) return gate.response;
   const url = new URL(request.url);
   const parsed = querySchema.safeParse({
     schema: url.searchParams.get("schema") ?? "",
@@ -40,6 +43,8 @@ export async function GET(request: Request): Promise<NextResponse> {
 }
 
 export async function POST(request: Request): Promise<NextResponse> {
+  const gate = await requireUser();
+  if (!gate.ok) return gate.response;
   const parsed = kindsSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
     return NextResponse.json({ kinds: [] }, { status: 400 });

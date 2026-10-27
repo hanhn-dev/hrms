@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { BoardScreen } from "@/features/azure/board";
-import { requireRootAdminPage } from "@/shared/auth";
+import { requireFeaturePage } from "@/shared/auth";
 import { SectionFallback } from "@/shared/ui/section-fallback";
 
 function parseView(value: string | undefined): "board" | "people" {
@@ -39,7 +39,7 @@ async function AzureBoardPageBody({
 }: {
   searchParams: Promise<BoardSearchParams>;
 }): Promise<React.JSX.Element> {
-  await requireRootAdminPage();
+  await requireFeaturePage("azure");
   const params = await searchParams;
   return (
     <BoardScreen

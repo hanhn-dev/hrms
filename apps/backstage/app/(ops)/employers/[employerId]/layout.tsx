@@ -1,7 +1,7 @@
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import { listEmployers } from "@/features/employer/picker";
 import { getEmployerSettings } from "@/features/employer/settings";
-import { areWritesEnabled, auth } from "@/shared/auth";
+import { areWritesEnabled, requireFeaturePage } from "@/shared/auth";
 import { getSelectedEnvironment } from "@/shared/db";
 import { listConfiguredEnvironments } from "@/shared/db/environments";
 import { parsePositiveInt } from "@/shared/routing";
@@ -14,10 +14,7 @@ export default async function EmployerLayout({
   children: React.ReactNode;
   params: Promise<{ employerId: string }>;
 }): Promise<React.JSX.Element> {
-  const session = await auth();
-  if (!session?.user?.isRootAdmin) {
-    redirect("/login");
-  }
+  const user = await requireFeaturePage("employers");
   const { employerId: rawId } = await params;
   const employerId = parsePositiveInt(rawId);
   const [settings, employers, environment] = await Promise.all([
@@ -34,7 +31,8 @@ export default async function EmployerLayout({
       employers={employers}
       environment={environment}
       environments={listConfiguredEnvironments()}
-      userName={session.user.name ?? "Root Admin"}
+      roles={user.roles}
+      userName={user.name ?? "Signed in"}
       writesEnabled={areWritesEnabled(environment)}
     >
       {children}

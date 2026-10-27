@@ -17,7 +17,7 @@ import {
   getDonePullRequestIds as getDonePullRequestIdsFromStore,
   setPullRequestDone,
 } from "@/features/azure/pull-requests/done-store";
-import { requireRootAdmin } from "@/shared/auth";
+import { requireFeature } from "@/shared/auth";
 import { getAzureDevOpsClient } from "@/shared/azure";
 
 export type { PullRequestSearchResult, WorkItem };
@@ -29,7 +29,7 @@ export type PullRequestSearchOptions = {
 };
 
 export async function loadPullRequestSearchOptions(): Promise<PullRequestSearchOptions> {
-  await requireRootAdmin();
+  await requireFeature("azure");
   const client = getAzureDevOpsClient();
   const [teamMembers, modules, iterations] = await Promise.all([
     listProjectMembers(client),
@@ -42,12 +42,12 @@ export async function loadPullRequestSearchOptions(): Promise<PullRequestSearchO
 export async function searchPullRequests(
   criteria: PullRequestSearchCriteria,
 ): Promise<PullRequestSearchResult> {
-  await requireRootAdmin();
+  await requireFeature("azure");
   return searchPullRequestsInAzure(getAzureDevOpsClient(), criteria);
 }
 
 export async function getWorkItemDetail(id: number): Promise<WorkItem> {
-  await requireRootAdmin();
+  await requireFeature("azure");
   return getWorkItem(getAzureDevOpsClient(), id);
 }
 
@@ -55,7 +55,7 @@ export async function getWorkItemDetail(id: number): Promise<WorkItem> {
 export async function getDonePullRequestIds(
   pullRequestIds: readonly number[],
 ): Promise<number[]> {
-  await requireRootAdmin();
+  await requireFeature("azure");
   return getDonePullRequestIdsFromStore(pullRequestIds);
 }
 
@@ -63,6 +63,6 @@ export async function markPullRequestDone(
   pullRequestId: number,
   done: boolean,
 ): Promise<void> {
-  const session = await requireRootAdmin();
+  const session = await requireFeature("azure");
   setPullRequestDone(pullRequestId, done, session.name ?? session.email ?? null);
 }
