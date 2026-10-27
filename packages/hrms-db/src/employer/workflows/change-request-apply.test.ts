@@ -13,6 +13,8 @@ import {
   omitIsDeleteOnInsert,
   pendingApproverFlag,
   resolveApplyValue,
+  updateAssignmentColumns,
+  updateStampColumns,
 } from "./change-request-apply.ts";
 
 describe("changeRequestStatus", () => {
@@ -342,6 +344,48 @@ describe("buildApplyPlan", () => {
           columns,
         ),
       /ChildRowId/,
+    );
+  });
+});
+
+describe("updateAssignmentColumns", () => {
+  const educationColumns = [
+    "EducationId",
+    "Discipline",
+    "Grade",
+    "LastUpdatedBy",
+    "LastUpdatedOn",
+    "CreatedDateUtc",
+    "UpdatedDateUtc",
+  ];
+
+  it("stamps LastUpdatedBy once when the change request also submits it", () => {
+    assert.deepEqual(updateStampColumns(educationColumns), [
+      { column: "LastUpdatedBy", source: "approver" },
+      { column: "LastUpdatedOn", source: "now" },
+      { column: "UpdatedDateUtc", source: "utc" },
+    ]);
+    const columns = updateAssignmentColumns(
+      ["Discipline", "LastUpdatedBy", "Grade", "LastUpdatedBy"],
+      educationColumns,
+    );
+    assert.deepEqual(columns, [
+      "Discipline",
+      "Grade",
+      "LastUpdatedBy",
+      "LastUpdatedOn",
+      "UpdatedDateUtc",
+    ]);
+    assert.equal(columns.filter((column) => column === "LastUpdatedBy").length, 1);
+  });
+
+  it("keeps a submitted LastUpdatedBy when the table stamps UpdatedBy instead", () => {
+    assert.deepEqual(
+      updateAssignmentColumns(
+        ["FName", "LastUpdatedBy"],
+        ["FName", "UpdatedBy", "LastUpdatedBy", "UpdatedDate"],
+      ),
+      ["FName", "LastUpdatedBy", "UpdatedBy", "UpdatedDate"],
     );
   });
 });

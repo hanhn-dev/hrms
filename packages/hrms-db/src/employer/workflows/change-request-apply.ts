@@ -335,3 +335,78 @@ export function pendingApproverFlag(
 ): boolean {
   return new Set(pendingManagerIds).has(employeeId);
 }
+
+const UPDATE_STAMP_BY = ["UpdatedBy", "LastUpdatedBy", "ModifiedBy"] as const;
+const UPDATE_STAMP_AT = ["UpdatedDate", "LastUpdatedOn", "ModifiedDate"] as const;
+const UPDATE_STAMP_UTC = [
+  "UpdatedDateUtc",
+  "UpdatedDateUtcTime",
+  "LastUpdatedOnUtcTime",
+  "ModifiedDateUtcTime",
+  "CreatedDateUtc",
+  "CreatedDateUtcTime",
+] as const;
+
+export type UpdateStamp = {
+  column: string;
+  source: "approver" | "now" | "utc";
+};
+
+function pickTableColumn(columns: Iterable<string>, candidates: readonly string[]): string | null {
+  const lookup = new Map([...columns].map((name) => [name.toLowerCase(), name]));
+  for (const candidate of candidates) {
+    const match = lookup.get(candidate.toLowerCase());
+    if (match) {
+      return match;
+    }
+  }
+  return null;
+}
+
+/**
+ * Audit columns appended to an approve UPDATE. One column per role.
+ * Education change requests also store LastUpdatedBy as a field diff; the caller
+ * must not emit that column again.
+ */
+export function updateStampColumns(tableColumns: Iterable<string>): UpdateStamp[] {
+  const stamps: UpdateStamp[] = [];
+  const by = pickTableColumn(tableColumns, UPDATE_STAMP_BY);
+  const at = pickTableColumn(tableColumns, UPDATE_STAMP_AT);
+  const utc = pickTableColumn(tableColumns, UPDATE_STAMP_UTC);
+  if (by) {
+    stamps.push({ column: by, source: "approver" });
+  }
+  if (at) {
+    stamps.push({ column: at, source: "now" });
+  }
+  if (utc && utc.toLowerCase().includes("upd")) {
+    stamps.push({ column: utc, source: "utc" });
+  }
+  return stamps;
+}
+
+/**
+ * SET-list columns for an approve UPDATE. Stamp columns replace a submitted
+ * value of the same name so SQL Server does not see the column twice.
+ */
+export function updateAssignmentColumns(
+  writeColumns: readonly string[],
+  tableColumns: Iterable<string>,
+): string[] {
+  const stamps = updateStampColumns(tableColumns);
+  const stamped = new Set(stamps.map((stamp) => stamp.column.toLowerCase()));
+  const seen = new Set<string>();
+  const columns: string[] = [];
+  for (const column of writeColumns) {
+    const key = column.toLowerCase();
+    if (stamped.has(key) || seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    columns.push(column);
+  }
+  for (const stamp of stamps) {
+    columns.push(stamp.column);
+  }
+  return columns;
+}

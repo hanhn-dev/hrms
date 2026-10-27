@@ -16,6 +16,8 @@ import {
   groupApplyWrites,
   isApplyTable,
   omitIsDeleteOnInsert,
+  updateAssignmentColumns,
+  updateStampColumns,
   type ApplyColumnTypes,
   type ApplyTableName,
   type ApplyWrite,
@@ -214,56 +216,18 @@ function resolvePk(table: ApplyTableName, columns: ColumnRow[]): string {
   return PK_FALLBACK[table];
 }
 
-function stampSets(
-  columns: Set<string>,
+function stampSql(
+  column: string,
+  source: "approver" | "now" | "utc",
   approverEmployeeId: number,
-  kind: "update" | "insert",
-): Prisma.Sql[] {
-  const sets: Prisma.Sql[] = [];
-  const by = pickColumn(
-    columns,
-    kind === "insert"
-      ? ["UpdatedBy", "LastUpdatedBy", "ModifiedBy", "CreatedBy"]
-      : ["UpdatedBy", "LastUpdatedBy", "ModifiedBy"],
-  );
-  const at = pickColumn(
-    columns,
-    kind === "insert"
-      ? ["UpdatedDate", "LastUpdatedOn", "ModifiedDate", "CreatedDate"]
-      : ["UpdatedDate", "LastUpdatedOn", "ModifiedDate"],
-  );
-  const utc = pickColumn(columns, [
-    "UpdatedDateUtc",
-    "UpdatedDateUtcTime",
-    "LastUpdatedOnUtcTime",
-    "ModifiedDateUtcTime",
-    "CreatedDateUtc",
-    "CreatedDateUtcTime",
-  ]);
-  if (kind === "insert") {
-    const createdBy = pickColumn(columns, ["CreatedBy"]);
-    const createdDate = pickColumn(columns, ["CreatedDate"]);
-    const createdUtc = pickColumn(columns, ["CreatedDateUtc", "CreatedDateUtcTime"]);
-    if (createdBy) {
-      sets.push(Prisma.sql`${sqlIdent(createdBy)} = ${approverEmployeeId}`);
-    }
-    if (createdDate) {
-      sets.push(Prisma.sql`${sqlIdent(createdDate)} = GETDATE()`);
-    }
-    if (createdUtc) {
-      sets.push(Prisma.sql`${sqlIdent(createdUtc)} = GETUTCDATE()`);
-    }
+): Prisma.Sql {
+  if (source === "approver") {
+    return Prisma.sql`${sqlIdent(column)} = ${approverEmployeeId}`;
   }
-  if (by) {
-    sets.push(Prisma.sql`${sqlIdent(by)} = ${approverEmployeeId}`);
+  if (source === "now") {
+    return Prisma.sql`${sqlIdent(column)} = GETDATE()`;
   }
-  if (at) {
-    sets.push(Prisma.sql`${sqlIdent(at)} = GETDATE()`);
-  }
-  if (utc && utc.toLowerCase().includes("upd")) {
-    sets.push(Prisma.sql`${sqlIdent(utc)} = GETUTCDATE()`);
-  }
-  return sets;
+  return Prisma.sql`${sqlIdent(column)} = GETUTCDATE()`;
 }
 
 async function tableExists(tx: Tx, table: string): Promise<boolean> {
@@ -369,10 +333,30 @@ async function applyUpdates(
     if (table === "TEmployee") {
       await snapshotHistory(tx, table, pk, childRowId, notes);
     }
-    const sets = [
-      ...group.map((write) => Prisma.sql`${sqlIdent(write.column)} = ${write.value}`),
-      ...stampSets(columns, approverEmployeeId, "update"),
-    ];
+    const stamps = updateStampColumns(columns);
+    const stamped = new Set(stamps.map((stamp) => stamp.column.toLowerCase()));
+    const byColumn = new Map<string, ApplyWrite>();
+    for (const write of group) {
+      const key = write.column.toLowerCase();
+      if (stamped.has(key) || byColumn.has(key)) {
+        continue;
+      }
+      byColumn.set(key, write);
+    }
+    const sets = updateAssignmentColumns(
+      group.map((write) => write.column),
+      columns,
+    ).map((column) => {
+      const write = byColumn.get(column.toLowerCase());
+      if (write) {
+        return Prisma.sql`${sqlIdent(write.column)} = ${write.value}`;
+      }
+      const stamp = stamps.find((item) => item.column.toLowerCase() === column.toLowerCase());
+      if (!stamp) {
+        throw new Error(`${table}.${column} has no value to apply.`);
+      }
+      return stampSql(stamp.column, stamp.source, approverEmployeeId);
+    });
     const updated = await tx.$executeRaw`
       UPDATE dbo.${sqlIdent(table)}
       SET ${Prisma.join(sets)}
