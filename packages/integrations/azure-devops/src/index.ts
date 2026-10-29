@@ -144,3 +144,35 @@ export { getWorkItemFieldRevisions } from './work-item-revisions.js';
 export { listPullRequestThreads } from './pull-request-threads.js';
 export { getIterationWorkItems, listTeamIterations } from './iterations.js';
 export { listTaskboardColumns, listTaskboardWorkItemColumns } from './taskboard.js';
+export type {
+	CompareGitCommitsInput,
+	GitAuthorActivity,
+	GitAuthorPullRequest,
+	GitBranchSummary,
+	GitChangeType,
+	GitChangedFile,
+	GitCommitCompare,
+	GitCommitDetail,
+	GitCommitPage,
+	GitCommitPullRequest,
+	GitCommitSummary,
+	GitFilePair,
+	GitFileSide,
+	GitFileVersion,
+	GitLineDiffBlock,
+	GitRepositorySummary,
+	ListGitAuthorActivityInput,
+	ListGitCommitsInput,
+	ReadGitFilePairInput,
+} from './git-trace.js';
+export {
+	GIT_CHANGE_PAGE_SIZE,
+	GIT_COMMIT_PAGE_SIZE,
+	compareGitCommits,
+	getGitCommitDetail,
+	listGitAuthorActivity,
+	listGitBranches,
+	listGitCommits,
+	listGitRepositories,
+	readGitFilePair,
+} from './git-trace.js';

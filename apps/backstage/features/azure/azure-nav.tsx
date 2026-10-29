@@ -6,10 +6,10 @@ const ACTIVE_LINK_CLASS = "text-sm font-semibold text-slate-900 dark:text-white"
 export function AzureNav({
   active,
 }: {
-  active?: "board" | "sprints" | "roadmap" | "pull-requests" | "work-item-drafts";
+  active?: "board" | "sprints" | "roadmap" | "pull-requests" | "git" | "work-item-drafts";
 }): React.JSX.Element {
   return (
-    <nav className="flex items-center gap-4">
+    <nav className="flex flex-wrap items-center gap-4">
       <Link
         className={active === "board" ? ACTIVE_LINK_CLASS : LINK_CLASS}
         href="/azure/board"
@@ -33,6 +33,12 @@ export function AzureNav({
         href="/azure/pull-requests"
       >
         Pull requests
+      </Link>
+      <Link
+        className={active === "git" ? ACTIVE_LINK_CLASS : LINK_CLASS}
+        href="/azure/git"
+      >
+        Git
       </Link>
       <Link
         className={active === "work-item-drafts" ? ACTIVE_LINK_CLASS : LINK_CLASS}

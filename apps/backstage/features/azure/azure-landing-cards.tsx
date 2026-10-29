@@ -4,6 +4,7 @@ import {
   AppstoreOutlined,
   BranchesOutlined,
   CalendarOutlined,
+  DiffOutlined,
   FileSearchOutlined,
   PullRequestOutlined,
 } from "@ant-design/icons";
@@ -44,6 +45,14 @@ export function AzureLandingCards(): React.JSX.Element {
             <PullRequestOutlined />
             Look up every pull request linked to a set of work items and build a
             cherry-pick command.
+          </div>
+        </Card>
+      </Link>
+      <Link href="/azure/git">
+        <Card hoverable title="Git">
+          <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
+            <DiffOutlined />
+            Trace who committed a change, compare two commits, and diff one file across branches.
           </div>
         </Card>
       </Link>

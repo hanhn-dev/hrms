@@ -105,6 +105,7 @@ Ops screens: antd only (no `@hrms/ui`). Docs chrome stays Tailwind. Mount antd p
 | `/dbs` | Data Builder Studio (schema canvas, SELECT, gated SP exec, env compare) | `features/dbs` |
 | `/azure`, `/azure/sprints`, `/azure/pull-requests` | Azure DevOps operator tools (sprints, PR lookup) | `features/azure/*` |
 | `/azure/board` | Sprint taskboard. Opens on Team Sprinter and the current sprint. | `features/azure/board` |
+| `/azure/git` | Trace commits, compare two commits, and diff one file across branches. | `features/azure/git` |
 | `/azure/work-item-drafts` | Review SQL performance draft PBIs; Publish creates the ADO work item | `features/azure/work-item-drafts` ← `content/azure/_work-item-drafts/` |
 | `/azure/roadmap` | Timeline of named date windows and the active sprint. Sprint rank and dates are saved in Backstage and are not written to Azure DevOps. | `features/azure/roadmap` ← `content/azure/_roadmap/roadmap.json` |
 | `/employers/[employerId]/...` | Employer/employee diagnostics and gated writes | `features/employee/*`, `features/employer/*` |
