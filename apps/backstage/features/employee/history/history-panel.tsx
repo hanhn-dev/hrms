@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useTransition } from "react";
+import { useTransition } from "react";
+
 import { usePathname, useRouter } from "next/navigation";
 import {
   Card,
@@ -13,7 +14,7 @@ import {
   Tag,
   Typography,
 } from "antd";
-import dayjs, { type Dayjs } from "dayjs";
+import dayjs from "dayjs";
 import { DataTable } from "@/shared/ui/data-table";
 import {
   HISTORY_SECTIONS,
@@ -69,12 +70,12 @@ export function HistoryPanel({
   const pathname = usePathname();
   const [pending, startTransition] = useTransition();
 
-  const dateRange = useMemo((): [Dayjs | null, Dayjs | null] | null => {
+  const dateRange: [dayjs.Dayjs | null, dayjs.Dayjs | null] | null = (() => {
     if (!from && !to) {
       return null;
     }
     return [from ? dayjs(from) : null, to ? dayjs(to) : null];
-  }, [from, to]);
+  })();
 
   function updateQuery(patch: Record<string, string | null>): void {
     const next = new URLSearchParams();

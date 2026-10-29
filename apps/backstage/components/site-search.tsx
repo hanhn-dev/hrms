@@ -2,14 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import {
-  useCallback,
-  useEffect,
-  useId,
-  useRef,
-  useState,
-  type KeyboardEvent,
-} from "react";
+import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 import type { SearchHit } from "@/lib/search-types";
 import { HighlightMatch } from "@/shared/ui";
 
@@ -38,32 +31,44 @@ export function SiteSearch(): React.JSX.Element {
   const router = useRouter();
   const rootRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const abortRef = useRef<AbortController | null>(null);
 
   const [query, setQuery] = useState("");
   const [hits, setHits] = useState<SearchHit[]>([]);
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
   const [searching, setSearching] = useState(false);
+  const [seenPath, setSeenPath] = useState(pathname);
+  const needle = query.trim();
+  const [trackedNeedle, setTrackedNeedle] = useState(needle);
 
-  const close = useCallback((): void => {
+  if (pathname !== seenPath) {
+    setSeenPath(pathname);
     setOpen(false);
     setActiveIndex(0);
-  }, []);
-
-  useEffect(() => {
-    close();
     setQuery("");
     setHits([]);
-  }, [pathname, close]);
+  }
+
+  if (needle !== trackedNeedle) {
+    setTrackedNeedle(needle);
+    if (needle.length < 2) {
+      setHits([]);
+      setSearching(false);
+    } else {
+      setSearching(true);
+    }
+  }
 
   useEffect(() => {
     const onPointerDown = (event: PointerEvent): void => {
-      if (!rootRef.current?.contains(event.target as Node)) close();
+      if (!rootRef.current?.contains(event.target as Node)) {
+        setOpen(false);
+        setActiveIndex(0);
+      }
     };
     document.addEventListener("pointerdown", onPointerDown);
     return () => document.removeEventListener("pointerdown", onPointerDown);
-  }, [close]);
+  }, []);
 
   useEffect(() => {
     const onKey = (event: globalThis.KeyboardEvent): void => {
@@ -83,27 +88,20 @@ export function SiteSearch(): React.JSX.Element {
     const onKey = (event: globalThis.KeyboardEvent): void => {
       if (event.key !== "Escape") return;
       event.preventDefault();
-      close();
+      setOpen(false);
+      setActiveIndex(0);
       inputRef.current?.blur();
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [open, close]);
+  }, [open]);
 
   useEffect(() => {
-    const needle = query.trim();
-    abortRef.current?.abort();
-
     if (needle.length < 2) {
-      setHits([]);
-      setSearching(false);
       return;
     }
 
     const controller = new AbortController();
-    abortRef.current = controller;
-    setSearching(true);
-
     const timer = window.setTimeout(() => {
       void fetch(`/api/search?q=${encodeURIComponent(needle)}`, {
         signal: controller.signal,
@@ -128,7 +126,7 @@ export function SiteSearch(): React.JSX.Element {
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [query]);
+  }, [needle]);
 
   function onKeyDown(event: KeyboardEvent<HTMLInputElement>): void {
     if (!open || hits.length === 0) return;
@@ -143,7 +141,8 @@ export function SiteSearch(): React.JSX.Element {
       if (!hit) return;
       event.preventDefault();
       router.push(hit.href);
-      close();
+      setOpen(false);
+      setActiveIndex(0);
     }
   }
 

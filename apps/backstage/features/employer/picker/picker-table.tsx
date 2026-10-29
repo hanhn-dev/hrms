@@ -3,7 +3,6 @@
 import { Tag } from "antd";
 import { DataTable } from "@/shared/ui/data-table";
 import Link from "next/link";
-import { useMemo } from "react";
 import type { EmployerListItem } from "@/features/employer/picker/queries";
 import { HighlightMatch } from "@/shared/ui";
 
@@ -31,8 +30,7 @@ export function EmployerPickerTable({
   employers: EmployerListItem[];
   queryScript: string;
 }): React.JSX.Element {
-  const sortedEmployers = useMemo(() => {
-    return [...employers].sort((a, b) => {
+  const sortedEmployers = [...employers].sort((a, b) => {
       const aActive = isActiveFlag(a.isActive);
       const bActive = isActiveFlag(b.isActive);
       if (aActive !== bActive) {
@@ -40,7 +38,6 @@ export function EmployerPickerTable({
       }
       return a.employerId - b.employerId;
     });
-  }, [employers]);
 
   return (
     <DataTable

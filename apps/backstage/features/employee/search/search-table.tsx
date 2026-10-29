@@ -1,7 +1,6 @@
 "use client";
 
 import { Tag } from "antd";
-import { useMemo } from "react";
 import { DataTable } from "@/shared/ui/data-table";
 import type { ColumnsType } from "antd/es/table";
 import type { EmployeeSearchHit } from "@/features/employee/search/queries";
@@ -91,15 +90,13 @@ export function EmployeeSearchTable({
   unavailableFields?: readonly string[];
   queryScript: string;
 }): React.JSX.Element {
-  const unavailable = useMemo(() => new Set(unavailableFields), [unavailableFields]);
-  const columns = useMemo((): ColumnsType<EmployeeSearchHit> => {
-    const roleFilters = Array.from(
+  const unavailable = new Set(unavailableFields);
+  const roleFilters = Array.from(
       new Set(results.map((row) => row.roleName?.trim() || "—").filter(Boolean)),
     )
       .sort((a, b) => a.localeCompare(b))
       .map((role) => ({ text: role, value: role }));
-
-    return [
+  const columns: ColumnsType<EmployeeSearchHit> = [
       {
         title: "Employee ID",
         dataIndex: "employeeId",
@@ -154,7 +151,6 @@ export function EmployeeSearchTable({
       },
       ...sectionCountColumns(unavailable),
     ];
-  }, [employerId, results, unavailable]);
 
   return (
     <DataTable

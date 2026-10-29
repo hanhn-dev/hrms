@@ -1,7 +1,8 @@
 "use client";
 
+import { useState } from "react";
+
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
 import type { Proposal } from "@/lib/proposals";
 import { FeatureMarkdown } from "./feature-markdown";
 
@@ -25,8 +26,8 @@ export function ProposalReview({
   const [error, setError] = useState<string | undefined>();
   const [busy, setBusy] = useState(false);
 
-  const publishedBody = useMemo(() => bodyOf(publishedMarkdown), [publishedMarkdown]);
-  const proposedBody = useMemo(() => bodyOf(proposal.markdown), [proposal.markdown]);
+  const publishedBody = bodyOf(publishedMarkdown);
+  const proposedBody = bodyOf(proposal.markdown);
 
   async function post(path: string, body?: unknown): Promise<void> {
     setBusy(true);

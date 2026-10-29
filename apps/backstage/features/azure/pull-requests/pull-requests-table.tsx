@@ -1,9 +1,10 @@
 "use client";
 
+import { useState } from "react";
+
 import { CheckOutlined, CopyOutlined, SettingOutlined } from "@ant-design/icons";
 import { App, Button, Checkbox, Dropdown, Table, Tag, Tooltip } from "antd";
 import type { ColumnsType, TableProps } from "antd/es/table";
-import { useMemo, useState } from "react";
 import type { PullRequestCandidate } from "@hrms/azure-devops";
 import {
   buildCherryPickCommand,
@@ -81,40 +82,19 @@ export function PullRequestsTable({
   const { message } = App.useApp();
   const { openView: openWorkItemView, modal: workItemModal } = useWorkItemView();
 
-  const doneCount = useMemo(
-    () => results.filter((row) => doneIds.has(row.pullRequestId)).length,
-    [results, doneIds],
-  );
+  const doneCount = results.filter((row) => doneIds.has(row.pullRequestId)).length;
 
-  const visibleResults = useMemo(
-    () => (showDone ? results : results.filter((row) => !doneIds.has(row.pullRequestId))),
-    [results, doneIds, showDone],
-  );
+  const visibleResults = showDone ? results : results.filter((row) => !doneIds.has(row.pullRequestId));
 
-  const authorFilters = useMemo(
-    () => buildFilterOptions(visibleResults.flatMap((row) => (row.author ? [row.author] : []))),
-    [visibleResults],
-  );
+  const authorFilters = buildFilterOptions(visibleResults.flatMap((row) => (row.author ? [row.author] : [])));
 
-  const statusFilters = useMemo(
-    () => buildFilterOptions(visibleResults.map((row) => row.status)),
-    [visibleResults],
-  );
+  const statusFilters = buildFilterOptions(visibleResults.map((row) => row.status));
 
-  const targetBranchFilters = useMemo(
-    () => buildFilterOptions(visibleResults.map((row) => normalizeBranchName(row.targetBranch))),
-    [visibleResults],
-  );
+  const targetBranchFilters = buildFilterOptions(visibleResults.map((row) => normalizeBranchName(row.targetBranch)));
 
-  const selectedCandidates = useMemo(
-    () => orderSelectedCandidates(visibleResults, selectedRowKeys, sort),
-    [visibleResults, selectedRowKeys, sort],
-  );
+  const selectedCandidates = orderSelectedCandidates(visibleResults, selectedRowKeys, sort);
 
-  const cherryPickPlan = useMemo(
-    () => buildCherryPickCommand(selectedCandidates),
-    [selectedCandidates],
-  );
+  const cherryPickPlan = buildCherryPickCommand(selectedCandidates);
 
   async function copyCherryPickCommand(): Promise<void> {
     if (!cherryPickPlan.command) {

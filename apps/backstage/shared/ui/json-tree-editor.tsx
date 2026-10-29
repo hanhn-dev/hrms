@@ -7,7 +7,7 @@ import {
   PlusOutlined,
 } from "@ant-design/icons";
 import { Button, Input, Select, Space, Typography } from "antd";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   addObjectProperty,
   appendArrayItem,
@@ -259,9 +259,11 @@ function KeyLabel({
 }): React.JSX.Element {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
-  useEffect(() => {
+  const [seenValue, setSeenValue] = useState(value);
+  if (value !== seenValue) {
+    setSeenValue(value);
     setDraft(value);
-  }, [value]);
+  }
 
   if (readOnly || onCommit == null || !editing) {
     return (
@@ -321,9 +323,11 @@ function ValueLabel({
   const type = jsonTypeOf(value);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(stringifyLiteral(value));
-  useEffect(() => {
+  const [seenValue, setSeenValue] = useState(value);
+  if (value !== seenValue) {
+    setSeenValue(value);
     setDraft(stringifyLiteral(value));
-  }, [value]);
+  }
 
   if (readOnly || !editing) {
     return (

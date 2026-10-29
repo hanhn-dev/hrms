@@ -5,7 +5,7 @@ import type { TablePaginationConfig } from "antd";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import { ElmahStack } from "@/features/employer/logs/elmah-stack";
 import {
   logsHref,
@@ -81,10 +81,11 @@ function InstantPicker({
   placeholder: string;
   onChange: (value: string | null) => void;
 }): React.JSX.Element {
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  const mounted = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false,
+  );
 
   if (!mounted) {
     return (

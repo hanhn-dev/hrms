@@ -3,7 +3,7 @@
 import { Alert, Button, DatePicker, Input, Modal } from "antd";
 import dayjs, { type Dayjs } from "dayjs";
 import { usePathname, useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import type { ProjectTeam } from "@hrms/azure-devops";
 import { RoadmapDiagram } from "@/features/azure/roadmap/roadmap-diagram";
 import {
@@ -103,16 +103,22 @@ export function RoadmapPanel({
           .join(",")}`,
     )
     .join("|");
-
-  useEffect(() => {
+  const [appliedSprints, setAppliedSprints] = useState(sprints);
+  const [appliedSprintKey, setAppliedSprintKey] = useState(sprintKey);
+  if (sprints !== appliedSprints || sprintKey !== appliedSprintKey) {
+    setAppliedSprints(sprints);
+    setAppliedSprintKey(sprintKey);
     setSprintLanes(sprints);
-  }, [sprintKey, sprints]);
+  }
   const [teamPending, startTeamTransition] = useTransition();
   const selectedKey = selectedTeams.join("\u0000");
-
-  useEffect(() => {
+  const [appliedSelectedTeams, setAppliedSelectedTeams] = useState(selectedTeams);
+  const [appliedSelectedKey, setAppliedSelectedKey] = useState(selectedKey);
+  if (selectedTeams !== appliedSelectedTeams || selectedKey !== appliedSelectedKey) {
+    setAppliedSelectedTeams(selectedTeams);
+    setAppliedSelectedKey(selectedKey);
     setTeamsSelection(selectedTeams);
-  }, [selectedKey, selectedTeams]);
+  }
   const [error, setError] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [startsOn, setStartsOn] = useState<Dayjs | null>(null);
@@ -129,8 +135,11 @@ export function RoadmapPanel({
   const sprintGeneration = useRef(0);
   const roadmapRef = useRef(roadmap);
   const sprintRef = useRef(sprintLanes);
-  roadmapRef.current = roadmap;
-  sprintRef.current = sprintLanes;
+
+  useEffect(() => {
+    roadmapRef.current = roadmap;
+    sprintRef.current = sprintLanes;
+  });
 
   function run(action: () => Promise<Roadmap>, fallback: string): void {
     setError(null);
@@ -143,8 +152,7 @@ export function RoadmapPanel({
     });
   }
 
-  const saveMove = useCallback(
-    (mutate: (current: Roadmap) => Roadmap, body: RoadmapMove, fallback: string) => {
+  const saveMove = (mutate: (current: Roadmap) => Roadmap, body: RoadmapMove, fallback: string) => {
       const previous = roadmapRef.current;
       let next: Roadmap;
       try {
@@ -177,12 +185,9 @@ export function RoadmapPanel({
           }
           setError(errorMessage(actionError, fallback));
         });
-    },
-    [],
-  );
+    };
 
-  const saveSprint = useCallback(
-    (mutate: (lanes: readonly RoadmapSprintLane[]) => Roadmap, body: RoadmapMove, fallback: string) => {
+  const saveSprint = (mutate: (lanes: readonly RoadmapSprintLane[]) => Roadmap, body: RoadmapMove, fallback: string) => {
       const previous = sprintRef.current;
       let next: Roadmap;
       try {
@@ -221,9 +226,7 @@ export function RoadmapPanel({
           }
           setError(errorMessage(actionError, fallback));
         });
-    },
-    [],
-  );
+    };
 
   function sprintForItem(itemId: string): RoadmapSprintLane | undefined {
     return sprintRef.current.find((lane) => lane.items.some((item) => item.id === itemId));

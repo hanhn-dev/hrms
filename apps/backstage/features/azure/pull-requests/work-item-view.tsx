@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useRef, useState } from "react";
+
 import type { WorkItem } from "@hrms/azure-devops";
 import { getWorkItemDetail } from "@/features/azure/pull-requests/queries";
 import { WorkItemDetailModal } from "@/features/azure/pull-requests/work-item-detail-modal";
@@ -16,11 +17,11 @@ export function useWorkItemView(): {
   const cacheRef = useRef<Map<number, WorkItem>>(new Map());
   const requestSeq = useRef(0);
 
-  const hide = useCallback(() => {
+  const hide = () => {
     setOpen(false);
-  }, []);
+  };
 
-  const openView = useCallback(async (workItemId: number): Promise<void> => {
+  const openView = async (workItemId: number): Promise<void> => {
     setOpen(true);
     const cached = cacheRef.current.get(workItemId);
     if (cached) {
@@ -50,7 +51,7 @@ export function useWorkItemView(): {
         setLoading(false);
       }
     }
-  }, []);
+  };
 
   const modal = (
     <WorkItemDetailModal

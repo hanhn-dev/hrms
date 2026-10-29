@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import {
   Alert,
   Badge,
@@ -116,7 +116,7 @@ function ResultTable({
   onRefresh: () => void;
   result: ExploreSearchTableResult;
 }): React.JSX.Element {
-  const columns = useMemo(() => {
+  const columns = (() => {
     if (result.rows.length === 0) {
       return [];
     }
@@ -128,7 +128,7 @@ function ResultTable({
       ellipsis: true,
       render: (value: unknown) => cellDisplay(value),
     }));
-  }, [result.rows]);
+  })();
 
   if (result.error && result.rows.length === 0) {
     return <Alert type="error" showIcon title={result.error} />;
@@ -195,25 +195,33 @@ export function ValueSearchPanel({
   const [value, setValue] = useState("");
   const [mode, setMode] = useState<ExploreSearchMode>("exact");
   const [filterByEmployer, setFilterByEmployer] = useState(employerId !== null);
+  const [filterEmployerId, setFilterEmployerId] = useState(employerId);
+  const [appliedTableSearch, setAppliedTableSearch] = useState(debouncedTableSearch);
   const [results, setResults] = useState<ExploreSearchTableResult[] | null>(
     null,
   );
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
-
-  useEffect(() => {
+  if (filterEmployerId !== employerId) {
+    setFilterEmployerId(employerId);
     setFilterByEmployer(employerId !== null);
-  }, [employerId]);
-
-  useEffect(() => {
+  }
+  if (appliedTableSearch !== debouncedTableSearch) {
+    setAppliedTableSearch(debouncedTableSearch);
     if (debouncedTableSearch.length < MIN_TABLE_SEARCH_LENGTH) {
       setTableOptions([]);
       setTablesLoading(false);
+    } else {
+      setTablesLoading(true);
+    }
+  }
+
+  useEffect(() => {
+    if (debouncedTableSearch.length < MIN_TABLE_SEARCH_LENGTH) {
       return;
     }
 
     let cancelled = false;
-    setTablesLoading(true);
     void listTables(debouncedTableSearch)
       .then((rows) => {
         if (!cancelled) {
@@ -237,7 +245,7 @@ export function ValueSearchPanel({
     };
   }, [debouncedTableSearch]);
 
-  const selectOptions = useMemo(() => {
+  const selectOptions = (() => {
     const byKey = new Map<string, ExploreTable>();
     for (const table of tableOptions) {
       byKey.set(`${table.schema}.${table.name}`, table);
@@ -254,7 +262,7 @@ export function ValueSearchPanel({
       schema: table.schema,
       name: table.name,
     }));
-  }, [tableOptions, selectedTables]);
+  })();
 
   const canSearch =
     selectedTables.length > 0 &&

@@ -43,13 +43,12 @@ export function CompareFilePanel({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [comparedPath, setComparedPath] = useState<string | null>(null);
+  const [appliedBranches, setAppliedBranches] = useState<readonly GitBranchSummary[] | null>(null);
+  const [appliedDefaultBranch, setAppliedDefaultBranch] = useState<string | null | undefined>(undefined);
   const branchChoice = useRef({ left: leftBranch, right: rightBranch });
-  branchChoice.current = { left: leftBranch, right: rightBranch };
-
-  useEffect(() => {
-    if (branches.length === 0) {
-      return;
-    }
+  if (branches.length > 0 && (branches !== appliedBranches || defaultBranch !== appliedDefaultBranch)) {
+    setAppliedBranches(branches);
+    setAppliedDefaultBranch(defaultBranch);
     const preferred =
       defaultBranch && branches.some((item) => item.name === defaultBranch)
         ? defaultBranch
@@ -57,7 +56,11 @@ export function CompareFilePanel({
     const other = branches.find((item) => item.name !== preferred)?.name ?? preferred;
     setLeftBranch((current) => (current && branches.some((item) => item.name === current) ? current : preferred));
     setRightBranch((current) => (current && branches.some((item) => item.name === current) ? current : other));
-  }, [branches, defaultBranch]);
+  }
+
+  useEffect(() => {
+    branchChoice.current = { left: leftBranch, right: rightBranch };
+  });
 
   function selectRecent(recent: RecentGitPath): void {
     setPath(recent.path);

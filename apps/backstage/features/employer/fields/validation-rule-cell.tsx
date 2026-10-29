@@ -1,7 +1,7 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useCallback, useState } from "react";
 import {
   VALIDATION_RULE_MAX_LENGTH,
   validateValidationRuleValue,
@@ -29,10 +29,10 @@ export function ValidationRuleCell({
   const [editorOpen, setEditorOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [draft, setDraft] = useState<string | null>(null);
-  const extraValidate = useCallback((parsed: unknown) => {
+  const extraValidate = (parsed: unknown) => {
     const result = validateValidationRuleValue(parsed);
     return result.ok ? null : result.error;
-  }, []);
+  };
 
   return (
     <>

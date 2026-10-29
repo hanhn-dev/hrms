@@ -1,6 +1,7 @@
 "use client";
 
-import { memo, useMemo, useState } from "react";
+import { useState } from "react";
+
 import {
   ApartmentOutlined,
   CloseOutlined,
@@ -57,7 +58,7 @@ function detailSummary(
   return `${dependencyCount} dependencies`;
 }
 
-export const SchemaNode = memo(function SchemaNode({
+export const SchemaNode = function SchemaNode({
   data,
   selected,
 }: NodeProps & { data: SchemaNodeData }): React.JSX.Element {
@@ -84,7 +85,7 @@ export const SchemaNode = memo(function SchemaNode({
   const someSelected =
     selectedIds.size > 0 && selectedIds.size < connectedObjects.length;
 
-  const expandContent = useMemo(() => {
+  const expandContent = (() => {
     if (connectedObjects.length === 0) {
       return (
         <div className="py-1 text-sm text-slate-500">No connections found</div>
@@ -139,7 +140,7 @@ export const SchemaNode = memo(function SchemaNode({
         </Button>
       </div>
     );
-  }, [connectedObjects, data, object.id, selectedIds]);
+  })();
 
   return (
     <div
@@ -297,4 +298,4 @@ export const SchemaNode = memo(function SchemaNode({
       </div>
     </div>
   );
-});
+};

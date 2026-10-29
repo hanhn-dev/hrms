@@ -219,7 +219,6 @@ export function isValidEmail(
 
 export function isValidUrl(value: unknown): ValidationResult {
   try {
-    // eslint-disable-next-line no-new
     new URL(String(value));
     return [true];
   } catch {

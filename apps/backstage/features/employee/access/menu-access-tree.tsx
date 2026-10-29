@@ -1,8 +1,8 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { Button, Form, Input, Select, Space, Tag, Tree, Typography } from "antd";
 import type { TreeDataNode, TreeProps } from "antd";
-import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   commitGrantRevokeUserPages,
@@ -161,46 +161,43 @@ export function MenuAccessTree({
   const [mode, setMode] = useState<"GRANT" | "REVOKE">("GRANT");
   const [tabRightsDet, setTabRightsDet] = useState("");
 
-  const rowsByKey = useMemo(() => {
-    const map = new Map<string, AccessNode>();
-    const walk = (nodes: AccessNode[]): void => {
+  const map = new Map<string, AccessNode>();
+  const walk = (nodes: AccessNode[]): void => {
       for (const node of nodes) {
         map.set(node.key, node);
         walk(node.children);
       }
     };
-    walk(tree);
-    return map;
-  }, [tree]);
-  const assignedKeys = useMemo(() => assignedKeysFromRows(rowsByKey.values()), [rowsByKey]);
-  const assignedFingerprint = useMemo(() => [...assignedKeys].sort().join("\0"), [assignedKeys]);
+  walk(tree);
+  const rowsByKey = map;
+  const assignedKeys = assignedKeysFromRows(rowsByKey.values());
+  const assignedFingerprint = [...assignedKeys].sort().join("\0");
   const [selectedKeys, setSelectedKeys] = useState<string[]>([]);
-
-  useEffect(() => {
+  const [seenFingerprint, setSeenFingerprint] = useState(assignedFingerprint);
+  if (assignedFingerprint !== seenFingerprint) {
+    setSeenFingerprint(assignedFingerprint);
     setSelectedKeys([]);
-  }, [assignedFingerprint]);
+  }
 
-  const filteredTree = useMemo(() => filterAccessTree(tree, search), [tree, search]);
-  const treeData = useMemo(() => toTreeData(filteredTree), [filteredTree]);
-  const allExpandableKeys = useMemo(() => collectExpandableMenuKeys(tree), [tree]);
-  const filteredExpandableKeys = useMemo(
-    () => collectExpandableMenuKeys(filteredTree),
-    [filteredTree],
-  );
+  const filteredTree = filterAccessTree(tree, search);
+  const treeData = toTreeData(filteredTree);
+  const allExpandableKeys = collectExpandableMenuKeys(tree);
+  const filteredExpandableKeys = collectExpandableMenuKeys(filteredTree);
   const restExpandedKeys = defaultExpandAll ? allExpandableKeys : EMPTY_KEYS;
+  const expandKey = `${search}\0${filteredExpandableKeys.join("\0")}\0${restExpandedKeys.join("\0")}`;
   const [expandedKeys, setExpandedKeys] = useState<React.Key[]>(restExpandedKeys);
   const [autoExpandParent, setAutoExpandParent] = useState(true);
-
-  useEffect(() => {
+  const [seenExpandKey, setSeenExpandKey] = useState(expandKey);
+  if (expandKey !== seenExpandKey) {
+    setSeenExpandKey(expandKey);
     setExpandedKeys(search ? filteredExpandableKeys : restExpandedKeys);
     setAutoExpandParent(true);
-  }, [search, filteredExpandableKeys, restExpandedKeys]);
+  }
 
-  const { assignedCount, roleCount, userCount } = useMemo(() => {
-    let assigned = 0;
-    let role = 0;
-    let user = 0;
-    for (const row of rowsByKey.values()) {
+  let assigned = 0;
+  let role = 0;
+  let user = 0;
+  for (const row of rowsByKey.values()) {
       if (row.roleGrant === "Y") {
         role += 1;
       }
@@ -211,8 +208,7 @@ export function MenuAccessTree({
         assigned += 1;
       }
     }
-    return { assignedCount: assigned, roleCount: role, userCount: user };
-  }, [rowsByKey]);
+  const { assignedCount, roleCount, userCount } = { assignedCount: assigned, roleCount: role, userCount: user };
 
   function selectedAccess(): {
     menuIds: number[];
@@ -251,14 +247,10 @@ export function MenuAccessTree({
     };
   }
 
-  const selectedKeySet = useMemo(() => new Set(selectedKeys), [selectedKeys]);
-  const halfCheckedKeys = useMemo(
-    () => halfCheckedAncestorKeys(tree, selectedKeySet),
-    [tree, selectedKeySet],
-  );
+  const selectedKeySet = new Set(selectedKeys);
+  const halfCheckedKeys = halfCheckedAncestorKeys(tree, selectedKeySet);
 
-  const onCheck: TreeProps["onCheck"] = useCallback(
-    (checked, info) => {
+  const onCheck: TreeProps["onCheck"] = (checked, info) => {
       const next = new Set(checkedKeyList(checked).filter((key) => rowsByKey.has(key)));
       const node = rowsByKey.get(String(info.node.key));
       const descendantKeys = node ? collectDescendantKeys(node) : [];
@@ -272,12 +264,9 @@ export function MenuAccessTree({
         }
       }
       setSelectedKeys([...next]);
-    },
-    [rowsByKey],
-  );
+    };
 
-  const titleRender = useCallback(
-    (node: TreeDataNode) => {
+  const titleRender = (node: TreeDataNode) => {
       const access =
         (node as MenuTreeDataNode).access ?? rowsByKey.get(String(node.key));
       if (!access) {
@@ -308,9 +297,7 @@ export function MenuAccessTree({
           ) : null}
         </Space>
       );
-    },
-    [rowsByKey, search],
-  );
+    };
 
   const selection = selectedAccess();
 

@@ -9,7 +9,7 @@ import {
 } from "@ant-design/icons";
 import { App, Button, DatePicker, Dropdown, Empty, Input, Modal, Popconfirm, Popover } from "antd";
 import dayjs from "dayjs";
-import { memo, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { workItemTypeBarColor } from "@/features/azure/board/work-item-appearance";
 import {
   addDays,
@@ -107,7 +107,7 @@ function rangeFromClient(
   return fitRange(startsOn, endsOn, boundStart, boundEnd);
 }
 
-const WorkItemBar = memo(function WorkItemBar({
+const WorkItemBar = function WorkItemBar({
   item,
   lane,
   color,
@@ -413,20 +413,7 @@ const WorkItemBar = memo(function WorkItemBar({
       />
     </div>
   );
-}, (previous, next) =>
-  previous.item === next.item &&
-  previous.lane.id === next.lane.id &&
-  previous.lane.startsOn === next.lane.startsOn &&
-  previous.lane.endsOn === next.lane.endsOn &&
-  previous.left === next.left &&
-  previous.width === next.width &&
-  previous.pending === next.pending &&
-  previous.color === next.color &&
-  previous.clampToLane === next.clampToLane &&
-  previous.lifted === next.lifted &&
-  previous.axisStart === next.axisStart &&
-  previous.axisEnd === next.axisEnd,
-);
+};
 
 function SprintLane({
   sprint,
@@ -673,20 +660,16 @@ export function RoadmapDiagram({
     onUpdateWindow(lane.id, { name: lane.name, startsOn: nextStart, endsOn: nextEnd });
   }
 
-  useEffect(() => {
-    if (!preview) {
-      return;
-    }
+  if (preview) {
     const lane = dropTargets.find((candidate) => candidate.items.some((item) => item.id === preview.id));
     const item = lane?.items.find((candidate) => candidate.id === preview.id);
-    if (!lane || !item) {
-      return;
+    if (lane && item) {
+      const range = itemRange(item, lane);
+      if (range.startsOn === preview.startsOn && range.endsOn === preview.endsOn) {
+        setPreview(null);
+      }
     }
-    const range = itemRange(item, lane);
-    if (range.startsOn === preview.startsOn && range.endsOn === preview.endsOn) {
-      setPreview(null);
-    }
-  }, [preview, windows, sprints]);
+  }
 
   function beginMove(
     item: RoadmapItem,

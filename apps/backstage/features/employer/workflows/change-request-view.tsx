@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "antd";
 import { openChangeRequestFromClick } from "@/features/employer/workflows/change-request-id-click";
 import { getChangeRequestDetail } from "@/features/employer/workflows/change-request-actions";
@@ -44,16 +44,17 @@ export function useChangeRequestView(
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const onCloseRef = useRef(options?.onClose);
-  onCloseRef.current = options?.onClose;
+  useEffect(() => {
+    onCloseRef.current = options?.onClose;
+  }, [options?.onClose]);
   const loadedRef = useRef<{ id: number; detail: ChangeRequestDetail } | null>(null);
   const requestSeq = useRef(0);
 
-  const hide = useCallback(() => {
+  const hide = () => {
     setOpen(false);
-  }, []);
+  };
 
-  const openView = useCallback(
-    async (changeRequestId: number): Promise<void> => {
+  const openView = async (changeRequestId: number): Promise<void> => {
       setOpen(true);
       setSelectedId(changeRequestId);
       if (loadedRef.current?.id === changeRequestId) {
@@ -89,14 +90,12 @@ export function useChangeRequestView(
           setLoading(false);
         }
       }
-    },
-    [employerId],
-  );
+    };
 
-  const dismiss = useCallback(() => {
+  const dismiss = () => {
     setOpen(false);
     onCloseRef.current?.();
-  }, []);
+  };
 
   const modal = (
     <ChangeRequestDetailModal

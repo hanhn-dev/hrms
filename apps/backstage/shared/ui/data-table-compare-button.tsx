@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { DiffOutlined } from "@ant-design/icons";
 import { Alert, Button, Checkbox, Modal, Table, Tag, Tooltip, Typography } from "antd";
 import type { ColumnsType } from "antd/es/table";
@@ -75,6 +75,7 @@ export function TableCompareButton({
   script: string;
 }): React.JSX.Element {
   const [open, setOpen] = useState(false);
+  const [seenOpen, setSeenOpen] = useState(open);
   const [environments, setEnvironments] = useState<string[]>([]);
   const [selected, setSelected] = useState<string | undefined>(undefined);
   const [rightEnv, setRightEnv] = useState<string | undefined>(undefined);
@@ -86,12 +87,18 @@ export function TableCompareButton({
   const [matched, setMatched] = useState<Record<number, string[]>>({});
   const recorded = script.trim() !== "";
 
+  if (open !== seenOpen) {
+    setSeenOpen(open);
+    if (open) {
+      setLoadingEnvs(true);
+    }
+  }
+
   useEffect(() => {
     if (!open) {
       return;
     }
     let cancelled = false;
-    setLoadingEnvs(true);
     void listTableCompareEnvironments()
       .then((loaded) => {
         if (cancelled) {
@@ -254,15 +261,11 @@ function QuerySection({
   onIgnore: (columns: string[]) => void;
   onMatch: (columns: string[]) => void;
 }): React.JSX.Element {
-  const allColumns = useMemo(() => columnNames(statement), [statement]);
-  const diff = useMemo(
-    () =>
-      diffQueryRows(statement.leftRows, statement.rightRows, {
+  const allColumns = columnNames(statement);
+  const diff = diffQueryRows(statement.leftRows, statement.rightRows, {
         ignoreColumns: ignored,
         matchColumns: matched,
-      }),
-    [ignored, matched, statement.leftRows, statement.rightRows],
-  );
+      });
   const matchOptions = allColumns.filter((column) => !ignored.includes(column));
   const columns: ColumnsType<QueryDiffRow & { key: number }> = [
     {

@@ -47,18 +47,26 @@ export function SqlClientPanel({
   const [editCount, setEditCount] = useState(0);
   const [actionError, setActionError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
-
-  useEffect(() => {
-    const trimmed = query.trim();
-    if (trimmed.length < 2) {
+  const trimmedQuery = query.trim();
+  const [loadedQuery, setLoadedQuery] = useState(trimmedQuery);
+  if (trimmedQuery !== loadedQuery) {
+    setLoadedQuery(trimmedQuery);
+    if (trimmedQuery.length < 2) {
       setTables([]);
       setTableScript("");
       setSearchError(null);
       setSearching(false);
+    } else {
+      setSearching(true);
+    }
+  }
+
+  useEffect(() => {
+    const trimmed = query.trim();
+    if (trimmed.length < 2) {
       return;
     }
     let cancelled = false;
-    setSearching(true);
     const timer = window.setTimeout(() => {
       void searchTables(trimmed)
         .then((found) => {

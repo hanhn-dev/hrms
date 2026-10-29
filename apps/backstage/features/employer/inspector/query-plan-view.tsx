@@ -21,14 +21,13 @@ function PlanCanvas({ xml }: { xml: string }): React.JSX.Element {
     if (!container) {
       return;
     }
+    let nextError: string | null = null;
     try {
       renderShowplan(container, xml, { iconSheet: iconUrl });
-      setError(null);
     } catch (cause: unknown) {
-      setError(
-        cause instanceof Error ? cause.message : "The plan could not be drawn.",
-      );
+      nextError = cause instanceof Error ? cause.message : "The plan could not be drawn.";
     }
+    setError(nextError);
     return () => {
       container.replaceChildren();
     };

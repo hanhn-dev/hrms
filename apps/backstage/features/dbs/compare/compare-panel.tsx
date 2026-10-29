@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
+
 import {
   Alert,
   Button,
@@ -65,7 +66,7 @@ export function ComparePanel({
     };
   }, []);
 
-  const patch = useMemo(() => {
+  const patch = (() => {
     if (!selected || !leftEnv || !rightEnv) {
       return null;
     }
@@ -80,7 +81,7 @@ export function ComparePanel({
       undefined,
       { context: 4 },
     );
-  }, [selected, leftEnv, rightEnv]);
+  })();
 
   function runCompare(): void {
     if (!rightEnv) {

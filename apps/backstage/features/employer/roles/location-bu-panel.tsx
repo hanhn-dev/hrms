@@ -1,8 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import { Alert, Button, Form, Space, TreeSelect, Typography } from "antd";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
 import {
   commitSetRoleLocationBu,
   previewSetRoleLocationBu,
@@ -45,22 +45,10 @@ export function RoleLocationBuPanel({
     number[]
   >(() => idsFromCsv(scope?.businessUnitIds));
 
-  const locationOptions = useMemo(
-    () => locationSelectOptions(locations),
-    [locations],
-  );
-  const buTreeData = useMemo(
-    () => businessUnitTreeData(businessUnits),
-    [businessUnits],
-  );
-  const allLocationIdList = useMemo(
-    () => allLocationIds(locations),
-    [locations],
-  );
-  const allBusinessUnitIdList = useMemo(
-    () => allBusinessUnitIds(businessUnits),
-    [businessUnits],
-  );
+  const locationOptions = locationSelectOptions(locations);
+  const buTreeData = businessUnitTreeData(businessUnits);
+  const allLocationIdList = allLocationIds(locations);
+  const allBusinessUnitIdList = allBusinessUnitIds(businessUnits);
 
   const locationIdsCsv = csvFromIds(selectedLocationIds);
   const businessUnitIdsCsv = csvFromIds(selectedBusinessUnitIds);

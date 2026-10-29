@@ -37,15 +37,25 @@ export function AuthorActivityModal({
   const [activity, setActivity] = useState<GitAuthorActivity | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const activityKey =
+    authorName === null || branch.length === 0
+      ? null
+      : `${repositoryId}\0${authorName}\0${branch}\0${creatorId ?? ""}`;
+  const [loadedActivityKey, setLoadedActivityKey] = useState<string | null>(null);
+  if (activityKey !== loadedActivityKey) {
+    setLoadedActivityKey(activityKey);
+    if (activityKey !== null) {
+      setLoading(true);
+      setError(null);
+      setActivity(null);
+    }
+  }
 
   useEffect(() => {
     if (authorName === null || branch.length === 0) {
       return;
     }
     let cancelled = false;
-    setLoading(true);
-    setError(null);
-    setActivity(null);
     loadGitAuthorActivity({
       repositoryId,
       authorName,

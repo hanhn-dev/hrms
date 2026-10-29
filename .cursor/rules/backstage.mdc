@@ -72,6 +72,7 @@ Write standard ```` ```mermaid ```` fences. `MermaidAwarePre` renders them; no a
 - `params` is a `Promise` — `await params`. `generateStaticParams` on every dynamic page.
 - Explicit `): React.JSX.Element`. Fresh `createSlugger()` per document (TOC ids must match heading ids).
 - Import with `@/` (`@/lib/guides`, `@/components/...`, `@/features/...`). No parent-relative `../`. Same-directory `./` is allowed.
+- React Compiler is on. Do not import `useMemo`, `useCallback`, or `memo`. Derive values and handlers during render. Keep `useState`, `useEffect`, `useRef`, and `useEffectEvent`. Module-level constants such as React Flow `nodeTypes` stay outside the component. An exception needs an `eslint-disable` for `no-restricted-imports` and a comment naming the non-React consumer.
 
 ```yaml
 # ❌ BAD

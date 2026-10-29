@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { formatSql } from "@/features/employer/inspector/script-format";
 import { tokenizeSql } from "@/features/employer/inspector/script-sql";
 import { bindSql, type SqlModel } from "@/features/employer/inspector/script-symbols";
@@ -84,19 +84,20 @@ export function SqlHighlight({
   const [flashToken, setFlashToken] = useState<number | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const useCursor = useRef(new Map<string, number>());
-  const formatted = useMemo(() => formatSql(sql), [sql]);
+  const formatted = formatSql(sql);
   const displaySql = mode === "formatted" ? formatted.sql : sql;
-  const model = useMemo(() => bindSql(tokenizeSql(displaySql)), [displaySql]);
-  const lines = useMemo(() => layoutLines(model), [model]);
-  const symbolById = useMemo(
-    () => new Map(model.symbols.map((symbol) => [symbol.id, symbol])),
-    [model.symbols],
-  );
+  const model = bindSql(tokenizeSql(displaySql));
+  const lines = layoutLines(model);
+  const symbolById = new Map(model.symbols.map((symbol) => [symbol.id, symbol]));
+  const [flashSql, setFlashSql] = useState(displaySql);
+  if (flashSql !== displaySql) {
+    setFlashSql(displaySql);
+    setFlashToken(null);
+  }
 
   useEffect(() => {
-    setFlashToken(null);
     useCursor.current.clear();
-  }, [model]);
+  }, [displaySql]);
 
   useEffect(() => {
     if (flashToken == null) return;
@@ -104,8 +105,7 @@ export function SqlHighlight({
     return () => window.clearTimeout(timer);
   }, [flashToken]);
 
-  const reveal = useCallback(
-    (tokenIndex: number) => {
+  const reveal = (tokenIndex: number) => {
       setFlashToken(tokenIndex);
       const root = scrollRef.current;
       const node = root?.querySelector(`[data-token="${tokenIndex}"]`);
@@ -114,9 +114,7 @@ export function SqlHighlight({
       const nodeRect = node.getBoundingClientRect();
       const top = nodeRect.top - rootRect.top + root.scrollTop - root.clientHeight / 2;
       root.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
-    },
-    [],
-  );
+    };
 
   function onSymbolClick(symbolId: string, role: "declaration" | "use"): void {
     const symbol = symbolById.get(symbolId);

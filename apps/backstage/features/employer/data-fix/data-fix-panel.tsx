@@ -45,20 +45,29 @@ export function DataFixPanel({
   const [searching, setSearching] = useState(false);
   const [editor, setEditor] = useState<Editor | null>(null);
   const [expanded, setExpanded] = useState(false);
-
-  useEffect(() => {
-    const trimmed = query.trim();
-    if (trimmed.length < 2) {
+  const trimmedQuery = query.trim();
+  const searchKey = `${mode}\0${trimmedQuery}`;
+  const [loadedSearchKey, setLoadedSearchKey] = useState(searchKey);
+  if (searchKey !== loadedSearchKey) {
+    setLoadedSearchKey(searchKey);
+    if (trimmedQuery.length < 2) {
       setHits([]);
       setTables([]);
       setColumnScript("");
       setTableScript("");
       setSearchError(null);
       setSearching(false);
+    } else {
+      setSearching(true);
+    }
+  }
+
+  useEffect(() => {
+    const trimmed = query.trim();
+    if (trimmed.length < 2) {
       return;
     }
     let cancelled = false;
-    setSearching(true);
     const timer = window.setTimeout(() => {
       const request =
         mode === "column"

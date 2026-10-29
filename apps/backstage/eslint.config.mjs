@@ -23,15 +23,17 @@ export default defineConfig([
     rules: {
       // Runtime env is read in the Next server, not declared as Turbo task inputs.
       "turbo/no-undeclared-env-vars": "off",
-      // React Compiler rules added in eslint-plugin-react-hooks 7. The app is not
-      // on the compiler, and these did not run under Next.js 16.3's next lint.
-      "react-hooks/set-state-in-effect": "off",
-      "react-hooks/refs": "off",
-      "react-hooks/error-boundaries": "off",
-      "react-hooks/globals": "off",
       "no-restricted-imports": [
         "error",
         {
+          paths: [
+            {
+              name: "react",
+              importNames: ["useMemo", "useCallback", "memo"],
+              message:
+                "Backstage uses the React Compiler. Do not import useMemo, useCallback, or memo.",
+            },
+          ],
           patterns: [
             {
               regex: "^\\.\\./",

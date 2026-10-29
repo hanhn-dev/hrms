@@ -206,6 +206,28 @@ Styling is Tailwind 4 + `@tailwindcss/typography` (`prose prose-slate dark:prose
 - Keep mermaid zoom CSS in `app/globals.css` in sync with `lib/mermaid-diagram.tsx` (transform-origin `0 0`).
 - Import app modules with the `@/` alias (`tsconfig.json` `paths`: `@/*` → `./*`). Parent-relative `../` is banned (`no-restricted-imports`). Same-directory `./` is allowed (colocated siblings and CSS).
 
+### React Compiler
+
+Backstage compiles client components with the React Compiler (`reactCompiler: true` in `next.config.js`). Do not import `useMemo`, `useCallback`, or `memo` from `react`. ESLint rejects those imports.
+
+Derive values and handlers during render. The compiler memoizes client components. `useState`, `useEffect`, `useRef`, and `useEffectEvent` stay for state, effects, mutable caches, and the latest callback an effect should call.
+
+Keep module-level constants outside the component. React Flow `nodeTypes` is one of these.
+
+```tsx
+// ❌ BAD
+const columns = useMemo(() => buildColumns(rows), [rows]);
+const onSave = useCallback(() => save(id), [id]);
+
+// ✅ GOOD
+const columns = buildColumns(rows);
+function onSave(): void {
+  save(id);
+}
+```
+
+An exception needs `eslint-disable-next-line no-restricted-imports` on the import and a comment that names the non-React consumer. Do not add one for Ant Design tables or ordinary click handlers.
+
 ```tsx
 // ❌ BAD — parent-relative
 import { getAllFeatureDocs } from "../../lib/guides";

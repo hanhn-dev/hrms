@@ -2,7 +2,7 @@
 
 import { CopyOutlined } from "@ant-design/icons";
 import { App, AutoComplete, Button, Space, Tooltip } from "antd";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { GitBranchSummary } from "@hrms/azure-devops";
 import {
   prepareGitPaths,
@@ -17,6 +17,37 @@ import {
 import { useGitFileIndex } from "@/features/azure/git/use-git-file-index";
 
 const SEARCH_DELAY_MS = 100;
+const EMPTY_RECENT_GIT_PATHS: readonly RecentGitPath[] = [];
+const recentGitPathSnapshots = new Map<string, readonly RecentGitPath[]>();
+
+function sameRecentGitPaths(left: readonly RecentGitPath[], right: readonly RecentGitPath[]): boolean {
+  return (
+    left.length === right.length &&
+    left.every((item, index) => {
+      const other = right[index];
+      return (
+        other !== undefined &&
+        item.path === other.path &&
+        item.historyBranch === other.historyBranch &&
+        item.leftBranch === other.leftBranch &&
+        item.rightBranch === other.rightBranch
+      );
+    })
+  );
+}
+
+function recentGitPathSnapshot(repositoryId: string): readonly RecentGitPath[] {
+  const next = readRecentGitPaths(repositoryId);
+  if (next.length === 0) {
+    return EMPTY_RECENT_GIT_PATHS;
+  }
+  const cached = recentGitPathSnapshots.get(repositoryId);
+  if (cached && sameRecentGitPaths(cached, next)) {
+    return cached;
+  }
+  recentGitPathSnapshots.set(repositoryId, next);
+  return next;
+}
 
 type PathOption = {
   value: string;
@@ -45,43 +76,37 @@ export function GitPathSearch({
 }): React.JSX.Element {
   const { message } = App.useApp();
   const index = useGitFileIndex(repositoryId, branches, fallbackBranch);
-  const [recents, setRecents] = useState<readonly RecentGitPath[]>([]);
+  const recents = useSyncExternalStore(
+    subscribeRecentGitPaths,
+    () => recentGitPathSnapshot(repositoryId),
+    () => EMPTY_RECENT_GIT_PATHS,
+  );
   const [debouncedValue, setDebouncedValue] = useState(value);
   const valueRef = useRef(value);
-  valueRef.current = value;
 
   useEffect(() => {
-    setRecents(readRecentGitPaths(repositoryId));
-    return subscribeRecentGitPaths(() => {
-      setRecents(readRecentGitPaths(repositoryId));
-    });
-  }, [repositoryId]);
+    valueRef.current = value;
+  });
 
   useEffect(() => {
     const timer = window.setTimeout(() => setDebouncedValue(value), SEARCH_DELAY_MS);
     return () => window.clearTimeout(timer);
   }, [value]);
 
-  const prepared = useMemo(() => prepareGitPaths(index.paths), [index.paths]);
-  const preparedRecents = useMemo(() => prepareGitPaths(recents.map((item) => item.path)), [recents]);
+  const prepared = prepareGitPaths(index.paths);
+  const preparedRecents = prepareGitPaths(recents.map((item) => item.path));
   const ranking = value !== debouncedValue;
-  const suggestions = useMemo(
-    () =>
-      rankGitPathSuggestions({
+  const suggestions = rankGitPathSuggestions({
         index: ranking ? [] : prepared,
         recents: preparedRecents,
         query: value,
-      }),
-    [prepared, preparedRecents, ranking, value],
-  );
+      });
 
-  const recentByPath = useMemo(() => {
-    const byPath = new Map<string, RecentGitPath>();
-    for (const recent of recents) {
+  const byPath = new Map<string, RecentGitPath>();
+  for (const recent of recents) {
       byPath.set(recent.path, recent);
     }
-    return byPath;
-  }, [recents]);
+  const recentByPath = byPath;
 
   function publish(next: string): void {
     valueRef.current = next;

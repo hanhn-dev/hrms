@@ -1,8 +1,9 @@
 "use client";
 
+import { useState } from "react";
+
 import { CodeOutlined } from "@ant-design/icons";
 import { App, Button, Modal, Tooltip, Typography } from "antd";
-import { useMemo, useState } from "react";
 import { formatTableQueryScript } from "@/shared/ui/data-table-sql";
 
 export function TableSqlButton({
@@ -12,7 +13,7 @@ export function TableSqlButton({
 }): React.JSX.Element {
   const { message } = App.useApp();
   const [open, setOpen] = useState(false);
-  const formatted = useMemo(() => formatTableQueryScript(script), [script]);
+  const formatted = formatTableQueryScript(script);
   const display = formatted.sql;
 
   async function copy(): Promise<void> {

@@ -1,9 +1,10 @@
 "use client";
 
+import { useState } from "react";
+
 import { App, Button, Card, Modal, Select, Space, Typography } from "antd";
 import Link from "next/link";
 import { DataTable } from "@/shared/ui/data-table";
-import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { tableSpecFor } from "@hrms/db/sections-registry";
 import type {
@@ -75,14 +76,10 @@ export function SectionRecordsPanel({
 
   const formId = "section-record-form";
   const activeTable = editing?.liveTable ?? addTable;
-  const formFields = useMemo(
-    () => fieldsForTable(fields, activeTable),
-    [fields, activeTable],
-  );
+  const formFields = fieldsForTable(fields, activeTable);
 
-  const displayColumns = useMemo(() => {
-    const planned = sectionGridColumns(fields.slice(0, 6), records);
-    return planned.map((column) => ({
+  const planned = sectionGridColumns(fields.slice(0, 6), records);
+  const displayColumns = planned.map((column) => ({
       title: column.title,
       key: `${column.kind}:${column.displayText}`,
       ellipsis: column.kind !== "lookup-id",
@@ -105,7 +102,6 @@ export function SectionRecordsPanel({
         return formatCell(row.values[column.displayText]);
       },
     }));
-  }, [fields, openLookup, records]);
 
   function openAdd(): void {
     setEditing(null);

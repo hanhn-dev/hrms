@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { ReloadOutlined } from "@ant-design/icons";
 import { Alert, Button, Splitter, Tooltip, Typography } from "antd";
 import { scriptObjectRefs, tokenizeSql } from "@/features/employer/inspector/script-sql";
@@ -192,20 +192,28 @@ function ScriptBody({
   const [executeTarget, setExecuteTarget] = useState<UsedObject | null>(null);
   const [mode, setMode] = useState<"formatted" | "original">("formatted");
   const [jumpToken, setJumpToken] = useState<{ index: number; nonce: number } | null>(null);
-  const formatted = useMemo(() => formatSql(sql), [sql]);
+  const formatted = formatSql(sql);
   const displaySql = mode === "formatted" ? formatted.sql : sql;
-  const model = useMemo(() => bindSql(tokenizeSql(displaySql)), [displaySql]);
-  const refs = useMemo(() => scriptObjectRefs(sql), [sql]);
-
-  useEffect(() => {
+  const model = bindSql(tokenizeSql(displaySql));
+  const refs = scriptObjectRefs(sql);
+  const [loadedSql, setLoadedSql] = useState<string | null>(null);
+  if (sql !== loadedSql) {
+    setLoadedSql(sql);
     if (refs.length === 0) {
       setKinds({});
       setKindsReady(true);
+    } else {
+      setKindsReady(false);
+    }
+  }
+
+  useEffect(() => {
+    const objectRefs = scriptObjectRefs(sql);
+    if (objectRefs.length === 0) {
       return;
     }
     let cancelled = false;
-    setKindsReady(false);
-    void resolveScriptObjectKinds(refs)
+    void resolveScriptObjectKinds(objectRefs)
       .then((rows) => {
         if (cancelled) {
           return;
@@ -226,7 +234,7 @@ function ScriptBody({
     return () => {
       cancelled = true;
     };
-  }, [refs]);
+  }, [sql]);
 
   return (
     <>

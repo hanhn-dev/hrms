@@ -199,7 +199,11 @@ export function ScriptExecuteModal({
     object?.kind === "storedProcedure" || object?.kind === "function";
   const procedureBlocked = object?.kind === "storedProcedure" && !writesEnabled;
 
-  useEffect(() => {
+  const executeKey =
+    object == null ? "closed" : `${object.kind}\0${object.schema}\0${object.name}`;
+  const [loadedExecuteKey, setLoadedExecuteKey] = useState<string | null>(null);
+  if (executeKey !== loadedExecuteKey) {
+    setLoadedExecuteKey(executeKey);
     setError(null);
     setOutcome(null);
     setIncludePlan(true);
@@ -208,12 +212,18 @@ export function ScriptExecuteModal({
     if (!object || !isRoutine) {
       setDetailsLoading(false);
       setParametersLoaded(object != null);
+    } else {
+      setParametersLoaded(false);
+      setDetailsLoading(true);
+    }
+  }
+
+  useEffect(() => {
+    if (!object || !isRoutine) {
       return;
     }
     const target = object;
     let cancelled = false;
-    setParametersLoaded(false);
-    setDetailsLoading(true);
     void fetchObjectDetails({
       schema: target.schema,
       name: target.name,

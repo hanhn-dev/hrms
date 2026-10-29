@@ -60,27 +60,35 @@ export function useGitFileIndex(
   const [loading, setLoading] = useState(false);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (catalogName.length === 0 || catalogCommitId.length === 0) {
+  const indexKey =
+    catalogName.length === 0 || catalogCommitId.length === 0 ? "" : cacheKey(repositoryId, catalogCommitId);
+  const [loadedIndexKey, setLoadedIndexKey] = useState<string | null>(null);
+  if (indexKey !== loadedIndexKey) {
+    setLoadedIndexKey(indexKey);
+    if (indexKey.length === 0) {
       setPaths([]);
       setReady(false);
       setLoading(false);
       setError(null);
-      return;
+    } else {
+      const hit = pathsByCommit.get(indexKey);
+      if (hit) {
+        setPaths(hit);
+        setReady(true);
+        setLoading(false);
+        setError(null);
+      } else {
+        setLoading(true);
+        setError(null);
+      }
     }
-    const key = cacheKey(repositoryId, catalogCommitId);
-    const hit = pathsByCommit.get(key);
-    if (hit) {
-      setPaths(hit);
-      setReady(true);
-      setLoading(false);
-      setError(null);
+  }
+
+  useEffect(() => {
+    if (catalogName.length === 0 || catalogCommitId.length === 0) {
       return;
     }
     let cancelled = false;
-    setLoading(true);
-    setError(null);
     loadCachedGitFilePaths({ repositoryId, branch: catalogName, commitId: catalogCommitId })
       .then((next) => {
         if (!cancelled) {

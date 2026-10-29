@@ -67,7 +67,7 @@ Both follow the same pattern: environment config → `StdioServerTransport` → 
 
 ### backstage
 
-Internal documentation site and operator console. Full conventions live in `apps/backstage/AGENTS.md`.
+Internal documentation site and operator console. Full conventions live in `apps/backstage/AGENTS.md`. Client components use the React Compiler, so new Backstage code does not add `useMemo`, `useCallback`, or `memo`.
 
 ```bash
 npm run backstage                          # from repo root

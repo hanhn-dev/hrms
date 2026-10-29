@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { Alert, Button, Input, Space, Typography } from "antd";
 import { DataTable } from "@/shared/ui/data-table";
 import type { ColumnFilterInput, DataFixBrowse, DataFixCellEdit } from "@hrms/db";
@@ -56,32 +56,49 @@ export function DataFixRows({
   const requestedFilters = JSON.stringify(columnFilters);
   const [activeFilters, setActiveFilters] = useState<ColumnFilterInput[]>([...columnFilters]);
   const [activeFilterKey, setActiveFilterKey] = useState(requestedFilters);
-  const onEditsChangeRef = useRef(onEditsChange);
-  onEditsChangeRef.current = onEditsChange;
-  const onLoadedRef = useRef(onLoaded);
-  onLoadedRef.current = onLoaded;
+  const [filterNoticeKey, setFilterNoticeKey] = useState(requestedFilters);
+  const browseKey = JSON.stringify({
+    activeFilters,
+    applied,
+    employerId,
+    newestFirst,
+    reloadKey,
+    schema,
+    table,
+  });
+  const [loadedBrowseKey, setLoadedBrowseKey] = useState(browseKey);
+  const notifyEditsChange = useEffectEvent((count: number) => {
+    onEditsChange?.(count);
+  });
+  const notifyLoaded = useEffectEvent((next: DataFixBrowse) => {
+    onLoaded?.(next);
+  });
 
   useEffect(() => {
-    onEditsChangeRef.current?.(edits.length);
+    notifyEditsChange(edits.length);
   }, [edits.length]);
 
-  useEffect(() => {
-    if (requestedFilters === activeFilterKey) {
-      return;
-    }
+  if (requestedFilters !== activeFilterKey) {
     if (edits.length > 0) {
-      setEditError("Commit or discard edits before filtering again.");
-      return;
+      if (filterNoticeKey !== requestedFilters) {
+        setFilterNoticeKey(requestedFilters);
+        setEditError("Commit or discard edits before filtering again.");
+      }
+    } else {
+      setActiveFilters(JSON.parse(requestedFilters) as ColumnFilterInput[]);
+      setActiveFilterKey(requestedFilters);
+      setFilterNoticeKey(requestedFilters);
+      setEditing(null);
+      setEditError(null);
     }
-    setActiveFilters(JSON.parse(requestedFilters) as ColumnFilterInput[]);
-    setActiveFilterKey(requestedFilters);
-    setEditing(null);
-    setEditError(null);
-  }, [activeFilterKey, edits.length, requestedFilters]);
+  }
+  if (browseKey !== loadedBrowseKey) {
+    setLoadedBrowseKey(browseKey);
+    setLoading(true);
+  }
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
     void browseTable({
       employerId,
       schema,
@@ -96,7 +113,7 @@ export function DataFixRows({
           setBrowse(next);
           setQueryScript(script);
           setError(null);
-          onLoadedRef.current?.(next);
+          notifyLoaded(next);
         }
       })
       .catch((browseError: unknown) => {
@@ -365,7 +382,9 @@ function CellEditor({
 }): React.JSX.Element {
   const [draft, setDraft] = useState(initial);
   const draftRef = useRef(draft);
-  draftRef.current = draft;
+  useEffect(() => {
+    draftRef.current = draft;
+  }, [draft]);
 
   function save(): void {
     onSave(draftRef.current);

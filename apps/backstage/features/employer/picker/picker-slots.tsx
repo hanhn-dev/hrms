@@ -31,26 +31,29 @@ export async function PickerHealthSlot({
 }
 
 export async function PickerEmployersSlot(): Promise<React.JSX.Element> {
+  let employers: Awaited<ReturnType<typeof listEmployers>> | null = null;
+  let queryScript = "";
+  let description: string | null = null;
   try {
-    const employers = await captureQueryScript(() => listEmployers());
-    return (
-      <Card>
-        <EmployerPickerTable
-          employers={employers.result}
-          queryScript={employers.script}
-        />
-      </Card>
-    );
+    const loaded = await captureQueryScript(() => listEmployers());
+    employers = loaded.result;
+    queryScript = loaded.script;
   } catch (error) {
-    const description =
-      error instanceof Error ? error.message : "Could not load employers.";
+    description = error instanceof Error ? error.message : "Could not load employers.";
+  }
+  if (employers == null) {
     return (
       <Alert
         showIcon
         type="error"
         title="Could not load employers"
-        description={description}
+        description={description ?? "Could not load employers."}
       />
     );
   }
+  return (
+    <Card>
+      <EmployerPickerTable employers={employers} queryScript={queryScript} />
+    </Card>
+  );
 }

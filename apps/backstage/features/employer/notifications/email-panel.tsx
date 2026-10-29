@@ -5,7 +5,7 @@ import { DataTable } from "@/shared/ui/data-table";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import {
   notificationsHref,
   type NotificationsQuery,
@@ -45,10 +45,11 @@ function CreatedPicker({
   placeholder: string;
   onChange: (value: string | null) => void;
 }): React.JSX.Element {
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  const mounted = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false,
+  );
 
   if (!mounted) {
     return (

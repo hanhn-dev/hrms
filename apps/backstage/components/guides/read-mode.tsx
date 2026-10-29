@@ -1,14 +1,6 @@
 "use client";
 
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useState,
-} from "react";
+import { createContext, useContext, useEffect, useLayoutEffect, useSyncExternalStore } from "react";
 import { usePathname } from "next/navigation";
 
 export const READ_MODE_STORAGE_KEY = "backstage:read-mode";
@@ -26,28 +18,67 @@ function isFeatureArticlePath(pathname: string): boolean {
   return pathname.startsWith("/docs/guides/") && pathname.length > "/docs/guides/".length;
 }
 
+const readModeListeners = new Set<() => void>();
+
+function subscribeReadMode(onStoreChange: () => void): () => void {
+  readModeListeners.add(onStoreChange);
+  return () => {
+    readModeListeners.delete(onStoreChange);
+  };
+}
+
+function readStoredReadMode(): boolean {
+  return localStorage.getItem(READ_MODE_STORAGE_KEY) === "1";
+}
+
+function getReadModeServerSnapshot(): boolean {
+  return false;
+}
+
+function subscribeClientReady(): () => void {
+  return () => {};
+}
+
+function getClientReadySnapshot(): boolean {
+  return true;
+}
+
+function getClientReadyServerSnapshot(): boolean {
+  return false;
+}
+
+function writeReadMode(next: boolean): void {
+  localStorage.setItem(READ_MODE_STORAGE_KEY, next ? "1" : "0");
+  for (const listener of readModeListeners) {
+    listener();
+  }
+}
+
 export function ReadModeProvider({
   children,
 }: {
   children: React.ReactNode;
 }): React.JSX.Element {
   const pathname = usePathname();
-  const [readMode, setReadModeState] = useState(false);
-  const [ready, setReady] = useState(false);
+  const readMode = useSyncExternalStore(
+    subscribeReadMode,
+    readStoredReadMode,
+    getReadModeServerSnapshot,
+  );
+  const ready = useSyncExternalStore(
+    subscribeClientReady,
+    getClientReadySnapshot,
+    getClientReadyServerSnapshot,
+  );
   const isArticle = isFeatureArticlePath(pathname);
 
-  useLayoutEffect(() => {
-    setReadModeState(localStorage.getItem(READ_MODE_STORAGE_KEY) === "1");
-    setReady(true);
-  }, []);
+  const setReadMode = (next: boolean) => {
+    writeReadMode(next);
+  };
 
-  const setReadMode = useCallback((next: boolean) => {
-    setReadModeState(next);
-  }, []);
-
-  const toggle = useCallback(() => {
-    setReadModeState((prev) => !prev);
-  }, []);
+  const toggle = () => {
+    writeReadMode(!readMode);
+  };
 
   useEffect(() => {
     if (!ready) return;
@@ -67,21 +98,18 @@ export function ReadModeProvider({
       if (event.key !== "Escape") return;
       if (document.fullscreenElement) return;
       if (!readMode) return;
-      setReadModeState(false);
+      writeReadMode(false);
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [readMode]);
 
-  const value = useMemo(
-    () => ({
+  const value = {
       readMode,
       immersive: readMode && isArticle,
       setReadMode,
       toggle,
-    }),
-    [readMode, isArticle, setReadMode, toggle],
-  );
+    };
 
   return <ReadModeContext.Provider value={value}>{children}</ReadModeContext.Provider>;
 }

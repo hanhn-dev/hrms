@@ -1,7 +1,7 @@
 "use client";
 
 import { App, Button, Input, Modal, Space, Table, Typography } from "antd";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useState } from "react";
 
 export type PreviewResult = {
   token: string;
@@ -49,12 +49,22 @@ export function ConfirmWriteModal({
   const [sql, setSql] = useState<string | null>(null);
   const [committed, setCommitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const previewActionRef = useRef(previewAction);
-  previewActionRef.current = previewAction;
-
   const controlled = openProp !== undefined;
   const open = controlled ? openProp : uncontrolledOpen;
+  const [loading, setLoading] = useState(controlled && open);
+  const openKey = !controlled ? "uncontrolled" : open ? "open" : "closed";
+  const [seenOpenKey, setSeenOpenKey] = useState(openKey);
+  const readPreviewAction = useEffectEvent(() => previewAction());
+
+  if (openKey !== seenOpenKey) {
+    setSeenOpenKey(openKey);
+    if (controlled) {
+      reset();
+      if (open) {
+        setLoading(true);
+      }
+    }
+  }
 
   function reset(): void {
     setToken(null);
@@ -89,7 +99,7 @@ export function ConfirmWriteModal({
     reset();
     setLoading(true);
     try {
-      applyPreview(await previewActionRef.current());
+      applyPreview(await previewAction());
     } catch (previewError) {
       setError(
         previewError instanceof Error
@@ -110,24 +120,22 @@ export function ConfirmWriteModal({
   }
 
   useEffect(() => {
-    if (!controlled) {
-      return;
-    }
-    if (!open) {
-      reset();
+    if (!controlled || !open) {
       return;
     }
     let cancelled = false;
-    async function load(): Promise<void> {
-      reset();
-      setLoading(true);
-      try {
-        const result = await previewActionRef.current();
+    void readPreviewAction()
+      .then((result) => {
         if (cancelled) {
           return;
         }
-        applyPreview(result);
-      } catch (previewError) {
+        setToken(result.token);
+        setPreview(result.preview);
+        setNote(result.note ?? null);
+        setSql(result.sql ?? null);
+        setCommitted(false);
+      })
+      .catch((previewError: unknown) => {
         if (cancelled) {
           return;
         }
@@ -136,13 +144,12 @@ export function ConfirmWriteModal({
             ? previewError.message
             : "Preview failed.",
         );
-      } finally {
+      })
+      .finally(() => {
         if (!cancelled) {
           setLoading(false);
         }
-      }
-    }
-    void load();
+      });
     return () => {
       cancelled = true;
     };

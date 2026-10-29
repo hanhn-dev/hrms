@@ -1,6 +1,6 @@
 "use client";
 
-import { isValidElement, useCallback, useEffect, useState, type ReactNode } from "react";
+import { isValidElement, useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -72,8 +72,7 @@ export function DatabaseArticle({
     };
   }, []);
 
-  const openSource = useCallback(
-    async (relativePath: string) => {
+  const openSource = async (relativePath: string) => {
       setFileNote(null);
       let checkout = roots;
       if (!checkout["hrms-db"]) {
@@ -118,9 +117,7 @@ export function DatabaseArticle({
         // Fall through to the checkout note.
       }
       setFileNote("Link the database checkout in Settings to open this file in your editor.");
-    },
-    [roots],
-  );
+    };
 
   return (
     <div className="flex h-full min-h-0">
@@ -228,11 +225,16 @@ function ObjectPanel({
 }): React.JSX.Element {
   const [state, setState] = useState<LoadState>({ status: "loading" });
   const [kinds, setKinds] = useState<Record<string, ScriptObjectKind>>({});
+  const objectKey = `${database}\0${object.schema}\0${object.name}`;
+  const [loadedObjectKey, setLoadedObjectKey] = useState(objectKey);
+  if (loadedObjectKey !== objectKey) {
+    setLoadedObjectKey(objectKey);
+    setState({ status: "loading" });
+    setKinds({});
+  }
 
   useEffect(() => {
     const controller = new AbortController();
-    setState({ status: "loading" });
-    setKinds({});
     const params = new URLSearchParams({
       schema: object.schema,
       name: object.name,

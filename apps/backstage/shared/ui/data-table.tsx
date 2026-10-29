@@ -1,12 +1,13 @@
 "use client";
 
+import { useEffect, useState, useTransition } from "react";
+
 import { CopyOutlined, ReloadOutlined, SearchOutlined } from "@ant-design/icons";
 import { App, Button, Input, Table, Tooltip } from "antd";
 import type { TableProps } from "antd";
 import type { ColumnGroupType, ColumnsType, ColumnType } from "antd/es/table";
 import type { TablePaginationConfig } from "antd/es/table/interface";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import {
   columnCopyText,
   type ColumnDataIndex,
@@ -315,17 +316,14 @@ export function DataTable<RecordType extends object>({
   const [page, setPage] = useState(1);
   const serverPaged = isServerPaged(pagination);
 
-  const onFilterQueryChange = useCallback(
-    (next: string) => {
+  const onFilterQueryChange = (next: string) => {
       startSearchTransition(() => {
         setFilterQuery(next);
         if (!serverPaged) {
           setPage(1);
         }
       });
-    },
-    [serverPaged],
-  );
+    };
 
   const refreshing = pagePending || customPending;
   const reloadLabel = skipRefresh
@@ -363,31 +361,22 @@ export function DataTable<RecordType extends object>({
 
   const searchActive = filterQuery.trim() !== "";
   const sourceRows = Array.isArray(dataSource) ? dataSource : [];
-  const rowSearchTexts = useMemo(
-    () => buildRowSearchTexts(columns, sourceRows),
-    [columns, sourceRows],
-  );
-  const visibleRows = useMemo(() => {
+  const rowSearchTexts = buildRowSearchTexts(columns, sourceRows);
+  const visibleRows = (() => {
     if (!searchActive) {
       return dataSource;
     }
     const needle = filterQuery.trim().toLowerCase();
     return sourceRows.filter((_, index) => rowSearchTexts[index]?.includes(needle) === true);
-  }, [dataSource, filterQuery, rowSearchTexts, searchActive, sourceRows]);
+  })();
   const visibleLocale =
     locale?.emptyText != null || !searchActive
       ? locale
       : { ...locale, emptyText: "No rows match." };
 
   const copyRows = Array.isArray(visibleRows) ? visibleRows : sourceRows;
-  const baseColumns = useMemo(
-    () => copyColumns(columns, copyRows, columnFilter),
-    [columnFilter, columns, copyRows],
-  );
-  const highlightedColumns = useMemo(
-    () => baseColumns?.map((column) => withSearchHighlight(column, filterQuery)),
-    [baseColumns, filterQuery],
-  );
+  const baseColumns = copyColumns(columns, copyRows, columnFilter);
+  const highlightedColumns = baseColumns?.map((column) => withSearchHighlight(column, filterQuery));
 
   const reloadButton = (
     <Button

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Alert, Button, Collapse, Select, Tabs, Tag } from "antd";
 import { DataTable } from "@/shared/ui/data-table";
 import { useRouter } from "next/navigation";
@@ -116,26 +116,17 @@ export function FieldsPanel({
   compareScript: string;
 }): React.JSX.Element {
   const router = useRouter();
-  const sectionKnown = useMemo(() => {
+  const sectionKnown = (() => {
     if (!section) {
       return false;
     }
     return [...employerFields, ...templateFields, ...compared].some((row) =>
       namesMatch(row.section, section),
     );
-  }, [compared, employerFields, section, templateFields]);
-  const scopedEmployer = useMemo(
-    () => scopeRows(employerFields, section, sectionKnown),
-    [employerFields, section, sectionKnown],
-  );
-  const scopedTemplate = useMemo(
-    () => scopeRows(templateFields, section, sectionKnown),
-    [section, sectionKnown, templateFields],
-  );
-  const scopedCompared = useMemo(
-    () => scopeCompareRows(compared, section, sectionKnown),
-    [compared, section, sectionKnown],
-  );
+  })();
+  const scopedEmployer = scopeRows(employerFields, section, sectionKnown);
+  const scopedTemplate = scopeRows(templateFields, section, sectionKnown);
+  const scopedCompared = scopeCompareRows(compared, section, sectionKnown);
   const [entities, setEntities] = useState<string[]>(() =>
     initialEntities(employerFields, templateFields, section, sectionKnown),
   );
@@ -147,23 +138,11 @@ export function FieldsPanel({
     document.getElementById("field-focus")?.scrollIntoView({ block: "center" });
   }, [field, sectionKnown, source]);
 
-  const entityOptions = useMemo(
-    () => entityFilterOptions(employerFields, templateFields),
-    [employerFields, templateFields],
-  );
+  const entityOptions = entityFilterOptions(employerFields, templateFields);
 
-  const visibleEmployer = useMemo(
-    () => filterCatalogRows(scopedEmployer, entities),
-    [entities, scopedEmployer],
-  );
-  const visibleTemplate = useMemo(
-    () => filterCatalogRows(scopedTemplate, entities),
-    [entities, scopedTemplate],
-  );
-  const visibleCompared = useMemo(
-    () => filterCompareRows(scopedCompared, entities),
-    [entities, scopedCompared],
-  );
+  const visibleEmployer = filterCatalogRows(scopedEmployer, entities);
+  const visibleTemplate = filterCatalogRows(scopedTemplate, entities);
+  const visibleCompared = filterCompareRows(scopedCompared, entities);
   const highlightField = sectionKnown ? field : null;
 
   return (

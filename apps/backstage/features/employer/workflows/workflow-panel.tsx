@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Alert,
@@ -125,7 +125,7 @@ export function WorkflowPanel({
   const [treeConfirmOpen, setTreeConfirmOpen] = useState(false);
   const createdIdRef = useRef<number | null>(null);
 
-  const pageOptions = useMemo(() => {
+  const pageOptions = (() => {
     const options = new Map<number, { value: number; label: string }>();
     for (const page of pages) {
       if (header.moduleId != null && page.moduleId !== header.moduleId) {
@@ -139,9 +139,9 @@ export function WorkflowPanel({
       }
     }
     return [...options.values()];
-  }, [header.moduleId, pages]);
+  })();
 
-  const actorOptions = useMemo<ActorOption[]>(() => {
+  const actorOptions = (() => {
     const options = new Map<string, ActorOption>();
     for (const role of BUILTIN_WORKFLOW_ROLES) {
       options.set(role.name, { value: role.name, label: role.name });
@@ -164,20 +164,20 @@ export function WorkflowPanel({
       });
     }
     return [...options.values()];
-  }, [groups]);
+  })();
 
-  const moduleOptions = useMemo(() => {
+  const moduleOptions = (() => {
     const options = new Map<number, { value: number; label: string }>();
-    for (const module of modules) {
-      if (!options.has(module.moduleId)) {
-        options.set(module.moduleId, {
-          value: module.moduleId,
-          label: module.moduleName,
+    for (const workflowModule of modules) {
+      if (!options.has(workflowModule.moduleId)) {
+        options.set(workflowModule.moduleId, {
+          value: workflowModule.moduleId,
+          label: workflowModule.moduleName,
         });
       }
     }
     return [...options.values()];
-  }, [modules]);
+  })();
 
   const selectedPages = pages.filter((page) => header.mappedPageIds.includes(page.modulePageId));
   const notificationOnly = selectedPages.some((page) => page.isNotificationOnly);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Alert, Button, Segmented, Select, Splitter, Typography } from "antd";
 import {
   diffDefinitions,
@@ -127,16 +127,26 @@ export function ScriptCompare({
     };
   }, []);
 
-  useEffect(() => {
-    if (!leftEnv || !rightEnv || leftEnv === rightEnv) {
+  const compareKey = `${schema}\0${name}\0${kind}\0${leftEnv ?? ""}\0${rightEnv ?? ""}`;
+  const comparable = Boolean(leftEnv && rightEnv && leftEnv !== rightEnv);
+  const [loadedCompareKey, setLoadedCompareKey] = useState<string | null>(null);
+  if (compareKey !== loadedCompareKey) {
+    setLoadedCompareKey(compareKey);
+    if (!comparable) {
       setLeft(null);
       setRight(null);
       setLoading(false);
+    } else {
+      setLoading(true);
+      setError(null);
+    }
+  }
+
+  useEffect(() => {
+    if (!leftEnv || !rightEnv || leftEnv === rightEnv) {
       return;
     }
     let cancelled = false;
-    setLoading(true);
-    setError(null);
     void Promise.all([
       getObjectDefinitionForEnvironment({ schema, name, kind, env: leftEnv }),
       getObjectDefinitionForEnvironment({ schema, name, kind, env: rightEnv }),
@@ -171,7 +181,7 @@ export function ScriptCompare({
     };
   }, [schema, name, kind, leftEnv, rightEnv]);
 
-  const prepared = useMemo(() => {
+  const prepared = (() => {
     const leftText = left?.text ?? "";
     const rightText = right?.text ?? "";
     if (kind === "table" || mode === "original") {
@@ -184,13 +194,10 @@ export function ScriptCompare({
       right: rightFormatted.sql,
       warning: leftFormatted.warning ?? rightFormatted.warning,
     };
-  }, [kind, mode, left, right]);
+  })();
 
-  const diff = useMemo(
-    () => diffDefinitions(prepared.left, prepared.right),
-    [prepared.left, prepared.right],
-  );
-  const places = useMemo(() => diffPlaces(diff.rows), [diff.rows]);
+  const diff = diffDefinitions(prepared.left, prepared.right);
+  const places = diffPlaces(diff.rows);
   const [activeStart, setActiveStart] = useState<number | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const activePlace = places.find((place) => place.startRow === activeStart) ?? null;

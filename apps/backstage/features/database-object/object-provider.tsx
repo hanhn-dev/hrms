@@ -35,6 +35,22 @@ const DatabaseObjectContext = createContext<DatabaseObjectContextValue>({
   openObject: () => {},
 });
 
+function collectMentionTargets(signature: string): ObjectTarget[] {
+  const seen = new Set<string>();
+  const found: ObjectTarget[] = [];
+  for (const text of signature.split("\0")) {
+    for (const object of objectCandidates(text)) {
+      const key = objectKindKey(object.schema, object.name);
+      if (seen.has(key)) {
+        continue;
+      }
+      seen.add(key);
+      found.push(object);
+    }
+  }
+  return found;
+}
+
 export function DatabaseObjectProvider({
   texts,
   writesEnabled,
@@ -47,22 +63,17 @@ export function DatabaseObjectProvider({
   const [kinds, setKinds] = useState<ObjectKindMap>({});
   const [stack, setStack] = useState<ObjectTarget[]>([]);
   const signature = texts.join("\0");
+  const [kindsSignature, setKindsSignature] = useState(signature);
+  if (kindsSignature !== signature) {
+    setKindsSignature(signature);
+    if (collectMentionTargets(signature).length === 0) {
+      setKinds({});
+    }
+  }
 
   useEffect(() => {
-    const seen = new Set<string>();
-    const found: ObjectTarget[] = [];
-    for (const text of signature.split("\0")) {
-      for (const object of objectCandidates(text)) {
-        const key = objectKindKey(object.schema, object.name);
-        if (seen.has(key)) {
-          continue;
-        }
-        seen.add(key);
-        found.push(object);
-      }
-    }
+    const found = collectMentionTargets(signature);
     if (found.length === 0) {
-      setKinds({});
       return;
     }
     let cancelled = false;
@@ -189,14 +200,15 @@ function DatabaseObjectScriptModal({
   onClose: () => void;
   onOpenObject: (object: ObjectTarget) => void;
 }): React.JSX.Element {
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(() => current != null);
   const [error, setError] = useState<string | null>(null);
   const [script, setScript] = useState<ResolvedScript | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
-  const requestKey = current ? `${current.schema}.${current.name}:${reloadKey}` : "";
-  const [request, setRequest] = useState(requestKey);
-  if (request !== requestKey) {
-    setRequest(requestKey);
+  const [seenCurrent, setSeenCurrent] = useState(current);
+  const [seenReloadKey, setSeenReloadKey] = useState(reloadKey);
+  if (seenCurrent !== current || seenReloadKey !== reloadKey) {
+    setSeenCurrent(current);
+    setSeenReloadKey(reloadKey);
     setLoading(current != null);
     setError(null);
     setScript(null);
@@ -207,9 +219,6 @@ function DatabaseObjectScriptModal({
       return;
     }
     let cancelled = false;
-    setLoading(true);
-    setError(null);
-    setScript(null);
     void resolveScriptObject(current)
       .then((resolved) => {
         if (cancelled) {

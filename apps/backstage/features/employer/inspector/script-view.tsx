@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { CaretDownOutlined, CaretRightOutlined } from "@ant-design/icons";
 import { App, Button, Segmented, Tag, Tooltip, Typography } from "antd";
 import { KIND_COLOR } from "@/features/dbs/kind-style";
@@ -175,16 +175,17 @@ export function SqlScript({
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(() => new Set());
   const [flashToken, setFlashToken] = useState<number | null>(null);
   const [scrollGeneration, setScrollGeneration] = useState(0);
-  const { lines, tokenLine } = useMemo(() => layoutLines(model), [model]);
-  const symbolById = useMemo(
-    () => new Map(model.symbols.map((symbol) => [symbol.id, symbol])),
-    [model.symbols],
-  );
+  const [seenModel, setSeenModel] = useState(model);
+  const { lines, tokenLine } = layoutLines(model);
+  const symbolById = new Map(model.symbols.map((symbol) => [symbol.id, symbol]));
+  if (model !== seenModel) {
+    setSeenModel(model);
+    setCollapsed(new Set());
+    setFlashToken(null);
+  }
 
   useEffect(() => {
     pendingScroll.current = null;
-    setCollapsed(new Set());
-    setFlashToken(null);
     useCursor.current.clear();
   }, [model]);
 
@@ -199,26 +200,6 @@ export function SqlScript({
       window.clearTimeout(timer);
     };
   }, [flashToken]);
-
-  const scrollToken = useCallback((tokenIndex: number): void => {
-    const root = scrollRef.current;
-    if (!root) {
-      return;
-    }
-    const node = root.querySelector(`[data-token="${tokenIndex}"]`);
-    if (!(node instanceof HTMLElement)) {
-      return;
-    }
-    const rootRect = root.getBoundingClientRect();
-    const nodeRect = node.getBoundingClientRect();
-    const top = nodeRect.top - rootRect.top + root.scrollTop - root.clientHeight / 2;
-    root.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
-    if (nodeRect.left < rootRect.left + 16 || nodeRect.right > rootRect.right) {
-      root.scrollLeft += nodeRect.left - rootRect.left - 24;
-    }
-  }, []);
-
-  const revealRef = useRef<(tokenIndex: number) => void>(() => {});
 
   function reveal(tokenIndex: number): void {
     const line = tokenLine[tokenIndex] ?? 0;
@@ -238,14 +219,16 @@ export function SqlScript({
     });
   }
 
-  revealRef.current = reveal;
+  const revealJump = useEffectEvent((tokenIndex: number) => {
+    reveal(tokenIndex);
+  });
 
   useEffect(() => {
     if (!jumpToken || jumpToken.nonce === lastNonce.current) {
       return;
     }
     lastNonce.current = jumpToken.nonce;
-    revealRef.current(jumpToken.index);
+    revealJump(jumpToken.index);
   }, [jumpToken]);
 
   useEffect(() => {
@@ -255,12 +238,18 @@ export function SqlScript({
     }
     const root = scrollRef.current;
     const node = root?.querySelector(`[data-token="${tokenIndex}"]`);
-    if (!(node instanceof HTMLElement)) {
+    if (!root || !(node instanceof HTMLElement)) {
       return;
     }
     pendingScroll.current = null;
-    scrollToken(tokenIndex);
-  }, [collapsed, flashToken, scrollGeneration, scrollToken]);
+    const rootRect = root.getBoundingClientRect();
+    const nodeRect = node.getBoundingClientRect();
+    const top = nodeRect.top - rootRect.top + root.scrollTop - root.clientHeight / 2;
+    root.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+    if (nodeRect.left < rootRect.left + 16 || nodeRect.right > rootRect.right) {
+      root.scrollLeft += nodeRect.left - rootRect.left - 24;
+    }
+  }, [collapsed, flashToken, scrollGeneration]);
 
   async function copyScript(): Promise<void> {
     try {

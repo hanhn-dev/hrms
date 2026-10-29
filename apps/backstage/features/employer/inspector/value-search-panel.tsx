@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Alert,
   Button,
@@ -251,10 +251,11 @@ export function ValueSearchPanel({
   const [paused, setPaused] = useState(false);
   const [scanKey, setScanKey] = useState<string | null>(null);
   const runId = useRef(0);
-
-  useEffect(() => {
+  const [seenRouteEmployerId, setSeenRouteEmployerId] = useState(routeEmployerId);
+  if (routeEmployerId !== seenRouteEmployerId) {
+    setSeenRouteEmployerId(routeEmployerId);
     setEmployerId(routeEmployerId);
-  }, [routeEmployerId]);
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -274,16 +275,13 @@ export function ValueSearchPanel({
     };
   }, []);
 
-  const selectedTableSet = useMemo(
-    () => new Set(selectedTables),
-    [selectedTables],
-  );
+  const selectedTableSet = new Set(selectedTables);
   const containsNeedsTables =
     mode === "contains" && selectedTables.length === 0;
   const canSearch =
     targets !== null && value.trim() !== "" && !containsNeedsTables && !running;
 
-  const tableOptions = useMemo(() => {
+  const tableOptions = (() => {
     const query = tableSearch.trim().toLowerCase();
     const options: Array<{ value: string; label: string }> = [];
     for (const qualified of selectedTables) {
@@ -302,9 +300,9 @@ export function ValueSearchPanel({
       options.push({ value: qualified, label: qualified });
     }
     return options;
-  }, [selectedTables, selectedTableSet, tableSearch, targets]);
+  })();
 
-  const visibleHits = useMemo(() => {
+  const visibleHits = (() => {
     const query = resultQuery.trim().toLowerCase();
     if (query === "") {
       return hits;
@@ -316,16 +314,16 @@ export function ValueSearchPanel({
           column.toLowerCase().includes(query),
         ),
     );
-  }, [hits, resultQuery]);
+  })();
 
-  const plannedCount = useMemo(() => {
+  const plannedCount = (() => {
     if (!targets) {
       return 0;
     }
     return targets.filter((target) =>
       inSearchScope(target, selectedTableSet, ignorePatterns),
     ).length;
-  }, [targets, selectedTableSet, ignorePatterns]);
+  })();
 
   function stopSearch(): void {
     runId.current += 1;

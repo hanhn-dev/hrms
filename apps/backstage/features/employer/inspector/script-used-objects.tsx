@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Button, Input, Popover, Space, Table, Tooltip, Typography } from "antd";
 import { KIND_COLOR } from "@/features/dbs/kind-style";
 import {
@@ -48,19 +48,23 @@ function TableColumnList({
   const [rows, setRows] = useState<TableColumnRow[] | null>(null);
   const [query, setQuery] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const visibleRows = useMemo(
-    () => (rows ? filterTableColumnRows(rows, query) : []),
-    [query, rows],
-  );
+  const visibleRows = rows ? filterTableColumnRows(rows, query) : [];
+  const columnKey = open ? `${schema}.${name}` : "";
+  const [loadedColumnKey, setLoadedColumnKey] = useState<string | null>(null);
+  if (columnKey !== loadedColumnKey) {
+    setLoadedColumnKey(columnKey);
+    if (open) {
+      setRows(null);
+      setQuery("");
+      setError(null);
+    }
+  }
 
   useEffect(() => {
     if (!open) {
       return;
     }
     let cancelled = false;
-    setRows(null);
-    setQuery("");
-    setError(null);
     void listInspectorTableColumns({ schema, name })
       .then((columns) => {
         if (cancelled) {

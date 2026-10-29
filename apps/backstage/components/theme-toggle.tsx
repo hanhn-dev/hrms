@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 
 type Theme = "light" | "dark" | "system";
 
@@ -46,13 +46,33 @@ const OPTIONS: { value: Theme; label: string; icon: React.JSX.Element }[] = [
   { value: "system", label: "Match system theme", icon: <MonitorIcon /> },
 ];
 
-export function ThemeToggle(): React.JSX.Element {
-  const [theme, setTheme] = useState<Theme>("system");
+const themeListeners = new Set<() => void>();
 
-  useEffect(() => {
-    const stored = localStorage.getItem("theme");
-    setTheme(stored === "light" || stored === "dark" ? stored : "system");
-  }, []);
+function subscribeTheme(onStoreChange: () => void): () => void {
+  themeListeners.add(onStoreChange);
+  return () => {
+    themeListeners.delete(onStoreChange);
+  };
+}
+
+function readStoredTheme(): Theme {
+  const stored = localStorage.getItem("theme");
+  return stored === "light" || stored === "dark" ? stored : "system";
+}
+
+function getThemeServerSnapshot(): Theme {
+  return "system";
+}
+
+function writeTheme(next: Theme): void {
+  localStorage.setItem("theme", next);
+  for (const listener of themeListeners) {
+    listener();
+  }
+}
+
+export function ThemeToggle(): React.JSX.Element {
+  const theme = useSyncExternalStore(subscribeTheme, readStoredTheme, getThemeServerSnapshot);
 
   useEffect(() => {
     applyTheme(theme);
@@ -64,8 +84,7 @@ export function ThemeToggle(): React.JSX.Element {
   }, [theme]);
 
   function choose(next: Theme): void {
-    setTheme(next);
-    localStorage.setItem("theme", next);
+    writeTheme(next);
   }
 
   return (

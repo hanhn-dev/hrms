@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
+
 import { useRouter } from "next/navigation";
 import { App, Button, Collapse, Empty, Segmented, Space, Tag } from "antd";
 import { DataTable } from "@/shared/ui/data-table";
@@ -97,29 +98,22 @@ export function ChangeRequestsPanel({
     }
   }
 
-  const counts = useMemo(() => {
-    const tally = {
+  const tally = {
       all: requests.length,
       pending: 0,
       approved: 0,
       rejected: 0,
     };
-    for (const row of requests) {
+  for (const row of requests) {
       tally[row.status] += 1;
     }
-    return tally;
-  }, [requests]);
+  const counts = tally;
 
-  const visible = useMemo(() => {
-    return requests.filter(
+  const visible = requests.filter(
       (row) => statusFilter === "all" || row.status === statusFilter,
     );
-  }, [requests, statusFilter]);
 
-  const groups = useMemo(
-    () => groupChangeRequestsByWorkflow(visible),
-    [visible],
-  );
+  const groups = groupChangeRequestsByWorkflow(visible);
   const groupSignature = `${statusFilter}|${groups.map((group) => group.key).join(",")}`;
   const activeKeys =
     openOverride?.signature === groupSignature

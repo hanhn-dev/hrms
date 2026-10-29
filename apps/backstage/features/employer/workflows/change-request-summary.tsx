@@ -1,6 +1,5 @@
 "use client";
 
-import { useMemo } from "react";
 import { Descriptions, Space, Typography } from "antd";
 import { DataTable } from "@/shared/ui/data-table";
 import {
@@ -29,10 +28,7 @@ export function ChangeRequestSummary({
   detail: ChangeRequestDetail;
   queryScript: string;
 }): React.JSX.Element {
-  const sectionNames = useMemo(
-    () => sectionNamesFrom(detail.header.sectionNames, detail.details),
-    [detail],
-  );
+  const sectionNames = sectionNamesFrom(detail.header.sectionNames, detail.details);
 
   return (
     <Space className="w-full" orientation="vertical" size="middle">

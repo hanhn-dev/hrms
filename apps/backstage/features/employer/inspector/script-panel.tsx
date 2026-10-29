@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useEffect, useEffectEvent, useRef, useState, useTransition } from "react";
 import { Alert, App, Segmented, Space, Tabs, Tooltip, Typography } from "antd";
 import { KIND_COLOR } from "@/features/dbs/kind-style";
 import { SearchSelect } from "@/shared/ui";
@@ -160,7 +160,27 @@ export function ScriptPanel({
   const rootRef = useRef<HTMLDivElement>(null);
   const { message } = App.useApp();
   const tabsRef = useRef(tabs);
-  tabsRef.current = tabs;
+  useEffect(() => {
+    tabsRef.current = tabs;
+  }, [tabs]);
+  const trimmedQuery = query.trim();
+  const [seenQuery, setSeenQuery] = useState(query);
+  if (query !== seenQuery) {
+    setSeenQuery(query);
+    setLoadingOptions(trimmedQuery.length >= MIN_QUERY_LENGTH);
+  }
+  const catalogKey = `${kind}\0${debouncedQuery}`;
+  const [seenCatalogKey, setSeenCatalogKey] = useState(catalogKey);
+  if (catalogKey !== seenCatalogKey) {
+    setSeenCatalogKey(catalogKey);
+    if (debouncedQuery.length < MIN_QUERY_LENGTH) {
+      setCatalog([]);
+      setCatalogQuery("");
+      setLoadingOptions(false);
+    } else {
+      setLoadingOptions(true);
+    }
+  }
   const [relationLoad, setRelationLoad] = useState<{
     key: string;
     role: ScriptRelation["role"];
@@ -187,23 +207,11 @@ export function ScriptPanel({
   }, [environment]);
 
   useEffect(() => {
-    if (query.trim().length < MIN_QUERY_LENGTH) {
-      setLoadingOptions(false);
-    } else {
-      setLoadingOptions(true);
-    }
-  }, [query]);
-
-  useEffect(() => {
     if (debouncedQuery.length < MIN_QUERY_LENGTH) {
-      setCatalog([]);
-      setCatalogQuery("");
-      setLoadingOptions(false);
       return;
     }
 
     let cancelled = false;
-    setLoadingOptions(true);
     const request =
       kind === "table"
         ? listInspectorTables({ q: debouncedQuery })
@@ -262,11 +270,9 @@ export function ScriptPanel({
     persistRecents(next);
   }
 
-  const searchOptions = useMemo(() => {
-    const catalogRows =
+  const catalogRows =
       catalogQuery === query.trim() && query.trim().length >= MIN_QUERY_LENGTH ? catalog : [];
-    return mergeObjectOptions(matchRecentObjects(recents, kind, query), catalogRows);
-  }, [catalog, catalogQuery, kind, query, recents]);
+  const searchOptions = mergeObjectOptions(matchRecentObjects(recents, kind, query), catalogRows);
 
   function focusExisting(schema: string, name: string): boolean {
     const existing = tabs.find(
@@ -656,6 +662,10 @@ export function ScriptPanel({
     };
   }
 
+  const closeActiveTab = useEffectEvent((key: string) => {
+    closeTab(key);
+  });
+
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
       const root = rootRef.current;
@@ -681,7 +691,7 @@ export function ScriptPanel({
       }
       if (event.key.toLowerCase() === "w" && activeKey) {
         event.preventDefault();
-        closeTab(activeKey);
+        closeActiveTab(activeKey);
       }
     }
     window.addEventListener("keydown", onKeyDown);

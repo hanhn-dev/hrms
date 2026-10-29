@@ -53,7 +53,7 @@ export function MemberList({
                     <ParentLink parent={card.parent} query={query} />
                   </div>
                 ) : null}
-                <ChildList children={card.children} query={query} />
+                <ChildList query={query}>{card.children}</ChildList>
               </li>
             ))}
           </ul>

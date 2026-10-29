@@ -3,7 +3,6 @@
 import { DatePicker, Form, Input, InputNumber, Select } from "antd";
 import dayjs, { type Dayjs } from "dayjs";
 import customParseFormat from "dayjs/plugin/customParseFormat.js";
-import { useMemo } from "react";
 import type { SectionFormField } from "@/features/employee/sections/queries";
 import {
   errorsForField,
@@ -96,16 +95,12 @@ export function SectionRecordForm({
   onSubmit: (values: SectionFormValues) => void;
 }): React.JSX.Element {
   const [form] = Form.useForm();
-  const fieldDefs = useMemo(
-    () =>
-      fields.map((f) => ({
+  const fieldDefs = fields.map((f) => ({
         displayText: f.displayText,
         isMandatory: f.isMandatory,
         validationRule: f.validationRule,
         fieldType: f.fieldType,
-      })),
-    [fields],
-  );
+      }));
 
   return (
     <Form

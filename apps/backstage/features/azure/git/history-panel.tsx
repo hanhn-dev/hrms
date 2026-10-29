@@ -2,7 +2,7 @@
 
 import { SearchOutlined } from "@ant-design/icons";
 import { Alert, Button, Spin, Table } from "antd";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import type {
   GitBranchSummary,
   GitChangedFile,
@@ -23,6 +23,20 @@ import { formatDate } from "@/shared/format-date";
 import { SearchSelect } from "@/shared/ui";
 
 const DEFAULT_BODY_HEIGHT = 480;
+
+function preferredHistoryBranch(
+  current: string,
+  branches: readonly GitBranchSummary[],
+  defaultBranch: string | null,
+): string {
+  if (current && branches.some((item) => item.name === current)) {
+    return current;
+  }
+  if (defaultBranch && branches.some((item) => item.name === defaultBranch)) {
+    return defaultBranch;
+  }
+  return branches[0]?.name ?? "";
+}
 
 function useTableBodyHeight(): { ref: React.RefObject<HTMLDivElement | null>; bodyHeight: number } {
   const ref = useRef<HTMLDivElement>(null);
@@ -75,7 +89,7 @@ export function HistoryPanel({
   const [commits, setCommits] = useState<GitCommitSummary[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [hasMore, setHasMore] = useState(false);
+  const [, setHasMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [detail, setDetail] = useState<GitCommitDetail | null>(null);
@@ -85,6 +99,15 @@ export function HistoryPanel({
   const [pairLoading, setPairLoading] = useState(false);
   const [pairError, setPairError] = useState<string | null>(null);
   const [activityAuthor, setActivityAuthor] = useState<string | null>(null);
+  const [appliedBranches, setAppliedBranches] = useState<readonly GitBranchSummary[] | null>(null);
+  const [appliedDefaultBranch, setAppliedDefaultBranch] = useState<string | null | undefined>(undefined);
+  const [loadedHistory, setLoadedHistory] = useState({
+    repositoryId,
+    branch,
+    path,
+    authors: selectedAuthors,
+    searchTick,
+  });
   const { ref: tableFrame, bodyHeight } = useTableBodyHeight();
   const commitsRef = useRef<GitCommitSummary[]>([]);
   const nextSkipRef = useRef(0);
@@ -92,24 +115,41 @@ export function HistoryPanel({
   const loadingMoreRef = useRef(false);
   const requestIdRef = useRef(0);
   const queryRef = useRef({ repositoryId, branch, path, authors: selectedAuthors });
-  queryRef.current = { repositoryId, branch, path, authors: selectedAuthors };
 
   const authorOptions = uniqueAuthorOptions(authors);
+  let activeBranch = branch;
+  if (branches.length > 0 && (branches !== appliedBranches || defaultBranch !== appliedDefaultBranch)) {
+    setAppliedBranches(branches);
+    setAppliedDefaultBranch(defaultBranch);
+    activeBranch = preferredHistoryBranch(branch, branches, defaultBranch);
+    if (activeBranch !== branch) {
+      setBranch(activeBranch);
+    }
+  }
+  if (
+    activeBranch.length > 0 &&
+    (repositoryId !== loadedHistory.repositoryId ||
+      activeBranch !== loadedHistory.branch ||
+      path !== loadedHistory.path ||
+      selectedAuthors !== loadedHistory.authors ||
+      searchTick !== loadedHistory.searchTick)
+  ) {
+    setLoadedHistory({
+      repositoryId,
+      branch: activeBranch,
+      path,
+      authors: selectedAuthors,
+      searchTick,
+    });
+    setLoading(true);
+    setLoadingMore(false);
+    setHasMore(false);
+    setError(null);
+  }
 
   useEffect(() => {
-    if (branches.length === 0) {
-      return;
-    }
-    setBranch((current) => {
-      if (current && branches.some((item) => item.name === current)) {
-        return current;
-      }
-      if (defaultBranch && branches.some((item) => item.name === defaultBranch)) {
-        return defaultBranch;
-      }
-      return branches[0]?.name ?? "";
-    });
-  }, [branches, defaultBranch]);
+    queryRef.current = { repositoryId, branch, path, authors: selectedAuthors };
+  });
 
   useEffect(() => {
     if (!branch) {
@@ -120,10 +160,6 @@ export function HistoryPanel({
     loadingMoreRef.current = false;
     hasMoreRef.current = false;
     nextSkipRef.current = 0;
-    setLoading(true);
-    setLoadingMore(false);
-    setHasMore(false);
-    setError(null);
     loadGitCommits({ repositoryId, branch, path, authors: selectedAuthors, skip: 0 })
       .then((page) => {
         if (requestIdRef.current !== requestId) {
@@ -154,7 +190,7 @@ export function HistoryPanel({
       });
   }, [repositoryId, branch, path, selectedAuthors, searchTick]);
 
-  const loadMore = useCallback(async (): Promise<void> => {
+  const loadMore = useEffectEvent(async (): Promise<void> => {
     if (!hasMoreRef.current || loadingMoreRef.current) {
       return;
     }
@@ -194,7 +230,7 @@ export function HistoryPanel({
         setLoadingMore(false);
       }
     }
-  }, []);
+  });
 
   useEffect(() => {
     const body = tableFrame.current?.querySelector(".ant-table-body");
@@ -213,7 +249,7 @@ export function HistoryPanel({
     body.addEventListener("scroll", onScroll);
     onScroll();
     return () => body.removeEventListener("scroll", onScroll);
-  }, [loadMore, commits.length, bodyHeight, loading]);
+  }, [commits.length, bodyHeight, loading, tableFrame]);
 
   function applyFilters(nextAuthors: readonly string[] = draftAuthors, nextPath: string = draftPath): void {
     const filePath = displayGitPath(nextPath);

@@ -29,15 +29,19 @@ export function GitPanel({ catalog }: { catalog: GitTraceCatalog }): React.JSX.E
   const [branchesLoading, setBranchesLoading] = useState(false);
   const [branchError, setBranchError] = useState<string | null>(null);
   const [mode, setMode] = useState<GitMode>("history");
+  const [loadedRepositoryId, setLoadedRepositoryId] = useState<string | null>(null);
+  if (repositoryId && repositoryId !== loadedRepositoryId) {
+    setLoadedRepositoryId(repositoryId);
+    setBranchesLoading(true);
+    setBranchError(null);
+    setBranches([]);
+  }
 
   useEffect(() => {
     if (!repositoryId) {
       return;
     }
     let cancelled = false;
-    setBranchesLoading(true);
-    setBranchError(null);
-    setBranches([]);
     loadGitBranches(repositoryId)
       .then((rows) => {
         if (!cancelled) {

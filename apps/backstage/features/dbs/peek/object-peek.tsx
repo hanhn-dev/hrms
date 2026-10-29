@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useEffect, useEffectEvent, useRef, useState, useTransition } from "react";
 import {
   Alert,
   Button,
@@ -210,20 +210,23 @@ export function ObjectPeek({
   const [confirmToken, setConfirmToken] = useState<string | null>(null);
   const [execResult, setExecResult] = useState<string | null>(null);
 
-  const onDetailsRef = useRef(onDetails);
-  onDetailsRef.current = onDetails;
-  const onPartLoadedRef = useRef(onPartLoaded);
-  onPartLoadedRef.current = onPartLoaded;
+  const reportDetails = useEffectEvent(onDetails);
+  const reportPartLoaded = useEffectEvent(onPartLoaded);
 
   const objectKey = `${object.kind}:${object.schema}.${object.name}`;
+  const [seenObjectKey, setSeenObjectKey] = useState(objectKey);
+  const detailsId = details?.object.id;
+  const [paramSourceId, setParamSourceId] = useState<string | undefined | null>(
+    null,
+  );
   // Survives effect cleanup / Strict Mode remounts for this component instance.
   const columnsRequestedRef = useRef(false);
   const scriptRequestedRef = useRef(false);
   const depsRequestedRef = useRef(false);
-
-  useEffect(() => {
+  if (seenObjectKey !== objectKey) {
     const columnsReady =
       Boolean(loadedParts?.columns) || hasColumnsOrParams(details);
+    setSeenObjectKey(objectKey);
     setActiveTab("columns");
     setColumnsLoaded(columnsReady);
     setLoading(!columnsReady);
@@ -231,47 +234,49 @@ export function ObjectPeek({
     setRowsScript("");
     setRowsMeta(null);
     setRowsLoaded(false);
-    setScriptLoaded(
-      Boolean(loadedParts?.script) || hasScriptPayload(details),
-    );
+    setScriptLoaded(Boolean(loadedParts?.script) || hasScriptPayload(details));
     setDepsLoaded(Boolean(loadedParts?.deps) || hasDepsPayload(details));
     setError(null);
     setConfirmToken(null);
     setExecPreview(null);
     setExecResult(null);
-    columnsRequestedRef.current = columnsReady;
+  }
+  const columnsReadyNow =
+    Boolean(loadedParts?.columns) || hasColumnsOrParams(details);
+  if (!columnsLoaded && columnsReadyNow) {
+    setColumnsLoaded(true);
+    setLoading(false);
+  }
+  if (details && paramSourceId !== detailsId) {
+    const next: Record<string, string> = {};
+    for (const param of details.parameters) {
+      next[param.name] = "";
+    }
+    setParamSourceId(detailsId);
+    setParamValues(next);
+    setConfirmToken(null);
+    setExecPreview(null);
+    setExecResult(null);
+  }
+
+  useEffect(() => {
+    columnsRequestedRef.current =
+      Boolean(loadedParts?.columns) || hasColumnsOrParams(details);
     scriptRequestedRef.current =
       Boolean(loadedParts?.script) || hasScriptPayload(details);
     depsRequestedRef.current =
       Boolean(loadedParts?.deps) || hasDepsPayload(details);
-    // Reset only when the peeked object identity changes.
+    // Reset request guards only when the peeked object identity changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional objectKey gate
   }, [objectKey]);
 
   useEffect(() => {
-    if (
-      !columnsLoaded &&
-      (Boolean(loadedParts?.columns) || hasColumnsOrParams(details))
-    ) {
-      columnsRequestedRef.current = true;
-      setColumnsLoaded(true);
-      setLoading(false);
-    }
-  }, [columnsLoaded, details, loadedParts]);
-
-  useEffect(() => {
-    if (columnsLoaded) {
-      setLoading(false);
-      return;
-    }
-    if (columnsRequestedRef.current) {
+    if (columnsLoaded || columnsRequestedRef.current) {
       return;
     }
     columnsRequestedRef.current = true;
 
     let alive = true;
-    setLoading(true);
-    setError(null);
 
     void fetchObjectDetailsOnce({
       schema: object.schema,
@@ -286,8 +291,8 @@ export function ObjectPeek({
       .then((next) => {
         // Always commit to parent cache so a remount/cleanup cannot discard the result
         // and retrigger the same request forever.
-        onDetailsRef.current(next);
-        onPartLoadedRef.current("columns");
+        reportDetails(next);
+        reportPartLoaded("columns");
         if (alive) {
           setColumnsLoaded(true);
           setLoading(false);
@@ -306,21 +311,7 @@ export function ObjectPeek({
     };
   }, [columnsLoaded, object.kind, object.name, object.schema]);
 
-  useEffect(() => {
-    if (!details) {
-      return;
-    }
-    const next: Record<string, string> = {};
-    for (const param of details.parameters) {
-      next[param.name] = "";
-    }
-    setParamValues(next);
-    setConfirmToken(null);
-    setExecPreview(null);
-    setExecResult(null);
-  }, [details?.object.id]);
-
-  const loadRows = useCallback((): void => {
+  const loadRows = (): void => {
     if (object.kind !== "table" && object.kind !== "view") {
       return;
     }
@@ -348,9 +339,9 @@ export function ObjectPeek({
         setError(err instanceof Error ? err.message : String(err));
       }
     });
-  }, [employerId, object.kind, object.name, object.schema]);
+  };
 
-  const reloadStructure = useCallback((): void => {
+  const reloadStructure = (): void => {
     setLoading(true);
     setError(null);
     void fetchObjectDetailsOnce({
@@ -364,8 +355,8 @@ export function ObjectPeek({
       includeStructure: object.kind === "table" || object.kind === "view",
     })
       .then((next) => {
-        onDetailsRef.current(next);
-        onPartLoadedRef.current("columns");
+        onDetails(next);
+        onPartLoaded("columns");
         setColumnsLoaded(true);
         setLoading(false);
       })
@@ -373,7 +364,7 @@ export function ObjectPeek({
         setError(err instanceof Error ? err.message : String(err));
         setLoading(false);
       });
-  }, [object.kind, object.name, object.schema]);
+  };
 
   useEffect(() => {
     if (activeTab !== "rows") {
@@ -385,8 +376,39 @@ export function ObjectPeek({
     if (rowsLoaded) {
       return;
     }
-    loadRows();
-  }, [activeTab, loadRows, object.kind, rowsLoaded]);
+    startTransition(async () => {
+      try {
+        const result = await previewTableRows({
+          schema: object.schema,
+          table: object.name,
+          employerId,
+          top: 20,
+        });
+        setRows(result.rows);
+        setRowsScript(result.queryScript ?? "");
+        setRowsMeta(
+          `${result.rowCount} row${result.rowCount === 1 ? "" : "s"}${
+            result.truncated ? " (truncated)" : ""
+          }${result.employerFiltered ? " · employer filtered" : ""}`,
+        );
+        setRowsLoaded(true);
+        setError(null);
+      } catch (err) {
+        setRows(null);
+        setRowsScript("");
+        setRowsLoaded(false);
+        setError(err instanceof Error ? err.message : String(err));
+      }
+    });
+  }, [
+    activeTab,
+    employerId,
+    object.kind,
+    object.name,
+    object.schema,
+    rowsLoaded,
+    startTransition,
+  ]);
 
   useEffect(() => {
     if (activeTab !== "script") {
@@ -411,8 +433,8 @@ export function ObjectPeek({
       includeDependents: false,
     })
       .then((next) => {
-        onDetailsRef.current(next);
-        onPartLoadedRef.current("script");
+        reportDetails(next);
+        reportPartLoaded("script");
         if (alive) {
           setScriptLoaded(true);
           setScriptLoading(false);
@@ -454,8 +476,8 @@ export function ObjectPeek({
       includeDependents: true,
     })
       .then((next) => {
-        onDetailsRef.current(next);
-        onPartLoadedRef.current("deps");
+        reportDetails(next);
+        reportPartLoaded("deps");
         if (alive) {
           setDepsLoaded(true);
           setDepsLoading(false);
@@ -534,20 +556,16 @@ export function ObjectPeek({
     });
   }
 
-  const columnRows = useMemo(
-    () =>
-      (details?.columns ?? []).map((col) => ({
+  const columnRows = (details?.columns ?? []).map((col) => ({
         key: col.name,
         name: col.name,
         dataType: col.dataType,
         nullable: col.nullable ? "YES" : "NO",
         primaryKey: Boolean(col.primaryKey),
         foreignKey: Boolean(col.foreignKey),
-      })),
-    [details],
-  );
+      }));
 
-  const rowColumns = useMemo(() => {
+  const rowColumns = (() => {
     if (!rows || rows.length === 0) {
       return [];
     }
@@ -558,7 +576,7 @@ export function ObjectPeek({
       ellipsis: true,
       render: (value: unknown) => cellDisplay(value),
     }));
-  }, [rows]);
+  })();
 
   const isRoutine =
     object.kind === "storedProcedure" || object.kind === "function";

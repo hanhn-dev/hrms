@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Background,
   BackgroundVariant,
@@ -268,7 +268,9 @@ export function DbsStudio({
   const [searchHighlightIndex, setSearchHighlightIndex] = useState(0);
   const [searchMenuDismissed, setSearchMenuDismissed] = useState(false);
   const [catalogLoading, setCatalogLoading] = useState(false);
-  const catalogCacheRef = useRef<Partial<Record<string, SearchHit[]>>>({});
+  const [catalogByKind, setCatalogByKind] = useState<
+    Partial<Record<string, SearchHit[]>>
+  >({});
   const catalogRequestRef = useRef(0);
   const [pinned, setPinned] = useState<CanvasObject[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
@@ -283,11 +285,8 @@ export function DbsStudio({
   >({});
 
   const kindsKey = kindFilter === "all" ? "all" : kindFilter;
-  const searchTokens = useMemo(
-    () => parseSearchTokens(debouncedSearch),
-    [debouncedSearch],
-  );
-  const liveSearchTokens = useMemo(() => parseSearchTokens(search), [search]);
+  const searchTokens = parseSearchTokens(debouncedSearch);
+  const liveSearchTokens = parseSearchTokens(search);
   const isSearchableTokens = (tokens: string[]): boolean =>
     tokens.length > 0 &&
     (tokens.some((token) => token.length >= 2) ||
@@ -297,32 +296,38 @@ export function DbsStudio({
   const pendingDebounce =
     hasLiveSearchableQuery && search.trim() !== debouncedSearch.trim();
   const searchBusy = pendingDebounce || catalogLoading;
-
-  useEffect(() => {
-    const q = debouncedSearch.trim();
-    const tokens = parseSearchTokens(q);
-    const searchable =
-      tokens.length > 0 &&
-      (tokens.some((token) => token.length >= 2) ||
-        tokens.join("").length >= 2);
-
-    if (!searchable) {
+  const catalogQuery = debouncedSearch.trim();
+  const catalogKey = `${kindsKey}\0${catalogQuery}`;
+  const cachedCatalog = catalogByKind[kindsKey];
+  const [appliedCatalogKey, setAppliedCatalogKey] = useState(catalogKey);
+  const searchHitKey = searchHits.map((hit) => hit.id).join("\0");
+  const [highlightKey, setHighlightKey] = useState(searchHitKey);
+  if (appliedCatalogKey !== catalogKey) {
+    setAppliedCatalogKey(catalogKey);
+    if (!hasSearchableQuery) {
       setSearchHits([]);
       setCatalogLoading(false);
-      return;
-    }
-
-    const cached = catalogCacheRef.current[kindsKey];
-    if (cached) {
-      setSearchHits(rankSearchHits(cached, q));
+    } else if (cachedCatalog) {
+      setSearchHits(rankSearchHits(cachedCatalog, catalogQuery));
       setCatalogLoading(false);
+    } else {
+      setSearchHits([]);
+      setCatalogLoading(true);
+    }
+  }
+  if (highlightKey !== searchHitKey) {
+    setHighlightKey(searchHitKey);
+    setSearchHighlightIndex(0);
+  }
+
+  useEffect(() => {
+    if (!hasSearchableQuery || cachedCatalog) {
       return;
     }
 
     const requestId = ++catalogRequestRef.current;
     let cancelled = false;
-    setCatalogLoading(true);
-    setSearchHits([]);
+    const q = catalogQuery;
 
     void fetchCatalog({
       kinds: kindFilter === "all" ? ALL_KINDS : [kindFilter],
@@ -338,16 +343,15 @@ export function DbsStudio({
           name: obj.name,
           kind: obj.kind,
         }));
-        catalogCacheRef.current[kindsKey] = objects;
+        setCatalogByKind((current) =>
+          current[kindsKey] ? current : { ...current, [kindsKey]: objects },
+        );
         setSearchHits(rankSearchHits(objects, q));
+        setCatalogLoading(false);
       })
       .catch(() => {
         if (!cancelled && requestId === catalogRequestRef.current) {
           setSearchHits([]);
-        }
-      })
-      .finally(() => {
-        if (!cancelled && requestId === catalogRequestRef.current) {
           setCatalogLoading(false);
         }
       });
@@ -355,11 +359,7 @@ export function DbsStudio({
     return () => {
       cancelled = true;
     };
-  }, [debouncedSearch, kindFilter, kindsKey]);
-
-  useEffect(() => {
-    setSearchHighlightIndex(0);
-  }, [searchHits]);
+  }, [cachedCatalog, catalogQuery, hasSearchableQuery, kindFilter, kindsKey]);
 
   useEffect(() => {
     if (searchHits.length === 0) {
@@ -377,8 +377,7 @@ export function DbsStudio({
     };
   }, [searchHighlightIndex, searchHits]);
 
-  const applyDetails = useCallback(
-    (objectId: string, details: DatabaseObjectDetails) => {
+  const applyDetails = (objectId: string, details: DatabaseObjectDetails) => {
       setDetailsCache((current) => ({
         ...current,
         [objectId]: mergeObjectDetails(current[objectId], details),
@@ -409,12 +408,9 @@ export function DbsStudio({
         }
         return next;
       });
-    },
-    [],
-  );
+    };
 
-  const pinObject = useCallback(
-    (obj: Pick<CanvasObject, "schema" | "name" | "kind"> & { id?: string }) => {
+  const pinObject = (obj: Pick<CanvasObject, "schema" | "name" | "kind"> & { id?: string }) => {
       const id = obj.id ?? canvasObjectId(obj.schema, obj.name);
       setPinned((current) => {
         if (current.some((item) => item.id === id)) {
@@ -432,11 +428,9 @@ export function DbsStudio({
           },
         ];
       });
-    },
-    [],
-  );
+    };
 
-  const removeObject = useCallback((objectId: string) => {
+  const removeObject = (objectId: string) => {
     setPinned((current) => current.filter((item) => item.id !== objectId));
     setDetailsCache((current) => {
       const next = { ...current };
@@ -455,9 +449,9 @@ export function DbsStudio({
     );
     setSelectedId((current) => (current === objectId ? null : current));
     setPeekId((current) => (current === objectId ? null : current));
-  }, []);
+  };
 
-  const toggleCollapse = useCallback((objectId: string) => {
+  const toggleCollapse = (objectId: string) => {
     setPinned((current) =>
       current.map((item) =>
         item.id === objectId
@@ -465,10 +459,9 @@ export function DbsStudio({
           : item,
       ),
     );
-  }, []);
+  };
 
-  const expandSelected = useCallback(
-    (objectId: string, selectedIds: string[]) => {
+  const expandSelected = (objectId: string, selectedIds: string[]) => {
       const details = detailsCache[objectId];
       const kindById = new Map<string, DatabaseObjectKind>();
       for (const item of pinned) {
@@ -516,11 +509,9 @@ export function DbsStudio({
           return next;
         });
       }
-    },
-    [detailsCache, pinObject, pinned],
-  );
+    };
 
-  const onNodesChange = useCallback((changes: NodeChange[]) => {
+  const onNodesChange = (changes: NodeChange[]) => {
     // Dimension/select-only updates must not rewrite pinned — recreating RF
     // nodes without measured size would leave cards at visibility:hidden.
     const affectsPinned = changes.some(
@@ -551,11 +542,9 @@ export function DbsStudio({
         })
         .filter((item) => byId.has(item.id));
     });
-  }, []);
+  };
 
-  const nodes: Node<SchemaNodeData>[] = useMemo(
-    () =>
-      pinned.map((obj) => {
+  const nodes: Node<SchemaNodeData>[] = pinned.map((obj) => {
         const details = detailsCache[obj.id];
         const connectedIds = new Set<string>();
         if (details) {
@@ -626,23 +615,13 @@ export function DbsStudio({
             onRemove: removeObject,
           },
         };
-      }),
-    [
-      pinned,
-      detailsCache,
-      selectedId,
-      expandSelected,
-      toggleCollapse,
-      removeObject,
-    ],
-  );
+      });
 
-  const visibleEdges = useMemo(() => {
-    const ids = new Set(pinned.map((p) => p.id));
-    const positions = new Map(
+  const ids = new Set(pinned.map((p) => p.id));
+  const positions = new Map(
       pinned.map((item) => [item.id, item.position] as const),
     );
-    return edges
+  const visibleEdges = edges
       .filter((e) => ids.has(e.source) && ids.has(e.target))
       .map((edge) => {
         const sourcePos = positions.get(edge.source);
@@ -655,25 +634,20 @@ export function DbsStudio({
           targetHandle: exitRight ? "target-left" : "target-right",
         };
       });
-  }, [edges, pinned]);
 
-  const onNodeClick: NodeMouseHandler = useCallback((_event, node) => {
+  const onNodeClick: NodeMouseHandler = (_event, node) => {
     setSelectedId(node.id);
-  }, []);
+  };
 
   const peekObject = pinned.find((p) => p.id === peekId) ?? null;
-  const handlePeekDetails = useCallback(
-    (details: DatabaseObjectDetails) => {
+  const handlePeekDetails = (details: DatabaseObjectDetails) => {
       if (!peekId) {
         return;
       }
       applyDetails(peekId, details);
-    },
-    [applyDetails, peekId],
-  );
+    };
 
-  const handlePartLoaded = useCallback(
-    (part: keyof PeekLoadedParts) => {
+  const handlePartLoaded = (part: keyof PeekLoadedParts) => {
       if (!peekId) {
         return;
       }
@@ -684,9 +658,7 @@ export function DbsStudio({
           [part]: true,
         },
       }));
-    },
-    [peekId],
-  );
+    };
 
   const searchOpen =
     !searchMenuDismissed &&

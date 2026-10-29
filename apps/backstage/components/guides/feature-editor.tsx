@@ -1,7 +1,8 @@
 "use client";
 
+import { useState } from "react";
+
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
 import { FeatureMarkdown } from "./feature-markdown";
 
 export function FeatureEditor({
@@ -18,9 +19,7 @@ export function FeatureEditor({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | undefined>();
 
-  const preview = useMemo(() => {
-    return markdown.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, "");
-  }, [markdown]);
+  const preview = markdown.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, "");
 
   async function onSubmit(): Promise<void> {
     setSubmitting(true);

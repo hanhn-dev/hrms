@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useState } from "react";
 import { App, Input, Modal, Space, Typography } from "antd";
 import { ChangeRequestSummary } from "@/features/employer/workflows/change-request-summary";
 import {
@@ -48,9 +48,8 @@ export function ChangeRequestDecideModal({
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const approverOptions = useMemo(() => {
-    const pendingIds = new Set(detail?.pendingApprovers.map((person) => person.employeeId) ?? []);
-    const groups = approvers
+  const pendingIds = new Set(detail?.pendingApprovers.map((person) => person.employeeId) ?? []);
+  const groups = approvers
       .map((group) => ({
         label: group.roleName,
         options: group.people.map((person) => ({
@@ -60,9 +59,9 @@ export function ChangeRequestDecideModal({
         })),
       }))
       .filter((group) => group.options.length > 0);
-    const seen = new Set(approvers.flatMap((group) => group.people.map((person) => person.employeeId)));
-    const extra = (detail?.pendingApprovers ?? []).filter((person) => !seen.has(person.employeeId));
-    if (extra.length > 0) {
+  const seen = new Set(approvers.flatMap((group) => group.people.map((person) => person.employeeId)));
+  const extra = (detail?.pendingApprovers ?? []).filter((person) => !seen.has(person.employeeId));
+  if (extra.length > 0) {
       groups.push({
         label: "Pending queue",
         options: extra.map((person) => ({
@@ -72,31 +71,32 @@ export function ChangeRequestDecideModal({
         })),
       });
     }
-    return groups;
-  }, [approvers, detail]);
+  const approverOptions = groups;
 
-  const enabledApproverIds = useMemo(
-    () =>
-      approverOptions.flatMap((group) =>
+  const enabledApproverIds = approverOptions.flatMap((group) =>
         group.options.filter((option) => !option.disabled).map((option) => option.value),
-      ),
-    [approverOptions],
-  );
-
-  useEffect(() => {
-    if (!open) {
-      return;
+      );
+  const decideKey = [
+    open ? "open" : "closed",
+    status,
+    String(detail?.header.changeRequestId ?? ""),
+    (detail?.pendingApprovers ?? []).map((person) => person.employeeId).join(","),
+    approvers
+      .map((group) => `${group.roleName}:${group.people.map((person) => person.employeeId).join(",")}`)
+      .join("|"),
+  ].join("\0");
+  const [appliedDecideKey, setAppliedDecideKey] = useState<string | null>(null);
+  if (decideKey !== appliedDecideKey) {
+    setAppliedDecideKey(decideKey);
+    if (open) {
+      setError(null);
+      setComments(status === "Approved" ? "Approved from Troubleshooter" : "Rejected from Troubleshooter");
+      const pendingId = detail?.pendingApprovers[0]?.employeeId;
+      setApproverEmployeeId(
+        pendingId != null && enabledApproverIds.includes(pendingId) ? pendingId : (enabledApproverIds[0] ?? null),
+      );
     }
-    setError(null);
-    setComments(status === "Approved" ? "Approved from Troubleshooter" : "Rejected from Troubleshooter");
-    const enabled = approverOptions.flatMap((group) =>
-      group.options.filter((option) => !option.disabled).map((option) => option.value),
-    );
-    const pendingId = detail?.pendingApprovers[0]?.employeeId;
-    setApproverEmployeeId(
-      pendingId != null && enabled.includes(pendingId) ? pendingId : (enabled[0] ?? null),
-    );
-  }, [approverOptions, open, status, detail?.header.changeRequestId, detail?.pendingApprovers]);
+  }
 
   const canCommit =
     writesEnabled &&

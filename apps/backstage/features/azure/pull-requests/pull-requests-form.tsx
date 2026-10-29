@@ -1,10 +1,11 @@
 "use client";
 
+import { useState } from "react";
+
 import { SearchOutlined } from "@ant-design/icons";
 import { Button, DatePicker, Input, Radio, Select, Tabs } from "antd";
 import type { Dayjs } from "dayjs";
 import dayjs from "dayjs";
-import { useMemo, useState } from "react";
 import {
   emptyPullRequestSearchCriteria,
   PULL_REQUEST_STATUS_OPTIONS,
@@ -54,42 +55,30 @@ export function PullRequestsForm({
   const [criteria, setCriteria] = useState<PullRequestSearchCriteria>(emptyPullRequestSearchCriteria());
   const ready = canSearchPullRequests(criteria);
 
-  const moduleOptions = useMemo(() => {
-    const nameCounts = new Map<string, number>();
-    for (const area of options.modules) {
+  const nameCounts = new Map<string, number>();
+  for (const area of options.modules) {
       nameCounts.set(area.name, (nameCounts.get(area.name) ?? 0) + 1);
     }
-    return options.modules.map((area) => ({
+  const moduleOptions = options.modules.map((area) => ({
       value: area.path,
       label: optionLabel(area.name, area.path, nameCounts),
     }));
-  }, [options.modules]);
 
-  const memberOptions = useMemo(
-    () =>
-      options.teamMembers.map((member) => ({
+  const memberOptions = options.teamMembers.map((member) => ({
         value: member.displayName,
         label: member.displayName,
-      })),
-    [options.teamMembers],
-  );
+      }));
 
-  const authorOptions = useMemo(
-    () =>
-      options.teamMembers.map((member) => ({
+  const authorOptions = options.teamMembers.map((member) => ({
         value: member.id,
         label: member.displayName,
-      })),
-    [options.teamMembers],
-  );
+      }));
 
-  const iterationNameCounts = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const iteration of options.iterations) {
+  const counts = new Map<string, number>();
+  for (const iteration of options.iterations) {
       counts.set(iteration.name, (counts.get(iteration.name) ?? 0) + 1);
     }
-    return counts;
-  }, [options.iterations]);
+  const iterationNameCounts = counts;
 
   function patch(partial: Partial<PullRequestSearchCriteria>): void {
     setCriteria((current) => ({ ...current, ...partial }));

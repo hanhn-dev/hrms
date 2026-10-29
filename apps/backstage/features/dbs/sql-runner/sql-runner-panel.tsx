@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
+
 import { Alert, Button, Card, Input, Space, Typography } from "antd";
 import { DataTable } from "@/shared/ui/data-table";
 import { runSelect } from "@/features/dbs/queries";
@@ -41,7 +42,7 @@ export function SqlRunnerPanel({
   const [meta, setMeta] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
-  const columns = useMemo(() => {
+  const columns = (() => {
     if (!rows || rows.length === 0) {
       return [];
     }
@@ -52,7 +53,7 @@ export function SqlRunnerPanel({
       ellipsis: true,
       render: (value: unknown) => cellDisplay(value),
     }));
-  }, [rows]);
+  })();
 
   function run(): void {
     startTransition(async () => {

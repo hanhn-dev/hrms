@@ -170,7 +170,10 @@ function cellFilterText(node: unknown, depth = 0): string {
   }
 }
 
-function isHookFree(type: Function): boolean {
+function isHookFree(type: unknown): boolean {
+  if (typeof type !== "function") {
+    return false;
+  }
   const source = Function.prototype.toString.call(type);
   return !/\buse[A-Z]/.test(source);
 }

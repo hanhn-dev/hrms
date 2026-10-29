@@ -1,8 +1,9 @@
 "use client";
 
+import { useState } from "react";
+
 import { App, Button, Card, Space, Tag } from "antd";
 import { DataTable } from "@/shared/ui/data-table";
-import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type {
   PendingSectionRow,
@@ -73,9 +74,8 @@ export function SectionPendingCard({
   } | null>(null);
   const changeRequestView = useChangeRequestView(employerId);
 
-  const displayColumns = useMemo(() => {
-    const planned = sectionGridColumns(fields.slice(0, 6), pending);
-    return planned.map((column) => ({
+  const planned = sectionGridColumns(fields.slice(0, 6), pending);
+  const displayColumns = planned.map((column) => ({
       title: column.title,
       key: `${column.kind}:${column.displayText}`,
       ellipsis: column.kind !== "lookup-id",
@@ -98,10 +98,8 @@ export function SectionPendingCard({
         return formatCell(row.values[column.displayText]);
       },
     }));
-  }, [fields, openLookup, pending]);
 
-  const pendingColumns = useMemo(
-    () => [
+  const pendingColumns = [
       ...displayColumns,
       {
         title: "Status",
@@ -182,9 +180,7 @@ export function SectionPendingCard({
           </Space>
         ),
       },
-    ],
-    [changeRequestView.openView, decideLoading, displayColumns, writesEnabled],
-  );
+    ];
 
   async function openDecide(
     changeRequestId: number,

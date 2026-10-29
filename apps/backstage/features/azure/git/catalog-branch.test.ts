@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import { describe, it } from "vitest";
 import { resolveCatalogBranch } from "./catalog-branch.ts";
 
-const dev = { name: "Dev", commitId: "dev-commit" };
 const qa = { name: "QA", commitId: "qa-commit" };
 
 describe("resolveCatalogBranch", () => {

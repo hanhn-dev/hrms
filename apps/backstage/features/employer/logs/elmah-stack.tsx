@@ -12,11 +12,16 @@ export function ElmahStack({
 }): React.JSX.Element {
   const [stack, setStack] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
+  const requestKey = `${employerId}:${errorId}`;
+  const [loadedRequestKey, setLoadedRequestKey] = useState(requestKey);
+  if (requestKey !== loadedRequestKey) {
+    setLoadedRequestKey(requestKey);
+    setStack(null);
+    setFailed(false);
+  }
 
   useEffect(() => {
     let cancelled = false;
-    setStack(null);
-    setFailed(false);
     void loadElmahStack(employerId, errorId)
       .then((next) => {
         if (!cancelled) {

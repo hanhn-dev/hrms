@@ -1,7 +1,8 @@
 "use client";
 
+import { useId, useState } from "react";
+
 import Link from "next/link";
-import { useId, useMemo, useState } from "react";
 import {
   groupFeaturesByMenu,
   type FeatureNavItem,
@@ -33,12 +34,10 @@ export function FeatureIndex({
   const [query, setQuery] = useState("");
   const needle = query.trim().toLowerCase();
 
-  const groups = useMemo(() => {
-    const filtered = needle
+  const filtered = needle
       ? docs.filter((doc) => doc.title.toLowerCase().includes(needle))
       : docs;
-    return groupFeaturesByMenu(filtered);
-  }, [docs, needle]);
+  const groups = groupFeaturesByMenu(filtered);
 
   if (docs.length === 0) {
     return (

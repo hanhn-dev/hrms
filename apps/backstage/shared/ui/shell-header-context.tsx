@@ -1,13 +1,7 @@
 "use client";
 
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useLayoutEffect,
-  useMemo,
-  useState,
-} from "react";
+import { createContext, useContext, useLayoutEffect, useState } from "react";
+
 import type { PageHelpNote } from "@/shared/ui/page-help";
 
 type ShellHeaderContextValue = {
@@ -28,14 +22,10 @@ export function ShellHeaderProvider({
   const [notesBySource, setNotesBySource] = useState<
     Record<string, PageHelpNote[]>
   >({});
-  const helpNotes = useMemo(
-    () =>
-      Object.keys(notesBySource)
+  const helpNotes = Object.keys(notesBySource)
         .sort()
-        .flatMap((source) => notesBySource[source] ?? []),
-    [notesBySource],
-  );
-  const setHelpSource = useCallback((source: string, notes: PageHelpNote[]) => {
+        .flatMap((source) => notesBySource[source] ?? []);
+  const setHelpSource = (source: string, notes: PageHelpNote[]) => {
     setNotesBySource((current) => {
       if (notes.length === 0) {
         if (!(source in current)) {
@@ -51,16 +41,13 @@ export function ShellHeaderProvider({
       }
       return { ...current, [source]: notes };
     });
-  }, []);
-  const value = useMemo(
-    () => ({
+  };
+  const value = {
       employeeLabel,
       setEmployeeLabel,
       helpNotes,
       setHelpSource,
-    }),
-    [employeeLabel, helpNotes, setHelpSource],
-  );
+    };
 
   return (
     <ShellHeaderContext.Provider value={value}>

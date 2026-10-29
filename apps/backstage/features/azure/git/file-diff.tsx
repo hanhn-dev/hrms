@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useRef } from "react";
+import { useRef } from "react";
+
 import { Alert, Button } from "antd";
 import type { GitFilePair } from "@hrms/azure-devops";
 import { diffCode, type CodeDiffRow, type DiffSpan } from "@/features/azure/git/code-diff";
@@ -73,10 +74,7 @@ export function FileDiff({
 }): React.JSX.Element {
   const view = fileCompareView(pair, leftLabel, rightLabel);
   const truncated = view.kind === "one-sided" ? view.truncated : pair.base.truncated || pair.target.truncated;
-  const diff = useMemo(
-    () => (view.kind === "diff" ? diffCode(pair.base.content ?? "", pair.target.content ?? "") : null),
-    [view.kind, pair],
-  );
+  const diff = view.kind === "diff" ? diffCode(pair.base.content ?? "", pair.target.content ?? "") : null;
   const scrollRef = useRef<HTMLDivElement>(null);
 
   function jumpTo(index: number): void {

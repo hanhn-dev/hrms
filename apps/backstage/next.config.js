@@ -8,6 +8,7 @@ const inspectorLoader = {
 };
 
 module.exports = {
+  reactCompiler: true,
   transpilePackages: [
     "@hrms/db",
     "@hrms/inspector",

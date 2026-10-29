@@ -54,6 +54,8 @@ describe("columnCellText", () => {
   it("falls back to the raw value when the cell uses hooks", () => {
     let calls = 0;
     function HookCell({ value }: { value: string }) {
+      // The counter proves the cell is not rendered.
+      // eslint-disable-next-line react-hooks/globals
       calls += 1;
       useState(0);
       return createElement("span", null, value);

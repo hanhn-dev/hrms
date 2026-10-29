@@ -1,8 +1,8 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
 import { Mermaid } from "@/lib/mermaid-diagram";
 import { getSetting, migrateLocalSetting } from "@/shared/client-db";
 import { retargetTrail, TrailLink, useTrailLabel } from "@/shared/navigation";
@@ -48,6 +48,11 @@ export function FlowScreen(): React.JSX.Element {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [reading, setReading] = useState<ProcedureReading | null>(null);
   const [readingError, setReadingError] = useState<string | null>(null);
+  const [seenJourney, setSeenJourney] = useState(journey);
+  if (seenJourney !== journey) {
+    setSeenJourney(journey);
+    setSelectedId(defaultProcedureId(journey));
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -89,8 +94,7 @@ export function FlowScreen(): React.JSX.Element {
     return () => clearTimeout(handle);
   }, [query]);
 
-  const selectFeature = useCallback(
-    (hit: FeatureHit) => {
+  const selectFeature = (hit: FeatureHit) => {
       setJourney(null);
       void fetch(`/api/flows/feature?slug=${encodeURIComponent(hit.slug)}`)
         .then((response) => response.json())
@@ -107,12 +111,9 @@ export function FlowScreen(): React.JSX.Element {
           router.replace(nextHref);
         })
         .catch(() => setFeatureView(null));
-    },
-    [pathname, router, searchParams],
-  );
+    };
 
-  const selectJourney = useCallback(
-    (id: string) => {
+  const selectJourney = (id: string) => {
       setFeatureView(null);
       void fetch(`/api/flows/journey?id=${encodeURIComponent(id)}`)
         .then((response) => response.json())
@@ -125,9 +126,7 @@ export function FlowScreen(): React.JSX.Element {
           router.replace(nextHref);
         })
         .catch(() => setJourney(null));
-    },
-    [pathname, router, searchParams],
-  );
+    };
 
   useEffect(() => {
     const feature = searchParams.get("feature");
@@ -178,20 +177,20 @@ export function FlowScreen(): React.JSX.Element {
   }, [journey, roots]);
 
   const selected = procedureById(journey, selectedId);
-
-  useEffect(() => {
-    setSelectedId(defaultProcedureId(journey));
-  }, [journey]);
+  const [seenReadingSelection, setSeenReadingSelection] = useState(selected);
+  const [seenReadingRoots, setSeenReadingRoots] = useState(roots);
+  if (seenReadingSelection !== selected || seenReadingRoots !== roots) {
+    setSeenReadingSelection(selected);
+    setSeenReadingRoots(roots);
+    setReading(null);
+    setReadingError(null);
+  }
 
   useEffect(() => {
     if (!selected) {
-      setReading(null);
-      setReadingError(null);
       return;
     }
     const controller = new AbortController();
-    setReading(null);
-    setReadingError(null);
     const params = new URLSearchParams({ database: selected.detail, name: selected.label });
     void fetch(`/api/flows/procedure?${params}`, { signal: controller.signal })
       .then(async (response) => {

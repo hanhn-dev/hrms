@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useEffectEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Alert,
@@ -18,8 +18,6 @@ import {
 } from "@/features/employer/workflows/change-request-view";
 import {
   ChangeRequestApprovers,
-  changeKindFromRow,
-  sectionNamesFrom,
   splitNames,
 } from "@/features/employer/workflows/change-request-labels";
 import type {
@@ -69,9 +67,7 @@ export function ChangeRequestPanel({
     },
   });
 
-  const visible = useMemo(() => {
-    return requests.filter((row) => statusFilter === "all" || row.status === statusFilter);
-  }, [requests, statusFilter]);
+  const visible = requests.filter((row) => statusFilter === "all" || row.status === statusFilter);
 
   async function openRequest(
     changeRequestId: number,
@@ -93,7 +89,7 @@ export function ChangeRequestPanel({
     await changeRequestView.openView(changeRequestId);
   }
 
-  const loadRequest = useCallback(async (changeRequestId: number): Promise<boolean> => {
+  const loadRequest = async (changeRequestId: number): Promise<boolean> => {
     setSelectedId(changeRequestId);
     setDetail(null);
     setDetailScript("");
@@ -107,16 +103,27 @@ export function ChangeRequestPanel({
     } catch {
       return false;
     }
-  }, [employerId]);
+  };
+
+  const openFromRoute = useEffectEvent((id: number) => {
+    void changeRequestView.openView(id);
+  });
+  const routeKey = requestId == null ? null : `${employerId}:${requestId}`;
+  const [appliedRouteKey, setAppliedRouteKey] = useState<string | null>(null);
+  if (routeKey !== appliedRouteKey) {
+    setAppliedRouteKey(routeKey);
+    if (requestId != null) {
+      setConfirmStatus(null);
+      setSelectedId(requestId);
+    }
+  }
 
   useEffect(() => {
     if (requestId == null) {
       return;
     }
-    setConfirmStatus(null);
-    setSelectedId(requestId);
-    void changeRequestView.openView(requestId);
-  }, [changeRequestView.openView, requestId]);
+    void openFromRoute(requestId);
+  }, [employerId, requestId]);
 
   return (
     <>

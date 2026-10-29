@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
+
 import { getSetting, migrateLocalSetting, setSetting } from "@/shared/client-db";
 import { CHECKOUTS } from "./checkout-copy";
 import { EDITOR_SETTING, readEditor, type EditorId } from "./editor-preference";
@@ -39,12 +40,12 @@ export function SettingsScreen(): React.JSX.Element {
     };
   }, []);
 
-  const saveEditor = useCallback((next: EditorId) => {
+  const saveEditor = (next: EditorId) => {
     setEditor(next);
     void setSetting(EDITOR_SETTING, next);
-  }, []);
+  };
 
-  const saveRoot = useCallback(async (repo: RepoId, startPath: string): Promise<string | null> => {
+  const saveRoot = async (repo: RepoId, startPath: string): Promise<string | null> => {
     const response = await fetch("/api/flows/roots", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -61,7 +62,7 @@ export function SettingsScreen(): React.JSX.Element {
       return next;
     });
     return null;
-  }, []);
+  };
 
   return (
     <div className="h-full overflow-auto">
@@ -116,7 +117,7 @@ function CheckoutField(props: {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const choose = useCallback(async (): Promise<void> => {
+  const choose = async (): Promise<void> => {
     setBusy(true);
     setError(null);
     try {
@@ -137,7 +138,7 @@ function CheckoutField(props: {
     } finally {
       setBusy(false);
     }
-  }, [props.onSave, props.repo, props.value]);
+  };
 
   return (
     <div className="text-sm">

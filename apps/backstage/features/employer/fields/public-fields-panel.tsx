@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Alert, Button, Collapse, Switch, Tag, Tooltip } from "antd";
 import { useRouter } from "next/navigation";
 import {
@@ -33,20 +33,20 @@ export function PublicFieldsPanel({
 }): React.JSX.Element {
   const router = useRouter();
   const [pending, setPending] = useState<PublicFieldRow | null>(null);
-  const sectionKnown = useMemo(() => {
+  const sectionKnown = (() => {
     if (!section) {
       return false;
     }
     return fields.some((row) => namesMatch(row.section, section));
-  }, [fields, section]);
-  const visible = useMemo(() => {
+  })();
+  const visible = (() => {
     if (!section || !sectionKnown) {
       return fields;
     }
     return fields.filter((row) => namesMatch(row.section, section));
-  }, [fields, section, sectionKnown]);
+  })();
   const highlightField = sectionKnown ? field : null;
-  const sections = useMemo(() => groupBySection(visible), [visible]);
+  const sections = groupBySection(visible);
 
   useEffect(() => {
     if (!highlightField || !sectionKnown) {

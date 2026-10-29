@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import {
   ApartmentOutlined,
   CloudUploadOutlined,
@@ -88,6 +88,18 @@ function moduleTitle(
   );
 }
 
+function subscribeShortcutLabel(): () => void {
+  return () => {};
+}
+
+function getShortcutLabelSnapshot(): string {
+  return /Mac|iPhone|iPad/.test(navigator.userAgent) ? "⌘B" : "Ctrl+B";
+}
+
+function getShortcutLabelServerSnapshot(): string {
+  return "Ctrl+B";
+}
+
 export function AppShell({
   employerId,
   employers,
@@ -110,14 +122,14 @@ export function AppShell({
   const pathname = usePathname();
   const router = useRouter();
   const [collapsed, setCollapsed] = useState(false);
-  const [shortcutLabel, setShortcutLabel] = useState("Ctrl+B");
+  const shortcutLabel = useSyncExternalStore(
+    subscribeShortcutLabel,
+    getShortcutLabelSnapshot,
+    getShortcutLabelServerSnapshot,
+  );
   const base = `/employers/${employerId}`;
 
   useEffect(() => {
-    if (/Mac|iPhone|iPad/.test(navigator.userAgent)) {
-      setShortcutLabel("⌘B");
-    }
-
     const onKeyDown = (event: KeyboardEvent): void => {
       if (
         event.repeat ||

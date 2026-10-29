@@ -1,7 +1,7 @@
 "use client";
 
+import { useState } from "react";
 import { Button, Input, Modal, Space, Typography } from "antd";
-import { useEffect, useMemo, useState } from "react";
 import { JsonTreeEditor } from "@/shared/ui/json-tree-editor";
 import { parseJsonText } from "@/shared/ui/json-text";
 
@@ -30,25 +30,23 @@ export function JsonEditorModal({
 }): React.JSX.Element {
   const [data, setData] = useState<unknown>(null);
   const [brokenText, setBrokenText] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!open) {
-      return;
+  const sourceKey = open ? (value ?? "") : null;
+  const [seenSource, setSeenSource] = useState<string | null>(null);
+  if (sourceKey !== seenSource) {
+    setSeenSource(sourceKey);
+    if (sourceKey != null) {
+      const parsed = parseJsonText(sourceKey);
+      if (parsed.ok) {
+        setData(parsed.value);
+        setBrokenText(null);
+      } else {
+        setData(null);
+        setBrokenText(sourceKey);
+      }
     }
-    const parsed = parseJsonText(value ?? "");
-    if (parsed.ok) {
-      setData(parsed.value);
-      setBrokenText(null);
-      return;
-    }
-    setData(null);
-    setBrokenText(value ?? "");
-  }, [open, value]);
+  }
 
-  const parsedFromBroken = useMemo(
-    () => (brokenText == null ? null : parseJsonText(brokenText)),
-    [brokenText],
-  );
+  const parsedFromBroken = brokenText == null ? null : parseJsonText(brokenText);
 
   const workingValue = brokenText == null ? data : parsedFromBroken?.ok ? parsedFromBroken.value : null;
   const compact =
@@ -58,7 +56,7 @@ export function JsonEditorModal({
         ? null
         : JSON.stringify(workingValue);
 
-  const status = useMemo(() => {
+  const status = (() => {
     if (brokenText != null && parsedFromBroken && !parsedFromBroken.ok) {
       return { valid: false, error: parsedFromBroken.error, compactLength: 0 };
     }
@@ -75,7 +73,7 @@ export function JsonEditorModal({
       return { valid: false, error: extra, compactLength };
     }
     return { valid: true, error: null, compactLength };
-  }, [brokenText, compact, extraValidate, maxCompactLength, parsedFromBroken, workingValue]);
+  })();
 
   function applyParsed(next: unknown): void {
     setData(next);

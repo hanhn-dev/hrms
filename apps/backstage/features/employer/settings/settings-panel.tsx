@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { WarningOutlined } from "@ant-design/icons";
 import {
@@ -60,28 +60,23 @@ export function CustomerSettingsPanel({
   const [draft, setDraft] = useState<Record<string, CustomerSettingUiValue>>(
     settings?.values ?? {},
   );
+  const [draftSource, setDraftSource] = useState(settings);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [pendingPatch, setPendingPatch] = useState<Record<
     string,
     CustomerSettingUiValue
   > | null>(null);
   const [jsonEditorKey, setJsonEditorKey] = useState<string | null>(null);
-
-  useEffect(() => {
+  if (settings !== draftSource) {
+    setDraftSource(settings);
     setDraft(settings?.values ?? {});
-  }, [settings]);
+  }
 
-  const category = useMemo(
-    () => CUSTOMER_SETTING_CATEGORIES.find((item) => item.id === categoryId),
-    [categoryId],
-  );
+  const category = CUSTOMER_SETTING_CATEGORIES.find((item) => item.id === categoryId);
 
-  const missingByKey = useMemo(
-    () => new Map((settings?.missingColumns ?? []).map((column) => [column.key, column])),
-    [settings],
-  );
+  const missingByKey = new Map((settings?.missingColumns ?? []).map((column) => [column.key, column]));
 
-  const dirtyPatch = useMemo(() => {
+  const dirtyPatch = (() => {
     if (!category || !settings) {
       return {};
     }
@@ -97,7 +92,7 @@ export function CustomerSettingsPanel({
       }
     }
     return patch;
-  }, [category, draft, missingByKey, settings]);
+  })();
 
   const dirtyCount = Object.keys(dirtyPatch).length;
   const jsonField =

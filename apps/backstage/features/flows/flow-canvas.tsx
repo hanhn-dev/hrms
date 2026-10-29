@@ -1,6 +1,5 @@
 "use client";
 
-import { useMemo } from "react";
 import {
   Background,
   Handle,
@@ -66,7 +65,7 @@ export function FlowCanvas(props: {
   selectedId: string | null;
   onSelectProcedure: (nodeId: string) => void;
 }): React.JSX.Element {
-  const layout = useMemo(() => {
+  const layout = (() => {
     const placed = layoutCallGraph(props.nodes, props.edges);
     const byId = new Map(props.nodes.map((node) => [node.id, node]));
     const nodes: Node<FlowNodeData>[] = placed.nodes.flatMap((placedNode) => {
@@ -104,7 +103,7 @@ export function FlowCanvas(props: {
       style: { stroke: "#64748b" },
     }));
     return { nodes, edges };
-  }, [props]);
+  })();
 
   if (props.nodes.length === 0) {
     return <p className="text-sm text-slate-500">This step does not call another stored procedure.</p>;
