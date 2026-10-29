@@ -3,7 +3,8 @@
 import { useState } from "react";
 
 import { useRouter } from "next/navigation";
-import { App, Button, Collapse, Empty, Segmented, Space, Tag } from "antd";
+import { App, Button, Collapse, Empty, Pagination, Segmented, Space, Tag } from "antd";
+import { listHref } from "@/shared/list-query";
 import { DataTable } from "@/shared/ui/data-table";
 import {
   ChangeRequestApprovers,
@@ -45,18 +46,41 @@ const STATUS_COLOR: Record<ChangeRequestListItem["status"], string> = {
 
 export function ChangeRequestsPanel({
   employerId,
+  employmentNumber,
+  page,
+  pageSize,
   requests,
+  search,
+  status,
+  total,
   queryScript,
   writesEnabled,
 }: {
   employerId: number;
+  employmentNumber: string;
+  page: number;
+  pageSize: number;
   requests: ChangeRequestListItem[];
+  search: string;
+  status: StatusFilter;
+  total: number;
   queryScript: string;
   writesEnabled: boolean;
 }): React.JSX.Element {
   const router = useRouter();
   const { message } = App.useApp();
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const path = `/employers/${employerId}/employees/${encodeURIComponent(employmentNumber)}/change-requests`;
+  function openList(next: { page?: number; q?: string | null; status?: StatusFilter }): void {
+    const nextStatus = next.status ?? status;
+    router.push(
+      listHref(path, {
+        page: next.page ?? 1,
+        q: next.q === undefined ? search || null : next.q,
+      }, {
+        status: nextStatus === "all" ? null : nextStatus,
+      }),
+    );
+  }
   const [openOverride, setOpenOverride] = useState<{
     signature: string;
     keys: string[];
@@ -98,31 +122,12 @@ export function ChangeRequestsPanel({
     }
   }
 
-  const tally = {
-      all: requests.length,
-      pending: 0,
-      approved: 0,
-      rejected: 0,
-    };
-  for (const row of requests) {
-      tally[row.status] += 1;
-    }
-  const counts = tally;
-
-  const visible = requests.filter(
-      (row) => statusFilter === "all" || row.status === statusFilter,
-    );
-
-  const groups = groupChangeRequestsByWorkflow(visible);
-  const groupSignature = `${statusFilter}|${groups.map((group) => group.key).join(",")}`;
+  const groups = groupChangeRequestsByWorkflow(requests);
+  const groupSignature = `${status}|${groups.map((group) => group.key).join(",")}`;
   const activeKeys =
     openOverride?.signature === groupSignature
       ? openOverride.keys
       : expandedWorkflowGroupKeys(groups);
-
-  if (requests.length === 0) {
-    return <Empty description="This employee has no change requests." />;
-  }
 
   return (
     <>
@@ -130,17 +135,17 @@ export function ChangeRequestsPanel({
         <div className="flex flex-wrap items-center gap-2">
           <Segmented
             options={STATUS_FILTERS.map((value) => ({
-              label: `${value[0]?.toUpperCase()}${value.slice(1)} (${counts[value]})`,
+              label: value[0]?.toUpperCase() + value.slice(1),
               value,
             }))}
-            value={statusFilter}
+            value={status}
             onChange={(value) => {
-              setStatusFilter(value as StatusFilter);
+              openList({ page: 1, status: value as StatusFilter });
             }}
           />
         </div>
-        {groups.length === 0 ? (
-          <Empty description="No change requests match this filter." />
+        {total === 0 ? (
+          <Empty description="No change requests match." />
         ) : (
           <Collapse
             activeKey={activeKeys}
@@ -187,6 +192,10 @@ export function ChangeRequestsPanel({
                     rowKey="changeRequestId"
                     size="small"
                     dataSource={group.requests}
+                    searchQuery={search}
+                    onSearch={(next) => {
+                      openList({ page: 1, q: next || null });
+                    }}
                     pagination={false}
                     rowClassName={(row) =>
                       row.changeRequestId === changeRequestView.selectedId
@@ -311,6 +320,15 @@ export function ChangeRequestsPanel({
             })}
           />
         )}
+        <Pagination
+          current={page}
+          pageSize={pageSize}
+          showSizeChanger={false}
+          total={total}
+          onChange={(next) => {
+            openList({ page: next });
+          }}
+        />
       </Space>
       {changeRequestView.modal}
       <ChangeRequestDecideModal

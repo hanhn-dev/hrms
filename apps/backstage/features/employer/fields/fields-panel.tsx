@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Alert, Button, Collapse, Select, Tabs, Tag } from "antd";
+import { useEffect, useEffectEvent, useState } from "react";
+import { Alert, Button, Collapse, Input, Pagination, Select, Tabs, Tag } from "antd";
 import { DataTable } from "@/shared/ui/data-table";
 import { useRouter } from "next/navigation";
 import { fieldsHref, type FieldSource } from "@/features/employer/fields/fields-source";
@@ -25,6 +25,7 @@ import {
   ValidationRuleViewCell,
 } from "@/features/employer/fields/validation-rule-cell";
 import { namesMatch } from "@/shared/entity-link";
+import { serverSearchChanged } from "@/shared/ui/data-table-search";
 import { EditableTable, type EditableColumn } from "@/shared/ui";
 
 const DEFAULT_ENTITIES = ["System", "Country", "Custom"];
@@ -41,12 +42,14 @@ export function FieldsTabBar({
   employerId,
   section,
   field,
+  listSearch,
   children,
 }: {
   source: FieldSource;
   employerId: number;
   section: string | null;
   field: string | null;
+  listSearch: string;
   children: React.ReactNode;
 }): React.JSX.Element {
   const router = useRouter();
@@ -59,6 +62,7 @@ export function FieldsTabBar({
             source: next as FieldSource,
             section,
             field,
+            q: listSearch || null,
           }),
         );
       }}
@@ -101,6 +105,11 @@ export function FieldsPanel({
   employerScript,
   templateScript,
   compareScript,
+  listPage,
+  listSearch,
+  pageSize,
+  totalCount,
+  compareBounded,
 }: {
   employerFields: FieldCatalogRow[];
   templateFields: FieldCatalogRow[];
@@ -114,6 +123,11 @@ export function FieldsPanel({
   employerScript: string;
   templateScript: string;
   compareScript: string;
+  listPage: number;
+  listSearch: string;
+  pageSize: number;
+  totalCount: number;
+  compareBounded: boolean;
 }): React.JSX.Element {
   const router = useRouter();
   const sectionKnown = (() => {
@@ -159,11 +173,24 @@ export function FieldsPanel({
           value={entities}
           onChange={setEntities}
         />
+        <FieldListSearch
+          initialQuery={listSearch}
+          onSearch={(next) => {
+            router.push(
+              fieldsHref(employerId, {
+                source,
+                section,
+                field,
+                q: next || null,
+              }),
+            );
+          }}
+        />
         {section ? (
           <Button
             type="link"
             onClick={() => {
-              router.push(fieldsHref(employerId, { source }));
+              router.push(fieldsHref(employerId, { source, q: listSearch || null }));
             }}
           >
             All sections
@@ -188,7 +215,7 @@ export function FieldsPanel({
       ) : null}
       {source === "employer" ? (
         <>
-          <p className="mb-3 text-slate-600">{visibleEmployer.length} fields</p>
+          <p className="mb-3 text-slate-600">{totalCount} fields</p>
           <SectionedFields
           emptyText="No employer fields match the current filters."
           employerId={employerId}
@@ -204,7 +231,7 @@ export function FieldsPanel({
       ) : null}
       {source === "template" ? (
         <>
-          <p className="mb-3 text-slate-600">{visibleTemplate.length} fields</p>
+          <p className="mb-3 text-slate-600">{totalCount} fields</p>
           <SectionedFields
           emptyText="No template fields match the current filters."
           fields={visibleTemplate}
@@ -216,18 +243,46 @@ export function FieldsPanel({
         </>
       ) : null}
       {source === "compare" ? (
-        <>
-          <p className="mb-3 text-slate-600">{visibleCompared.length} differences</p>
-          <SectionedCompare
-            emptyText="No template vs employer differences match the current filters."
-            highlightField={highlightField}
-            openSections={sectionKnown}
-            pinFocus
-            queryScript={compareScript}
-            rows={visibleCompared}
+        compareBounded ? (
+          <>
+            <p className="mb-3 text-slate-600">{visibleCompared.length} differences</p>
+            <SectionedCompare
+              emptyText="No template vs employer differences match the current filters."
+              highlightField={highlightField}
+              openSections={sectionKnown}
+              pinFocus
+              queryScript={compareScript}
+              rows={visibleCompared}
+            />
+          </>
+        ) : (
+          <Alert
+            showIcon
+            type="info"
+            title="Pick a section or search to compare"
+            description="Compare loads the fields in that section or search on both sides. It does not download every employer field and every template field first."
           />
-        </>
-      ) : null}
+        )
+      ) : (
+        <Pagination
+          className="mt-4"
+          current={listPage}
+          pageSize={pageSize > 0 ? pageSize : 50}
+          showSizeChanger={false}
+          total={totalCount}
+          onChange={(next) => {
+            router.push(
+              fieldsHref(employerId, {
+                source,
+                section,
+                field,
+                q: listSearch || null,
+                page: next,
+              }),
+            );
+          }}
+        />
+      )}
     </>
   );
 }
@@ -487,16 +542,7 @@ function FieldsTable({
       onRow={(row) =>
         pinFocus && namesMatch(row.fieldName, highlightField) ? { id: "field-focus" } : {}
       }
-      pagination={
-        fields.length > 20
-          ? {
-              defaultCurrent: pageForField(fields, highlightField),
-              pageSize: 20,
-              showSizeChanger: true,
-              showTotal: (total) => `${total} fields`,
-            }
-          : false
-      }
+      pagination={false}
       rowClassName={(row) =>
         namesMatch(row.fieldName, highlightField) ? "bg-amber-50" : ""
       }
@@ -720,14 +766,6 @@ function initialEntities(
   return names.size > 0 ? [...names] : DEFAULT_ENTITIES;
 }
 
-function pageForField(fields: FieldCatalogRow[], highlightField: string | null): number {
-  const index = fields.findIndex((row) => namesMatch(row.fieldName, highlightField));
-  if (index < 0) {
-    return 1;
-  }
-  return Math.floor(index / 20) + 1;
-}
-
 function filterCatalogRows(rows: FieldCatalogRow[], entities: string[]): FieldCatalogRow[] {
   const selected = new Set(entities.map((entity) => entity.toLowerCase()));
   return rows.filter((row) => selected.has((row.fieldEntity ?? "").trim().toLowerCase()));
@@ -884,6 +922,38 @@ function flagLabel(value: unknown): string {
 
 function asFlag(value: unknown): boolean {
   return value === true || value === 1 || value === "1" || value === "Y";
+}
+
+export function FieldListSearch({
+  initialQuery,
+  onSearch,
+}: {
+  initialQuery: string;
+  onSearch: (query: string) => void;
+}): React.JSX.Element {
+  const [value, setValue] = useState(initialQuery);
+  const emit = useEffectEvent(onSearch);
+  useEffect(() => {
+    setValue(initialQuery);
+  }, [initialQuery]);
+  useEffect(() => {
+    const handle = setTimeout(() => {
+      const next = serverSearchChanged(value, initialQuery);
+      if (next != null) {
+        emit(next);
+      }
+    }, 300);
+    return () => clearTimeout(handle);
+  }, [value, initialQuery]);
+  return (
+    <Input.Search
+      allowClear
+      className="max-w-xs"
+      placeholder="Search fields"
+      value={value}
+      onChange={(event) => setValue(event.target.value)}
+    />
+  );
 }
 
 function entityColor(entity: string): string | undefined {

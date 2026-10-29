@@ -6,10 +6,10 @@ import {
   listGitAuthorActivity,
   listGitBranches,
   listGitCommits,
-  listGitFiles,
   listGitRepositories,
-  listProjectMembers,
+  listTeamMembers,
   readGitFilePair,
+  searchGitPaths,
   type AzureDevOpsClient,
   type CompareGitCommitsInput,
   type GitAuthorActivity,
@@ -23,6 +23,7 @@ import {
   type ReadGitFilePairInput,
   type TeamMember,
 } from "@hrms/azure-devops";
+import { DEFAULT_BOARD_TEAM } from "@/features/azure/board/defaults";
 import type { GitTraceCatalog } from "@/features/azure/git/catalog";
 import { requireFeature } from "@/shared/auth";
 import { getAzureDevOpsClient } from "@/shared/azure";
@@ -36,7 +37,7 @@ export async function loadGitCatalog(): Promise<GitTraceCatalog> {
   const client = await azureClient();
   const [repositories, authors] = await Promise.all([
     listGitRepositories(client),
-    listProjectMembers(client).catch((): TeamMember[] => []),
+    listTeamMembers(client, client.config.team?.trim() || DEFAULT_BOARD_TEAM).catch((): TeamMember[] => []),
   ]);
   return {
     organizationUrl: client.config.orgUrl,
@@ -58,22 +59,21 @@ export async function loadGitBranches(repositoryId: string): Promise<GitBranchSu
 
 const gitFileIndexCache = new Map<string, readonly string[]>();
 
-export async function loadGitFileIndex(input: {
+export async function searchGitFilePaths(input: {
   repositoryId: string;
   branch: string;
   commitId: string;
+  query: string;
 }): Promise<readonly string[]> {
+  const query = input.query.trim();
+  if (query.length === 0) {
+    return [];
+  }
   const commitId = input.commitId.trim();
   const cacheKey = commitId.length > 0 ? `${input.repositoryId}\n${commitId}` : "";
-  if (cacheKey.length > 0) {
-    const cached = gitFileIndexCache.get(cacheKey);
-    if (cached) {
-      return cached;
-    }
-  }
-
   const client = await azureClient();
-  const paths = await listGitFiles(client, input.repositoryId, input.branch);
+  const found = await searchGitPaths(client, input.repositoryId, input.branch, query);
+  const paths = [...new Set([...(gitFileIndexCache.get(cacheKey) ?? []), ...found])];
   if (cacheKey.length > 0) {
     gitFileIndexCache.set(cacheKey, paths);
   }

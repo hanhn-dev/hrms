@@ -1,0 +1,36 @@
+---
+description: Load a first page from SQL or a working set from Azure. Search and the next page fetch more. Do not download a full catalog on first paint.
+globs: apps/backstage/**/*.{ts,tsx},packages/hrms-db/**/*.ts,packages/integrations/azure-devops/**/*.ts
+alwaysApply: false
+---
+
+# Bounded reads
+
+A list paints with one page. The next page and the search box ask the server for more. Do not load every row and slice it in the browser.
+
+Page size is `LIST_PAGE_SIZE` (50) from `@hrms/db/page`. The table does not offer a page-size changer. A list result is `{ rows, totalCount, page, pageSize }`. `totalCount` is `COUNT(*) OVER()` on the same statement. `pageOf` clamps the page to `1..10000`. Offset is `(page - 1) * pageSize`.
+
+Empty search returns page 1 of the ordered set. `searchText` ignores fewer than 2 characters. A real search is a `LIKE` (or the screen's existing filters) and resets to page 1.
+
+The screen owns `?page=` and `?q=`. Omit `page` when it is 1 and omit `q` when it is empty. `DataTable` is server-paged when `pagination.current` and `pagination.total` are set and `onSearch` is passed. That search box calls `onSearch`. It does not hide rows that are already the server's page.
+
+```ts
+// ❌ BAD — every employee, then the table pages in memory
+const hits = await searchEmployees(db, employerId, "");
+
+// ✅ GOOD — one page, and a short search is ignored
+const page = pageQuery(filters.page);
+const q = searchText(filters.q);
+```
+
+```sql
+ORDER BY Employee.EmployeeId ASC
+OFFSET @offset ROWS FETCH NEXT 50 ROWS ONLY
+```
+
+Azure DevOps is not SQL. Load a working set (one sprint, the first 50 commits, recent paths). Search calls Azure. Do not walk a whole repo file tree, every project member, or every area path on first paint.
+
+Leave these alone:
+
+- One-record reads (one employee, one workflow, one upload header, one change request).
+- Tools that already cap with `TOP`: Data Builder Studio select, data-fix browse, value search.

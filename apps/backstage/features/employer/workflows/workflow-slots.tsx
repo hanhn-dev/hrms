@@ -2,7 +2,7 @@ import { WorkflowPanel } from "@/features/employer/workflows/workflow-panel";
 import {
   listMappablePages,
   listWorkflowBusinessUnits,
-  listWorkflowGroups,
+  listWorkflowActorGroups,
   listWorkflowLocations,
   listWorkflowModules,
   type WorkflowDefinition,
@@ -19,9 +19,11 @@ export async function WorkflowEditorSlot({
 }): Promise<React.JSX.Element> {
   const [pages, groups, locations, businessUnits, modules, writesEnabled] = await Promise.all([
     listMappablePages(employerId),
-    listWorkflowGroups(employerId),
-    listWorkflowLocations(employerId),
-    listWorkflowBusinessUnits(employerId),
+    listWorkflowActorGroups(employerId),
+    listWorkflowLocations(employerId, { includeIds: workflow?.locationIds ?? [] }),
+    listWorkflowBusinessUnits(employerId, {
+      includeIds: workflow?.businessUnitIds ?? [],
+    }),
     listWorkflowModules(employerId),
     getSelectedEnvironment().then((environment) => areWritesEnabled(environment)),
   ]);

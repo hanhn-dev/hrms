@@ -40,12 +40,22 @@ export async function WorkflowPartialNote({
   );
 }
 
+const EMPTY_REQUESTS = {
+  rows: [],
+  totalCount: 0,
+  page: 1,
+  pageSize: 50,
+};
+
 export async function WorkflowsTabSlot({
   employerId,
   tab,
   pageName,
   groupId,
   requestId,
+  listPage,
+  listSearch,
+  requestStatus,
   writesEnabled,
 }: {
   employerId: number;
@@ -53,39 +63,87 @@ export async function WorkflowsTabSlot({
   pageName: string | null;
   groupId: number | null;
   requestId: number | null;
+  listPage: number;
+  listSearch: string | null;
+  requestStatus: "pending" | "approved" | "rejected" | "all";
   writesEnabled: boolean;
 }): Promise<React.JSX.Element> {
   const workflows =
     tab === "workflows"
-      ? await captureQueryScript(() => listWorkflows(employerId))
-      : { result: [], script: "" };
-  const pages =
+      ? await captureQueryScript(() =>
+          listWorkflows(employerId, { page: listPage, q: listSearch }),
+        )
+      : {
+          result: { rows: [], totalCount: 0, page: 1, pageSize: 50 },
+          script: "",
+        };
+  const emptyPage = { rows: [], totalCount: 0, page: 1, pageSize: 50 };
+  let pages =
     tab === "pages"
-      ? await captureQueryScript(() => listWorkflowPages(employerId))
-      : { result: [], script: "" };
-  const groups =
+      ? await captureQueryScript(() =>
+          listWorkflowPages(employerId, {
+            page: pageName ? 1 : listPage,
+            q: pageName ? null : listSearch,
+            name: pageName,
+          }),
+        )
+      : { result: emptyPage, script: "" };
+  if (tab === "pages" && pageName && pages.result.rows.length === 0) {
+    pages = await captureQueryScript(() =>
+      listWorkflowPages(employerId, { page: listPage, q: listSearch }),
+    );
+  }
+  let groups =
     tab === "groups"
-      ? await captureQueryScript(() => listWorkflowGroups(employerId))
-      : { result: [], script: "" };
+      ? await captureQueryScript(() =>
+          listWorkflowGroups(employerId, {
+            page: groupId == null ? listPage : 1,
+            q: groupId == null ? listSearch : null,
+            roleId: groupId,
+          }),
+        )
+      : { result: emptyPage, script: "" };
+  if (tab === "groups" && groupId != null && groups.result.rows.length === 0) {
+    groups = await captureQueryScript(() =>
+      listWorkflowGroups(employerId, { page: listPage, q: listSearch }),
+    );
+  }
   const changeRequests =
     tab === "requests"
-      ? await captureQueryScript(() => listChangeRequests(employerId))
-      : { result: [], script: "" };
+      ? await captureQueryScript(() =>
+          listChangeRequests(employerId, {
+            page: listPage,
+            q: listSearch,
+            status: requestStatus,
+          }),
+        )
+      : { result: EMPTY_REQUESTS, script: "" };
 
   return (
     <WorkflowsPanel
       changeRequests={changeRequests.result}
       changeRequestsScript={changeRequests.script}
+      listSearch={listSearch}
+      requestStatus={requestStatus}
       employerId={employerId}
       groupId={groupId}
-      groups={groups.result}
+      groupPage={groups.result.page}
+      groupPageSize={groups.result.pageSize}
+      groupTotal={groups.result.totalCount}
+      groups={groups.result.rows}
       groupsScript={groups.script}
       pageName={pageName}
-      pages={pages.result}
+      pagePage={pages.result.page}
+      pagePageSize={pages.result.pageSize}
+      pageTotal={pages.result.totalCount}
+      pages={pages.result.rows}
       pagesScript={pages.script}
       requestId={requestId}
       tab={tab}
-      workflows={workflows.result}
+      workflowPage={workflows.result.page}
+      workflowPageSize={workflows.result.pageSize}
+      workflowTotal={workflows.result.totalCount}
+      workflows={workflows.result.rows}
       workflowsScript={workflows.script}
       writesEnabled={writesEnabled}
     />

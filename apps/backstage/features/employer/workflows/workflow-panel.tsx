@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Alert,
@@ -28,12 +28,16 @@ import {
   previewUpdateWorkflowHeader,
   previewUpdateWorkflowTree,
 } from "@/features/employer/workflows/mutations";
-import type {
-  LicensedModule,
-  WorkflowDefinition,
-  WorkflowGroupRow,
-  WorkflowScopeOption,
+import {
+  type LicensedModule,
+  type WorkflowDefinition,
+  type WorkflowGroupRow,
+  type WorkflowScopeOption,
 } from "@/features/employer/workflows/queries";
+import {
+  searchWorkflowBusinessUnits,
+  searchWorkflowLocations,
+} from "@/features/employer/workflows/scope-actions";
 import { workflowHref, workflowsHref } from "@/features/employer/workflows/workflows-source";
 import { ConfirmWriteModal, SearchSelect } from "@/shared/ui";
 
@@ -340,13 +344,12 @@ export function WorkflowPanel({
           </div>
           <label className="flex flex-col gap-1">
             <span>Locations</span>
-            <Select
-              allowClear
-              mode="multiple"
-              optionFilterProp="label"
-              options={uniqueOptions(locations)}
+            <WorkflowScopeSelect
+              employerId={employerId}
+              initial={locations}
+              kind="location"
               value={header.locationIds}
-              onChange={(locationIds: number[]) => {
+              onChange={(locationIds) => {
                 patchHeader({
                   locationIds,
                   isLocationMapped: locationIds.length > 0,
@@ -356,13 +359,12 @@ export function WorkflowPanel({
           </label>
           <label className="flex flex-col gap-1">
             <span>Business units</span>
-            <Select
-              allowClear
-              mode="multiple"
-              optionFilterProp="label"
-              options={uniqueOptions(businessUnits)}
+            <WorkflowScopeSelect
+              employerId={employerId}
+              initial={businessUnits}
+              kind="businessUnit"
               value={header.businessUnitIds}
-              onChange={(businessUnitIds: number[]) => {
+              onChange={(businessUnitIds) => {
                 patchHeader({
                   businessUnitIds,
                   isBuMapped: businessUnitIds.length > 0,
@@ -645,6 +647,79 @@ function syncTreeLevels(tree: WorkflowTree, routingLevels: number): WorkflowTree
     );
   });
   return { ...tree, levels };
+}
+
+function WorkflowScopeSelect({
+  employerId,
+  kind,
+  value,
+  initial,
+  onChange,
+}: {
+  employerId: number;
+  kind: "location" | "businessUnit";
+  value: number[];
+  initial: WorkflowScopeOption[];
+  onChange: (ids: number[]) => void;
+}): React.JSX.Element {
+  const [query, setQuery] = useState("");
+  const [loaded, setLoaded] = useState(initial);
+  const [seenInitial, setSeenInitial] = useState(initial);
+  if (initial !== seenInitial) {
+    setSeenInitial(initial);
+    setLoaded(initial);
+  }
+  useEffect(() => {
+    const trimmed = query.trim();
+    if (trimmed.length < 2) {
+      return;
+    }
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      const request =
+        kind === "location"
+          ? searchWorkflowLocations(employerId, trimmed, value)
+          : searchWorkflowBusinessUnits(employerId, trimmed, value);
+      void request.then((rows) => {
+        if (!cancelled) {
+          setLoaded(rows);
+        }
+      });
+    }, 300);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [employerId, kind, query, value]);
+  const options =
+    query.trim().length < 2 ? mergeScopeOptions(initial, loaded, value) : loaded;
+  return (
+    <SearchSelect
+      allowClear
+      className="w-full"
+      filterOption={false}
+      mode="multiple"
+      options={uniqueOptions(options)}
+      value={value}
+      onChange={onChange}
+      onSearch={setQuery}
+    />
+  );
+}
+
+function mergeScopeOptions(
+  initial: WorkflowScopeOption[],
+  extra: WorkflowScopeOption[],
+  selected: readonly number[],
+): WorkflowScopeOption[] {
+  const byId = new Map(initial.map((item) => [item.id, item]));
+  const selectedIds = new Set(selected);
+  for (const item of extra) {
+    if (selectedIds.has(item.id)) {
+      byId.set(item.id, item);
+    }
+  }
+  return [...byId.values()];
 }
 
 function uniqueOptions(

@@ -150,6 +150,8 @@ export async function loadSectionCustomFieldHistory(
       WHERE tc.EmployeeId = ${input.employeeId}
         AND tf.SectionID = ${input.sectionId}
         AND ISNULL(tf.IsDeleted, 0) = 0
+        AND tc.ModifiedDateUtc >= ${input.from}
+        AND tc.ModifiedDateUtc < ${input.toExclusive}
       ORDER BY tc.CustFieldID, tc.ModifiedDateUtc ASC, tc.HistoryCustomFieldId ASC
     `;
   } catch {

@@ -2,6 +2,7 @@ import { Prisma } from "../../generated/prisma/client";
 import type { HrmsDb } from "../../shared/client";
 import { parseEmployerId } from "../../shared/ids";
 import { asIso } from "../../shared/iso";
+import { pageOf } from "../../shared/page.ts";
 import { INBOX_PAGE_SIZE, type InboxSide } from "./status";
 import { parseWaitingOn, type InboxPerson } from "./waiting-on";
 
@@ -69,13 +70,6 @@ type InboxRow = {
   ApprovalLevels: string | null;
   ReassignReason: string | null;
 };
-
-function pageOf(value: number | null | undefined): number {
-  if (value == null || !Number.isInteger(value) || value < 1) {
-    return 1;
-  }
-  return Math.min(value, 10000);
-}
 
 function textFilter(value: string | null | undefined, maxLength: number): string | null {
   if (value == null) {

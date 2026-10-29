@@ -19,6 +19,13 @@ export { moduleNameSearchTokens } from "./module-name-search";
 import { assertSelectOnly, wrapSelectForLimit } from "./select-guard";
 import { serializeRow } from "./serialize-row";
 import { captureQueryScript } from "../shared/query-script";
+import {
+  likeContains,
+  pageQuery,
+  searchText,
+  totalCountOf,
+  type PageResult,
+} from "../shared/page.ts";
 
 export { assertSelectOnly, wrapSelectForLimit } from "./select-guard";
 export {
@@ -755,7 +762,10 @@ type SearchTargetRow = {
   TableName: string;
   HasEmployerColumn: number | boolean | null;
   ReferenceCount: number | bigint | null;
+  TotalCount: number | bigint | null;
 };
+
+export type SearchTargetPage = PageResult<SearchTarget>;
 
 type BatchColumnRow = {
   SchemaName: string;
@@ -838,7 +848,21 @@ function optionalEmployerId(employerId: number | null | undefined): number | nul
   return parseEmployerId(employerId);
 }
 
-export async function listSearchTargets(db: HrmsDb): Promise<SearchTarget[]> {
+export async function listSearchTargets(
+  db: HrmsDb,
+  filters: { page?: number | null; q?: string | null } = {},
+): Promise<SearchTargetPage> {
+  const paging = pageQuery(filters.page);
+  const q = searchText(filters.q);
+  const pattern = q == null ? null : likeContains(q);
+  const nameFilter =
+    pattern == null
+      ? Prisma.empty
+      : Prisma.sql`AND (
+            Tables.name LIKE ${pattern}
+            OR Schemas.name LIKE ${pattern}
+            OR (Schemas.name + N'.' + Tables.name) LIKE ${pattern}
+        )`;
   const rows = await db.$queryRaw<SearchTargetRow[]>`
     SELECT
         Schemas.name AS SchemaName,
@@ -847,7 +871,8 @@ export async function listSearchTargets(db: HrmsDb): Promise<SearchTarget[]> {
             WHEN LOWER(Columns.name) = N'employerid' THEN 1
             ELSE 0
         END) AS HasEmployerColumn,
-        ISNULL(MAX(Usage.ReferenceCount), 0) AS ReferenceCount
+        ISNULL(MAX(Usage.ReferenceCount), 0) AS ReferenceCount,
+        COUNT(*) OVER() AS TotalCount
     FROM sys.tables AS Tables
     INNER JOIN sys.schemas AS Schemas
         ON Schemas.schema_id = Tables.schema_id
@@ -867,11 +892,13 @@ export async function listSearchTargets(db: HrmsDb): Promise<SearchTarget[]> {
     WHERE Tables.is_ms_shipped = 0
         AND Types.name IN (${Prisma.join(SEARCHABLE_TYPE_NAMES)})
         ${ignoredSchemaSql()}
+        ${nameFilter}
     GROUP BY Schemas.name, Tables.name
     ORDER BY Schemas.name ASC, Tables.name ASC
+    OFFSET ${paging.offset} ROWS FETCH NEXT ${paging.pageSize} ROWS ONLY
   `;
 
-  return rows
+  const listed = rows
     .filter(
       (row) =>
         !isIgnoredSchema(row.SchemaName) &&
@@ -884,6 +911,12 @@ export async function listSearchTargets(db: HrmsDb): Promise<SearchTarget[]> {
       hasEmployerColumn: asSqlFlag(row.HasEmployerColumn) === true,
       referenceCount: asCount(row.ReferenceCount),
     }));
+  return {
+    rows: listed,
+    totalCount: totalCountOf(rows[0]?.TotalCount),
+    page: paging.page,
+    pageSize: paging.pageSize,
+  };
 }
 
 async function listColumnsForTables(

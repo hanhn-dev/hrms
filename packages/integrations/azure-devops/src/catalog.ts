@@ -8,6 +8,9 @@ import type { AreaModule, ProjectTeam, TeamMember } from './types.js';
 
 const AREA_DEPTH = 10;
 
+/** How many team-member reads may run at once. One-at-a-time kept Git and Pull requests on a skeleton for the whole project. */
+const TEAM_MEMBER_CONCURRENCY = 5;
+
 /**
  * Converts a classification-node path (`\Project\Area\Team\Module`) into the
  * area path stored on a work item (`Project\Team\Module`).
@@ -137,20 +140,52 @@ export async function listProjectMembers(client: AzureDevOpsClient): Promise<Tea
   const teams = await listProjectTeams(client);
   const coreApi = await client.getCoreApi();
   const byId = new Map<string, TeamMember>();
-
-  for (const team of teams) {
-    let members;
+  const memberLists = await mapWithConcurrency(teams, TEAM_MEMBER_CONCURRENCY, async (team) => {
     try {
-      members = await withAzureDevOpsTimeout(
+      return await withAzureDevOpsTimeout(
         coreApi.getTeamMembersWithExtendedProperties(project, team.name),
       );
     } catch (error) {
       throw new Error(`Azure DevOps core API error: ${getAzureDevOpsErrorMessage(error)}`);
     }
+  });
+
+  for (const members of memberLists) {
     mapTeamMembers(members, byId);
   }
 
   return [...byId.values()].sort((left, right) => left.displayName.localeCompare(right.displayName));
+}
+
+async function mapWithConcurrency<T, R>(
+  items: readonly T[],
+  limit: number,
+  mapper: (item: T) => Promise<R>,
+): Promise<R[]> {
+  if (items.length === 0) {
+    return [];
+  }
+  const results = new Array<R>(items.length);
+  let nextIndex = 0;
+
+  async function worker(): Promise<void> {
+    while (nextIndex < items.length) {
+      const index = nextIndex;
+      nextIndex += 1;
+      const item = items[index];
+      if (item === undefined) {
+        return;
+      }
+      results[index] = await mapper(item);
+    }
+  }
+
+  const workers = Array.from(
+    { length: Math.min(limit, items.length) },
+    () => worker(),
+  );
+  await Promise.all(workers);
+  return results;
 }
 
 export async function listAreaModules(client: AzureDevOpsClient): Promise<AreaModule[]> {

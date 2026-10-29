@@ -27,6 +27,7 @@ import type {
 } from "@/features/employer/workflows/queries";
 import { formatDate } from "@/shared/format-date";
 import { EntityLink } from "@/shared/entity-link";
+import { listHref } from "@/shared/list-query";
 import { workflowsHref } from "@/features/employer/workflows/workflows-source";
 
 const STATUS_FILTERS = ["pending", "approved", "rejected", "all"] as const;
@@ -41,19 +42,42 @@ const STATUS_COLOR: Record<ChangeRequestListItem["status"], string> = {
 
 export function ChangeRequestPanel({
   employerId,
+  page,
+  pageSize,
   requests,
+  search,
+  status,
+  total,
   writesEnabled,
   requestId,
   queryScript,
 }: {
   employerId: number;
+  page: number;
+  pageSize: number;
   requests: ChangeRequestListItem[];
+  search: string;
+  status: StatusFilter;
+  total: number;
   writesEnabled: boolean;
   requestId: number | null;
   queryScript: string;
 }): React.JSX.Element {
   const router = useRouter();
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("pending");
+  function openList(next: { page?: number; q?: string | null; status?: StatusFilter }): void {
+    router.push(
+      listHref(
+        `/employers/${employerId}/workflows`,
+        { page: next.page ?? 1, q: next.q === undefined ? search || null : next.q },
+        {
+          tab: "requests",
+          status: (next.status ?? status) === "pending" ? null : (next.status ?? status),
+          request: requestId,
+        },
+        { pageParam: "p" },
+      ),
+    );
+  }
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [detail, setDetail] = useState<ChangeRequestDetail | null>(null);
   const [detailScript, setDetailScript] = useState("");
@@ -66,8 +90,6 @@ export function ChangeRequestPanel({
       }
     },
   });
-
-  const visible = requests.filter((row) => statusFilter === "all" || row.status === statusFilter);
 
   async function openRequest(
     changeRequestId: number,
@@ -141,9 +163,9 @@ export function ChangeRequestPanel({
               label: value[0]?.toUpperCase() + value.slice(1),
               value,
             }))}
-            value={statusFilter}
+            value={status}
             onChange={(value) => {
-              setStatusFilter(value as StatusFilter);
+              openList({ page: 1, status: value as StatusFilter });
             }}
           />
         </div>
@@ -151,8 +173,21 @@ export function ChangeRequestPanel({
           queryScript={queryScript}
           rowKey="changeRequestId"
           size="small"
-          dataSource={visible}
-          pagination={{ pageSize: 10, showTotal: (total) => `${total} requests` }}
+          dataSource={requests}
+          searchQuery={search}
+          onSearch={(next) => {
+            openList({ page: 1, q: next || null });
+          }}
+          pagination={{
+            current: page,
+            pageSize,
+            total,
+            showSizeChanger: false,
+            showTotal: (count) => `${count} requests`,
+            onChange: (next) => {
+              openList({ page: next });
+            },
+          }}
           rowClassName={(row) =>
             row.changeRequestId === selectedId ? "ant-table-row-selected" : ""
           }

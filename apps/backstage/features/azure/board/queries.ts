@@ -8,6 +8,7 @@ import {
   listTaskboardWorkItemColumns,
   listTeamIterations,
   listTeamMembers,
+  searchWorkItems,
   type ProjectTeam,
   type TaskboardColumn,
   type TaskboardWorkItemColumn,
@@ -16,6 +17,7 @@ import {
   type WorkItem,
   type WorkItemSummary,
 } from "@hrms/azure-devops";
+import { boardSearchFilter } from "@/features/azure/board/board-search";
 import { requireFeature } from "@/shared/auth";
 import { getAzureDevOpsClient } from "@/shared/azure";
 
@@ -62,13 +64,21 @@ export async function loadSprintBoard(
   team: string,
   iterationId: string,
   iterationPath: string,
+  search?: {
+    query?: string;
+    assignees?: readonly string[];
+    types?: readonly string[];
+  },
 ): Promise<SprintBoardData> {
   await requireFeature("azure");
   const client = getAzureDevOpsClient();
+  const filter = boardSearchFilter(iterationPath, search);
   const [columns, placements, workItems] = await Promise.all([
     listTaskboardColumns(client, team),
     listTaskboardWorkItemColumns(client, iterationId, team),
-    getIterationWorkItems(client, iterationPath, client.config),
+    filter === null
+      ? getIterationWorkItems(client, iterationPath, client.config)
+      : searchWorkItems(client, filter, client.config),
   ]);
   const sprintIds = new Set(workItems.map((item) => item.id));
   const missingParentIds = [

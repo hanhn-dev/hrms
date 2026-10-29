@@ -128,6 +128,8 @@ export async function loadBankHistory(
           ON A.AccountTypeId = H.AccountType
       WHERE H.EmployeeId = ${input.employeeId}
         AND ISNULL(H.Show, 0) = 1
+        AND H.UpdatedDateUtc >= ${input.from}
+        AND H.UpdatedDateUtc < ${input.toExclusive}
       ORDER BY H.BankDetailId, H.UpdatedDateUtc ASC, H.TEmployeeBankDetails_HistoryID ASC
     `;
   } catch {

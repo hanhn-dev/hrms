@@ -2,19 +2,23 @@ export {
   getWorkflowSettings,
   listWorkflows,
   type WorkflowListItem,
+  type WorkflowListPage,
   type WorkflowSettings,
 } from "./list";
 export {
   listMappablePages,
   listWorkflowPages,
+  type WorkflowPageCatalogPage,
   type WorkflowPageCatalogRow,
   type WorkflowPageMapping,
 } from "./pages";
 export {
+  listWorkflowActorGroups,
   listWorkflowBusinessUnits,
   listWorkflowGroups,
   listWorkflowLocations,
   type WorkflowGroupMember,
+  type WorkflowGroupPage,
   type WorkflowGroupRow,
   type WorkflowScopeOption,
 } from "./groups";
@@ -25,6 +29,7 @@ export {
   listEmployeeChangeRequests,
   listConfiguredApprovers,
   type ChangeRequestApprover,
+  type ChangeRequestListPage,
   type ChangeRequestDetail,
   type ChangeRequestDetailRow,
   type ChangeRequestListItem,

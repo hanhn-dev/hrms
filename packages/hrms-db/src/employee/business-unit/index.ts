@@ -2,6 +2,12 @@ import { Prisma } from "../../generated/prisma/client";
 import type { HrmsDb } from "../../shared/client";
 import { parseEmployerId } from "../../shared/ids";
 import { resolveEmployee } from "../../shared/employee";
+import {
+  likeContains,
+  pageQuery,
+  searchText,
+  totalCountOf,
+} from "../../shared/page.ts";
 
 export type BusinessUnitEmployee = {
   employeeId: number;
@@ -17,6 +23,9 @@ export type BusinessUnitEmployees = {
   businessUnitId: number | null;
   businessUnitName: string | null;
   employees: BusinessUnitEmployee[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
 };
 
 type SubjectRow = {
@@ -31,6 +40,7 @@ type SiblingRow = {
   WorkEmail: string | null;
   IsActive: string | boolean | null;
   RoleName: string | null;
+  TotalCount: number | bigint | null;
 };
 
 export async function listBusinessUnitEmployees(
@@ -38,6 +48,7 @@ export async function listBusinessUnitEmployees(
   employerId: number,
   employmentNumber: string,
   search: string,
+  page?: number | null,
 ): Promise<BusinessUnitEmployees | null> {
   const tenantId = parseEmployerId(employerId);
   const identity = await resolveEmployee(db, employerId, employmentNumber);
@@ -63,24 +74,29 @@ export async function listBusinessUnitEmployees(
   const businessUnitId = subject?.BusinessUnitId ?? null;
   const businessUnitName = subject?.BusinessUnitName ?? null;
 
+  const paging = pageQuery(page);
   if (businessUnitId == null) {
     return {
       currentEmployeeId: identity.employeeId,
       businessUnitId: null,
       businessUnitName: null,
       employees: [],
+      totalCount: 0,
+      page: paging.page,
+      pageSize: paging.pageSize,
     };
   }
 
-  const trimmed = search.trim();
+  const q = searchText(search);
+  const pattern = q == null ? null : likeContains(q);
   const nameFilter =
-    trimmed === ""
+    pattern == null
       ? Prisma.empty
       : Prisma.sql`AND (
-            EmployeeInfo.EmploymentNumber LIKE ${`%${trimmed}%`}
-            OR Employee.FName LIKE ${`%${trimmed}%`}
-            OR Employee.LName LIKE ${`%${trimmed}%`}
-            OR Employee.EmailID LIKE ${`%${trimmed}%`}
+            EmployeeInfo.EmploymentNumber LIKE ${pattern}
+            OR Employee.FName LIKE ${pattern}
+            OR Employee.LName LIKE ${pattern}
+            OR Employee.EmailID LIKE ${pattern}
         )`;
 
   const rows = await db.$queryRaw<SiblingRow[]>`
@@ -90,7 +106,8 @@ export async function listBusinessUnitEmployees(
         LTRIM(RTRIM(CONCAT_WS(' ', Employee.FName, Employee.MiddleName, Employee.LName))) AS FullName,
         Employee.EmailID AS WorkEmail,
         Employee.IsActive,
-        Roles.RoleName
+        Roles.RoleName,
+        COUNT(*) OVER() AS TotalCount
     FROM dbo.TEmployee AS Employee
     INNER JOIN dbo.TEmployeeInfo AS EmployeeInfo
         ON EmployeeInfo.EmployeeId = Employee.EmployeeId
@@ -110,12 +127,16 @@ export async function listBusinessUnitEmployees(
         AND EmployeeInfo.BusinessUnitId = ${businessUnitId}
         ${nameFilter}
     ORDER BY Employee.EmployeeId ASC
+    OFFSET ${paging.offset} ROWS FETCH NEXT ${paging.pageSize} ROWS ONLY
   `;
 
   return {
     currentEmployeeId: identity.employeeId,
     businessUnitId,
     businessUnitName,
+    totalCount: totalCountOf(rows[0]?.TotalCount),
+    page: paging.page,
+    pageSize: paging.pageSize,
     employees: rows.map((row) => ({
       employeeId: row.EmployeeId,
       employmentNumber: row.EmploymentNumber,

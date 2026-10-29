@@ -18,6 +18,7 @@ import {
   Typography,
 } from "antd";
 import { DataTable } from "@/shared/ui/data-table";
+import { listHref } from "@/shared/list-query";
 import type { MasterDataColumn, MasterDataEntry, MasterDataLookupOption, MasterDataRow } from "@hrms/db";
 import {
   commitMasterDataChange,
@@ -101,16 +102,24 @@ function initialValues(entry: MasterDataEntry, row: MasterDataRow | null): Recor
 export function MasterDataPanel({
   employerId,
   catalog,
+  listPage,
+  listPageSize,
   selected,
   rows,
+  search,
+  total,
   lookups,
   writesEnabled,
   queryScript,
 }: {
   employerId: number;
   catalog: MasterDataEntry[];
+  listPage: number;
+  listPageSize: number;
   selected: MasterDataEntry | null;
   rows: MasterDataRow[];
+  search: string;
+  total: number;
   lookups: Record<string, MasterDataLookupOption[]>;
   writesEnabled: boolean;
   queryScript: string;
@@ -204,7 +213,30 @@ export function MasterDataPanel({
               queryScript={queryScript}
               rowKey={(row) => String(rowId(selected, row) ?? row[selected.idColumn])}
               dataSource={rows}
-              pagination={{ pageSize: 20, showSizeChanger: true }}
+              searchQuery={search}
+              onSearch={(next) => {
+                router.push(
+                  listHref(`/employers/${employerId}/master-data`, {
+                    page: 1,
+                    q: next || null,
+                  }, { list: selected.key }),
+                );
+              }}
+              pagination={{
+                current: listPage,
+                pageSize: listPageSize,
+                total,
+                showSizeChanger: false,
+                showTotal: (count) => `${count} rows`,
+                onChange: (next) => {
+                  router.push(
+                    listHref(`/employers/${employerId}/master-data`, {
+                      page: next,
+                      q: search || null,
+                    }, { list: selected.key }),
+                  );
+                },
+              }}
               scroll={{ x: true }}
               locale={{ emptyText: "No rows." }}
               columns={[

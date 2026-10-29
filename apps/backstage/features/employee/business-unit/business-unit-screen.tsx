@@ -6,10 +6,12 @@ import { Employee360Nav, PageHelp, SectionFallback } from "@/shared/ui";
 export function EmployeeBusinessUnitScreen({
   employerId,
   employmentNumber,
+  page,
   search,
 }: {
   employerId: number;
   employmentNumber: string;
+  page: number;
   search: string;
 }): React.JSX.Element {
   return (
@@ -36,6 +38,7 @@ export function EmployeeBusinessUnitScreen({
         <EmployeeBusinessUnitSlot
           employerId={employerId}
           employmentNumber={employmentNumber}
+          page={page}
           search={search}
         />
       </Suspense>

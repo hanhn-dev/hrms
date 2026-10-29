@@ -8,13 +8,21 @@ import { getSelectedEnvironment } from "@/shared/db";
 export async function EmployeeChangeRequestsSlot({
   employerId,
   employmentNumber,
+  page,
+  search,
+  status,
 }: {
   employerId: number;
   employmentNumber: string;
+  page: number;
+  search: string;
+  status: "pending" | "approved" | "rejected" | "all";
 }): Promise<React.JSX.Element> {
   const [writesEnabled, loaded] = await Promise.all([
     getSelectedEnvironment().then((environment) => areWritesEnabled(environment)),
-    captureQueryScript(() => listEmployeeChangeRequests(employerId, employmentNumber)),
+    captureQueryScript(() =>
+      listEmployeeChangeRequests(employerId, employmentNumber, { page, q: search, status }),
+    ),
   ]);
   if (loaded.result == null) {
     return <Alert showIcon type="error" title="Employee was not found." />;
@@ -22,8 +30,14 @@ export async function EmployeeChangeRequestsSlot({
   return (
     <ChangeRequestsPanel
       employerId={employerId}
+      employmentNumber={employmentNumber}
+      page={loaded.result.page}
+      pageSize={loaded.result.pageSize}
       queryScript={loaded.script}
-      requests={loaded.result}
+      requests={loaded.result.rows}
+      search={search}
+      status={status}
+      total={loaded.result.totalCount}
       writesEnabled={writesEnabled}
     />
   );

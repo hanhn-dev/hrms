@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useEffectEvent, useState, useSyncExternalStore } from "react";
 import {
   ApartmentOutlined,
   CloudUploadOutlined,
@@ -23,6 +23,7 @@ import {
 import { Breadcrumb, Button, Layout, Menu, Tooltip, Typography } from "antd";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { searchEmployerOptions } from "@/features/employer/picker/actions";
 import { SearchSelect } from "@/shared/ui/search-select";
 import { SiderUserMenu } from "@/shared/ui/sider-user-menu";
 import { PageHelpTrigger } from "@/shared/ui/page-help";
@@ -172,6 +173,27 @@ export function AppShell({
                     ? "employees"
                     : "overview";
   const title = moduleTitle(pathname, base, employers, employerId);
+  const [switcherQuery, setSwitcherQuery] = useState("");
+  const [switcherOptions, setSwitcherOptions] = useState(employers);
+  const loadSwitcher = useEffectEvent(async (value: string) => {
+    try {
+      const rows = await searchEmployerOptions(value);
+      const current = employers.find((item) => item.employerId === employerId);
+      const next =
+        current && !rows.some((item) => item.employerId === current.employerId)
+          ? [current, ...rows]
+          : rows;
+      setSwitcherOptions(next.length > 0 ? next : employers);
+    } catch {
+      setSwitcherOptions(employers);
+    }
+  });
+  useEffect(() => {
+    const handle = setTimeout(() => {
+      void loadSwitcher(switcherQuery);
+    }, 300);
+    return () => clearTimeout(handle);
+  }, [switcherQuery, employerId]);
 
   return (
     <ShellHeaderProvider>
@@ -194,13 +216,14 @@ export function AppShell({
             {collapsed ? null : (
               <SearchSelect
                 className="min-w-0 flex-1"
-                optionFilterProp="label"
+                filterOption={false}
                 popupMatchSelectWidth={false}
                 value={employerId}
-                options={employers.map((employer) => ({
+                options={switcherOptions.map((employer) => ({
                   label: `${employer.employerName} (${employer.employerId})`,
                   value: employer.employerId,
                 }))}
+                onSearch={setSwitcherQuery}
                 onChange={(nextId: number) => {
                   router.push(`/employers/${nextId}`);
                 }}

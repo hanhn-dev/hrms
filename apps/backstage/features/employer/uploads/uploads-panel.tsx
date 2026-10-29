@@ -157,11 +157,13 @@ export function UploadCatalogBody({
   catalog,
   catalogScript,
   sectionId,
+  search,
 }: {
   employerId: number;
   catalog: UploadCatalog | null;
   catalogScript: string;
   sectionId: number | null;
+  search: string;
 }): React.JSX.Element {
   if (!catalog) {
     return (
@@ -187,6 +189,7 @@ export function UploadCatalogBody({
         catalog={catalog}
         employerId={employerId}
         queryScript={catalogScript}
+        search={search}
         selectedSectionId={sectionId}
       />
     </>

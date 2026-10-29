@@ -547,7 +547,10 @@ export async function getWorkItemPullRequests(
 ): Promise<PullRequestLookupResponse> {
   const requestedLookup = await resolveRawWorkItemsByIds(client, request.ids);
   const requestedWorkItems = [...requestedLookup.workItemsById.values()];
-  const descendantWorkItemsById = await collectDescendantWorkItems(client, requestedWorkItems);
+  const descendantWorkItemsById =
+    request.includeChildLinks === false
+      ? new Map<number, AzureWorkItem>()
+      : await collectDescendantWorkItems(client, requestedWorkItems);
   const descendantAncestorMap = collectDescendantAncestorMap(requestedWorkItems, descendantWorkItemsById);
 
   const requestedReferences = requestedWorkItems.flatMap((workItem) =>

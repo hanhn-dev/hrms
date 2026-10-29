@@ -18,6 +18,7 @@ import {
   type PullRequestSearchOptions,
   type PullRequestSearchResult,
 } from "@/features/azure/pull-requests/queries";
+import { mergePullRequestResults } from "@/features/azure/pull-requests/result-page";
 
 export function PullRequestsPanel({
   options,
@@ -27,6 +28,8 @@ export function PullRequestsPanel({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<PullRequestSearchResult | null>(null);
+  const [submittedCriteria, setSubmittedCriteria] = useState<PullRequestSearchCriteria | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [selectedRowKeys, setSelectedRowKeys] = useState<number[]>([]);
   const [doneIds, setDoneIds] = useState<ReadonlySet<number>>(new Set());
   const [collapsed, setCollapsed] = useState(false);
@@ -38,6 +41,7 @@ export function PullRequestsPanel({
     try {
       const response = await searchPullRequests(criteria);
       setResult(response);
+      setSubmittedCriteria(criteria);
       setSelectedRowKeys([]);
       const pullRequestIds = (response.results ?? []).map((candidate) => candidate.pullRequestId);
       setDoneIds(new Set(await getDonePullRequestIds(pullRequestIds)));
@@ -48,6 +52,26 @@ export function PullRequestsPanel({
       );
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function loadMore(): Promise<void> {
+    if (!submittedCriteria || result?.nextSkip == null || loadingMore) {
+      return;
+    }
+    setLoadingMore(true);
+    setError(null);
+    try {
+      const response = await searchPullRequests(submittedCriteria, result.nextSkip);
+      const merged = mergePullRequestResults(result.results, response.results);
+      setResult({ ...response, results: merged });
+      const pullRequestIds = response.results.map((candidate) => candidate.pullRequestId);
+      const nextDone = await getDonePullRequestIds(pullRequestIds);
+      setDoneIds((current) => new Set([...current, ...nextDone]));
+    } catch (lookupError) {
+      setError(lookupError instanceof Error ? lookupError.message : String(lookupError));
+    } finally {
+      setLoadingMore(false);
     }
   }
 
@@ -155,6 +179,7 @@ export function PullRequestsPanel({
               setResult(null);
               setError(null);
               setSelectedRowKeys([]);
+              setSubmittedCriteria(null);
             }}
             onSubmit={(criteria) => void runLookup(criteria)}
           />
@@ -202,7 +227,7 @@ export function PullRequestsPanel({
         {result?.truncated ? (
           <Alert
             className="mb-4"
-            description="Narrow the date, authors, or work-item filters to see everything that matches."
+            description="Load the next page, or narrow the date, authors, or work-item filters."
             showIcon
             title={`This search hit the ${PULL_REQUEST_SEARCH_LIMIT} item limit`}
             type="warning"
@@ -210,14 +235,27 @@ export function PullRequestsPanel({
         ) : null}
 
         {result ? (
-          <PullRequestsTable
-            doneIds={doneIds}
-            onBulkMarkDone={(pullRequestIds) => void markManyDone(pullRequestIds)}
-            onSelectionChange={setSelectedRowKeys}
-            onToggleDone={(pullRequestId, done) => void toggleDone(pullRequestId, done)}
-            results={results}
-            selectedRowKeys={selectedRowKeys}
-          />
+          <>
+            <PullRequestsTable
+              doneIds={doneIds}
+              onBulkMarkDone={(pullRequestIds) => void markManyDone(pullRequestIds)}
+              onSelectionChange={setSelectedRowKeys}
+              onToggleDone={(pullRequestId, done) => void toggleDone(pullRequestId, done)}
+              results={results}
+              selectedRowKeys={selectedRowKeys}
+            />
+            {result.nextSkip != null ? (
+              <Button
+                className="mt-3"
+                loading={loadingMore}
+                onClick={() => {
+                  void loadMore();
+                }}
+              >
+                Load more pull requests
+              </Button>
+            ) : null}
+          </>
         ) : null}
       </Layout.Content>
     </Layout>

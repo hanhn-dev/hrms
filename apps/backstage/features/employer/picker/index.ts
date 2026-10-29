@@ -1,2 +1,8 @@
 export { EmployerPickerScreen } from "./picker-screen";
-export { getDatabaseHealth, listEmployers, type EmployerListItem } from "./queries";
+export {
+  getDatabaseHealth,
+  listEmployers,
+  searchEmployers,
+  type EmployerListItem,
+  type EmployerLookup,
+} from "./queries";

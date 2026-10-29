@@ -13,13 +13,34 @@ import { getSelectedEnvironment } from "@/shared/db";
 
 export async function RolesListSlot({
   employerId,
+  grantPage,
+  grantSearch,
+  page,
+  search,
+  selectedRoleId,
 }: {
   employerId: number;
+  grantPage: number;
+  grantSearch: string;
+  page: number;
+  search: string;
+  selectedRoleId: number | null;
 }): Promise<React.JSX.Element> {
-  const roles = await captureQueryScript(() => listRoles(employerId));
+  const roles = await captureQueryScript(() => listRoles(employerId, { page, q: search }));
   return (
     <Card className="mb-4" title="Tenant roles">
-      <RolesTable employerId={employerId} queryScript={roles.script} roles={roles.result} />
+      <RolesTable
+        employerId={employerId}
+        grantPage={grantPage}
+        grantSearch={grantSearch}
+        page={roles.result.page}
+        pageSize={roles.result.pageSize}
+        queryScript={roles.script}
+        roles={roles.result.rows}
+        search={search}
+        selectedRoleId={selectedRoleId}
+        total={roles.result.totalCount}
+      />
     </Card>
   );
 }
@@ -67,13 +88,21 @@ export async function RoleLocationBuSlot({
 
 export async function RoleGrantsSlot({
   employerId,
+  page,
+  rolePage,
+  roleSearch,
+  search,
   selectedRoleId,
 }: {
   employerId: number;
+  page: number;
+  rolePage: number;
+  roleSearch: string;
+  search: string;
   selectedRoleId: number | null;
 }): Promise<React.JSX.Element> {
   const grants = await captureQueryScript(() =>
-    listRolePageGrants(employerId, selectedRoleId),
+    listRolePageGrants(employerId, selectedRoleId, { page, q: search }),
   );
   return (
     <Card
@@ -83,7 +112,18 @@ export async function RoleGrantsSlot({
           : "Select a role to see page grants"
       }
     >
-      <RoleGrantsTable grants={grants.result} queryScript={grants.script} />
+      <RoleGrantsTable
+        employerId={employerId}
+        grants={grants.result.rows}
+        page={grants.result.page}
+        pageSize={grants.result.pageSize}
+        queryScript={grants.script}
+        rolePage={rolePage}
+        roleSearch={roleSearch}
+        search={search}
+        selectedRoleId={selectedRoleId}
+        total={grants.result.totalCount}
+      />
     </Card>
   );
 }

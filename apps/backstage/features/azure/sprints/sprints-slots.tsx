@@ -53,10 +53,12 @@ export async function IterationsSlot({
 
 export async function IterationWorkItemsSlot({
   iterationPath,
+  query,
 }: {
   iterationPath: string;
+  query?: string;
 }): Promise<React.JSX.Element> {
-  const workItems = await listIterationWorkItems(iterationPath);
+  const workItems = await listIterationWorkItems(iterationPath, query);
   return (
     <Card title={`Work items — ${iterationPath}`}>
       <IterationWorkItemsTable workItems={workItems} />

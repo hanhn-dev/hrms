@@ -6,14 +6,16 @@ import { listBusinessUnitEmployees } from "@/features/employee/business-unit/que
 export async function EmployeeBusinessUnitSlot({
   employerId,
   employmentNumber,
+  page,
   search,
 }: {
   employerId: number;
   employmentNumber: string;
+  page: number;
   search: string;
 }): Promise<React.JSX.Element | null> {
   const loaded = await captureQueryScript(() =>
-    listBusinessUnitEmployees(employerId, employmentNumber, search),
+    listBusinessUnitEmployees(employerId, employmentNumber, search, page),
   );
   const result = loaded.result;
   if (!result) {
@@ -29,9 +31,13 @@ export async function EmployeeBusinessUnitSlot({
       <BusinessUnitTable
         currentEmployeeId={result.currentEmployeeId}
         employerId={employerId}
+        employmentNumber={employmentNumber}
+        page={result.page}
+        pageSize={result.pageSize}
         queryScript={loaded.script}
         results={result.employees}
         search={search}
+        total={result.totalCount}
       />
     </Card>
   );

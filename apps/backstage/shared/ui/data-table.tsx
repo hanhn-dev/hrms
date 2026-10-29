@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useEffectEvent, useState, useTransition } from "react";
 
 import { CopyOutlined, ReloadOutlined, SearchOutlined } from "@ant-design/icons";
 import { App, Button, Input, Table, Tooltip } from "antd";
@@ -21,6 +21,7 @@ import {
 import { runTableRefresh } from "@/shared/ui/data-table-refresh";
 import { TableCompareButton } from "@/shared/ui/data-table-compare-button";
 import { TableSqlButton } from "@/shared/ui/data-table-sql-button";
+import { serverSearchChanged } from "@/shared/ui/data-table-search";
 import { HighlightMatch, SearchQueryProvider } from "@/shared/ui/highlight-match";
 
 export type DataTableProps<RecordType extends object> = TableProps<RecordType> & {
@@ -28,6 +29,13 @@ export type DataTableProps<RecordType extends object> = TableProps<RecordType> &
   onRefresh?: () => void | Promise<void>;
   queryScript: string;
   skipRefresh?: boolean;
+  /** Applied server search. Highlighting uses this, not the in-progress keystrokes. */
+  searchQuery?: string;
+  /**
+   * With server pagination (`current` and `total`), the search box calls this
+   * instead of hiding rows on the loaded page.
+   */
+  onSearch?: (query: string) => void;
 };
 
 function isColumnGroup<RecordType extends object>(
@@ -168,6 +176,22 @@ function withSearchHighlight<RecordType extends object>(
   };
 }
 
+function listRows<RecordType extends object>(
+  dataSource: readonly RecordType[] | { rows?: readonly RecordType[] } | null | undefined,
+): readonly RecordType[] {
+  if (Array.isArray(dataSource)) {
+    return dataSource;
+  }
+  if (
+    dataSource != null &&
+    typeof dataSource === "object" &&
+    Array.isArray(dataSource.rows)
+  ) {
+    return dataSource.rows;
+  }
+  return [];
+}
+
 function isServerPaged(pagination: TableProps<unknown>["pagination"]): boolean {
   return (
     typeof pagination === "object" &&
@@ -255,20 +279,23 @@ const SEARCH_DEBOUNCE_MS = 200;
  * Only the debounced value is reported upward.
  */
 function TableSearchInput({
+  initialQuery,
   onFilterQueryChange,
 }: {
+  initialQuery: string;
   onFilterQueryChange: (query: string) => void;
 }): React.JSX.Element {
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(initialQuery);
+  const report = useEffectEvent(onFilterQueryChange);
 
   useEffect(() => {
     const timeout = setTimeout(() => {
-      onFilterQueryChange(query);
+      report(query);
     }, SEARCH_DEBOUNCE_MS);
     return () => {
       clearTimeout(timeout);
     };
-  }, [query, onFilterQueryChange]);
+  }, [query]);
 
   return (
     <Input
@@ -297,7 +324,9 @@ function isPromise(value: unknown): value is Promise<void> {
 export function DataTable<RecordType extends object>({
   columnFilter = true,
   onRefresh,
+  onSearch,
   queryScript,
+  searchQuery = "",
   skipRefresh = false,
   title,
   loading,
@@ -315,15 +344,28 @@ export function DataTable<RecordType extends object>({
   const [filterQuery, setFilterQuery] = useState("");
   const [page, setPage] = useState(1);
   const serverPaged = isServerPaged(pagination);
+  const serverSearch = onSearch != null;
+  const appliedSearch = searchQuery;
 
   const onFilterQueryChange = (next: string) => {
-      startSearchTransition(() => {
-        setFilterQuery(next);
-        if (!serverPaged) {
-          setPage(1);
-        }
-      });
-    };
+    if (serverSearch) {
+      if (!onSearch) {
+        return;
+      }
+      const changed = serverSearchChanged(next, appliedSearch);
+      if (changed == null) {
+        return;
+      }
+      onSearch(changed);
+      return;
+    }
+    startSearchTransition(() => {
+      setFilterQuery(next);
+      if (!serverPaged) {
+        setPage(1);
+      }
+    });
+  };
 
   const refreshing = pagePending || customPending;
   const reloadLabel = skipRefresh
@@ -359,12 +401,13 @@ export function DataTable<RecordType extends object>({
     });
   }
 
-  const searchActive = filterQuery.trim() !== "";
-  const sourceRows = Array.isArray(dataSource) ? dataSource : [];
-  const rowSearchTexts = buildRowSearchTexts(columns, sourceRows);
+  const highlightQuery = serverSearch ? appliedSearch : filterQuery;
+  const searchActive = highlightQuery.trim() !== "";
+  const sourceRows = listRows(dataSource);
+  const rowSearchTexts = serverSearch ? [] : buildRowSearchTexts(columns, sourceRows);
   const visibleRows = (() => {
-    if (!searchActive) {
-      return dataSource;
+    if (serverSearch || !searchActive) {
+      return sourceRows;
     }
     const needle = filterQuery.trim().toLowerCase();
     return sourceRows.filter((_, index) => rowSearchTexts[index]?.includes(needle) === true);
@@ -376,7 +419,9 @@ export function DataTable<RecordType extends object>({
 
   const copyRows = Array.isArray(visibleRows) ? visibleRows : sourceRows;
   const baseColumns = copyColumns(columns, copyRows, columnFilter);
-  const highlightedColumns = baseColumns?.map((column) => withSearchHighlight(column, filterQuery));
+  const highlightedColumns = baseColumns?.map((column) =>
+    withSearchHighlight(column, highlightQuery),
+  );
 
   const reloadButton = (
     <Button
@@ -399,7 +444,7 @@ export function DataTable<RecordType extends object>({
       : undefined;
 
   return (
-    <SearchQueryProvider query={filterQuery}>
+    <SearchQueryProvider query={highlightQuery}>
       <Table<RecordType>
         {...tableProps}
         columns={highlightedColumns}
@@ -418,7 +463,11 @@ export function DataTable<RecordType extends object>({
         }}
         title={(currentPageData) => (
           <div className="flex items-center gap-2">
-            <TableSearchInput onFilterQueryChange={onFilterQueryChange} />
+            <TableSearchInput
+              key={serverSearch ? appliedSearch : "client"}
+              initialQuery={serverSearch ? appliedSearch : ""}
+              onFilterQueryChange={onFilterQueryChange}
+            />
             {typeof title === "function" ? (
               <div className="min-w-0 shrink-0">{title(currentPageData)}</div>
             ) : null}

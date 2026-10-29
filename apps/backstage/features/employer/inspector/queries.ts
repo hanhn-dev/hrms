@@ -9,7 +9,8 @@ import {
   formatTableType,
   getModuleDefinition as getModuleDefinitionFromDb,
   getTableDefinition as getTableDefinitionFromDb,
-  listEmployers as listEmployersFromDb,
+  getEmployerSettings as getEmployerSettingsFromDb,
+  searchEmployers,
   listTableColumnDefinitions as listTableColumnDefinitionsFromDb,
   listModules as listModulesFromDb,
   listSearchTargets as listSearchTargetsFromDb,
@@ -51,18 +52,35 @@ export type InspectorEmployer = {
   employerName: string;
 };
 
-export async function listInspectorEmployers(): Promise<InspectorEmployer[]> {
+export async function listInspectorEmployers(
+  employerId: number,
+): Promise<InspectorEmployer[]> {
   await requireFeature("employers");
-  const rows = await listEmployersFromDb(await getHrmsDb());
-  return rows.map((row) => ({
-    employerId: row.employerId,
-    employerName: row.employerName,
-  }));
+  const db = await getHrmsDb();
+  const rows = await searchEmployers(db, null);
+  if (rows.some((row) => row.employerId === employerId)) {
+    return rows;
+  }
+  const current = await getEmployerSettingsFromDb(db, employerId);
+  if (!current) {
+    return rows;
+  }
+  return [
+    { employerId: current.employerId, employerName: current.employerName },
+    ...rows,
+  ];
 }
 
-export async function listSearchTargets(): Promise<SearchTarget[]> {
+export async function searchInspectorEmployers(
+  q?: string | null,
+): Promise<InspectorEmployer[]> {
   await requireFeature("employers");
-  return listSearchTargetsFromDb(await getHrmsDb());
+  return searchEmployers(await getHrmsDb(), q);
+}
+
+export async function listSearchTargets(filters: { page?: number | null; q?: string | null } = {}) {
+  await requireFeature("employers");
+  return listSearchTargetsFromDb(await getHrmsDb(), filters);
 }
 
 export async function searchValueExistence(

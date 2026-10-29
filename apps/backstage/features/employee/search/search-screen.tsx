@@ -7,9 +7,11 @@ import { PageHelp, SectionFallback } from "@/shared/ui";
 
 export function EmployeeSearchScreen({
   employerId,
+  page,
   search,
 }: {
   employerId: number;
+  page: number;
   search: string;
 }): React.JSX.Element {
   return (
@@ -37,7 +39,7 @@ export function EmployeeSearchScreen({
         <EmployeeSearchForm employerId={employerId} initialSearch={search} />
         <RecentEmployeeStrip employerId={employerId} />
         <Suspense fallback={<SectionFallback title="Employees" />}>
-          <EmployeeSearchResultsSlot employerId={employerId} search={search} />
+          <EmployeeSearchResultsSlot employerId={employerId} page={page} search={search} />
         </Suspense>
       </Card>
     </>

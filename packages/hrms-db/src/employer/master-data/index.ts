@@ -25,6 +25,7 @@ export {
 } from "./values.ts";
 export {
   commitMasterDataWrite,
+  getMasterDataRow,
   listAvailableMasterData,
   listMasterDataRows,
   loadMasterDataPage,

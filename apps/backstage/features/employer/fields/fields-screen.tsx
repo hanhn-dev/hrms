@@ -17,11 +17,15 @@ export function FieldsScreen({
   source,
   section,
   field,
+  listPage,
+  listSearch,
 }: {
   employerId: number;
   source: FieldSource;
   section: string | null;
   field: string | null;
+  listPage: number;
+  listSearch: string;
 }): React.JSX.Element {
   return (
     <>
@@ -79,11 +83,19 @@ export function FieldsScreen({
           },
         ]}
       />
-      <FieldsTabBar employerId={employerId} field={field} section={section} source={source}>
+      <FieldsTabBar
+        employerId={employerId}
+        field={field}
+        listSearch={listSearch}
+        section={section}
+        source={source}
+      >
         <Suspense fallback={<SectionFallback title={SOURCE_TITLE[source]} />}>
           <FieldsSourceSlot
             employerId={employerId}
             field={field}
+            listPage={listPage}
+            listSearch={listSearch}
             section={section}
             source={source}
           />

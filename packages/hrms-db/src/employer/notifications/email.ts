@@ -2,6 +2,7 @@ import { Prisma } from "../../generated/prisma/client";
 import type { HrmsDb } from "../../shared/client";
 import { parseEmployerId } from "../../shared/ids";
 import { asIso } from "../../shared/iso";
+import { pageOf } from "../../shared/page.ts";
 import { isMissingObjectError } from "../uploads/classify";
 import {
   EMAIL_MODULE_LABELS,
@@ -91,10 +92,7 @@ const SATELLITE_STATUS_COLUMN: Record<Exclude<EmailModuleKey, "core">, string> =
 };
 
 function clampPage(page: number | undefined): number {
-  if (page == null || !Number.isInteger(page) || page < 1) {
-    return 1;
-  }
-  return Math.min(page, 10_000);
+  return pageOf(page);
 }
 
 function statusCase(column: Prisma.Sql): Prisma.Sql {

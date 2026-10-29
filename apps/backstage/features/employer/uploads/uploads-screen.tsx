@@ -18,6 +18,8 @@ export function UploadsScreen({
   jobType,
   jobStatus,
   jobUploadId,
+  page,
+  search,
 }: {
   employerId: number;
   view: UploadsView;
@@ -27,6 +29,8 @@ export function UploadsScreen({
   jobType: UploadTypeKey | null;
   jobStatus: string | null;
   jobUploadId: number | null;
+  page: number;
+  search: string;
 }): React.JSX.Element {
   return (
     <UploadsPanel
@@ -58,6 +62,8 @@ export function UploadsScreen({
             jobStatus={jobStatus}
             jobType={jobType}
             jobUploadId={jobUploadId}
+            page={page}
+            search={search}
           />
         </Suspense>
       ) : (
@@ -65,6 +71,8 @@ export function UploadsScreen({
           <UploadsCatalogSlot
             countryId={countryId}
             employerId={employerId}
+            page={page}
+            search={search}
             sectionId={sectionId}
             type={type}
           />

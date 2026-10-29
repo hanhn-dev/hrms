@@ -19,6 +19,8 @@ export function JobScreen({
   employeeId,
   workEmail,
   batchId,
+  listPage,
+  listSearch,
 }: {
   employerId: number;
   uploadId: number;
@@ -28,6 +30,8 @@ export function JobScreen({
   employeeId: number | null;
   workEmail: string | null;
   batchId: number | null;
+  listPage: number;
+  listSearch: string;
 }): React.JSX.Element {
   const query = {
     employerId,
@@ -38,6 +42,8 @@ export function JobScreen({
     employeeId,
     workEmail,
     batchId,
+    listPage,
+    listSearch,
   };
 
   return (

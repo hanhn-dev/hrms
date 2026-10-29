@@ -39,25 +39,35 @@ export async function UploadsJobsSlot({
   jobType,
   jobStatus,
   jobUploadId,
+  page,
+  search,
 }: {
   employerId: number;
   jobType: UploadTypeKey | null;
   jobStatus: string | null;
   jobUploadId: number | null;
+  page: number;
+  search: string;
 }): Promise<React.JSX.Element> {
   const jobs = await captureQueryScript(() =>
     listUploads(employerId, {
       type: jobType,
       status: jobStatus,
       uploadId: jobUploadId,
+      page,
+      q: search,
     }),
   );
   return (
     <JobsTable
       employerId={employerId}
-      jobs={jobs.result}
+      jobs={jobs.result.rows}
+      page={jobs.result.page}
+      pageSize={jobs.result.pageSize}
       queryScript={jobs.script}
+      search={search}
       status={jobStatus}
+      total={jobs.result.totalCount}
       type={jobType}
       uploadId={jobUploadId}
     />
@@ -69,20 +79,29 @@ export async function UploadsCatalogSlot({
   type,
   countryId,
   sectionId,
+  page,
+  search,
 }: {
   employerId: number;
   type: UploadTypeKey;
   countryId: number;
   sectionId: number | null;
+  page: number;
+  search: string;
 }): Promise<React.JSX.Element> {
   const catalog = await captureQueryScript(() =>
-    listUploadCatalog(employerId, type, countryId),
+    listUploadCatalog(employerId, type, countryId, {
+      page,
+      q: search,
+      sectionId,
+    }),
   );
   return (
     <UploadCatalogBody
       catalog={catalog.result}
       catalogScript={catalog.script}
       employerId={employerId}
+      search={search}
       sectionId={sectionId}
     />
   );

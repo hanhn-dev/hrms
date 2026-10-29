@@ -1,4 +1,5 @@
 import { MasterDataScreen } from "@/features/employer/master-data";
+import { readListPage, readListSearch } from "@/shared/list-query";
 import { parsePositiveInt } from "@/shared/routing";
 
 export default async function MasterDataPage({
@@ -6,7 +7,7 @@ export default async function MasterDataPage({
   searchParams,
 }: {
   params: Promise<{ employerId: string }>;
-  searchParams: Promise<{ list?: string }>;
+  searchParams: Promise<{ list?: string; page?: string; q?: string }>;
 }): Promise<React.JSX.Element> {
   const [{ employerId }, query] = await Promise.all([params, searchParams]);
   const listKey = query.list?.trim() ? query.list.trim() : null;
@@ -14,6 +15,8 @@ export default async function MasterDataPage({
     <MasterDataScreen
       employerId={parsePositiveInt(employerId)}
       listKey={listKey}
+      page={readListPage(query.page)}
+      search={readListSearch(query.q) ?? ""}
     />
   );
 }

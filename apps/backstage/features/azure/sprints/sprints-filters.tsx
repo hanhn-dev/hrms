@@ -125,7 +125,7 @@ export function SprintsFilters({
         defaultValue={values.q ?? ""}
         disabled={pending}
         key={values.q ?? ""}
-        placeholder="Sprint name"
+        placeholder="Work item id or title"
         onSearch={(value) => {
           updateQuery({ q: value.trim().length > 0 ? value.trim() : null });
         }}

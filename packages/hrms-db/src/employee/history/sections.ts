@@ -28,6 +28,13 @@ export function isHistorySectionName(value: string): boolean {
   return HISTORY_SECTIONS.some((section) => section.name === value);
 }
 
+export function resolveHistorySectionName(
+  value: string | null | undefined,
+  fallback = HISTORY_SECTIONS[0]!.name,
+): string {
+  return value && isHistorySectionName(value) ? value : fallback;
+}
+
 export function sectionIdForName(name: string): number | null {
   return HISTORY_SECTIONS.find((section) => section.name === name)?.sectionId ?? null;
 }

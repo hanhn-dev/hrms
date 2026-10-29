@@ -4,7 +4,11 @@ import { getHrmsDb } from "@/shared/db";
 
 export type { EmployeeSearchHit, EmployeeSearchResult } from "@hrms/db";
 
-export async function searchEmployees(employerId: number, search: string) {
+export async function searchEmployees(
+  employerId: number,
+  search: string,
+  page?: number | null,
+) {
   await requireFeature("employers");
-  return searchEmployeesFromDb(await getHrmsDb(), employerId, search);
+  return searchEmployeesFromDb(await getHrmsDb(), employerId, search, page);
 }

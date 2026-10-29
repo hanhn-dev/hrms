@@ -1,4 +1,4 @@
-import { Empty, List, Tag, Typography } from "antd";
+import { Empty, Listy, Tag, Typography } from "antd";
 import type { ScannedField } from "@/shared/messaging";
 
 export interface FieldListProps {
@@ -43,17 +43,17 @@ export function FieldList({
   }
 
   return (
-    <List
-      size="small"
-      bordered
-      className="autofill:max-h-72 autofill:overflow-auto"
-      dataSource={fields}
-      renderItem={(field) => {
+    <Listy
+      className="autofill:max-h-72 autofill:overflow-auto autofill:rounded-md autofill:border autofill:border-solid autofill:border-neutral-200"
+      items={fields}
+      rowKey="id"
+      styles={{ item: { padding: 0 } }}
+      itemRender={(field) => {
         const checked = selectedIds.includes(field.id);
         const muted = field.disabled || field.readOnly;
         return (
-          <List.Item
-            className={`autofill:cursor-pointer ${muted ? "autofill:opacity-50" : ""}`}
+          <div
+            className={`autofill:flex autofill:w-full autofill:cursor-pointer autofill:items-start autofill:gap-2 autofill:px-3 autofill:py-2 ${muted ? "autofill:opacity-50" : ""}`}
             onClick={() => {
               if (muted) {
                 return;
@@ -65,27 +65,25 @@ export function FieldList({
               }
             }}
           >
-            <div className="autofill:flex autofill:w-full autofill:items-start autofill:gap-2">
-              <input
-                type="checkbox"
-                checked={checked}
-                disabled={muted}
-                readOnly
-                className="autofill:mt-1"
-                aria-label={`Select ${field.label}`}
-              />
-              <div className="autofill:min-w-0 autofill:flex-1">
-                <Typography.Text ellipsis={{ tooltip: field.label }}>
-                  {field.label}
-                </Typography.Text>
-                <div className="autofill:mt-1 autofill:flex autofill:flex-wrap autofill:gap-1">
-                  <Tag color={kindColor(field.kind)}>{field.kind}</Tag>
-                  {field.disabled && <Tag>disabled</Tag>}
-                  {field.readOnly && <Tag>readonly</Tag>}
-                </div>
+            <input
+              type="checkbox"
+              checked={checked}
+              disabled={muted}
+              readOnly
+              className="autofill:mt-1"
+              aria-label={`Select ${field.label}`}
+            />
+            <div className="autofill:min-w-0 autofill:flex-1">
+              <Typography.Text ellipsis={{ tooltip: field.label }}>
+                {field.label}
+              </Typography.Text>
+              <div className="autofill:mt-1 autofill:flex autofill:flex-wrap autofill:gap-1">
+                <Tag color={kindColor(field.kind)}>{field.kind}</Tag>
+                {field.disabled && <Tag>disabled</Tag>}
+                {field.readOnly && <Tag>readonly</Tag>}
               </div>
             </div>
-          </List.Item>
+          </div>
         );
       }}
     />

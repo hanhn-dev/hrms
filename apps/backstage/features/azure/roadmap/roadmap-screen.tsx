@@ -1,11 +1,10 @@
+import { Suspense } from "react";
 import { AzureNav } from "@/features/azure/azure-nav";
 import { RoadmapPanel } from "@/features/azure/roadmap/roadmap-panel";
-import {
-  listRoadmapTeams,
-  loadRoadmap,
-  loadRoadmapSprintLanes,
-} from "@/features/azure/roadmap/queries";
+import { loadSavedRoadmap } from "@/features/azure/roadmap/queries";
+import { RoadmapAzureSlot } from "@/features/azure/roadmap/roadmap-slots";
 import { PageHeader } from "@/shared/ui/page-header";
+import { SectionFallback } from "@/shared/ui/section-fallback";
 
 const HELP = [
   {
@@ -22,8 +21,7 @@ export async function RoadmapScreen({
 }: {
   selectedTeams: string[];
 }): Promise<React.JSX.Element> {
-  const [roadmap, teams] = await Promise.all([loadRoadmap(), listRoadmapTeams()]);
-  const sprints = await loadRoadmapSprintLanes(selectedTeams);
+  const roadmap = await loadSavedRoadmap();
   return (
     <div className="h-screen overflow-y-auto">
       <div className="w-full min-w-0 p-4 md:p-6">
@@ -31,10 +29,14 @@ export async function RoadmapScreen({
         <RoadmapPanel
           initialRoadmap={roadmap}
           selectedTeams={selectedTeams}
-          sprintError={sprints.error}
-          sprints={sprints.sprints}
-          teams={teams}
-        />
+          sprintError={null}
+          sprints={[]}
+          teams={[]}
+        >
+          <Suspense fallback={<SectionFallback title="Current sprint items" />}>
+            <RoadmapAzureSlot selectedTeams={selectedTeams} />
+          </Suspense>
+        </RoadmapPanel>
       </div>
     </div>
   );

@@ -15,6 +15,10 @@ import { UPLOAD_TYPE_LABELS } from "@hrms/db/uploads";
 export function JobsTable({
   employerId,
   jobs,
+  page,
+  pageSize,
+  search,
+  total,
   type,
   status,
   uploadId,
@@ -22,6 +26,10 @@ export function JobsTable({
 }: {
   employerId: number;
   jobs: UploadListItem[];
+  page: number;
+  pageSize: number;
+  search: string;
+  total: number;
   type: UploadTypeKey | null;
   status: string | null;
   uploadId: number | null;
@@ -56,10 +64,34 @@ export function JobsTable({
         size="small"
         scroll={{ x: "max-content" }}
         rowClassName={(row) => (row.expired ? "upload-row-expired" : "")}
+        searchQuery={search}
+        onSearch={(next) => {
+          router.push(
+            uploadsHref(employerId, {
+              type,
+              status,
+              uploadId,
+              q: next || null,
+            }),
+          );
+        }}
         pagination={{
-          pageSize: 20,
-          showSizeChanger: true,
-          showTotal: (total) => `${total} uploads`,
+          current: page,
+          pageSize,
+          total,
+          showSizeChanger: false,
+          showTotal: (count) => `${count} uploads`,
+          onChange: (next) => {
+            router.push(
+              uploadsHref(employerId, {
+                type,
+                status,
+                uploadId,
+                q: search || null,
+                page: next,
+              }),
+            );
+          },
         }}
         locale={{ emptyText: "No bulk uploads match the current filters." }}
         columns={[

@@ -1,6 +1,14 @@
+import { Prisma } from "../../generated/prisma/client";
 import type { HrmsDb } from "../../shared/client";
 import { parseEmployerId } from "../../shared/ids";
 import { asIso } from "../../shared/iso";
+import {
+  likeContains,
+  pageQuery,
+  searchText,
+  totalCountOf,
+  type PageResult,
+} from "../../shared/page.ts";
 import { asBool, statusFromRow } from "./helpers";
 import type { WorkflowDefinitionStatus } from "./tree";
 
@@ -58,13 +66,35 @@ type ListRow = {
   WorkflowDefinitionTree: string | null;
   CreatedDate: Date | string | null;
   UpdatedDate: Date | string | null;
+  TotalCount: number | bigint | null;
 };
+
+export type WorkflowListPage = PageResult<WorkflowListItem>;
 
 export async function listWorkflows(
   db: HrmsDb,
   employerId: number,
-): Promise<WorkflowListItem[]> {
+  filters: { page?: number | null; q?: string | null } = {},
+): Promise<WorkflowListPage> {
   const tenantId = parseEmployerId(employerId);
+  const paging = pageQuery(filters.page);
+  const q = searchText(filters.q);
+  const pattern = q == null ? null : likeContains(q);
+  const nameFilter =
+    pattern == null
+      ? Prisma.empty
+      : Prisma.sql`AND (
+            Workflow.WorkflowName LIKE ${pattern}
+            OR Workflow.WorkflowDescription LIKE ${pattern}
+            OR Module.ModuleName LIKE ${pattern}
+            OR EXISTS (
+                SELECT 1
+                FROM STRING_SPLIT(Workflow.MappedPages, ',') AS SplitPages
+                INNER JOIN dbo.TModulePages AS Page
+                    ON Page.ModulePageId = TRY_CAST(LTRIM(RTRIM(SplitPages.value)) AS INT)
+                WHERE Page.ModulePageName LIKE ${pattern}
+            )
+        )`;
   const rows = await db.$queryRaw<ListRow[]>`
     SELECT
         Workflow.WorkflowId,
@@ -109,13 +139,16 @@ export async function listWorkflows(
         ) AS BusinessUnitNames,
         Workflow.WorkflowDefinitionTree,
         Workflow.CreatedDate,
-        Workflow.UpdatedDate
+        Workflow.UpdatedDate,
+        COUNT(*) OVER() AS TotalCount
     FROM dbo.TWorkflowManagement AS Workflow
     LEFT JOIN dbo.THrmsModules AS Module
         ON Module.ModuleId = Workflow.ModuleId
     WHERE Workflow.Employerid = ${tenantId}
         AND ISNULL(Workflow.IsDelete, 0) = 0
-    ORDER BY Workflow.WorkflowName
+        ${nameFilter}
+    ORDER BY Workflow.WorkflowName, Workflow.WorkflowId
+    OFFSET ${paging.offset} ROWS FETCH NEXT ${paging.pageSize} ROWS ONLY
   `;
   const unique = new Map<number, WorkflowListItem>();
   for (const row of rows) {
@@ -151,7 +184,12 @@ export async function listWorkflows(
       updatedDate: asIso(row.UpdatedDate),
     });
   }
-  return [...unique.values()];
+  return {
+    rows: [...unique.values()],
+    totalCount: totalCountOf(rows[0]?.TotalCount),
+    page: paging.page,
+    pageSize: paging.pageSize,
+  };
 }
 
 export async function getWorkflowSettings(

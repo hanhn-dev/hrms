@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inspector } from "@hrms/inspector";
 import { InlineScript } from "@/components/inline-script";
 import { SiteHeader } from "@/components/site-header";
+import { SoftNavRecovery } from "@/components/soft-nav-recovery-watcher";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -28,6 +29,7 @@ export default function RootLayout({
         <InlineScript html={READ_MODE_INIT_SCRIPT} />
       </head>
       <body className="flex h-screen flex-col bg-white text-slate-900 antialiased dark:bg-slate-950 dark:text-slate-100">
+        <SoftNavRecovery />
         <SiteHeader />
         <main className="min-h-0 flex-1 overflow-hidden">{children}</main>
         {process.env.NODE_ENV === "development" ? <Inspector /> : null}

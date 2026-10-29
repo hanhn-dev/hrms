@@ -2,6 +2,12 @@ import { Prisma } from "../../generated/prisma/client";
 import type { HrmsDb } from "../../shared/client";
 import { asIso } from "../../shared/iso";
 import {
+  likeContains,
+  pageQuery,
+  searchText,
+  totalCountOf,
+} from "../../shared/page.ts";
+import {
   changeRequestIdSchema,
   employeeIdSchema,
   parseEmployerId,
@@ -85,6 +91,7 @@ export type ConfiguredApproverGroup = {
 };
 
 type ScopedHeaderRow = HeaderRow & {
+  TotalCount: number | bigint | null;
   WorkflowIsDefault: boolean | number | null;
   WorkflowAllLocations: boolean | number | null;
   WorkflowAllBusinessUnits: boolean | number | null;
@@ -172,17 +179,7 @@ function mapQueueActor(row: QueueActorSqlRow): ChangeRequestQueueActor {
   };
 }
 
-async function loadApproversByRequest(
-  db: HrmsDb,
-  changeRequestIds: number[],
-): Promise<Map<number, ChangeRequestApprover[]>> {
-  const unique = [...new Set(changeRequestIds)];
-  const grouped = new Map<number, ChangeRequestQueueActor[]>();
-  if (unique.length === 0) {
-    return new Map();
-  }
-  const rows = await db.$queryRaw<QueueActorSqlRow[]>(Prisma.sql`
-    SELECT
+const approverQueueColumns = Prisma.sql`
         Queue.RequestTransid,
         Queue.ApproveStatus,
         Queue.ApprovalLevel,
@@ -192,7 +189,9 @@ async function loadApproversByRequest(
         Queue.UpdatedBy,
         LTRIM(RTRIM(CONCAT_WS(' ', Actor.FName, Actor.MiddleName, Actor.LName))) AS UpdatedByName,
         ActorInfo.EmploymentNumber AS UpdatedByEmploymentNumber
-    FROM dbo.TRequestWorkflows AS Queue
+`;
+
+const approverEmployeeJoins = Prisma.sql`
     LEFT JOIN dbo.TEmployee AS Manager
         ON Manager.EmployeeId = Queue.ManagerId
     LEFT JOIN dbo.TEmployeeInfo AS ManagerInfo
@@ -201,22 +200,70 @@ async function loadApproversByRequest(
         ON Actor.EmployeeId = Queue.UpdatedBy
     LEFT JOIN dbo.TEmployeeInfo AS ActorInfo
         ON ActorInfo.EmployeeId = Queue.UpdatedBy
-    WHERE Queue.RequestType = ${REQUEST_TYPE}
-        AND ISNULL(Queue.IsDeleted, 0) = 0
-        AND Queue.RequestTransid IN (${Prisma.join(unique)})
-    ORDER BY Queue.RequestTransid, Queue.ApprovalLevel, Queue.Transid
-  `);
+`;
+
+function approversFromRows(
+  rows: QueueActorSqlRow[],
+  changeRequestIds: number[],
+): Map<number, ChangeRequestApprover[]> {
+  const grouped = new Map<number, ChangeRequestQueueActor[]>();
   for (const row of rows) {
     const actors = grouped.get(row.RequestTransid) ?? [];
     actors.push(mapQueueActor(row));
     grouped.set(row.RequestTransid, actors);
   }
   return new Map(
-    unique.map((changeRequestId) => [
+    changeRequestIds.map((changeRequestId) => [
       changeRequestId,
       pickChangeRequestApprovers(grouped.get(changeRequestId) ?? []),
     ]),
   );
+}
+
+async function loadApproversByRequest(
+  db: HrmsDb,
+  changeRequestIds: number[],
+): Promise<Map<number, ChangeRequestApprover[]>> {
+  const unique = [...new Set(changeRequestIds)];
+  if (unique.length === 0) {
+    return new Map();
+  }
+  const rows = await db.$queryRaw<QueueActorSqlRow[]>(Prisma.sql`
+    SELECT
+        ${approverQueueColumns}
+    FROM dbo.TRequestWorkflows AS Queue
+    ${approverEmployeeJoins}
+    WHERE Queue.RequestType = ${REQUEST_TYPE}
+        AND ISNULL(Queue.IsDeleted, 0) = 0
+        AND Queue.RequestTransid IN (${Prisma.join(unique)})
+    ORDER BY Queue.RequestTransid, Queue.ApprovalLevel, Queue.Transid
+  `);
+  return approversFromRows(rows, unique);
+}
+
+async function loadApproversForHeaders(
+  db: HrmsDb,
+  employerId: number,
+  requestIds: number[],
+): Promise<Map<number, ChangeRequestApprover[]>> {
+  if (requestIds.length === 0) {
+    return new Map();
+  }
+  const employeeFilter = Prisma.sql`AND ChangeRequest.ChangeRequestId IN (${Prisma.join(requestIds)})`;
+  const rows = await db.$queryRaw<QueueActorSqlRow[]>(Prisma.sql`
+    SELECT
+        ${approverQueueColumns}
+    FROM dbo.TRequestWorkflows AS Queue
+    INNER JOIN dbo.TMyDetailsChangeRequests AS ChangeRequest
+        ON ChangeRequest.ChangeRequestId = Queue.RequestTransid
+    ${approverEmployeeJoins}
+    WHERE Queue.RequestType = ${REQUEST_TYPE}
+        AND ISNULL(Queue.IsDeleted, 0) = 0
+        AND ChangeRequest.EmployerId = ${employerId}
+        ${employeeFilter}
+    ORDER BY Queue.RequestTransid, Queue.ApprovalLevel, Queue.Transid
+  `);
+  return approversFromRows(rows, requestIds);
 }
 
 async function loadHeader(
@@ -288,24 +335,67 @@ function workflowScopeFromRow(row: ScopedHeaderRow): WorkflowScopeFields {
   };
 }
 
+export type ChangeRequestListFilters = {
+  page?: number | null;
+  q?: string | null;
+  status?: ChangeRequestStatus | "all" | null;
+};
+
+export type ChangeRequestListPage = {
+  rows: ChangeRequestListItem[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+};
+
+function changeRequestStatusSql(
+  status: ChangeRequestStatus | "all" | null | undefined,
+): Prisma.Sql {
+  if (status === "pending") {
+    return Prisma.sql`AND ChangeRequest.IsApproved IS NULL`;
+  }
+  if (status === "approved") {
+    return Prisma.sql`AND ChangeRequest.IsApproved = 1`;
+  }
+  if (status === "rejected") {
+    return Prisma.sql`AND ChangeRequest.IsApproved IS NOT NULL AND ChangeRequest.IsApproved <> 1`;
+  }
+  return Prisma.empty;
+}
+
 async function listChangeRequestHeaders(
   db: HrmsDb,
   employerId: number,
   employeeId: number | null,
-): Promise<ChangeRequestListItem[]> {
+  filters: ChangeRequestListFilters = {},
+): Promise<ChangeRequestListPage> {
   const tenantId = parseEmployerId(employerId);
+  const paging = pageQuery(filters.page);
   const subjectId =
     employeeId == null ? null : employeeIdSchema.parse(employeeId);
   const employeeFilter =
     subjectId == null
       ? Prisma.empty
       : Prisma.sql`AND ChangeRequest.EmployeeId = ${subjectId}`;
+  const q = searchText(filters.q);
+  const pattern = q == null ? null : likeContains(q);
+  const textFilter =
+    pattern == null
+      ? Prisma.empty
+      : Prisma.sql`AND (
+            SubjectInfo.EmploymentNumber LIKE ${pattern}
+            OR Subject.FName LIKE ${pattern}
+            OR Subject.LName LIKE ${pattern}
+            OR ChangeRequest.PageName LIKE ${pattern}
+        )`;
+  const statusFilter = changeRequestStatusSql(filters.status);
   const rows = await db.$queryRaw<ScopedHeaderRow[]>(Prisma.sql`
     SELECT
         ChangeRequest.ChangeRequestId,
         ChangeRequest.EmployeeId,
         LTRIM(RTRIM(CONCAT_WS(' ', Subject.FName, Subject.MiddleName, Subject.LName))) AS EmployeeName,
         SubjectInfo.EmploymentNumber,
+        COUNT(*) OVER() AS TotalCount,
         ChangeRequest.PageName,
         (
             SELECT STRING_AGG(Sections.SectionName, ', ') WITHIN GROUP (ORDER BY Sections.SectionName)
@@ -386,34 +476,45 @@ async function listChangeRequestHeaders(
     ) AS WorkflowScope
     WHERE ChangeRequest.EmployerId = ${tenantId}
     ${employeeFilter}
+    ${textFilter}
+    ${statusFilter}
     ORDER BY ChangeRequest.ChangeRequestId DESC
+    OFFSET ${paging.offset} ROWS FETCH NEXT ${paging.pageSize} ROWS ONLY
   `);
-  const approvers = await loadApproversByRequest(
+  const approvers = await loadApproversForHeaders(
     db,
+    tenantId,
     rows.map((row) => row.ChangeRequestId),
   );
-  return rows.map((row) =>
-    mapHeader(
-      row,
-      approvers.get(row.ChangeRequestId) ?? [],
-      workflowScopeFromRow(row),
+  return {
+    rows: rows.map((row) =>
+      mapHeader(
+        row,
+        approvers.get(row.ChangeRequestId) ?? [],
+        workflowScopeFromRow(row),
+      ),
     ),
-  );
+    totalCount: totalCountOf(rows[0]?.TotalCount),
+    page: paging.page,
+    pageSize: paging.pageSize,
+  };
 }
 
 export async function listChangeRequests(
   db: HrmsDb,
   employerId: number,
-): Promise<ChangeRequestListItem[]> {
-  return listChangeRequestHeaders(db, employerId, null);
+  filters: ChangeRequestListFilters = {},
+): Promise<ChangeRequestListPage> {
+  return listChangeRequestHeaders(db, employerId, null, filters);
 }
 
 export async function listEmployeeChangeRequests(
   db: HrmsDb,
   employerId: number,
   employeeId: number,
-): Promise<ChangeRequestListItem[]> {
-  return listChangeRequestHeaders(db, employerId, employeeId);
+  filters: ChangeRequestListFilters = {},
+): Promise<ChangeRequestListPage> {
+  return listChangeRequestHeaders(db, employerId, employeeId, filters);
 }
 
 export async function getChangeRequest(

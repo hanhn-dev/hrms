@@ -12,12 +12,13 @@ import {
 import type { HistoryEditor, HistorySnapshot } from "./types.ts";
 
 describe("resolveHistoryDateWindow", () => {
-  it("defaults to unbounded when dates are empty (positive)", () => {
+  it("defaults to the latest 90 calendar days when dates are empty (positive)", () => {
     const now = new Date("2026-09-29T12:00:00.000Z");
     const window = resolveHistoryDateWindow({ now });
-    assert.equal(window.bounded, false);
-    assert.equal(window.from, null);
-    assert.equal(window.toExclusive, null);
+    assert.equal(window.bounded, true);
+    assert.equal(window.fromIso, "2026-07-02T00:00:00.000Z");
+    assert.equal(window.toExclusive?.toISOString(), "2026-09-30T00:00:00.000Z");
+    assert.equal(window.toIso, "2026-09-29T23:59:59.999Z");
   });
 
   it("rejects inverted ranges by clamping from (negative)", () => {

@@ -69,6 +69,8 @@ export function uploadsHref(
     sectionId?: number | null;
     status?: string | null;
     uploadId?: number | null;
+    page?: number | null;
+    q?: string | null;
   },
 ): string {
   const search = new URLSearchParams();
@@ -90,6 +92,12 @@ export function uploadsHref(
   if (params.uploadId) {
     search.set("uploadId", String(params.uploadId));
   }
+  if (params.q) {
+    search.set("q", params.q);
+  }
+  if (params.page != null && params.page > 1) {
+    search.set("page", String(params.page));
+  }
   const query = search.toString();
   return `/employers/${employerId}/uploads${query ? `?${query}` : ""}`;
 }
@@ -104,6 +112,8 @@ export function uploadDetailHref(
     employeeId?: number | null;
     workEmail?: string | null;
     batchId?: number | null;
+    page?: number | null;
+    q?: string | null;
   } = {},
 ): string {
   const search = new URLSearchParams();
@@ -124,6 +134,12 @@ export function uploadDetailHref(
   }
   if (params.batchId) {
     search.set("batchId", String(params.batchId));
+  }
+  if (params.q) {
+    search.set("q", params.q);
+  }
+  if (params.page != null && params.page > 1) {
+    search.set("page", String(params.page));
   }
   const query = search.toString();
   return `/employers/${employerId}/uploads/${uploadId}${query ? `?${query}` : ""}`;

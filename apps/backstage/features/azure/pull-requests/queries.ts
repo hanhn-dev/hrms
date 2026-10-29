@@ -3,7 +3,7 @@
 import {
   getWorkItem,
   listAreaModules,
-  listProjectMembers,
+  listTeamMembers,
   listTeamIterations,
   searchPullRequests as searchPullRequestsInAzure,
   type AreaModule,
@@ -13,6 +13,7 @@ import {
   type TeamMember,
   type WorkItem,
 } from "@hrms/azure-devops";
+import { DEFAULT_BOARD_TEAM } from "@/features/azure/board/defaults";
 import {
   getDonePullRequestIds as getDonePullRequestIdsFromStore,
   setPullRequestDone,
@@ -31,19 +32,25 @@ export type PullRequestSearchOptions = {
 export async function loadPullRequestSearchOptions(): Promise<PullRequestSearchOptions> {
   await requireFeature("azure");
   const client = getAzureDevOpsClient();
-  const [teamMembers, modules, iterations] = await Promise.all([
-    listProjectMembers(client),
-    listAreaModules(client),
+  const team = client.config.team?.trim() || DEFAULT_BOARD_TEAM;
+  const [teamMembers, iterations] = await Promise.all([
+    listTeamMembers(client, team),
     listTeamIterations(client),
   ]);
-  return { teamMembers, modules, iterations };
+  return { teamMembers, modules: [], iterations };
+}
+
+export async function loadPullRequestAreas(): Promise<AreaModule[]> {
+  await requireFeature("azure");
+  return listAreaModules(getAzureDevOpsClient());
 }
 
 export async function searchPullRequests(
   criteria: PullRequestSearchCriteria,
+  skip = 0,
 ): Promise<PullRequestSearchResult> {
   await requireFeature("azure");
-  return searchPullRequestsInAzure(getAzureDevOpsClient(), criteria);
+  return searchPullRequestsInAzure(getAzureDevOpsClient(), criteria, skip);
 }
 
 export async function getWorkItemDetail(id: number): Promise<WorkItem> {

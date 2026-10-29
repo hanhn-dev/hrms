@@ -1,5 +1,7 @@
-export const EMAIL_PAGE_SIZE = 50;
-export const INBOX_PAGE_SIZE = 50;
+import { LIST_PAGE_SIZE } from "../../shared/page.ts";
+
+export const EMAIL_PAGE_SIZE = LIST_PAGE_SIZE;
+export const INBOX_PAGE_SIZE = LIST_PAGE_SIZE;
 
 export type InboxSide = "for" | "by";
 

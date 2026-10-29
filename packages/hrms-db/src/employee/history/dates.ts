@@ -1,16 +1,13 @@
-/**
- * Past date window for employee history.
- * Empty from/to matches My Details (no lookback filter). Explicit ranges keep a safety cap.
- */
+/** Past date window for employee history. */
 
-/** Soft guidance only — unused when dates are empty (unbounded). */
-export const DEFAULT_HISTORY_LOOKBACK_DAYS = 365;
+/** Default calendar-day window when the operator has not picked dates. */
+export const DEFAULT_HISTORY_LOOKBACK_DAYS = 90;
 
 /** Cap for an explicit from→to span so a huge range cannot unbounded-load. */
 export const MAX_HISTORY_LOOKBACK_DAYS = 3650; // ~10 years when operator picks dates
 
 export type DateWindow = {
-  /** Inclusive lower bound; null = no lower bound (My Details empty picker). */
+  /** Inclusive lower bound. */
   from: Date | null;
   /** Exclusive upper bound; null = no upper bound. */
   toExclusive: Date | null;
@@ -55,19 +52,22 @@ export function resolveHistoryDateWindow(input: {
   maxLookbackDays?: number;
 }): DateWindow {
   const now = input.now ?? new Date();
+  const defaultDays = input.defaultLookbackDays ?? DEFAULT_HISTORY_LOOKBACK_DAYS;
   const maxDays = input.maxLookbackDays ?? MAX_HISTORY_LOOKBACK_DAYS;
 
   const explicitFrom = input.from ? parseDayBound(input.from, false) : null;
   const explicitTo = input.to ? parseDayBound(input.to, true) : null;
 
-  // My Details parity: no dates → no lookback filter.
+  // Keep empty filters safe by showing the latest calendar-day window.
   if (!explicitFrom && !explicitTo) {
+    const toExclusive = addUtcDays(startOfUtcDay(now), 1);
+    const from = addUtcDays(startOfUtcDay(now), -(defaultDays - 1));
     return {
-      from: null,
-      toExclusive: null,
-      fromIso: null,
-      toIso: null,
-      bounded: false,
+      from,
+      toExclusive,
+      fromIso: from.toISOString(),
+      toIso: new Date(toExclusive.getTime() - 1).toISOString(),
+      bounded: true,
     };
   }
 

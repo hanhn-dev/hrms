@@ -1,6 +1,6 @@
 "use server";
 
-import { commitMasterDataWrite, previewMasterDataWrite, requireMasterDataEntry } from "@hrms/db";
+import { commitMasterDataWrite, getMasterDataRow, previewMasterDataWrite, requireMasterDataEntry } from "@hrms/db";
 import {
   assertWritesEnabled,
   createConfirmToken,
@@ -9,7 +9,6 @@ import {
   verifyConfirmToken,
 } from "@/shared/auth";
 import { assertSameEnvironment, getHrmsDb, getSelectedEnvironment } from "@/shared/db";
-import { loadMasterData } from "@/features/employer/master-data/queries";
 import {
   parseMasterDataWriteInput,
   masterDataWriteTokenSchema,
@@ -23,13 +22,14 @@ async function currentRow(input: MasterDataWriteInput) {
   if (input.mode === "insert") {
     return null;
   }
-  const page = await loadMasterData(input.employerId, input.key);
-  const selected = page.selected;
-  if (!selected) {
+  if (input.id == null) {
+    return null;
+  }
+  const found = await getMasterDataRow(await getHrmsDb(), input.employerId, input.key, input.id);
+  if (!found) {
     throw new Error(`${requireMasterDataEntry(input.key).label} is not in this database.`);
   }
-  const id = input.id;
-  return page.rows.find((row) => row[selected.idColumn] === id) ?? null;
+  return found.row;
 }
 
 export async function previewMasterDataChange(input: unknown): Promise<{

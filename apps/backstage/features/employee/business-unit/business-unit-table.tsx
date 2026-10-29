@@ -3,7 +3,9 @@
 import { Tag } from "antd";
 import { DataTable } from "@/shared/ui/data-table";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import type { BusinessUnitEmployee } from "@/features/employee/business-unit/queries";
+import { listHref } from "@/shared/list-query";
 
 function isActiveFlag(value: unknown): boolean {
   return value === true || value === "Y" || value === "1" || value === 1;
@@ -12,29 +14,48 @@ function isActiveFlag(value: unknown): boolean {
 export function BusinessUnitTable({
   currentEmployeeId,
   employerId,
+  employmentNumber,
+  page,
+  pageSize,
   results,
   search,
+  total,
   queryScript,
 }: {
   currentEmployeeId: number;
   employerId: number;
+  employmentNumber: string;
+  page: number;
+  pageSize: number;
   results: BusinessUnitEmployee[];
   search: string;
+  total: number;
   queryScript: string;
 }): React.JSX.Element {
+  const router = useRouter();
+  const path = `/employers/${employerId}/employees/${encodeURIComponent(employmentNumber)}/business-unit`;
   return (
     <DataTable
       queryScript={queryScript}
       rowKey="employeeId"
       dataSource={results}
       scroll={{ x: "max-content" }}
+      searchQuery={search}
+      onSearch={(next) => {
+        router.push(listHref(path, { page: 1, q: next || null }));
+      }}
       rowClassName={(row) =>
         row.employeeId === currentEmployeeId ? "bg-slate-50" : ""
       }
       pagination={{
-        pageSize: 20,
-        showSizeChanger: true,
-        showTotal: (total) => `${total} employees`,
+        current: page,
+        pageSize,
+        total,
+        showSizeChanger: false,
+        showTotal: (count) => `${count} employees`,
+        onChange: (next) => {
+          router.push(listHref(path, { page: next, q: search || null }));
+        },
       }}
       locale={{
         emptyText: search

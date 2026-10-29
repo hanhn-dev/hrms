@@ -168,6 +168,7 @@ export type {
 export {
 	GIT_CHANGE_PAGE_SIZE,
 	GIT_COMMIT_PAGE_SIZE,
+	GIT_PATH_SEARCH_CANDIDATE_LIMIT,
 	compareGitCommits,
 	getGitCommitDetail,
 	listGitAuthorActivity,
@@ -176,4 +177,5 @@ export {
 	listGitFiles,
 	listGitRepositories,
 	readGitFilePair,
+	searchGitPaths,
 } from './git-trace.js';

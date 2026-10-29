@@ -4,6 +4,7 @@ import {
   getIterationWorkItems as getIterationWorkItemsFromAzure,
   listProjectTeams,
   listTeamIterations,
+  searchWorkItems,
   type ProjectTeam,
   type TeamIteration,
   type TeamIterationTimeframe,
@@ -33,8 +34,24 @@ export async function listIterations(options?: {
 
 export async function listIterationWorkItems(
   iterationPath: string,
+  query?: string,
 ): Promise<WorkItemSummary[]> {
   await requireFeature("azure");
   const client = getAzureDevOpsClient();
+  const search = query?.trim() ?? "";
+  if (search.length > 0) {
+    const numericId = /^\d+$/.test(search) ? Number(search) : null;
+    return searchWorkItems(
+      client,
+      {
+        iteration: iterationPath,
+        top: 50,
+        ...(numericId !== null && Number.isSafeInteger(numericId)
+          ? { ids: [numericId] }
+          : { titleContains: search }),
+      },
+      client.config,
+    );
+  }
   return getIterationWorkItemsFromAzure(client, iterationPath, client.config);
 }

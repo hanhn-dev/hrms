@@ -39,7 +39,11 @@ export async function BoardSlot({
       ? (iterations.find((item) => item.path === requested) ?? null)
       : current;
   const loaded = selected
-    ? await loadSprintBoard(resolvedTeam, selected.id, selected.path)
+    ? await loadSprintBoard(resolvedTeam, selected.id, selected.path, {
+        query,
+        assignees,
+        types,
+      })
     : null;
   const model = groupBoard({
     workItems: loaded?.workItems ?? [],
@@ -69,7 +73,7 @@ export async function BoardSlot({
       summary={sprintSummary(loaded?.workItems ?? [])}
       team={resolvedTeam}
       teams={teams}
-      truncated={(loaded?.workItems.length ?? 0) >= SPRINT_WORK_ITEM_CAP}
+      truncated={!query?.trim() && (loaded?.workItems.length ?? 0) >= SPRINT_WORK_ITEM_CAP}
       types={types}
       view={view}
       workItemTypes={workItemTypes}

@@ -1,7 +1,10 @@
 export {
   compareEmployerFieldsToTemplate,
   listEmployerFields,
+  listEmployerFieldsForCompare,
   listFieldTemplate,
+  listFieldTemplateForCompare,
+  type FieldListFilters,
   listFieldTypes,
   type FieldCatalogRow,
   type FieldCompareRow,

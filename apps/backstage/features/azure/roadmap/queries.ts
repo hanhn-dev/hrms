@@ -225,6 +225,11 @@ export async function loadRoadmap(): Promise<Roadmap> {
   }
 }
 
+export async function loadSavedRoadmap(): Promise<Roadmap> {
+  await requireFeature("azure");
+  return readRoadmap();
+}
+
 export async function addRoadmapWindow(input: RoadmapWindowInput): Promise<Roadmap> {
   await requireFeature("azure");
   return save(createWindow(readRoadmap(), input));

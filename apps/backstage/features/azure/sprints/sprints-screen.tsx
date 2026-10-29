@@ -44,7 +44,7 @@ export async function SprintsScreen({
         </Suspense>
         {iterationPath ? (
           <Suspense fallback={<SectionFallback title="Work items" />}>
-            <IterationWorkItemsSlot iterationPath={iterationPath} />
+            <IterationWorkItemsSlot iterationPath={iterationPath} query={q} />
           </Suspense>
         ) : null}
       </div>

@@ -1,4 +1,5 @@
 import { Prisma } from "../../generated/prisma/client";
+import { likeContains, pageQuery, searchText, totalCountOf } from "../../shared/page.ts";
 import type { HrmsDb } from "../../shared/client";
 import { parseEmployerId, uploadIdSchema } from "../../shared/ids";
 import { asIso } from "../../shared/iso";
@@ -17,6 +18,7 @@ import {
   type CreationFinalize,
   type CreationStagingRow,
   type CreationStagingSummary,
+  type UploadExecutionErrorPage,
   type UploadBatchDetail,
   type UploadBatchRow,
   type UploadCatalogField,
@@ -308,11 +310,17 @@ export async function getUploadBatch(
   }, null);
 }
 
+function emptyExecutionPage(page?: number | null): UploadExecutionErrorPage {
+  const paging = pageQuery(page);
+  return { rows: [], totalCount: 0, page: paging.page, pageSize: paging.pageSize };
+}
+
 export async function listUploadExecutionErrors(
   db: HrmsDb,
   employerId: number,
   uploadId: number,
-): Promise<UploadExecutionError[]> {
+  filters: { page?: number | null; q?: string | null } = {},
+): Promise<UploadExecutionErrorPage> {
   return optionalQuery(async () => {
   const tenantId = parseEmployerId(employerId);
   const parsedUploadId = uploadIdSchema.parse(uploadId);
@@ -324,20 +332,58 @@ export async function listUploadExecutionErrors(
   `;
   const type = parseUploadTypeKey(headers[0]?.UploadType);
   if (type === "creation") {
-    return listCreationExecutionErrors(db, tenantId, parsedUploadId);
+    return listCreationExecutionErrors(db, tenantId, parsedUploadId, filters);
   }
-  return listProfileExecutionErrors(db, tenantId, parsedUploadId);
-  }, []);
+  return listProfileExecutionErrors(db, tenantId, parsedUploadId, filters);
+  }, emptyExecutionPage(filters.page));
+}
+
+function emptyStaging(page?: number | null): CreationStagingSummary {
+  const paging = pageQuery(page);
+  return {
+    stagingCount: 0,
+    orphanCount: 0,
+    orphans: [],
+    totalCount: 0,
+    page: paging.page,
+    pageSize: paging.pageSize,
+  };
 }
 
 export async function listCreationStaging(
   db: HrmsDb,
   employerId: number,
   uploadId: number,
+  filters: { page?: number | null; q?: string | null } = {},
 ): Promise<CreationStagingSummary> {
   return optionalQuery(async () => {
   const tenantId = parseEmployerId(employerId);
   const parsedUploadId = uploadIdSchema.parse(uploadId);
+  const paging = pageQuery(filters.page);
+  const q = searchText(filters.q);
+  const pattern = q == null ? null : likeContains(q);
+  const textFilter =
+    pattern == null
+      ? Prisma.empty
+      : Prisma.sql`AND (
+            Staging.EmailID LIKE ${pattern}
+            OR Staging.fName LIKE ${pattern}
+            OR Staging.lName LIKE ${pattern}
+            OR Staging.employmentNumber LIKE ${pattern}
+        )`;
+  const counts = await db.$queryRaw<
+    Array<{ StagingCount: number | bigint | null; OrphanCount: number | bigint | null }>
+  >`
+    SELECT
+        COUNT(*) AS StagingCount,
+        SUM(CASE WHEN Live.EmployeeId IS NULL THEN 1 ELSE 0 END) AS OrphanCount
+    FROM dbo.Temployeedetail_Staging_Employee_creation AS Staging
+    LEFT JOIN dbo.TEmployee AS Live
+        ON Live.EmailID = Staging.EmailID
+        AND Live.Employerid = ${tenantId}
+    WHERE Staging.UploadId = ${parsedUploadId}
+        AND Staging.employerId = ${tenantId}
+  `;
   const rows = await db.$queryRaw<
     Array<{
       EmailID: string | null;
@@ -345,7 +391,7 @@ export async function listCreationStaging(
       employmentNumber: string | null;
       fName: string | null;
       lName: string | null;
-      LiveEmployeeId: number | null;
+      TotalCount: number | bigint | null;
     }>
   >`
     SELECT
@@ -354,30 +400,34 @@ export async function listCreationStaging(
         Staging.employmentNumber,
         Staging.fName,
         Staging.lName,
-        Live.EmployeeId AS LiveEmployeeId
+        COUNT(*) OVER() AS TotalCount
     FROM dbo.Temployeedetail_Staging_Employee_creation AS Staging
     LEFT JOIN dbo.TEmployee AS Live
         ON Live.EmailID = Staging.EmailID
         AND Live.Employerid = ${tenantId}
     WHERE Staging.UploadId = ${parsedUploadId}
         AND Staging.employerId = ${tenantId}
+        AND Live.EmployeeId IS NULL
+        ${textFilter}
     ORDER BY Staging.EmailID
+    OFFSET ${paging.offset} ROWS FETCH NEXT ${paging.pageSize} ROWS ONLY
   `;
-  const mapped: CreationStagingRow[] = rows.map((row) => ({
-    emailId: row.EmailID,
-    employeeId: row.Employeeid,
-    employmentNumber: row.employmentNumber,
-    firstName: row.fName,
-    lastName: row.lName,
-    isOrphan: row.LiveEmployeeId == null,
-  }));
-  const orphans = mapped.filter((row) => row.isOrphan);
   return {
-    stagingCount: mapped.length,
-    orphanCount: orphans.length,
-    orphans: orphans.slice(0, MAX_CLASSIFIED_ROWS),
+    stagingCount: totalCountOf(counts[0]?.StagingCount),
+    orphanCount: totalCountOf(counts[0]?.OrphanCount),
+    orphans: rows.map((row) => ({
+      emailId: row.EmailID,
+      employeeId: row.Employeeid,
+      employmentNumber: row.employmentNumber,
+      firstName: row.fName,
+      lastName: row.lName,
+      isOrphan: true,
+    })),
+    totalCount: totalCountOf(rows[0]?.TotalCount),
+    page: paging.page,
+    pageSize: paging.pageSize,
   };
-  }, { stagingCount: 0, orphanCount: 0, orphans: [] });
+  }, emptyStaging(filters.page));
 }
 
 export async function getCreationFinalize(
@@ -585,7 +635,18 @@ async function listProfileExecutionErrors(
   db: HrmsDb,
   tenantId: number,
   uploadId: number,
-): Promise<UploadExecutionError[]> {
+  filters: { page?: number | null; q?: string | null },
+): Promise<UploadExecutionErrorPage> {
+  const paging = pageQuery(filters.page);
+  const q = searchText(filters.q);
+  const pattern = q == null ? null : likeContains(q);
+  const textFilter =
+    pattern == null
+      ? Prisma.empty
+      : Prisma.sql`AND (
+            LogEntry.ErrorMessage LIKE ${pattern}
+            OR LogEntry.ProcedureName LIKE ${pattern}
+        )`;
   const rows = await db.$queryRaw<
     Array<{
       LogID: number;
@@ -600,6 +661,7 @@ async function listProfileExecutionErrors(
       ErrorMessage: string | null;
       DynamicSQL: string | null;
       CreatedDate: Date | string | null;
+      TotalCount: number | bigint | null;
     }>
   >`
     SELECT
@@ -614,14 +676,18 @@ async function listProfileExecutionErrors(
         LogEntry.ErrorLine,
         LogEntry.ErrorMessage,
         LogEntry.DynamicSQL,
-        LogEntry.CreatedDate
+        LogEntry.CreatedDate,
+        COUNT(*) OVER() AS TotalCount
     FROM dbo.TBulkUpdateProfile_ExecutionLog AS LogEntry
     WHERE LogEntry.EmployerID = ${tenantId}
         AND LogEntry.UploadID = ${uploadId}
         AND LogEntry.LogType = 'ERROR'
+        ${textFilter}
     ORDER BY LogEntry.CreatedDate DESC, LogEntry.LogID DESC
+    OFFSET ${paging.offset} ROWS FETCH NEXT ${paging.pageSize} ROWS ONLY
   `;
-  return rows.map((row) => ({
+  return {
+    rows: rows.map((row) => ({
     logId: Number(row.LogID),
     logType: row.LogType,
     procedureName: row.ProcedureName,
@@ -635,14 +701,30 @@ async function listProfileExecutionErrors(
     errorMessage: row.ErrorMessage,
     dynamicSql: truncateText(row.DynamicSQL, DYNAMIC_SQL_PREVIEW_LENGTH),
     createdDate: asIso(row.CreatedDate),
-  }));
+  })),
+    totalCount: totalCountOf(rows[0]?.TotalCount),
+    page: paging.page,
+    pageSize: paging.pageSize,
+  };
 }
 
 async function listCreationExecutionErrors(
   db: HrmsDb,
   tenantId: number,
   uploadId: number,
-): Promise<UploadExecutionError[]> {
+  filters: { page?: number | null; q?: string | null },
+): Promise<UploadExecutionErrorPage> {
+  const paging = pageQuery(filters.page);
+  const q = searchText(filters.q);
+  const pattern = q == null ? null : likeContains(q);
+  const textFilter =
+    pattern == null
+      ? Prisma.empty
+      : Prisma.sql`AND (
+            LogEntry.ErrorMessage LIKE ${pattern}
+            OR LogEntry.ProcedureName LIKE ${pattern}
+            OR LogEntry.WorkEmail LIKE ${pattern}
+        )`;
   const rows = await db.$queryRaw<
     Array<{
       LogID: number;
@@ -657,6 +739,7 @@ async function listCreationExecutionErrors(
       ErrorMessage: string | null;
       DynamicSQL: string | null;
       CreatedDate: Date | string | null;
+      TotalCount: number | bigint | null;
     }>
   >`
     SELECT
@@ -671,14 +754,18 @@ async function listCreationExecutionErrors(
         LogEntry.ErrorLine,
         LogEntry.ErrorMessage,
         LogEntry.DynamicSQL,
-        LogEntry.CreatedDate
+        LogEntry.CreatedDate,
+        COUNT(*) OVER() AS TotalCount
     FROM dbo.TBulkCreationProfile_ExecutionLog AS LogEntry
     WHERE LogEntry.EmployerID = ${tenantId}
         AND LogEntry.UploadID = ${uploadId}
         AND LogEntry.LogType = 'ERROR'
+        ${textFilter}
     ORDER BY LogEntry.CreatedDate DESC, LogEntry.LogID DESC
+    OFFSET ${paging.offset} ROWS FETCH NEXT ${paging.pageSize} ROWS ONLY
   `;
-  return rows.map((row) => ({
+  return {
+    rows: rows.map((row) => ({
     logId: Number(row.LogID),
     logType: row.LogType,
     procedureName: row.ProcedureName,
@@ -692,7 +779,11 @@ async function listCreationExecutionErrors(
     errorMessage: row.ErrorMessage,
     dynamicSql: truncateText(row.DynamicSQL, DYNAMIC_SQL_PREVIEW_LENGTH),
     createdDate: asIso(row.CreatedDate),
-  }));
+  })),
+    totalCount: totalCountOf(rows[0]?.TotalCount),
+    page: paging.page,
+    pageSize: paging.pageSize,
+  };
 }
 
 async function resolveRowIdentities(

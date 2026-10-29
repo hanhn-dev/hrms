@@ -3,7 +3,7 @@
 import { Alert, Button, DatePicker, Input, Modal } from "antd";
 import dayjs, { type Dayjs } from "dayjs";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useRef, useState, useTransition } from "react";
+import { createContext, useContext, useEffect, useRef, useState, useTransition } from "react";
 import type { ProjectTeam } from "@hrms/azure-devops";
 import { RoadmapDiagram } from "@/features/azure/roadmap/roadmap-diagram";
 import {
@@ -74,22 +74,34 @@ function layoutsFromLanes(lanes: readonly RoadmapSprintLane[]): Roadmap {
   };
 }
 
+type RoadmapAzureValue = {
+  setTeams: (teams: ProjectTeam[]) => void;
+  setSprints: (sprints: RoadmapSprintLane[]) => void;
+  setSprintError: (error: string | null) => void;
+};
+
+const RoadmapAzureContext = createContext<RoadmapAzureValue | null>(null);
+
 export function RoadmapPanel({
   initialRoadmap,
   teams,
   selectedTeams,
   sprints,
   sprintError,
+  children,
 }: {
   initialRoadmap: Roadmap;
   teams: ProjectTeam[];
   selectedTeams: string[];
   sprints: RoadmapSprintLane[];
   sprintError: string | null;
+  children?: React.ReactNode;
 }): React.JSX.Element {
   const router = useRouter();
   const pathname = usePathname();
   const [roadmap, setRoadmap] = useState(initialRoadmap);
+  const [projectTeams, setProjectTeams] = useState(teams);
+  const [loadedSprintError, setLoadedSprintError] = useState(sprintError);
   const [sprintLanes, setSprintLanes] = useState(sprints);
   const [teamsSelection, setTeamsSelection] = useState(selectedTeams);
   const sprintKey = sprints
@@ -253,9 +265,17 @@ export function RoadmapPanel({
   }
 
   return (
+    <RoadmapAzureContext.Provider
+      value={{
+        setTeams: setProjectTeams,
+        setSprints: setSprintLanes,
+        setSprintError: setLoadedSprintError,
+      }}
+    >
     <div className="flex flex-col gap-4">
       {error ? <Alert showIcon title={error} type="error" /> : null}
-      {sprintError ? <Alert showIcon title={sprintError} type="warning" /> : null}
+      {loadedSprintError ? <Alert showIcon title={loadedSprintError} type="warning" /> : null}
+      {children}
       <div className="flex flex-wrap items-end gap-2">
         <label className="flex min-w-64 flex-col gap-1 text-sm">
           Teams
@@ -264,7 +284,7 @@ export function RoadmapPanel({
             className="min-w-64"
             disabled={teamPending}
             mode="multiple"
-            options={teams.map((team) => ({ label: team.name, value: team.name }))}
+            options={projectTeams.map((team) => ({ label: team.name, value: team.name }))}
             placeholder="Teams"
             value={teamsSelection}
             onChange={(value) => {
@@ -493,5 +513,24 @@ export function RoadmapPanel({
         </div>
       </Modal>
     </div>
+    </RoadmapAzureContext.Provider>
   );
+}
+
+export function RoadmapAzureHydrator({
+  teams,
+  sprints,
+  sprintError,
+}: {
+  teams: ProjectTeam[];
+  sprints: RoadmapSprintLane[];
+  sprintError: string | null;
+}): React.JSX.Element | null {
+  const context = useContext(RoadmapAzureContext);
+  useEffect(() => {
+    context?.setTeams(teams);
+    context?.setSprints(sprints);
+    context?.setSprintError(sprintError);
+  }, [context, teams, sprints, sprintError]);
+  return null;
 }

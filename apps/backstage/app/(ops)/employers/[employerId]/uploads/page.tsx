@@ -7,6 +7,7 @@ import {
   parseUploadTypeParam,
   parseUploadsView,
 } from "@/features/employer/uploads";
+import { readListPage, readListSearch } from "@/shared/list-query";
 import { parsePositiveInt } from "@/shared/routing";
 
 export default async function UploadsPage({
@@ -21,6 +22,8 @@ export default async function UploadsPage({
     sectionId?: string;
     status?: string;
     uploadId?: string;
+    page?: string;
+    q?: string;
   }>;
 }): Promise<React.JSX.Element> {
   const [{ employerId }, query] = await Promise.all([params, searchParams]);
@@ -35,6 +38,8 @@ export default async function UploadsPage({
       jobType={parseOptionalUploadType(query.type)}
       jobStatus={query.status?.trim() || null}
       jobUploadId={parseOptionalPositiveInt(query.uploadId)}
+      page={readListPage(query.page)}
+      search={readListSearch(query.q) ?? ""}
     />
   );
 }

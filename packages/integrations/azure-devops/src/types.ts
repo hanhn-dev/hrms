@@ -222,6 +222,8 @@ export type PullRequestLinkSource = 'requested' | 'child';
 
 export interface WorkItemPullRequestLookupRequest {
   readonly ids: string;
+  /** Set false for a direct-only lookup; explicit hierarchy lookups keep the existing child-link behavior. */
+  readonly includeChildLinks?: boolean;
   readonly authors?: readonly string[];
   readonly targetBranches?: readonly string[];
   readonly statuses?: readonly string[];
@@ -341,6 +343,8 @@ export interface PullRequestSearchResult {
   readonly results: readonly PullRequestCandidate[];
   readonly issues: readonly PullRequestLookupIssue[];
   readonly truncated: boolean;
+  /** Offset for another direct pull-request page. Null/omitted for work-item-derived searches. */
+  readonly nextSkip?: number | null;
 }
 
 export const WORK_ITEM_TYPE_OPTIONS = ['Product Backlog Item', 'Bug', 'Task'] as const;

@@ -1,5 +1,14 @@
+import { Prisma } from "../../generated/prisma/client";
 import { checkDatabase, type HrmsDb } from "../../shared/client";
 import { asIso } from "../../shared/iso";
+import {
+  likeContains,
+  LOOKUP_LIMIT,
+  pageQuery,
+  searchText,
+  totalCountOf,
+  type PageResult,
+} from "../../shared/page.ts";
 
 export type EmployerListItem = {
   employerId: number;
@@ -11,38 +20,37 @@ export type EmployerListItem = {
   timeZone: string | null;
 };
 
-export async function listEmployers(db: HrmsDb): Promise<EmployerListItem[]> {
-  const rows = await db.$queryRaw<
-    Array<{
-      EmployerId: number;
-      EmployerName: string;
-      IsActive: string | boolean | number | null;
-      LicenseCount: string | number | null;
-      EmployeeCount: number;
-      FailedAttempts: number | null;
-      TimeZone: string | null;
-    }>
-  >`
-    SELECT
-        Employer.Employerid AS EmployerId,
-        Employer.EmployerName,
-        Employer.IsActive,
-        Employer.LicenseCount,
-        ISNULL(EmployeeCounts.EmployeeCount, 0) AS EmployeeCount,
-        Employer.FailedAttempts,
-        Employer.TimeZone
-    FROM dbo.TEmployerDetails AS Employer
-    LEFT JOIN (
-        SELECT
-            Employee.Employerid AS EmployerId,
-            COUNT(*) AS EmployeeCount
-        FROM dbo.TEmployee AS Employee
-        GROUP BY Employee.Employerid
-    ) AS EmployeeCounts
-        ON EmployeeCounts.EmployerId = Employer.Employerid
-    ORDER BY Employer.Employerid ASC
-  `;
-  return rows.map((row) => ({
+export type EmployerLookup = {
+  employerId: number;
+  employerName: string;
+};
+
+export type EmployerListPage = PageResult<EmployerListItem>;
+
+type EmployerSqlRow = {
+  EmployerId: number;
+  EmployerName: string;
+  IsActive: string | boolean | number | null;
+  LicenseCount: string | number | null;
+  EmployeeCount: number;
+  FailedAttempts: number | null;
+  TimeZone: string | null;
+  TotalCount: number | bigint | null;
+};
+
+function employerNameFilter(q: string | null): Prisma.Sql {
+  if (q == null) {
+    return Prisma.empty;
+  }
+  const pattern = likeContains(q);
+  return Prisma.sql`AND (
+        Employer.EmployerName LIKE ${pattern}
+        OR CONVERT(NVARCHAR(20), Employer.Employerid) LIKE ${pattern}
+    )`;
+}
+
+function mapEmployer(row: EmployerSqlRow): EmployerListItem {
+  return {
     employerId: row.EmployerId,
     employerName: row.EmployerName,
     isActive: row.IsActive,
@@ -53,6 +61,65 @@ export async function listEmployers(db: HrmsDb): Promise<EmployerListItem[]> {
     employeeCount: Number(row.EmployeeCount),
     failedAttempts: row.FailedAttempts,
     timeZone: row.TimeZone,
+  };
+}
+
+export async function listEmployers(
+  db: HrmsDb,
+  filters: { page?: number | null; q?: string | null } = {},
+): Promise<EmployerListPage> {
+  const paging = pageQuery(filters.page);
+  const rows = await db.$queryRaw<EmployerSqlRow[]>`
+    SELECT
+        Employer.Employerid AS EmployerId,
+        Employer.EmployerName,
+        Employer.IsActive,
+        Employer.LicenseCount,
+        ISNULL(EmployeeCounts.EmployeeCount, 0) AS EmployeeCount,
+        Employer.FailedAttempts,
+        Employer.TimeZone,
+        COUNT(*) OVER() AS TotalCount
+    FROM dbo.TEmployerDetails AS Employer
+    LEFT JOIN (
+        SELECT
+            Employee.Employerid AS EmployerId,
+            COUNT(*) AS EmployeeCount
+        FROM dbo.TEmployee AS Employee
+        GROUP BY Employee.Employerid
+    ) AS EmployeeCounts
+        ON EmployeeCounts.EmployerId = Employer.Employerid
+    WHERE 1 = 1
+        ${employerNameFilter(searchText(filters.q))}
+    ORDER BY Employer.Employerid ASC
+    OFFSET ${paging.offset} ROWS FETCH NEXT ${paging.pageSize} ROWS ONLY
+  `;
+  return {
+    rows: rows.map(mapEmployer),
+    totalCount: totalCountOf(rows[0]?.TotalCount),
+    page: paging.page,
+    pageSize: paging.pageSize,
+  };
+}
+
+/** Shell switcher. Empty search is the first 20 employers, not the full table. */
+export async function searchEmployers(
+  db: HrmsDb,
+  q?: string | null,
+): Promise<EmployerLookup[]> {
+  const rows = await db.$queryRaw<
+    Array<{ EmployerId: number; EmployerName: string }>
+  >`
+    SELECT TOP (${Prisma.raw(String(LOOKUP_LIMIT))})
+        Employer.Employerid AS EmployerId,
+        Employer.EmployerName
+    FROM dbo.TEmployerDetails AS Employer
+    WHERE 1 = 1
+        ${employerNameFilter(searchText(q))}
+    ORDER BY Employer.Employerid ASC
+  `;
+  return rows.map((row) => ({
+    employerId: row.EmployerId,
+    employerName: row.EmployerName,
   }));
 }
 

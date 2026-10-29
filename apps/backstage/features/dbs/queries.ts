@@ -4,7 +4,7 @@ import { z } from "zod";
 import {
   executeFunction as executeFunctionFromDb,
   executeSelect as executeSelectFromDb,
-  listEmployers as listEmployersFromDb,
+  searchEmployers,
   listTables as listTablesFromDb,
   listTableColumns as listTableColumnsFromDb,
   previewTableRows as previewTableRowsFromDb,
@@ -65,9 +65,9 @@ export type EmployerOption = {
   employerName: string;
 };
 
-export async function listEmployerOptions(): Promise<EmployerOption[]> {
+export async function listEmployerOptions(q?: string | null): Promise<EmployerOption[]> {
   await requireFeature("dbs");
-  const rows = await listEmployersFromDb(await getHrmsDb());
+  const rows = await searchEmployers(await getHrmsDb(), q);
   return rows.map((row) => ({
     employerId: row.employerId,
     employerName: row.employerName,

@@ -16,7 +16,13 @@ export function parseFieldFocus(value: string | undefined): string | null {
 
 export function fieldsHref(
   employerId: number,
-  params: { source?: FieldSource; section?: string | null; field?: string | null } = {},
+  params: {
+    source?: FieldSource;
+    section?: string | null;
+    field?: string | null;
+    page?: number | null;
+    q?: string | null;
+  } = {},
 ): string {
   const search = new URLSearchParams();
   if (params.source && params.source !== "employer") {
@@ -27,6 +33,12 @@ export function fieldsHref(
   }
   if (params.field) {
     search.set("field", params.field);
+  }
+  if (params.q) {
+    search.set("q", params.q);
+  }
+  if (params.page != null && params.page > 1) {
+    search.set("page", String(params.page));
   }
   const query = search.toString();
   return `/employers/${employerId}/fields${query ? `?${query}` : ""}`;

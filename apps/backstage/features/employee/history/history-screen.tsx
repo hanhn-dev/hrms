@@ -1,9 +1,6 @@
 import { Suspense } from "react";
-import {
-  HISTORY_VIEW_TYPES,
-  isHistorySectionName,
-  type HistoryViewType,
-} from "@hrms/db";
+import { HISTORY_VIEW_TYPES, type HistoryViewType } from "@hrms/db";
+import { resolveHistoryScreenFilters } from "@/features/employee/history/catalog";
 import { EmployeeHistorySlot } from "@/features/employee/history/history-slots";
 import { Employee360Nav, PageHelp, SectionFallback } from "@/shared/ui";
 
@@ -32,7 +29,13 @@ export function EmployeeHistoryScreen({
   page?: string;
 }): React.JSX.Element {
   const type = parseType(typeRaw);
-  const section = sectionRaw && isHistorySectionName(sectionRaw) ? sectionRaw : null;
+  const filters = resolveHistoryScreenFilters({
+    section:
+      sectionRaw ??
+      (type === "Future" ? "Current Employment Details" : undefined),
+    from,
+    to,
+  });
   const pageNumber = Math.max(1, Number(pageRaw ?? "1") || 1);
   const pageSize = 30;
 
@@ -51,9 +54,9 @@ export function EmployeeHistoryScreen({
           {
             id: "window",
             type: "info",
-            title: "Past matches My Details when dates are empty",
+            title: "Past defaults to the last 90 days",
             description:
-              "With no date range, Past History loads the full timeline (same as My Details). Set from/to to narrow the window. Future and Pending ignore the date picker.",
+              "The date picker starts with the last 90 days. Widen or narrow it as needed. Future and Pending ignore the date picker.",
           },
         ]}
       />
@@ -62,11 +65,11 @@ export function EmployeeHistoryScreen({
         <EmployeeHistorySlot
           employerId={employerId}
           employmentNumber={employmentNumber}
-          from={from ?? null}
+          from={filters.from || null}
           pageNumber={pageNumber}
           pageSize={pageSize}
-          section={section}
-          to={to ?? null}
+          section={filters.section}
+          to={filters.to || null}
           type={type}
         />
       </Suspense>

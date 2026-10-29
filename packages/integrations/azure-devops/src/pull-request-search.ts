@@ -128,6 +128,7 @@ async function lookupLinkedPullRequests(
       getWorkItemPullRequests(client, {
         ids: idsInChunk.join(','),
         confirmUnfiltered: true,
+        includeChildLinks: false,
       }),
     ),
   );
@@ -143,6 +144,7 @@ function finish(
   issues: readonly PullRequestLookupIssue[],
   criteria: PullRequestSearchCriteria,
   sourceTruncated: boolean,
+  nextSkip: number | null = null,
 ): PullRequestSearchResult {
   const sorted = sortSearchResults(filterPullRequestCandidates(candidates, criteria));
   const truncated = sourceTruncated || sorted.length > PULL_REQUEST_SEARCH_LIMIT;
@@ -150,6 +152,7 @@ function finish(
     results: sorted.slice(0, PULL_REQUEST_SEARCH_LIMIT),
     issues,
     truncated,
+    nextSkip: truncated ? nextSkip : null,
   };
 }
 
@@ -175,6 +178,7 @@ function utcDayEnd(day: string): Date {
 async function searchPullRequestsDirectly(
   client: AzureDevOpsClient,
   criteria: PullRequestSearchCriteria,
+  skip: number,
 ): Promise<PullRequestSearchResult> {
   const gitApi = await client.getGitApi();
   const authorIds = criteria.authorIds.map((id) => id.trim()).filter((id) => id.length > 0);
@@ -211,7 +215,7 @@ async function searchPullRequestsDirectly(
             client.config.project,
             searchCriteria,
             undefined,
-            undefined,
+            skip,
             PULL_REQUEST_SEARCH_LIMIT,
           );
         } catch (error) {
@@ -247,26 +251,34 @@ async function searchPullRequestsDirectly(
     ];
   });
 
-  return finish(mergeCandidates(candidates), [], criteria, truncated);
+  return finish(
+    mergeCandidates(candidates),
+    [],
+    criteria,
+    truncated,
+    truncated ? skip + PULL_REQUEST_SEARCH_LIMIT : null,
+  );
 }
 
 export async function searchPullRequests(
   client: AzureDevOpsClient,
   criteria: PullRequestSearchCriteria,
+  skip = 0,
 ): Promise<PullRequestSearchResult> {
   if (isPullRequestSearchCriteriaEmpty(criteria)) {
     throw new Error('Enter at least one search criterion.');
   }
 
-  return withAzureDevOpsTimeout(searchPullRequestsBounded(client, criteria));
+  return withAzureDevOpsTimeout(searchPullRequestsBounded(client, criteria, skip));
 }
 
 async function searchPullRequestsBounded(
   client: AzureDevOpsClient,
   criteria: PullRequestSearchCriteria,
+  skip: number,
 ): Promise<PullRequestSearchResult> {
   if (!hasWorkItemSearchCriteria(criteria)) {
-    return searchPullRequestsDirectly(client, criteria);
+    return searchPullRequestsDirectly(client, criteria, Math.max(0, Math.floor(skip)));
   }
 
   const rawIds = criteria.workItemIds.trim();

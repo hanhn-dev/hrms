@@ -54,9 +54,15 @@ export async function listUploadCatalog(
   employerId: number,
   type: UploadTypeKey,
   countryId: number,
+  filters: {
+    page?: number | null;
+    q?: string | null;
+    sectionId?: number | null;
+    sectionIds?: number[] | null;
+  } = {},
 ) {
   await requireFeature("employers");
-  return listUploadCatalogFromDb(await getHrmsDb(), employerId, type, countryId);
+  return listUploadCatalogFromDb(await getHrmsDb(), employerId, type, countryId, filters);
 }
 
 export async function listUploads(employerId: number, filters: UploadListFilters) {
@@ -115,14 +121,22 @@ export async function getUploadBatch(
   return getUploadBatchFromDb(await getHrmsDb(), employerId, uploadId, batchId);
 }
 
-export async function listUploadExecutionErrors(employerId: number, uploadId: number) {
+export async function listUploadExecutionErrors(
+  employerId: number,
+  uploadId: number,
+  filters: { page?: number | null; q?: string | null } = {},
+) {
   await requireFeature("employers");
-  return listUploadExecutionErrorsFromDb(await getHrmsDb(), employerId, uploadId);
+  return listUploadExecutionErrorsFromDb(await getHrmsDb(), employerId, uploadId, filters);
 }
 
-export async function listCreationStaging(employerId: number, uploadId: number) {
+export async function listCreationStaging(
+  employerId: number,
+  uploadId: number,
+  filters: { page?: number | null; q?: string | null } = {},
+) {
   await requireFeature("employers");
-  return listCreationStagingFromDb(await getHrmsDb(), employerId, uploadId);
+  return listCreationStagingFromDb(await getHrmsDb(), employerId, uploadId, filters);
 }
 
 export async function getCreationFinalize(employerId: number, uploadId: number) {

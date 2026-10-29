@@ -1,5 +1,6 @@
 import { Prisma } from "../../generated/prisma/client";
 import type { HrmsDb } from "../../shared/client";
+import { likeContains, pageQuery, searchText, totalCountOf } from "../../shared/page.ts";
 import { parseEmployerId, uploadIdSchema } from "../../shared/ids";
 import { asIso } from "../../shared/iso";
 import {
@@ -14,6 +15,7 @@ import {
   type UploadDetail,
   type UploadListFilters,
   type UploadListItem,
+  type UploadListPage,
   type UploadSectionRollup,
   type UploadTypeKey,
 } from "./types";
@@ -52,14 +54,28 @@ type UploadHeaderRow = {
   ProcessedRows: number | null;
   UnprocessedRows: number | null;
   SectionCount: number | null;
+  TotalCount: number | bigint | null;
 };
 
 export async function listUploads(
   db: HrmsDb,
   employerId: number,
   filters: UploadListFilters = {},
-): Promise<UploadListItem[]> {
+): Promise<UploadListPage> {
   const tenantId = parseEmployerId(employerId);
+  const paging = pageQuery(filters.page);
+  const q = searchText(filters.q);
+  const pattern = q == null ? null : likeContains(q);
+  const textFilter =
+    pattern == null
+      ? Prisma.empty
+      : Prisma.sql`AND (
+            CAST(Upload.UploadID AS varchar(20)) LIKE ${pattern}
+            OR Upload.Status LIKE ${pattern}
+            OR Country.NICENAME LIKE ${pattern}
+            OR Creator.FName LIKE ${pattern}
+            OR Creator.LName LIKE ${pattern}
+        )`;
   const typeFilter = uploadTypeFilter(filters.type);
   const statusFilter =
     filters.status && filters.status.trim() !== ""
@@ -98,7 +114,8 @@ export async function listUploads(
         SUM(ISNULL(Section.InValid, 0)) AS InvalidRows,
         SUM(ISNULL(Section.Processed, 0)) AS ProcessedRows,
         SUM(ISNULL(Section.UnProcessed, 0)) AS UnprocessedRows,
-        COUNT(Section.UploadSectionID) AS SectionCount
+        COUNT(Section.UploadSectionID) AS SectionCount,
+        COUNT(*) OVER() AS TotalCount
     FROM dbo.TEmployeeDetail_Upload AS Upload
     LEFT JOIN dbo.TEmployeeDetail_Upload_Section AS Section
         ON Section.UploadID = Upload.UploadID
@@ -116,6 +133,7 @@ export async function listUploads(
         ${typeFilter}
         ${statusFilter}
         ${idFilter}
+        ${textFilter}
     GROUP BY
         Upload.UploadID,
         Upload.EmployerID,
@@ -140,8 +158,14 @@ export async function listUploads(
         Upload.ProcessedOn,
         Upload.UpdatedDate
     ORDER BY Upload.CreateDate DESC, Upload.UploadID DESC
+    OFFSET ${paging.offset} ROWS FETCH NEXT ${paging.pageSize} ROWS ONLY
   `;
-  return rows.map(mapListItem);
+  return {
+    rows: rows.map(mapListItem),
+    totalCount: totalCountOf(rows[0]?.TotalCount),
+    page: paging.page,
+    pageSize: paging.pageSize,
+  };
 }
 
 export async function getUpload(
@@ -179,7 +203,8 @@ export async function getUpload(
         SUM(ISNULL(Section.InValid, 0)) AS InvalidRows,
         SUM(ISNULL(Section.Processed, 0)) AS ProcessedRows,
         SUM(ISNULL(Section.UnProcessed, 0)) AS UnprocessedRows,
-        COUNT(Section.UploadSectionID) AS SectionCount
+        COUNT(Section.UploadSectionID) AS SectionCount,
+        COUNT(*) OVER() AS TotalCount
     FROM dbo.TEmployeeDetail_Upload AS Upload
     LEFT JOIN dbo.TEmployeeDetail_Upload_Section AS Section
         ON Section.UploadID = Upload.UploadID

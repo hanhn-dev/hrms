@@ -19,6 +19,7 @@ import {
   listGitFiles,
   listGitRepositories,
   readGitFilePair,
+  searchGitPaths,
 } from '../git-trace.js';
 
 const mockConfig: AzureDevOpsConfig = {
@@ -118,6 +119,36 @@ describe('git trace', () => {
 
   it('rejects a blank branch before listing files', async () => {
     await expect(listGitFiles(mockClient, 'repo-a', '  ')).rejects.toThrow('Branch is required');
+    expect(mockGitApi.getItems).not.toHaveBeenCalled();
+  });
+
+  it('searches bounded one-level tree pages instead of recursively expanding root', async () => {
+    mockGitApi.getItems
+      .mockResolvedValueOnce([
+        { path: '/', isFolder: true },
+        { path: '/apps', isFolder: true },
+        { path: '/README.md', isFolder: false },
+      ])
+      .mockResolvedValueOnce([
+        { path: '/apps', isFolder: true },
+        { path: '/apps/backstage', isFolder: true },
+        { path: '/apps/index.ts', isFolder: false },
+      ])
+      .mockResolvedValueOnce([
+        { path: '/apps/backstage', isFolder: true },
+        { path: '/apps/backstage/page.tsx', isFolder: false },
+      ]);
+
+    const paths = await searchGitPaths(mockClient, 'repo-a', 'Dev', 'page');
+
+    expect(paths).toEqual(['/README.md', '/apps/index.ts', '/apps/backstage/page.tsx']);
+    expect(mockGitApi.getItems).toHaveBeenCalledTimes(3);
+    expect(mockGitApi.getItems.mock.calls.every((call) => call[3] === VersionControlRecursionType.OneLevel)).toBe(true);
+    expect(mockGitApi.getItems.mock.calls.some((call) => call[3] === VersionControlRecursionType.Full)).toBe(false);
+  });
+
+  it('does not call Azure for a blank path search', async () => {
+    await expect(searchGitPaths(mockClient, 'repo-a', 'Dev', '  ')).resolves.toEqual([]);
     expect(mockGitApi.getItems).not.toHaveBeenCalled();
   });
 
@@ -283,6 +314,7 @@ describe('git trace', () => {
       },
     ]);
     expect(activity.commits).toHaveLength(1);
+    expect(activity).toMatchObject({ skip: 0, top: 50, hasMore: false });
   });
 
   it('normalizes commit file changes and keeps the first parent', async () => {

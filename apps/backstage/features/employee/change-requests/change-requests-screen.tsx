@@ -5,9 +5,15 @@ import { Employee360Nav, PageHelp, SectionFallback } from "@/shared/ui";
 export function EmployeeChangeRequestsScreen({
   employerId,
   employmentNumber,
+  page,
+  search,
+  status,
 }: {
   employerId: number;
   employmentNumber: string;
+  page: number;
+  search: string;
+  status: "pending" | "approved" | "rejected" | "all";
 }): React.JSX.Element {
   return (
     <>
@@ -42,6 +48,9 @@ export function EmployeeChangeRequestsScreen({
         <EmployeeChangeRequestsSlot
           employerId={employerId}
           employmentNumber={employmentNumber}
+          page={page}
+          search={search}
+          status={status}
         />
       </Suspense>
     </>

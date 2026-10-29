@@ -1,3 +1,5 @@
+"use server";
+
 import {
   getWorkflow as getWorkflowFromDb,
   getWorkflowSettings as getWorkflowSettingsFromDb,
@@ -5,6 +7,7 @@ import {
   listLicensedModules,
   listMappablePages as listMappablePagesFromDb,
   listWorkflowBusinessUnits as listWorkflowBusinessUnitsFromDb,
+  listWorkflowActorGroups as listWorkflowActorGroupsFromDb,
   listWorkflowGroups as listWorkflowGroupsFromDb,
   listWorkflowLocations as listWorkflowLocationsFromDb,
   listWorkflowPages as listWorkflowPagesFromDb,
@@ -27,9 +30,12 @@ export type {
   WorkflowTree,
 } from "@hrms/db";
 
-export async function listWorkflows(employerId: number) {
+export async function listWorkflows(
+  employerId: number,
+  filters: { page?: number | null; q?: string | null } = {},
+) {
   await requireFeature("employers");
-  return listWorkflowsFromDb(await getHrmsDb(), employerId);
+  return listWorkflowsFromDb(await getHrmsDb(), employerId, filters);
 }
 
 export async function getWorkflowSettings(employerId: number) {
@@ -37,9 +43,12 @@ export async function getWorkflowSettings(employerId: number) {
   return getWorkflowSettingsFromDb(await getHrmsDb(), employerId);
 }
 
-export async function listWorkflowPages(employerId: number) {
+export async function listWorkflowPages(
+  employerId: number,
+  filters: { page?: number | null; q?: string | null; name?: string | null } = {},
+) {
   await requireFeature("employers");
-  return listWorkflowPagesFromDb(await getHrmsDb(), employerId);
+  return listWorkflowPagesFromDb(await getHrmsDb(), employerId, filters);
 }
 
 export async function listMappablePages(employerId: number) {
@@ -47,19 +56,33 @@ export async function listMappablePages(employerId: number) {
   return listMappablePagesFromDb(await getHrmsDb(), employerId);
 }
 
-export async function listWorkflowGroups(employerId: number) {
+export async function listWorkflowGroups(
+  employerId: number,
+  filters: { page?: number | null; q?: string | null; roleId?: number | null } = {},
+) {
   await requireFeature("employers");
-  return listWorkflowGroupsFromDb(await getHrmsDb(), employerId);
+  return listWorkflowGroupsFromDb(await getHrmsDb(), employerId, filters);
 }
 
-export async function listWorkflowLocations(employerId: number) {
+export async function listWorkflowActorGroups(employerId: number) {
   await requireFeature("employers");
-  return listWorkflowLocationsFromDb(await getHrmsDb(), employerId);
+  return listWorkflowActorGroupsFromDb(await getHrmsDb(), employerId);
 }
 
-export async function listWorkflowBusinessUnits(employerId: number) {
+export async function listWorkflowLocations(
+  employerId: number,
+  filters: { q?: string | null; includeIds?: readonly number[] } = {},
+) {
   await requireFeature("employers");
-  return listWorkflowBusinessUnitsFromDb(await getHrmsDb(), employerId);
+  return listWorkflowLocationsFromDb(await getHrmsDb(), employerId, filters);
+}
+
+export async function listWorkflowBusinessUnits(
+  employerId: number,
+  filters: { q?: string | null; includeIds?: readonly number[] } = {},
+) {
+  await requireFeature("employers");
+  return listWorkflowBusinessUnitsFromDb(await getHrmsDb(), employerId, filters);
 }
 
 export async function getWorkflow(employerId: number, workflowId: number) {
@@ -72,7 +95,14 @@ export async function listWorkflowModules(employerId: number) {
   return listLicensedModules(await getHrmsDb(), employerId);
 }
 
-export async function listChangeRequests(employerId: number) {
+export async function listChangeRequests(
+  employerId: number,
+  filters: {
+    page?: number | null;
+    q?: string | null;
+    status?: "pending" | "approved" | "rejected" | "all" | null;
+  } = {},
+) {
   await requireFeature("employers");
-  return listChangeRequestsFromDb(await getHrmsDb(), employerId);
+  return listChangeRequestsFromDb(await getHrmsDb(), employerId, filters);
 }

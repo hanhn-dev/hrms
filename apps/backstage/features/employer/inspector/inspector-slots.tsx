@@ -9,7 +9,7 @@ export async function InspectorSlot({
   employerId: number;
 }): Promise<React.JSX.Element> {
   const [employers, environment] = await Promise.all([
-    listInspectorEmployers(),
+    listInspectorEmployers(employerId),
     getSelectedEnvironment(),
   ]);
 

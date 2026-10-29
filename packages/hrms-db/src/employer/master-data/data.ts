@@ -1,5 +1,6 @@
 import { Prisma } from "../../generated/prisma/client";
 import type { HrmsDb } from "../../shared/client";
+import { likeContains, pageQuery, searchText, totalCountOf } from "../../shared/page.ts";
 import { parseEmployerId, userIdSchema } from "../../shared/ids";
 import { columnPresenceKey, presentColumns, presentTables } from "../../shared/objects";
 import {
@@ -211,18 +212,89 @@ async function selectRows(
   return rows.map((row) => serializeRow(entry, row));
 }
 
+function textSearchSql(entry: MasterDataEntry, q: string | null): Prisma.Sql {
+  if (q == null) {
+    return Prisma.empty;
+  }
+  const columns = entry.columns.filter((column) => column.kind === "text");
+  if (columns.length === 0) {
+    return Prisma.empty;
+  }
+  const pattern = likeContains(q);
+  return Prisma.sql`AND (${Prisma.join(
+    columns.map((column) => Prisma.sql`${sqlIdent(column.name)} LIKE ${pattern}`),
+    " OR ",
+  )})`;
+}
+
+async function selectRowPage(
+  db: HrmsDb | Tx,
+  entry: MasterDataEntry,
+  employerId: number,
+  filters: { page?: number | null; q?: string | null },
+): Promise<{ rows: MasterDataRow[]; totalCount: number; page: number; pageSize: number }> {
+  const paging = pageQuery(filters.page);
+  const names = [entry.idColumn, ...entry.columns.map((column) => column.name)];
+  const scopedId = masterDataEmployerId(entry, employerId);
+  const filtersSql: Prisma.Sql[] = [];
+  if (scopedId != null && entry.employerColumn) {
+    filtersSql.push(Prisma.sql`${sqlIdent(entry.employerColumn)} = ${scopedId}`);
+  }
+  const where =
+    filtersSql.length > 0
+      ? Prisma.sql`WHERE ${Prisma.join(filtersSql, " AND ")}`
+      : Prisma.sql`WHERE 1 = 1`;
+  const rows = await db.$queryRaw<Array<Record<string, unknown>>>`
+    SELECT ${selectList(names)}, COUNT(*) OVER() AS TotalCount
+    FROM dbo.${sqlIdent(entry.table)}
+    ${where}
+    ${textSearchSql(entry, searchText(filters.q))}
+    ORDER BY ${sqlIdent(orderColumn(entry))}, ${sqlIdent(entry.idColumn)}
+    OFFSET ${paging.offset} ROWS FETCH NEXT ${paging.pageSize} ROWS ONLY
+  `;
+  return {
+    rows: rows.map((row) => serializeRow(entry, row)),
+    totalCount: totalCountOf(rows[0]?.TotalCount as number | bigint | null | undefined),
+    page: paging.page,
+    pageSize: paging.pageSize,
+  };
+}
+
 export async function listMasterDataRows(
   db: HrmsDb,
   employerId: number,
   key: string,
-): Promise<{ entry: MasterDataEntry; rows: MasterDataRow[] }> {
+  filters: { page?: number | null; q?: string | null } = {},
+): Promise<{
+  entry: MasterDataEntry;
+  rows: MasterDataRow[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+}> {
   const available = await listAvailableMasterData(db, employerId);
   const entry = available.find((item) => item.key === key);
   if (!entry) {
     throw new Error(`${requireMasterDataEntry(key).label} is not in this database.`);
   }
-  const rows = await selectRows(db, entry, employerId, null);
-  return { entry, rows };
+  const listed = await selectRowPage(db, entry, employerId, filters);
+  return { entry, ...listed };
+}
+
+export async function getMasterDataRow(
+  db: HrmsDb,
+  employerId: number,
+  key: string,
+  id: number,
+): Promise<{ entry: MasterDataEntry; row: MasterDataRow } | null> {
+  const available = await listAvailableMasterData(db, employerId);
+  const entry = available.find((item) => item.key === key);
+  if (!entry) {
+    return null;
+  }
+  const rows = await selectRows(db, entry, employerId, id);
+  const row = rows[0];
+  return row ? { entry, row } : null;
 }
 
 export type MasterDataLookupOption = {
@@ -235,6 +307,9 @@ export type MasterDataPageData = {
   selected: MasterDataEntry | null;
   rows: MasterDataRow[];
   lookups: Record<string, MasterDataLookupOption[]>;
+  totalCount: number;
+  page: number;
+  pageSize: number;
 };
 
 async function lookupOptions(
@@ -271,16 +346,26 @@ export async function loadMasterDataPage(
   db: HrmsDb,
   employerId: number,
   key: string | null,
+  filters: { page?: number | null; q?: string | null } = {},
 ): Promise<MasterDataPageData> {
   const catalog = await listAvailableMasterData(db, employerId);
   const selected =
     (key ? catalog.find((entry) => entry.key === key) : catalog[0]) ?? null;
+  const paging = pageQuery(filters.page);
   if (!selected) {
-    return { catalog, selected: null, rows: [], lookups: {} };
+    return {
+      catalog,
+      selected: null,
+      rows: [],
+      lookups: {},
+      totalCount: 0,
+      page: paging.page,
+      pageSize: paging.pageSize,
+    };
   }
-  const rows = await selectRows(db, selected, employerId, null);
+  const listed = await selectRowPage(db, selected, employerId, filters);
   const lookups = await lookupOptions(db, catalog, selected, employerId);
-  return { catalog, selected, rows, lookups };
+  return { catalog, selected, lookups, ...listed };
 }
 
 function boundValue(column: MasterDataColumn, value: MasterDataValue): Prisma.Sql {

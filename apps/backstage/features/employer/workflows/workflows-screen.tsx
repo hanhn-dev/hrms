@@ -23,12 +23,18 @@ export async function WorkflowsScreen({
   pageName,
   groupId,
   requestId,
+  listPage,
+  listSearch,
+  requestStatus,
 }: {
   employerId: number;
   tab: WorkflowsTab;
   pageName: string | null;
   groupId: number | null;
   requestId: number | null;
+  listPage: number;
+  listSearch: string | null;
+  requestStatus: "pending" | "approved" | "rejected" | "all";
 }): Promise<React.JSX.Element> {
   const writesEnabled = areWritesEnabled(await getSelectedEnvironment());
 
@@ -61,8 +67,11 @@ export async function WorkflowsScreen({
           <WorkflowsTabSlot
             employerId={employerId}
             groupId={groupId}
+            listPage={listPage}
+            listSearch={listSearch}
             pageName={pageName}
             requestId={requestId}
+            requestStatus={requestStatus}
             tab={tab}
             writesEnabled={writesEnabled}
           />

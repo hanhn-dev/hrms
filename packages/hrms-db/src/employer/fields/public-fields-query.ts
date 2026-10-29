@@ -1,5 +1,13 @@
+import { Prisma } from "../../generated/prisma/client.ts";
 import type { HrmsDb } from "../../shared/client.ts";
 import { fieldIdSchema, parseEmployerId } from "../../shared/ids.ts";
+import {
+  likeContains,
+  pageQuery,
+  searchText,
+  totalCountOf,
+  type PageResult,
+} from "../../shared/page.ts";
 import { publicFieldClearBlockReason } from "./public-fields.ts";
 
 export type PublicFieldRow = {
@@ -30,13 +38,31 @@ type PublicFieldQueryRow = {
   FieldEntity: string | null;
   IsHidden: boolean | number | null;
   IsPublic: boolean | number | null;
+  TotalCount?: number | bigint | null;
 };
 
 export async function listPublicEmployerFields(
   db: HrmsDb,
   employerId: number,
-): Promise<PublicFieldRow[]> {
+  filters: { page?: number | null; q?: string | null; section?: string | null } = {},
+): Promise<PageResult<PublicFieldRow>> {
   const tenantId = parseEmployerId(employerId);
+  const paging = pageQuery(filters.page);
+  const q = searchText(filters.q);
+  const pattern = q == null ? null : likeContains(q);
+  const textFilter =
+    pattern == null
+      ? Prisma.empty
+      : Prisma.sql`AND (
+            Fields.FieldName LIKE ${pattern}
+            OR Fields.DisplayText LIKE ${pattern}
+            OR Fields.FieldEntity LIKE ${pattern}
+        )`;
+  const sectionName = filters.section?.trim() ?? "";
+  const sectionFilter =
+    sectionName === ""
+      ? Prisma.empty
+      : Prisma.sql`AND LOWER(LTRIM(RTRIM(ISNULL(Section.Section, '')))) = LOWER(${sectionName})`;
   const rows = await db.$queryRaw<PublicFieldQueryRow[]>`
     SELECT
         Fields.FieldID,
@@ -50,7 +76,8 @@ export async function listPublicEmployerFields(
         Fields.DisplayOrder,
         Fields.FieldEntity,
         Fields.IsHidden,
-        Fields.IsPublic
+        Fields.IsPublic,
+        COUNT(*) OVER() AS TotalCount
     FROM dbo.TEmployeeDetail_Fields AS Fields
     LEFT JOIN dbo.TEmployeeDetail_Section AS Section
         ON Section.SectionID = Fields.SectionID
@@ -60,9 +87,17 @@ export async function listPublicEmployerFields(
     WHERE Fields.EmployerId = ${tenantId}
         AND ISNULL(Fields.IsDeleted, 0) = 0
         AND ISNULL(Fields.IsPublic, 0) = 1
+        ${textFilter}
+        ${sectionFilter}
     ORDER BY Fields.SectionID, Fields.DisplayOrder, Fields.FieldName, Fields.FieldID
+    OFFSET ${paging.offset} ROWS FETCH NEXT ${paging.pageSize} ROWS ONLY
   `;
-  return rows.map(mapPublicFieldRow);
+  return {
+    rows: rows.map(mapPublicFieldRow),
+    totalCount: totalCountOf(rows[0]?.TotalCount),
+    page: paging.page,
+    pageSize: paging.pageSize,
+  };
 }
 
 export async function getPublicEmployerField(

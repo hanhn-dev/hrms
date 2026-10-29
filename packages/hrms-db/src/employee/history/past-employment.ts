@@ -321,6 +321,8 @@ export async function loadEmploymentHistory(
         LEFT JOIN dbo.TSHIFTMASTER AS SM
             ON SM.ShiftId = H.ShiftType AND SM.EmployerID = H.EmployerID
         WHERE H.EmployeeId = ${input.employeeId}
+          AND H.ModifiedDateUtcTime >= ${input.from}
+          AND H.ModifiedDateUtcTime < ${input.toExclusive}
         ORDER BY H.HistoryTransID ASC
       `,
       db.$queryRaw<InfoResolvedRow[]>`
@@ -384,6 +386,8 @@ export async function loadEmploymentHistory(
           LEFT JOIN dbo.TEmployeeInfoHistory AS IH
               ON IH.HistoryTransID = H.EmployeeHistoryId
           WHERE H.EmployeeId = ${input.employeeId}
+            AND ISNULL(IH.ModifiedDateUtcTime, H.ModifiedUtcDate) >= ${input.from}
+            AND ISNULL(IH.ModifiedDateUtcTime, H.ModifiedUtcDate) < ${input.toExclusive}
           UNION ALL
           SELECT
               CAST(${LIVE_HISTORY_ID} AS INT) AS SortOrder,
@@ -408,6 +412,8 @@ export async function loadEmploymentHistory(
         LEFT JOIN dbo.TMEmploymentTypes AS T
             ON T.EmploymentTypeID = H.EmploymentTypeID
         WHERE H.EmployeeId = ${input.employeeId}
+          AND H.ModifiedUtcDate >= ${input.from}
+          AND H.ModifiedUtcDate < ${input.toExclusive}
         ORDER BY H.HistoryTransID ASC
       `,
       db.$queryRaw<EmploymentTypeRow[]>`
@@ -518,24 +524,28 @@ export async function gatherEmploymentEditorIds(
   db: HrmsDb,
   input: { employeeId: number; from: Date | null; toExclusive: Date | null },
 ): Promise<number[]> {
-  void input.from;
-  void input.toExclusive;
   try {
     const [info, org, types] = await Promise.all([
       db.$queryRaw<Array<{ ModifiedBy: number | null }>>`
         SELECT DISTINCT ModifiedBy
         FROM dbo.TEmployeeInfoHistory
         WHERE EmployeeId = ${input.employeeId}
+          AND ModifiedDateUtcTime >= ${input.from}
+          AND ModifiedDateUtcTime < ${input.toExclusive}
       `,
       db.$queryRaw<Array<{ ModifiedBy: number | null }>>`
         SELECT DISTINCT ModifiedBy
         FROM dbo.TORGChartHistory
         WHERE EmployeeId = ${input.employeeId}
+          AND ModifiedUtcDate >= ${input.from}
+          AND ModifiedUtcDate < ${input.toExclusive}
       `,
       db.$queryRaw<Array<{ ModifiedBy: number | null }>>`
         SELECT DISTINCT ModifiedBy
         FROM dbo.TEmployeeEmploymentTypeHistory
         WHERE EmployeeId = ${input.employeeId}
+          AND ModifiedUtcDate >= ${input.from}
+          AND ModifiedUtcDate < ${input.toExclusive}
       `,
     ]);
     return Array.from(

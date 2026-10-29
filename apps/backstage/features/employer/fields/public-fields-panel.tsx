@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Alert, Button, Collapse, Switch, Tag, Tooltip } from "antd";
+import { Alert, Button, Collapse, Pagination, Switch, Tag, Tooltip } from "antd";
 import { useRouter } from "next/navigation";
+import { FieldListSearch } from "@/features/employer/fields/fields-panel";
 import {
   isLockedPublicFieldName,
   LOCKED_PUBLIC_FIELD_REASON,
@@ -23,6 +24,10 @@ export function PublicFieldsPanel({
   field,
   writesEnabled,
   queryScript,
+  listPage,
+  listSearch,
+  pageSize,
+  totalCount,
 }: {
   employerId: number;
   fields: PublicFieldRow[];
@@ -30,6 +35,10 @@ export function PublicFieldsPanel({
   field: string | null;
   writesEnabled: boolean;
   queryScript: string;
+  listPage: number;
+  listSearch: string;
+  pageSize: number;
+  totalCount: number;
 }): React.JSX.Element {
   const router = useRouter();
   const [pending, setPending] = useState<PublicFieldRow | null>(null);
@@ -85,8 +94,23 @@ export function PublicFieldsPanel({
           title={`Section: ${section}${highlightField ? ` · ${highlightField}` : ""}`}
         />
       ) : null}
+      <div className="mb-4">
+        <FieldListSearch
+          initialQuery={listSearch}
+          onSearch={(next) => {
+            router.push(
+              fieldsHref(employerId, {
+                source: "public",
+                section,
+                field,
+                q: next || null,
+              }),
+            );
+          }}
+        />
+      </div>
       <p className="mb-3 text-slate-600">
-        {visible.length} public {visible.length === 1 ? "field" : "fields"}
+        {totalCount} public {totalCount === 1 ? "field" : "fields"}
       </p>
       {sections.length === 0 ? (
         <p className="text-slate-500">No public fields.</p>
@@ -108,6 +132,24 @@ export function PublicFieldsPanel({
           }))}
         />
       )}
+      <Pagination
+        className="mt-4"
+        current={listPage}
+        pageSize={pageSize > 0 ? pageSize : 50}
+        showSizeChanger={false}
+        total={totalCount}
+        onChange={(next) => {
+          router.push(
+            fieldsHref(employerId, {
+              source: "public",
+              section,
+              field,
+              q: listSearch || null,
+              page: next,
+            }),
+          );
+        }}
+      />
       <ConfirmWriteModal
         hideTrigger
         open={pending != null}
@@ -155,16 +197,7 @@ function PublicFieldsTable({
       queryScript={queryScript}
       rowKey="fieldId"
       dataSource={fields}
-      pagination={
-        fields.length > 20
-          ? {
-              defaultCurrent: pageForField(fields, highlightField),
-              pageSize: 20,
-              showSizeChanger: true,
-              showTotal: (total) => `${total} fields`,
-            }
-          : false
-      }
+      pagination={false}
       scroll={{ x: "max-content" }}
       size="small"
       columns={[
@@ -286,14 +319,6 @@ function groupBySection(fields: PublicFieldRow[]): Array<{
       (left.sectionId ?? Number.MAX_SAFE_INTEGER) -
       (right.sectionId ?? Number.MAX_SAFE_INTEGER),
   );
-}
-
-function pageForField(fields: PublicFieldRow[], highlightField: string | null): number {
-  const index = fields.findIndex((row) => namesMatch(row.fieldName, highlightField));
-  if (index < 0) {
-    return 1;
-  }
-  return Math.floor(index / 20) + 1;
 }
 
 function countryLabel(row: PublicFieldRow): string {

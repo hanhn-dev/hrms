@@ -17,7 +17,11 @@ import {
 } from "./past-skill-domain";
 import { loadPendingHistory } from "./pending";
 import { PAST_TABLE_SPECS } from "./registry";
-import { HISTORY_SECTIONS, isHistorySectionName } from "./sections";
+import {
+  HISTORY_SECTIONS,
+  isHistorySectionName,
+  resolveHistorySectionName,
+} from "./sections";
 import { sqlIdent, sqlTable } from "./sql";
 import type {
   HistoryChangeEvent,
@@ -283,8 +287,12 @@ export async function loadEmployeeHistoryChanges(
   const employeeId = employeeIdSchema.parse(input.employeeId);
   const pageNumber = Math.max(1, input.pageNumber ?? 1);
   const pageSize = Math.min(100, Math.max(1, input.pageSize ?? 30));
-  const section =
-    input.section && isHistorySectionName(input.section) ? input.section : null;
+  const section = resolveHistorySectionName(
+    input.section,
+    input.type === "Future"
+      ? "Current Employment Details"
+      : HISTORY_SECTIONS[0]!.name,
+  );
 
   if (input.type === "Pending") {
     const pendingRows = await db.$queryRaw<Array<{ CreatedBy: number | null }>>`

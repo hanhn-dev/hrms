@@ -8,16 +8,20 @@ import { getSelectedEnvironment } from "@/shared/db";
 export async function MasterDataSlot({
   employerId,
   listKey,
+  page,
+  search,
 }: {
   employerId: number;
   listKey: string | null;
+  page: number;
+  search: string;
 }): Promise<React.JSX.Element> {
-  const [page, writesEnabled] = await Promise.all([
-    captureQueryScript(() => loadMasterData(employerId, listKey)),
+  const [loaded, writesEnabled] = await Promise.all([
+    captureQueryScript(() => loadMasterData(employerId, listKey, { page, q: search })),
     getSelectedEnvironment().then((environment) => areWritesEnabled(environment)),
   ]);
 
-  if (page.result.catalog.length === 0) {
+  if (loaded.result.catalog.length === 0) {
     return (
       <Alert
         showIcon
@@ -29,12 +33,16 @@ export async function MasterDataSlot({
 
   return (
     <MasterDataPanel
-      catalog={page.result.catalog}
+      catalog={loaded.result.catalog}
       employerId={employerId}
-      lookups={page.result.lookups}
-      queryScript={page.script}
-      rows={page.result.rows}
-      selected={page.result.selected}
+      listPage={loaded.result.page}
+      listPageSize={loaded.result.pageSize}
+      lookups={loaded.result.lookups}
+      queryScript={loaded.script}
+      rows={loaded.result.rows}
+      search={search}
+      selected={loaded.result.selected}
+      total={loaded.result.totalCount}
       writesEnabled={writesEnabled}
     />
   );

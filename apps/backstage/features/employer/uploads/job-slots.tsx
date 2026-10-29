@@ -37,9 +37,22 @@ import { areWritesEnabled } from "@/shared/auth";
 import { getSelectedEnvironment } from "@/shared/db";
 import { SectionFallback } from "@/shared/ui/section-fallback";
 
-const loadCatalog = cache((employerId: number, type: UploadTypeKey, countryId: number) =>
-  listUploadCatalog(employerId, type, countryId),
+const loadCatalog = cache(
+  (employerId: number, type: UploadTypeKey, countryId: number, sectionKey: string) =>
+    listUploadCatalog(employerId, type, countryId, {
+      sectionIds:
+        sectionKey === ""
+          ? []
+          : sectionKey.split(",").map((value) => Number(value)),
+    }),
 );
+
+function catalogSectionKey(upload: UploadDetail): string {
+  return upload.sections
+    .map((section) => section.sectionId)
+    .filter((id): id is number => id != null)
+    .join(",");
+}
 
 const loadUploadCapture = cache((employerId: number, uploadId: number) =>
   captureQueryScript(() => getUpload(employerId, uploadId)),
@@ -54,6 +67,8 @@ export type JobStreamQuery = {
   employeeId: number | null;
   workEmail: string | null;
   batchId: number | null;
+  listPage: number;
+  listSearch: string;
 };
 
 async function loadJob(input: JobStreamQuery) {
@@ -86,6 +101,8 @@ export async function JobSummarySlot(input: JobStreamQuery): Promise<React.JSX.E
           <UploadStagingSlot
             employerId={input.employerId}
             errorClass={job.resolved.errorClass}
+            listPage={input.listPage}
+            listSearch={input.listSearch}
             selectedSection={job.resolved.section}
             upload={job.upload}
           />
@@ -141,6 +158,8 @@ export async function UploadRowErrorsStream(
     <UploadRowErrorsSlot
       employerId={input.employerId}
       errorClass={job.resolved.errorClass}
+      listPage={input.listPage}
+      listSearch={input.listSearch}
       selectedSection={job.resolved.section}
       upload={job.upload}
     />
@@ -199,7 +218,12 @@ export async function UploadSectionsSlot({
 }): Promise<React.JSX.Element> {
   const catalog =
     upload.type != null
-      ? await loadCatalog(employerId, upload.type, upload.countryId ?? 0)
+      ? await loadCatalog(
+        employerId,
+        upload.type,
+        upload.countryId ?? 0,
+        catalogSectionKey(upload),
+      )
       : null;
   const mismatches = upload.sections.map((section) => {
     const catalogFields =
@@ -257,20 +281,33 @@ export async function UploadRowErrorsSlot({
   employerId,
   upload,
   errorClass,
+  listPage,
+  listSearch,
   selectedSection,
 }: {
   employerId: number;
   upload: UploadDetail;
   errorClass: UploadErrorClass;
+  listPage: number;
+  listSearch: string;
   selectedSection: UploadSectionRollup | null;
 }): Promise<React.JSX.Element> {
   const executionErrorsPromise = loadCaptured(
-    () => listUploadExecutionErrors(employerId, upload.uploadId),
-    [],
+    () =>
+      listUploadExecutionErrors(employerId, upload.uploadId, {
+        page: listPage,
+        q: listSearch,
+      }),
+    { rows: [], totalCount: 0, page: listPage, pageSize: 50 },
   );
   const catalog =
     upload.type != null
-      ? await loadCatalog(employerId, upload.type, upload.countryId ?? 0)
+      ? await loadCatalog(
+        employerId,
+        upload.type,
+        upload.countryId ?? 0,
+        catalogSectionKey(upload),
+      )
       : null;
   const catalogFields =
     upload.type === "image"
@@ -290,7 +327,11 @@ export async function UploadRowErrorsSlot({
     <JobRowErrorsCard
       employerId={employerId}
       errorClass={errorClass}
-      executionErrors={executionErrors.result}
+      executionErrors={executionErrors.result.rows}
+      executionPage={executionErrors.result.page}
+      executionPageSize={executionErrors.result.pageSize}
+      executionSearch={listSearch}
+      executionTotal={executionErrors.result.totalCount}
       executionErrorsScript={executionErrors.script}
       rowErrors={rowErrors?.result ?? null}
       rowErrorsScript={rowErrors?.script ?? ""}
@@ -336,19 +377,33 @@ export async function UploadStagingSlot({
   employerId,
   upload,
   errorClass,
+  listPage,
+  listSearch,
   selectedSection,
 }: {
   employerId: number;
   upload: UploadDetail;
   errorClass: UploadErrorClass;
+  listPage: number;
+  listSearch: string;
   selectedSection: UploadSectionRollup | null;
 }): Promise<React.JSX.Element> {
   const [staging, finalize] = await Promise.all([
-    loadCaptured(() => listCreationStaging(employerId, upload.uploadId), {
-      stagingCount: 0,
-      orphanCount: 0,
-      orphans: [],
-    }),
+    loadCaptured(
+      () =>
+        listCreationStaging(employerId, upload.uploadId, {
+          page: listPage,
+          q: listSearch,
+        }),
+      {
+        stagingCount: 0,
+        orphanCount: 0,
+        orphans: [],
+        totalCount: 0,
+        page: listPage,
+        pageSize: 50,
+      },
+    ),
     missingObjectFallback(getCreationFinalize(employerId, upload.uploadId), null),
   ]);
   return (
@@ -359,6 +414,7 @@ export async function UploadStagingSlot({
       selectedSection={selectedSection}
       staging={staging.result}
       stagingScript={staging.script}
+      stagingSearch={listSearch}
       upload={upload}
     />
   );

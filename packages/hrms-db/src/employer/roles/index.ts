@@ -1,5 +1,13 @@
+import { Prisma } from "../../generated/prisma/client";
 import type { HrmsDb } from "../../shared/client";
 import { parseEmployerId, roleIdSchema } from "../../shared/ids";
+import {
+  likeContains,
+  pageQuery,
+  searchText,
+  totalCountOf,
+  type PageResult,
+} from "../../shared/page.ts";
 
 export {
   LOCATION_BU_IDS_MAX_LENGTH,
@@ -45,8 +53,34 @@ export type RolePageGrant = {
   masterIsActive: number | boolean | null;
 };
 
-export async function listRoles(db: HrmsDb, employerId: number): Promise<RoleRow[]> {
+export type RoleListPage = PageResult<RoleRow>;
+export type RoleGrantPage = PageResult<RolePageGrant>;
+
+function textFilter(q: string | null, sql: Prisma.Sql): Prisma.Sql {
+  if (q == null) {
+    return Prisma.empty;
+  }
+  return sql;
+}
+
+export async function listRoles(
+  db: HrmsDb,
+  employerId: number,
+  filters: { page?: number | null; q?: string | null } = {},
+): Promise<RoleListPage> {
   const tenantId = parseEmployerId(employerId);
+  const paging = pageQuery(filters.page);
+  const q = searchText(filters.q);
+  const pattern = q == null ? null : likeContains(q);
+  const nameFilter = textFilter(
+    q,
+    Prisma.sql`AND (
+        Roles.RoleName LIKE ${pattern}
+        OR Roles.RoleType LIKE ${pattern}
+        OR ReportingRole.RoleName LIKE ${pattern}
+        OR CONVERT(NVARCHAR(20), Roles.RoleID) LIKE ${pattern}
+    )`,
+  );
   const rows = await db.$queryRaw<
     Array<{
       RoleID: number;
@@ -59,6 +93,7 @@ export async function listRoles(db: HrmsDb, employerId: number): Promise<RoleRow
       PageGrantCount: number;
       RoleTabGrantCount: number;
       UserCount: number;
+      TotalCount: number | bigint | null;
     }>
   >`
     SELECT
@@ -86,7 +121,8 @@ export async function listRoles(db: HrmsDb, employerId: number): Promise<RoleRow
             FROM dbo.TUsers AS Users
             WHERE Users.RoleID = Roles.RoleID
                 AND Users.Employerid = ${tenantId}
-        ) AS UserCount
+        ) AS UserCount,
+        COUNT(*) OVER() AS TotalCount
     FROM dbo.TRoles AS Roles
     LEFT JOIN dbo.TRoles AS ReportingRole
         ON ReportingRole.RoleID = Roles.ReportingType
@@ -94,32 +130,50 @@ export async function listRoles(db: HrmsDb, employerId: number): Promise<RoleRow
             (Roles.IsDefault = 1 AND (Roles.Employerid = 0 OR Roles.Employerid = ${tenantId}))
             OR (Roles.IsDefault = 0 AND Roles.Employerid = ${tenantId})
         )
-    ORDER BY Roles.IsDefault DESC, Roles.RoleName
+        ${nameFilter}
+    ORDER BY Roles.IsDefault DESC, Roles.RoleName, Roles.RoleID
+    OFFSET ${paging.offset} ROWS FETCH NEXT ${paging.pageSize} ROWS ONLY
   `;
-  return rows.map((row) => ({
-    roleId: row.RoleID,
-    roleName: row.RoleName,
-    isDefault: row.IsDefault,
-    isActive: row.IsActive,
-    employerId: row.Employerid,
-    roleType: row.RoleType,
-    reportingTypeName: row.ReportingTypeName,
-    pageGrantCount: Number(row.PageGrantCount),
-    roleTabGrantCount: Number(row.RoleTabGrantCount),
-    userCount: Number(row.UserCount),
-  }));
+  return {
+    rows: rows.map((row) => ({
+      roleId: row.RoleID,
+      roleName: row.RoleName,
+      isDefault: row.IsDefault,
+      isActive: row.IsActive,
+      employerId: row.Employerid,
+      roleType: row.RoleType,
+      reportingTypeName: row.ReportingTypeName,
+      pageGrantCount: Number(row.PageGrantCount),
+      roleTabGrantCount: Number(row.RoleTabGrantCount),
+      userCount: Number(row.UserCount),
+    })),
+    totalCount: totalCountOf(rows[0]?.TotalCount),
+    page: paging.page,
+    pageSize: paging.pageSize,
+  };
 }
 
 export async function listRolePageGrants(
   db: HrmsDb,
   employerId: number,
   roleId: number | null,
-): Promise<RolePageGrant[]> {
+  filters: { page?: number | null; q?: string | null } = {},
+): Promise<RoleGrantPage> {
   const tenantId = parseEmployerId(employerId);
+  const paging = pageQuery(filters.page);
   if (!roleId) {
-    return [];
+    return { rows: [], totalCount: 0, page: paging.page, pageSize: paging.pageSize };
   }
   const parsedRoleId = roleIdSchema.parse(roleId);
+  const q = searchText(filters.q);
+  const pattern = q == null ? null : likeContains(q);
+  const nameFilter = textFilter(
+    q,
+    Prisma.sql`AND (
+        Menu.MenuName LIKE ${pattern}
+        OR CONVERT(NVARCHAR(20), RolePages.PageId) LIKE ${pattern}
+    )`,
+  );
   const rows = await db.$queryRaw<
     Array<{
       RoleID: number;
@@ -127,6 +181,7 @@ export async function listRolePageGrants(
       MenuId: number;
       MenuName: string | null;
       MasterIsActive: number | boolean | null;
+      TotalCount: number | bigint | null;
     }>
   >`
     SELECT
@@ -134,7 +189,8 @@ export async function listRolePageGrants(
         Roles.RoleName,
         RolePages.PageId AS MenuId,
         Menu.MenuName,
-        Menu.ISActive AS MasterIsActive
+        Menu.ISActive AS MasterIsActive,
+        COUNT(*) OVER() AS TotalCount
     FROM dbo.TRolePagesMapping AS RolePages
     LEFT JOIN dbo.TRoles AS Roles
         ON Roles.RoleID = RolePages.RoleID
@@ -143,13 +199,20 @@ export async function listRolePageGrants(
         AND Menu.Employerid = RolePages.Employerid
     WHERE RolePages.Employerid = ${tenantId}
         AND RolePages.RoleID = ${parsedRoleId}
-    ORDER BY Menu.MenuName
+        ${nameFilter}
+    ORDER BY Menu.MenuName, RolePages.PageId
+    OFFSET ${paging.offset} ROWS FETCH NEXT ${paging.pageSize} ROWS ONLY
   `;
-  return rows.map((row) => ({
-    roleId: row.RoleID,
-    roleName: row.RoleName,
-    menuId: row.MenuId,
-    menuName: row.MenuName,
-    masterIsActive: row.MasterIsActive,
-  }));
+  return {
+    rows: rows.map((row) => ({
+      roleId: row.RoleID,
+      roleName: row.RoleName,
+      menuId: row.MenuId,
+      menuName: row.MenuName,
+      masterIsActive: row.MasterIsActive,
+    })),
+    totalCount: totalCountOf(rows[0]?.TotalCount),
+    page: paging.page,
+    pageSize: paging.pageSize,
+  };
 }

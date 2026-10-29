@@ -319,6 +319,10 @@ export function JobRowErrorsCard({
   rowErrorsScript,
   executionErrors,
   executionErrorsScript,
+  executionPage,
+  executionPageSize,
+  executionSearch,
+  executionTotal,
 }: {
   employerId: number;
   upload: UploadDetail;
@@ -328,6 +332,10 @@ export function JobRowErrorsCard({
   rowErrorsScript: string;
   executionErrors: UploadExecutionError[];
   executionErrorsScript: string;
+  executionPage: number;
+  executionPageSize: number;
+  executionSearch: string;
+  executionTotal: number;
 }): React.JSX.Element {
   const router = useRouter();
   return (
@@ -338,7 +346,7 @@ export function JobRowErrorsCard({
             options={[
               { label: `Validation (${upload.invalid})`, value: "validation" },
               { label: `Processing (${upload.unprocessed})`, value: "processing" },
-              { label: `System (${executionErrors.length})`, value: "system" },
+              { label: `System (${executionTotal})`, value: "system" },
             ]}
             onChange={(next) => {
               router.push(
@@ -351,7 +359,17 @@ export function JobRowErrorsCard({
           />
         </div>
         {errorClass === "system" ? (
-          <ExecutionTable errors={executionErrors} queryScript={executionErrorsScript} />
+          <ExecutionTable
+            employerId={employerId}
+            errors={executionErrors}
+            page={executionPage}
+            pageSize={executionPageSize}
+            queryScript={executionErrorsScript}
+            search={executionSearch}
+            selectedSectionId={selectedSection?.uploadSectionId ?? null}
+            total={executionTotal}
+            uploadId={upload.uploadId}
+          />
         ) : (
           <RowErrorsTable
             employerId={employerId}
@@ -570,6 +588,7 @@ export function JobStagingCard({
   selectedSection,
   staging,
   stagingScript,
+  stagingSearch,
   finalize,
 }: {
   employerId: number;
@@ -578,8 +597,10 @@ export function JobStagingCard({
   selectedSection: UploadSectionRollup | null;
   staging: CreationStagingSummary;
   stagingScript: string;
+  stagingSearch: string;
   finalize: CreationFinalize | null;
 }): React.JSX.Element {
+  const router = useRouter();
   return (
     <Card className="mb-4" title="Creation staging">
           <p className="mb-3 text-slate-600">
@@ -591,11 +612,33 @@ export function JobStagingCard({
             rowKey={(row) => row.emailId ?? String(row.employeeId ?? "")}
             dataSource={staging.orphans}
             size="small"
-            pagination={
-              staging.orphans.length > 20
-                ? { pageSize: 20, showTotal: (total) => `${total} orphans` }
-                : false
-            }
+            searchQuery={stagingSearch}
+            onSearch={(next) => {
+              router.push(
+                uploadDetailHref(employerId, upload.uploadId, {
+                  section: selectedSection?.uploadSectionId,
+                  error: errorClass,
+                  q: next || null,
+                }),
+              );
+            }}
+            pagination={{
+              current: staging.page,
+              pageSize: staging.pageSize,
+              total: staging.totalCount,
+              showSizeChanger: false,
+              showTotal: (count) => `${count} orphans`,
+              onChange: (next) => {
+                router.push(
+                  uploadDetailHref(employerId, upload.uploadId, {
+                    section: selectedSection?.uploadSectionId,
+                    error: errorClass,
+                    q: stagingSearch || null,
+                    page: next,
+                  }),
+                );
+              },
+            }}
             locale={{ emptyText: "No staging orphans." }}
             columns={[
               { title: "Email", dataIndex: "emailId", render: dash },
@@ -966,12 +1009,27 @@ function RowErrorsTable({
 }
 
 function ExecutionTable({
+  employerId,
   errors,
+  page,
+  pageSize,
   queryScript,
+  search,
+  selectedSectionId,
+  total,
+  uploadId,
 }: {
+  employerId: number;
   errors: UploadExecutionError[];
+  page: number;
+  pageSize: number;
   queryScript: string;
+  search: string;
+  selectedSectionId: number | null;
+  total: number;
+  uploadId: number;
 }): React.JSX.Element {
+  const router = useRouter();
   return (
     <DataTable
       queryScript={queryScript}
@@ -979,9 +1037,32 @@ function ExecutionTable({
       dataSource={errors}
       size="small"
       scroll={{ x: "max-content" }}
+      searchQuery={search}
+      onSearch={(next) => {
+        router.push(
+          uploadDetailHref(employerId, uploadId, {
+            section: selectedSectionId,
+            error: "system",
+            q: next || null,
+          }),
+        );
+      }}
       pagination={{
-        pageSize: 20,
-        showTotal: (total) => `${total} system errors`,
+        current: page,
+        pageSize,
+        total,
+        showSizeChanger: false,
+        showTotal: (count) => `${count} system errors`,
+        onChange: (next) => {
+          router.push(
+            uploadDetailHref(employerId, uploadId, {
+              section: selectedSectionId,
+              error: "system",
+              q: search || null,
+              page: next,
+            }),
+          );
+        },
       }}
       locale={{
         emptyText:

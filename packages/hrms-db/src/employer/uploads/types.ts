@@ -79,12 +79,32 @@ export type UploadCatalog = {
   notes: string[];
   sections: UploadCatalogSection[];
   fields: UploadCatalogField[];
+  fieldTotalCount: number;
+  fieldPage: number;
+  fieldPageSize: number;
+};
+
+export type UploadCatalogListFilters = {
+  page?: number | null;
+  q?: string | null;
+  sectionId?: number | null;
+  /** Upload header compare: every field in these sections, not one page. */
+  sectionIds?: number[] | null;
 };
 
 export type UploadListFilters = {
   type?: UploadTypeKey | null;
   status?: string | null;
   uploadId?: number | null;
+  page?: number | null;
+  q?: string | null;
+};
+
+export type UploadListPage = {
+  rows: UploadListItem[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
 };
 
 export type UploadListItem = {
@@ -253,6 +273,16 @@ export type CreationStagingSummary = {
   stagingCount: number;
   orphanCount: number;
   orphans: CreationStagingRow[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+};
+
+export type UploadExecutionErrorPage = {
+  rows: UploadExecutionError[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
 };
 
 export type CreationFinalize = {

@@ -1,6 +1,12 @@
 import { Prisma } from "../../generated/prisma/client";
 import type { HrmsDb } from "../../shared/client";
 import { parseEmployerId } from "../../shared/ids";
+import {
+  likeContains,
+  pageQuery,
+  searchText,
+  totalCountOf,
+} from "../../shared/page.ts";
 import { presentTables } from "../../shared/objects";
 import {
   employeeListSectionCountJoins,
@@ -27,6 +33,9 @@ export type EmployeeSearchHit = {
 export type EmployeeSearchResult = {
   hits: EmployeeSearchHit[];
   unavailable: UnavailableSection[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
 };
 
 type SearchRow = {
@@ -36,6 +45,7 @@ type SearchRow = {
   WorkEmail: string | null;
   EmployeeStatus: string | null;
   RoleName: string | null;
+  TotalCount: number | bigint | null;
   SkillCount: number | null;
   DomainCount: number | null;
   PassportVisaCount: number | null;
@@ -58,19 +68,22 @@ export async function searchEmployees(
   db: HrmsDb,
   employerId: number,
   search: string,
+  page?: number | null,
 ): Promise<EmployeeSearchResult> {
   const tenantId = parseEmployerId(employerId);
   const present = await presentTables(db, sectionCountTableNames());
   const unavailable = unavailableSectionCounts(present);
-  const trimmed = search.trim();
+  const paging = pageQuery(page);
+  const q = searchText(search);
+  const pattern = q == null ? null : likeContains(q);
   const nameFilter =
-    trimmed === ""
+    pattern == null
       ? Prisma.empty
       : Prisma.sql`AND (
-            EmployeeInfo.EmploymentNumber LIKE ${`%${trimmed}%`}
-            OR Employee.FName LIKE ${`%${trimmed}%`}
-            OR Employee.LName LIKE ${`%${trimmed}%`}
-            OR Employee.EmailID LIKE ${`%${trimmed}%`}
+            EmployeeInfo.EmploymentNumber LIKE ${pattern}
+            OR Employee.FName LIKE ${pattern}
+            OR Employee.LName LIKE ${pattern}
+            OR Employee.EmailID LIKE ${pattern}
         )`;
   const rows = await db.$queryRaw<SearchRow[]>`
     SELECT
@@ -84,6 +97,7 @@ export async function searchEmployees(
             WHEN Employee.IsActive = 'N' THEN 'InActive'
         END AS EmployeeStatus,
         Roles.RoleName,
+        COUNT(*) OVER() AS TotalCount,
         ${employeeListSectionCountSelect(present)}
     FROM dbo.TEmployee AS Employee
     INNER JOIN dbo.TEmployeeInfo AS EmployeeInfo
@@ -123,6 +137,7 @@ export async function searchEmployees(
     WHERE Employee.Employerid = ${tenantId}
         ${nameFilter}
     ORDER BY Employee.EmployeeId ASC
+    OFFSET ${paging.offset} ROWS FETCH NEXT ${paging.pageSize} ROWS ONLY
   `;
   const hits = rows.map((row) => {
     const counts = Object.fromEntries(
@@ -141,5 +156,11 @@ export async function searchEmployees(
       ...counts,
     };
   });
-  return { hits, unavailable };
+  return {
+    hits,
+    unavailable,
+    totalCount: totalCountOf(rows[0]?.TotalCount),
+    page: paging.page,
+    pageSize: paging.pageSize,
+  };
 }

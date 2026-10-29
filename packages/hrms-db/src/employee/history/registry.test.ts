@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { PAST_TABLE_SPECS, pastSpecForSection } from "./registry.ts";
+import { resolveHistorySectionName } from "./sections.ts";
 
 describe("PAST_TABLE_SPECS column names", () => {
   it("uses the real emergency, passport, and nominee columns (positive)", () => {
@@ -51,5 +52,23 @@ describe("PAST_TABLE_SPECS column names", () => {
 
     const names = PAST_TABLE_SPECS.map((spec) => spec.sectionName);
     assert.equal(new Set(names).size, names.length);
+  });
+});
+
+describe("resolveHistorySectionName", () => {
+  it("keeps the selected section", () => {
+    assert.equal(resolveHistorySectionName("Bank Details"), "Bank Details");
+  });
+
+  it("uses the first section when selection is empty or invalid", () => {
+    assert.equal(resolveHistorySectionName(null), "Personal Details");
+    assert.equal(resolveHistorySectionName("Not A Section"), "Personal Details");
+  });
+
+  it("supports the screen default for future history", () => {
+    assert.equal(
+      resolveHistorySectionName(undefined, "Current Employment Details"),
+      "Current Employment Details",
+    );
   });
 });

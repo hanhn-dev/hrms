@@ -1,7 +1,9 @@
 "use client";
 
 import { Tag } from "antd";
+import { useRouter } from "next/navigation";
 import { DataTable } from "@/shared/ui/data-table";
+import { listHref } from "@/shared/list-query";
 import type { ColumnsType } from "antd/es/table";
 import type { EmployeeSearchHit } from "@/features/employee/search/queries";
 import { EntityLink } from "@/shared/entity-link";
@@ -79,17 +81,25 @@ function sectionCountColumns(unavailableFields: ReadonlySet<string>): EmployeeCo
 
 export function EmployeeSearchTable({
   employerId,
+  page,
+  pageSize,
   search,
   results,
+  total,
   unavailableFields = [],
   queryScript,
 }: {
   employerId: number;
+  page: number;
+  pageSize: number;
   search: string;
   results: EmployeeSearchHit[];
+  total: number;
   unavailableFields?: readonly string[];
   queryScript: string;
 }): React.JSX.Element {
+  const router = useRouter();
+  const path = `/employers/${employerId}/employees`;
   const unavailable = new Set(unavailableFields);
   const roleFilters = Array.from(
       new Set(results.map((row) => row.roleName?.trim() || "—").filter(Boolean)),
@@ -158,10 +168,19 @@ export function EmployeeSearchTable({
       rowKey="employeeId"
       dataSource={results}
       scroll={{ x: "max-content" }}
+      searchQuery={search}
+      onSearch={(next) => {
+        router.push(listHref(path, { page: 1, q: next || null }));
+      }}
       pagination={{
-        pageSize: 20,
-        showSizeChanger: true,
-        showTotal: (total) => `${total} employees`,
+        current: page,
+        pageSize,
+        total,
+        showSizeChanger: false,
+        showTotal: (count) => `${count} employees`,
+        onChange: (next) => {
+          router.push(listHref(path, { page: next, q: search || null }));
+        },
       }}
       locale={{
         emptyText: search

@@ -1,12 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Alert, Button, Form, Space, TreeSelect, Typography } from "antd";
 import { useRouter } from "next/navigation";
 import {
   commitSetRoleLocationBu,
   previewSetRoleLocationBu,
 } from "@/features/employer/roles/mutations";
+import {
+  listAllRoleBusinessUnits,
+  listAllRoleLocations,
+  searchRoleBusinessUnits,
+  searchRoleLocations,
+} from "@/features/employer/roles/queries";
 import {
   allBusinessUnitIds,
   allLocationIds,
@@ -21,6 +27,23 @@ import {
 import { ConfirmWriteModal, SearchSelect } from "@/shared/ui";
 
 const { Text } = Typography;
+
+function mergeSelected<T>(
+  base: readonly T[],
+  extra: readonly T[],
+  selected: readonly number[],
+  idOf: (row: T) => number,
+): T[] {
+  const chosen = new Set(selected);
+  const byId = new Map(base.map((row) => [idOf(row), row]));
+  for (const row of extra) {
+    const id = idOf(row);
+    if (chosen.has(id)) {
+      byId.set(id, row);
+    }
+  }
+  return [...byId.values()];
+}
 
 export function RoleLocationBuPanel({
   employerId,
@@ -44,11 +67,66 @@ export function RoleLocationBuPanel({
   const [selectedBusinessUnitIds, setSelectedBusinessUnitIds] = useState<
     number[]
   >(() => idsFromCsv(scope?.businessUnitIds));
+  const [locationQuery, setLocationQuery] = useState("");
+  const [businessUnitQuery, setBusinessUnitQuery] = useState("");
+  const [locationRows, setLocationRows] = useState(locations);
+  const [businessUnitRows, setBusinessUnitRows] = useState(businessUnits);
 
-  const locationOptions = locationSelectOptions(locations);
-  const buTreeData = businessUnitTreeData(businessUnits);
-  const allLocationIdList = allLocationIds(locations);
-  const allBusinessUnitIdList = allBusinessUnitIds(businessUnits);
+  useEffect(() => {
+    const trimmed = locationQuery.trim();
+    if (trimmed.length < 2) {
+      return;
+    }
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      void searchRoleLocations(employerId, trimmed, selectedLocationIds).then((rows) => {
+        if (!cancelled) {
+          setLocationRows(rows);
+        }
+      });
+    }, 300);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [employerId, locationQuery, selectedLocationIds]);
+
+  useEffect(() => {
+    const trimmed = businessUnitQuery.trim();
+    if (trimmed.length < 2) {
+      return;
+    }
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      void searchRoleBusinessUnits(employerId, trimmed, selectedBusinessUnitIds).then(
+        (rows) => {
+          if (!cancelled) {
+            setBusinessUnitRows(rows);
+          }
+        },
+      );
+    }, 300);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [businessUnitQuery, employerId, selectedBusinessUnitIds]);
+
+  const visibleLocations =
+    locationQuery.trim().length < 2
+      ? mergeSelected(locations, locationRows, selectedLocationIds, (row) => row.locationId)
+      : locationRows;
+  const visibleBusinessUnits =
+    businessUnitQuery.trim().length < 2
+      ? mergeSelected(
+          businessUnits,
+          businessUnitRows,
+          selectedBusinessUnitIds,
+          (row) => row.unitId,
+        )
+      : businessUnitRows;
+  const locationOptions = locationSelectOptions(visibleLocations);
+  const buTreeData = businessUnitTreeData(visibleBusinessUnits);
 
   const locationIdsCsv = csvFromIds(selectedLocationIds);
   const businessUnitIdsCsv = csvFromIds(selectedBusinessUnitIds);
@@ -90,7 +168,7 @@ export function RoleLocationBuPanel({
       ) : null}
       <Form layout="vertical" disabled={scope == null}>
         <Form.Item
-          label={`Locations (${selectedLocationIds.length} of ${locations.length} selected)`}
+          label={`Locations (${selectedLocationIds.length} selected)`}
           extra="Empty = unrestricted locations. Select all to map every employer location."
         >
           <Space orientation="vertical" className="w-full" size="small">
@@ -98,22 +176,26 @@ export function RoleLocationBuPanel({
               allowClear
               className="w-full"
               disabled={scope == null}
+              filterOption={false}
               maxTagCount="responsive"
               mode="multiple"
-              optionFilterProp="label"
               options={locationOptions}
               placeholder="Search and select locations by name"
               value={selectedLocationIds}
               onChange={(values: number[]) => {
                 setSelectedLocationIds(values);
               }}
+              onSearch={setLocationQuery}
             />
             <Space wrap>
               <Button
                 disabled={!writesEnabled || scope == null || locations.length === 0}
                 size="small"
                 onClick={() => {
-                  setSelectedLocationIds(allLocationIdList);
+                  void listAllRoleLocations(employerId).then((rows) => {
+                    setLocationRows(rows);
+                    setSelectedLocationIds(allLocationIds(rows));
+                  });
                 }}
               >
                 Select all locations
@@ -133,7 +215,7 @@ export function RoleLocationBuPanel({
           </Space>
         </Form.Item>
         <Form.Item
-          label={`Business units (${selectedBusinessUnitIds.length} of ${businessUnits.length} selected)`}
+          label={`Business units (${selectedBusinessUnitIds.length} selected)`}
           extra="Org hierarchy. Checking a parent selects its children. Empty = unrestricted BUs."
         >
           <Space orientation="vertical" className="w-full" size="small">
@@ -144,11 +226,12 @@ export function RoleLocationBuPanel({
               maxTagCount="responsive"
               placeholder="Search and select business units by name"
               showCheckedStrategy={TreeSelect.SHOW_CHILD}
+              filterTreeNode={false}
               showSearch
               treeCheckable
               treeData={buTreeData}
               treeDefaultExpandAll
-              treeNodeFilterProp="title"
+              onSearch={setBusinessUnitQuery}
               value={selectedBusinessUnitIds}
               onChange={(values) => {
                 const next = Array.isArray(values)
@@ -164,7 +247,10 @@ export function RoleLocationBuPanel({
                 }
                 size="small"
                 onClick={() => {
-                  setSelectedBusinessUnitIds(allBusinessUnitIdList);
+                  void listAllRoleBusinessUnits(employerId).then((rows) => {
+                    setBusinessUnitRows(rows);
+                    setSelectedBusinessUnitIds(allBusinessUnitIds(rows));
+                  });
                 }}
               >
                 Select all business units

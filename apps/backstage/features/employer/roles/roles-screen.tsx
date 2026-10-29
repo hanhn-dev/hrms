@@ -9,10 +9,18 @@ import { PageHelp } from "@/shared/ui/shell-header-context";
 
 export function RolesScreen({
   employerId,
+  grantPage,
+  grantSearch,
   selectedRoleId,
+  page,
+  search,
 }: {
   employerId: number;
+  grantPage: number;
+  grantSearch: string;
   selectedRoleId: number | null;
+  page: number;
+  search: string;
 }): React.JSX.Element {
   return (
     <>
@@ -36,7 +44,14 @@ export function RolesScreen({
         ]}
       />
       <Suspense fallback={<SectionFallback title="Tenant roles" />}>
-        <RolesListSlot employerId={employerId} />
+        <RolesListSlot
+          employerId={employerId}
+          grantPage={grantPage}
+          grantSearch={grantSearch}
+          page={page}
+          search={search}
+          selectedRoleId={selectedRoleId}
+        />
       </Suspense>
       <Suspense
         fallback={
@@ -65,7 +80,14 @@ export function RolesScreen({
           />
         }
       >
-        <RoleGrantsSlot employerId={employerId} selectedRoleId={selectedRoleId} />
+        <RoleGrantsSlot
+          employerId={employerId}
+          page={grantPage}
+          rolePage={page}
+          roleSearch={search}
+          search={grantSearch}
+          selectedRoleId={selectedRoleId}
+        />
       </Suspense>
     </>
   );

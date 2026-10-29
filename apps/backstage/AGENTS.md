@@ -129,6 +129,7 @@ Uses the feature-based layout above. `app/(ops)/` is the thin route map for empl
 
 - Components are `antd` only; icons are `@ant-design/icons` only.
 - Data access goes through `@hrms/db`. Do not use raw `mssql` or HRMS stored procedures from employer/employee features.
+- Lists return one SQL page (`LIST_PAGE_SIZE`, `?page=`, `?q=`). Do not download a catalog and page it in the browser. Azure screens load a working set and search for more. See `.cursor/rules/bounded-reads.mdc`.
 - **Exception — Data Builder Studio (`features/dbs`):** may call `@hrms/database-inspector` for catalog/object details and gated procedure execute, plus `@hrms/db` dbs helpers for SELECT-only SQL and row preview. Do not copy that pattern into other ops features.
 - Ops auth uses the same Microsoft session. `Backstage.Employers` opens `/employers`, `Backstage.Dbs` opens `/dbs`, and `Backstage.Azure` opens `/azure`. `Backstage.Admin` can open every area and approve guide proposals.
 - Writes require `TROUBLESHOOTER_WRITES_ENABLED=1`, non-production `NODE_ENV`, and the cookie-selected env in `TROUBLESHOOTER_WRITES_ENVS`.

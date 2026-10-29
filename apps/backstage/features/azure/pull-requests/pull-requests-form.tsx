@@ -14,7 +14,10 @@ import {
   type PullRequestDateField,
   type PullRequestSearchCriteria,
 } from "@hrms/azure-devops/criteria";
-import type { PullRequestSearchOptions } from "@/features/azure/pull-requests/queries";
+import {
+  loadPullRequestAreas,
+  type PullRequestSearchOptions,
+} from "@/features/azure/pull-requests/queries";
 import { canSearchPullRequests } from "@/features/azure/pull-requests/search-criteria";
 import {
   joinWorkItemIdTags,
@@ -53,13 +56,16 @@ export function PullRequestsForm({
   onClear: () => void;
 }): React.JSX.Element {
   const [criteria, setCriteria] = useState<PullRequestSearchCriteria>(emptyPullRequestSearchCriteria());
+  const [modules, setModules] = useState(options.modules);
+  const [areasLoading, setAreasLoading] = useState(false);
+  const [areasLoaded, setAreasLoaded] = useState(options.modules.length > 0);
   const ready = canSearchPullRequests(criteria);
 
   const nameCounts = new Map<string, number>();
-  for (const area of options.modules) {
+  for (const area of modules) {
       nameCounts.set(area.name, (nameCounts.get(area.name) ?? 0) + 1);
     }
-  const moduleOptions = options.modules.map((area) => ({
+  const moduleOptions = modules.map((area) => ({
       value: area.path,
       label: optionLabel(area.name, area.path, nameCounts),
     }));
@@ -87,6 +93,21 @@ export function PullRequestsForm({
   function clear(): void {
     setCriteria(emptyPullRequestSearchCriteria());
     onClear();
+  }
+
+  async function ensureAreasLoaded(): Promise<void> {
+    if (areasLoaded || areasLoading) {
+      return;
+    }
+    setAreasLoading(true);
+    try {
+      setModules(await loadPullRequestAreas());
+      setAreasLoaded(true);
+    } catch {
+      setModules([]);
+    } finally {
+      setAreasLoading(false);
+    }
   }
 
   const rangeValue: [Dayjs | null, Dayjs | null] | null =
@@ -118,10 +139,16 @@ export function PullRequestsForm({
         <SearchSelect
           allowClear
           className="w-full"
+          loading={areasLoading}
           mode="multiple"
           options={moduleOptions}
           placeholder="Area path"
           value={[...criteria.areaPaths]}
+          onOpenChange={(open) => {
+            if (open) {
+              void ensureAreasLoaded();
+            }
+          }}
           onChange={(value) => patch({ areaPaths: value ?? [] })}
         />
       </Field>

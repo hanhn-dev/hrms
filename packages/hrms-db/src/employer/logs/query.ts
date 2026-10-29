@@ -6,6 +6,7 @@ import { activityLabel, activityTypeIdsForText } from "./activity-label";
 import { ELMAH_LIST_COLUMNS, extractElmahStack, shortExceptionType } from "./elmah";
 import { readablePageName } from "./page-name";
 import { parseWindowsTimeZoneOffset, type TimeZoneOffset } from "./timezone";
+import { pageOf } from "../../shared/page.ts";
 import {
   clampLogWindow,
   LOG_PAGE_SIZE,
@@ -171,13 +172,6 @@ export type TsqlErrorLogList = {
 };
 
 type Counted = { TotalCount: number | bigint | null };
-
-function pageOf(value: number | null | undefined): number {
-  if (value == null || !Number.isInteger(value) || value < 1) {
-    return 1;
-  }
-  return Math.min(value, 10_000);
-}
 
 function textOf(value: string | null | undefined, maxLength: number): string | null {
   const trimmed = value?.trim() ?? "";

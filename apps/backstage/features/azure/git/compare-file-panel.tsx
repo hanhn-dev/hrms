@@ -3,6 +3,7 @@
 import { Alert, Button, Table } from "antd";
 import { useEffect, useRef, useState } from "react";
 import type { GitBranchSummary, GitCommitSummary, GitFilePair } from "@hrms/azure-devops";
+import { mergeCommitPages } from "@/features/azure/git/activity-page";
 import { FileDiff } from "@/features/azure/git/file-diff";
 import { GitPathSearch } from "@/features/azure/git/git-path-search";
 import { buildGitBlameUrl, buildGitCommitUrl } from "@/features/azure/git/git-links";
@@ -41,8 +42,18 @@ export function CompareFilePanel({
   const [pair, setPair] = useState<GitFilePair | null>(null);
   const [commits, setCommits] = useState<GitCommitSummary[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [comparedPath, setComparedPath] = useState<string | null>(null);
+  const [historyPage, setHistoryPage] = useState<{
+    leftBranch: string;
+    rightBranch: string;
+    path: string;
+    leftSkip: number;
+    rightSkip: number;
+    leftHasMore: boolean;
+    rightHasMore: boolean;
+  } | null>(null);
   const [appliedBranches, setAppliedBranches] = useState<readonly GitBranchSummary[] | null>(null);
   const [appliedDefaultBranch, setAppliedDefaultBranch] = useState<string | null | undefined>(undefined);
   const branchChoice = useRef({ left: leftBranch, right: rightBranch });
@@ -87,6 +98,7 @@ export function CompareFilePanel({
     setError(null);
     setPair(null);
     setCommits([]);
+    setHistoryPage(null);
     try {
       const [filePair, onRight, onLeft] = await Promise.all([
         loadGitFilePair({
@@ -120,15 +132,71 @@ export function CompareFilePanel({
         rightBranch: right.name,
       });
       setCommits(
-        [...byId.values()].sort((leftCommit, rightCommit) =>
-          (rightCommit.authoredAt ?? "").localeCompare(leftCommit.authoredAt ?? ""),
-        ),
+        mergeCommitPages([], [...byId.values()]),
       );
+      setHistoryPage({
+        leftBranch: left.name,
+        rightBranch: right.name,
+        path: filePath,
+        leftSkip: onLeft.skip + onLeft.top,
+        rightSkip: onRight.skip + onRight.top,
+        leftHasMore: onLeft.hasMore,
+        rightHasMore: onRight.hasMore,
+      });
     } catch (loadError) {
       rethrowRedirect(loadError);
       setError(errorMessage(loadError));
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function loadMoreHistory(): Promise<void> {
+    if (!historyPage || loadingMore || (!historyPage.leftHasMore && !historyPage.rightHasMore)) {
+      return;
+    }
+    setLoadingMore(true);
+    setError(null);
+    try {
+      const [onRight, onLeft] = await Promise.all([
+        historyPage.rightHasMore
+          ? loadGitCommits({
+              repositoryId,
+              branch: historyPage.rightBranch,
+              compareBranch: historyPage.leftBranch,
+              path: historyPage.path,
+              skip: historyPage.rightSkip,
+            })
+          : null,
+        historyPage.leftHasMore
+          ? loadGitCommits({
+              repositoryId,
+              branch: historyPage.leftBranch,
+              compareBranch: historyPage.rightBranch,
+              path: historyPage.path,
+              skip: historyPage.leftSkip,
+            })
+          : null,
+      ]);
+      setCommits((current) =>
+        mergeCommitPages(current, [...(onRight?.commits ?? []), ...(onLeft?.commits ?? [])]),
+      );
+      setHistoryPage((current) =>
+        current === null
+          ? null
+          : {
+              ...current,
+              rightSkip: onRight ? onRight.skip + onRight.top : current.rightSkip,
+              leftSkip: onLeft ? onLeft.skip + onLeft.top : current.leftSkip,
+              rightHasMore: onRight?.hasMore ?? false,
+              leftHasMore: onLeft?.hasMore ?? false,
+            },
+      );
+    } catch (loadError) {
+      rethrowRedirect(loadError);
+      setError(errorMessage(loadError));
+    } finally {
+      setLoadingMore(false);
     }
   }
 
@@ -255,6 +323,17 @@ export function CompareFilePanel({
             rowKey="commitId"
             size="small"
           />
+          {historyPage?.leftHasMore || historyPage?.rightHasMore ? (
+            <Button
+              className="mt-3"
+              loading={loadingMore}
+              onClick={() => {
+                void loadMoreHistory();
+              }}
+            >
+              Load more commits
+            </Button>
+          ) : null}
         </div>
       ) : null}
     </div>

@@ -1,6 +1,14 @@
 import { Prisma } from "../../generated/prisma/client";
 import type { HrmsDb } from "../../shared/client";
 import { parseEmployerId } from "../../shared/ids";
+import {
+  likeContains,
+  LIST_PAGE_SIZE,
+  pageQuery,
+  searchText,
+  totalCountOf,
+  type PageResult,
+} from "../../shared/page.ts";
 import { asBool } from "./helpers";
 
 export type WorkflowGroupMember = {
@@ -34,7 +42,10 @@ type GroupRow = {
   LocationCount: number;
   BusinessUnitCount: number;
   ReferencedByWorkflowCount: number;
+  TotalCount?: number | bigint | null;
 };
+
+export type WorkflowGroupPage = PageResult<WorkflowGroupRow>;
 
 type MemberRow = {
   Roleid: number;
@@ -43,11 +54,35 @@ type MemberRow = {
   EmploymentNumber: string | null;
 };
 
-export async function listWorkflowGroups(
+async function loadWorkflowGroups(
   db: HrmsDb,
   employerId: number,
-): Promise<WorkflowGroupRow[]> {
+  filters: {
+    page?: number | null;
+    q?: string | null;
+    roleId?: number | null;
+    unbounded?: boolean;
+  },
+): Promise<WorkflowGroupPage> {
   const tenantId = parseEmployerId(employerId);
+  const paging = filters.unbounded ? null : pageQuery(filters.page);
+  const q = searchText(filters.q);
+  const pattern = q == null ? null : likeContains(q);
+  const nameFilter =
+    pattern == null
+      ? Prisma.empty
+      : Prisma.sql`AND (
+            RoleGroup.RoleName LIKE ${pattern}
+            OR RoleGroup.RoleDescription LIKE ${pattern}
+        )`;
+  const roleFilter =
+    filters.roleId == null
+      ? Prisma.empty
+      : Prisma.sql`AND RoleGroup.RoleId = ${filters.roleId}`;
+  const pageClause =
+    paging == null
+      ? Prisma.empty
+      : Prisma.sql`OFFSET ${paging.offset} ROWS FETCH NEXT ${paging.pageSize} ROWS ONLY`;
   const rows = await db.$queryRaw<GroupRow[]>`
     SELECT
         RoleGroup.RoleId,
@@ -85,14 +120,18 @@ export async function listWorkflowGroups(
                         AND ',' + Detail.ApproversNotifications + ',' LIKE '%,' + RoleGroup.RoleName + ',%'
                     )
                 )
-        ) AS ReferencedByWorkflowCount
+        ) AS ReferencedByWorkflowCount,
+        COUNT(*) OVER() AS TotalCount
     FROM dbo.TRoleManagement AS RoleGroup
     WHERE ISNULL(RoleGroup.IsDelete, 0) = 0
         AND (
             RoleGroup.Employerid = ${tenantId}
             OR (RoleGroup.Employerid = 0 AND RoleGroup.IsDefault = 'Y')
         )
-    ORDER BY RoleGroup.IsDefault DESC, RoleGroup.RoleName
+        ${nameFilter}
+        ${roleFilter}
+    ORDER BY RoleGroup.IsDefault DESC, RoleGroup.RoleName, RoleGroup.RoleId
+    ${pageClause}
   `;
   const unique = new Map<number, WorkflowGroupRow>();
   for (const row of rows) {
@@ -150,7 +189,30 @@ export async function listWorkflowGroups(
     group.isEmptyReferenced = group.referencedByWorkflowCount > 0 && group.memberCount === 0;
   }
 
-  return [...unique.values()];
+  const listed = [...unique.values()];
+  return {
+    rows: listed,
+    totalCount: totalCountOf(rows[0]?.TotalCount),
+    page: paging?.page ?? 1,
+    pageSize: paging?.pageSize ?? Math.max(listed.length, 1),
+  };
+}
+
+export async function listWorkflowGroups(
+  db: HrmsDb,
+  employerId: number,
+  filters: { page?: number | null; q?: string | null; roleId?: number | null } = {},
+): Promise<WorkflowGroupPage> {
+  return loadWorkflowGroups(db, employerId, filters);
+}
+
+/** Approver-group options on one workflow. Not the catalog page. */
+export async function listWorkflowActorGroups(
+  db: HrmsDb,
+  employerId: number,
+): Promise<WorkflowGroupRow[]> {
+  const loaded = await loadWorkflowGroups(db, employerId, { unbounded: true });
+  return loaded.rows;
 }
 
 export type WorkflowScopeOption = {
@@ -158,11 +220,33 @@ export type WorkflowScopeOption = {
   name: string;
 };
 
+function scopeNameFilter(
+  q: string | null,
+  column: Prisma.Sql,
+): Prisma.Sql {
+  if (q == null) {
+    return Prisma.empty;
+  }
+  return Prisma.sql`AND ${column} LIKE ${likeContains(q)}`;
+}
+
+function includeIdFilter(
+  includeIds: readonly number[] | undefined,
+  column: Prisma.Sql,
+): Prisma.Sql {
+  if (includeIds == null || includeIds.length === 0) {
+    return Prisma.empty;
+  }
+  return Prisma.sql`OR ${column} IN (${Prisma.join(includeIds)})`;
+}
+
 export async function listWorkflowLocations(
   db: HrmsDb,
   employerId: number,
+  filters: { q?: string | null; includeIds?: readonly number[] } = {},
 ): Promise<WorkflowScopeOption[]> {
   const tenantId = parseEmployerId(employerId);
+  const q = searchText(filters.q);
   const rows = await db.$queryRaw<
     Array<{ LocationID: number; LocationName: string }>
   >`
@@ -170,7 +254,19 @@ export async function listWorkflowLocations(
     FROM dbo.TLocation AS Location
     WHERE Location.Employerid = ${tenantId}
         AND Location.IsActive = 1
-    ORDER BY Location.LocationName
+        AND (
+            Location.LocationID IN (
+                SELECT TOP (${Prisma.raw(String(LIST_PAGE_SIZE))})
+                    InnerLocation.LocationID
+                FROM dbo.TLocation AS InnerLocation
+                WHERE InnerLocation.Employerid = ${tenantId}
+                    AND InnerLocation.IsActive = 1
+                    ${scopeNameFilter(q, Prisma.sql`InnerLocation.LocationName`)}
+                ORDER BY InnerLocation.LocationName, InnerLocation.LocationID
+            )
+            ${includeIdFilter(filters.includeIds, Prisma.sql`Location.LocationID`)}
+        )
+    ORDER BY Location.LocationName, Location.LocationID
   `;
   return rows.map((row) => ({
     id: row.LocationID,
@@ -181,15 +277,30 @@ export async function listWorkflowLocations(
 export async function listWorkflowBusinessUnits(
   db: HrmsDb,
   employerId: number,
+  filters: { q?: string | null; includeIds?: readonly number[] } = {},
 ): Promise<WorkflowScopeOption[]> {
   const tenantId = parseEmployerId(employerId);
+  const q = searchText(filters.q);
   const rows = await db.$queryRaw<Array<{ UnitID: number; UnitName: string }>>`
     SELECT BusinessUnit.UnitID, BusinessUnit.UnitName
     FROM dbo.TOrgHierarchyDetails AS BusinessUnit
     WHERE BusinessUnit.Employerid = ${tenantId}
         AND BusinessUnit.isactive = 'Y'
         AND BusinessUnit.isdelete = 'N'
-    ORDER BY BusinessUnit.UnitName
+        AND (
+            BusinessUnit.UnitID IN (
+                SELECT TOP (${Prisma.raw(String(LIST_PAGE_SIZE))})
+                    InnerUnit.UnitID
+                FROM dbo.TOrgHierarchyDetails AS InnerUnit
+                WHERE InnerUnit.Employerid = ${tenantId}
+                    AND InnerUnit.isactive = 'Y'
+                    AND InnerUnit.isdelete = 'N'
+                    ${scopeNameFilter(q, Prisma.sql`InnerUnit.UnitName`)}
+                ORDER BY InnerUnit.UnitName, InnerUnit.UnitID
+            )
+            ${includeIdFilter(filters.includeIds, Prisma.sql`BusinessUnit.UnitID`)}
+        )
+    ORDER BY BusinessUnit.UnitName, BusinessUnit.UnitID
   `;
   return rows.map((row) => ({
     id: row.UnitID,

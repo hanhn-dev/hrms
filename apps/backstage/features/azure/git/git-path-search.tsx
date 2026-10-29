@@ -75,13 +75,13 @@ export function GitPathSearch({
   onPressEnter?: (value: string) => void;
 }): React.JSX.Element {
   const { message } = App.useApp();
-  const index = useGitFileIndex(repositoryId, branches, fallbackBranch);
   const recents = useSyncExternalStore(
     subscribeRecentGitPaths,
     () => recentGitPathSnapshot(repositoryId),
     () => EMPTY_RECENT_GIT_PATHS,
   );
   const [debouncedValue, setDebouncedValue] = useState(value);
+  const index = useGitFileIndex(repositoryId, branches, fallbackBranch, debouncedValue);
   const valueRef = useRef(value);
 
   useEffect(() => {
@@ -236,7 +236,7 @@ function emptyContent({
     return null;
   }
   if (value.trim().length === 0) {
-    return loading || branchesLoading ? `Loading files from ${branchName}…` : null;
+    return branchesLoading ? `Loading ${branchName}…` : null;
   }
   if (!ready) {
     return error ?? `Loading files from ${branchName}…`;

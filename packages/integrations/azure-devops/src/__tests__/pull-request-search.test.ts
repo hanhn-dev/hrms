@@ -219,7 +219,25 @@ describe('searchPullRequests', () => {
         maxTime: new Date('2026-10-12T23:59:59.999Z'),
       }),
       undefined,
+      0,
+      200,
+    );
+  });
+
+  it('passes the next-page offset to direct pull-request search', async () => {
+    mockGitApi.getPullRequestsByProject.mockResolvedValue([]);
+
+    await searchPullRequests(
+      mockClient,
+      criteria({ authorIds: ['alice-id'], statuses: ['active'] }),
+      200,
+    );
+
+    expect(mockGitApi.getPullRequestsByProject).toHaveBeenCalledWith(
+      'TDG HRMS',
+      expect.any(Object),
       undefined,
+      200,
       200,
     );
   });

@@ -2,6 +2,7 @@ import { Prisma } from "../../generated/prisma/client";
 import type { HrmsDb } from "../../shared/client";
 import { parseEmployerId } from "../../shared/ids";
 import { parseUploadTypeKey, creationExcludedFieldNames, validationRuleNames } from "./classify";
+import { likeContains, pageQuery, searchText, totalCountOf } from "../../shared/page.ts";
 import {
   IMAGE_SECTION_ID,
   IMAGE_SECTION_NAME,
@@ -11,6 +12,7 @@ import {
   UPLOAD_TYPE_LABELS,
   type UploadCatalog,
   type UploadCatalogField,
+  type UploadCatalogListFilters,
   type UploadCatalogSection,
   type UploadCountryOption,
   type UploadTypeKey,
@@ -77,6 +79,7 @@ export async function listUploadCatalog(
   employerId: number,
   type: UploadTypeKey,
   countryId = 0,
+  filters: UploadCatalogListFilters = {},
 ): Promise<UploadCatalog> {
   const tenantId = parseEmployerId(employerId);
   const resolvedType = parseUploadTypeKey(type) ?? "profile";
@@ -87,15 +90,16 @@ export async function listUploadCatalog(
     return imageCatalog(db, tenantId, resolvedCountryId);
   }
   if (resolvedType === "creation") {
-    return creationCatalog(db, tenantId, resolvedCountryId);
+    return creationCatalog(db, tenantId, resolvedCountryId, filters);
   }
-  return profileCatalog(db, tenantId, resolvedCountryId);
+  return profileCatalog(db, tenantId, resolvedCountryId, filters);
 }
 
 async function profileCatalog(
   db: HrmsDb,
   tenantId: number,
   countryId: number,
+  filters: UploadCatalogListFilters,
 ): Promise<UploadCatalog> {
   const sections = await db.$queryRaw<SectionQueryRow[]>`
     SELECT
@@ -110,15 +114,19 @@ async function profileCatalog(
         AND ISNULL(Section.IsActive, 1) = 1
     ORDER BY Section.SectionID
   `;
-  const fields = await listCatalogFields(db, tenantId, countryId, {
+  const fieldOptions = {
     sectionNames: null,
     requireActiveVisible: false,
-    excludedFieldNames: [],
+    excludedFieldNames: [] as string[],
     entities: null,
-  });
-  const sectionIds = new Set(sections.map((section) => section.SectionID));
-  const scopedFields = fields.filter(
-    (field) => field.sectionId > 0 && sectionIds.has(field.sectionId),
+    allowedSectionIds: new Set(sections.map((section) => section.SectionID)),
+  };
+  const counts = await countCatalogFields(db, tenantId, countryId, fieldOptions);
+  const fields = await listCatalogFields(
+    db,
+    tenantId,
+    countryId,
+    catalogFieldQuery(fieldOptions, filters, sections),
   );
   return {
     type: "profile",
@@ -136,8 +144,11 @@ async function profileCatalog(
       sections.length === 0
         ? ["No sections are linked to CategoryID 1 (Bulk Profile Upload)."]
         : [],
-    sections: toCatalogSections(sections, scopedFields),
-    fields: scopedFields,
+    sections: toCatalogSections(sections, counts),
+    fields: fields.rows,
+    fieldTotalCount: fields.totalCount,
+    fieldPage: fields.page,
+    fieldPageSize: fields.pageSize,
   };
 }
 
@@ -145,6 +156,7 @@ async function creationCatalog(
   db: HrmsDb,
   tenantId: number,
   countryId: number,
+  filters: UploadCatalogListFilters,
 ): Promise<UploadCatalog> {
   const settingsRows = await db.$queryRaw<
     Array<{
@@ -175,12 +187,19 @@ async function creationCatalog(
     )
     ORDER BY Section.SectionID
   `;
-  const fields = await listCatalogFields(db, tenantId, countryId, {
-    sectionNames: [...CREATION_SECTIONS],
+  const fieldOptions = {
+    sectionNames: [...CREATION_SECTIONS] as string[],
     requireActiveVisible: true,
     excludedFieldNames: excluded,
     entities: ["system", "custom", "country"],
-  });
+  };
+  const counts = await countCatalogFields(db, tenantId, countryId, fieldOptions);
+  const fields = await listCatalogFields(
+    db,
+    tenantId,
+    countryId,
+    catalogFieldQuery(fieldOptions, filters, sections),
+  );
   const notes = [
     "Template is Personal Details + Current Employment Details. Rows key off Work Email.",
     "Employment Number is excluded unless the creation template opts it in.",
@@ -204,8 +223,11 @@ async function creationCatalog(
       "Finalize employment numbers",
     ],
     notes,
-    sections: toCatalogSections(sections, fields),
-    fields,
+    sections: toCatalogSections(sections, counts),
+    fields: fields.rows,
+    fieldTotalCount: fields.totalCount,
+    fieldPage: fields.page,
+    fieldPageSize: fields.pageSize,
   };
 }
 
@@ -220,9 +242,10 @@ async function imageCatalog(
     excludedFieldNames: [],
     entities: null,
     displayTexts: ["Profile Picture", "ID", "Employee Name", "Employment Number"],
+    unpaged: true,
   });
   const byDisplay = new Map(
-    pictureFields.map((field) => [
+    pictureFields.rows.map((field) => [
       (field.displayText ?? field.fieldName ?? "").trim().toLowerCase(),
       field,
     ]),
@@ -309,21 +332,130 @@ async function imageCatalog(
       },
     ],
     fields,
+    fieldTotalCount: fields.length,
+    fieldPage: 1,
+    fieldPageSize: fields.length,
   };
+}
+
+type CatalogFieldOptions = {
+  sectionNames: string[] | null;
+  requireActiveVisible: boolean;
+  excludedFieldNames: string[];
+  entities: string[] | null;
+  displayTexts?: string[];
+  allowedSectionIds?: Set<number> | null;
+  unpaged?: boolean;
+} & UploadCatalogListFilters;
+
+async function countCatalogFields(
+  db: HrmsDb,
+  tenantId: number,
+  countryId: number,
+  options: CatalogFieldOptions,
+): Promise<Map<number, number>> {
+  const filters = catalogFieldFilters(countryId, options, false);
+  const rows = await db.$queryRaw<Array<{ SectionID: number | null; FieldCount: number | bigint | null }>>`
+    SELECT Fields.SectionID, COUNT(*) AS FieldCount
+    FROM dbo.TEmployeeDetail_Fields AS Fields
+    LEFT JOIN dbo.TEmployeeDetail_Section AS Section
+        ON Section.SectionID = Fields.SectionID
+    WHERE Fields.EmployerId = ${tenantId}
+        AND ISNULL(Fields.IsDeleted, 0) = 0
+        ${filters}
+    GROUP BY Fields.SectionID
+  `;
+  const counts = new Map<number, number>();
+  for (const row of rows) {
+    if (row.SectionID != null) {
+      counts.set(row.SectionID, totalCountOf(row.FieldCount));
+    }
+  }
+  return counts;
 }
 
 async function listCatalogFields(
   db: HrmsDb,
   tenantId: number,
   countryId: number,
-  options: {
-    sectionNames: string[] | null;
-    requireActiveVisible: boolean;
-    excludedFieldNames: string[];
-    entities: string[] | null;
-    displayTexts?: string[];
-  },
-): Promise<UploadCatalogField[]> {
+  options: CatalogFieldOptions,
+): Promise<{
+  rows: UploadCatalogField[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+}> {
+  const paging = pageQuery(options.page);
+  const filters = catalogFieldFilters(countryId, options, true);
+  const window = options.unpaged
+    ? Prisma.empty
+    : Prisma.sql`OFFSET ${paging.offset} ROWS FETCH NEXT ${paging.pageSize} ROWS ONLY`;
+  const rows = await db.$queryRaw<Array<FieldQueryRow & { TotalCount: number | bigint | null }>>`
+    SELECT
+        Fields.FieldID,
+        Fields.SectionID,
+        Section.Section,
+        Fields.FieldName,
+        Fields.DisplayText,
+        Fields.DisplayOrder,
+        Fields.FieldEntity,
+        FieldType.FieldType,
+        Fields.IsMandatory,
+        Fields.IsValidate,
+        Fields.IsHidden,
+        Fields.IsActive,
+        Fields.ValidationRule,
+        Fields.FieldType_JSON_SQL,
+        Fields.DB_Table,
+        Fields.DB_Column,
+        Fields.CountryID,
+        Country.NICENAME AS CountryName,
+        COUNT(*) OVER() AS TotalCount
+    FROM dbo.TEmployeeDetail_Fields AS Fields
+    LEFT JOIN dbo.TEmployeeDetail_Section AS Section
+        ON Section.SectionID = Fields.SectionID
+    LEFT JOIN dbo.TFieldType_LookUp AS FieldType
+        ON FieldType.FieldTypeID = Fields.FieldTypeID
+    LEFT JOIN dbo.TCOUNTRY AS Country
+        ON Country.ID = Fields.CountryID
+        AND Fields.CountryID <> 0
+    WHERE Fields.EmployerId = ${tenantId}
+        AND ISNULL(Fields.IsDeleted, 0) = 0
+        ${filters}
+    ORDER BY Fields.SectionID, Fields.DisplayOrder, Fields.FieldName, Fields.FieldID
+    ${window}
+  `;
+  return {
+    rows: rows.map(mapFieldRow),
+    totalCount: totalCountOf(rows[0]?.TotalCount),
+    page: options.unpaged ? 1 : paging.page,
+    pageSize: options.unpaged ? rows.length : paging.pageSize,
+  };
+}
+
+function catalogFieldQuery(
+  fieldOptions: CatalogFieldOptions,
+  filters: UploadCatalogListFilters,
+  sections: SectionQueryRow[],
+): CatalogFieldOptions {
+  const concreteIds = (filters.sectionIds ?? []).filter((id) => Number.isInteger(id));
+  const unpaged = concreteIds.length > 0;
+  return {
+    ...fieldOptions,
+    ...filters,
+    sectionIds: concreteIds,
+    unpaged,
+    sectionId: unpaged
+      ? null
+      : (filters.sectionId ?? sections[0]?.SectionID ?? null),
+  };
+}
+
+function catalogFieldFilters(
+  countryId: number,
+  options: CatalogFieldOptions,
+  includeSearch: boolean,
+): Prisma.Sql {
   const countryFilter =
     countryId > 0
       ? Prisma.sql`AND Fields.CountryID IN (0, ${countryId})`
@@ -333,6 +465,22 @@ async function listCatalogFields(
         options.sectionNames.map((name) => Prisma.sql`${name}`),
       )})`
     : Prisma.empty;
+  const allowed = [...(options.allowedSectionIds ?? [])];
+  const allowedFilter =
+    allowed.length > 0
+      ? Prisma.sql`AND Fields.SectionID IN (${Prisma.join(allowed.map((id) => Prisma.sql`${id}`))})`
+      : Prisma.empty;
+  const requested = (options.sectionIds ?? []).filter((id) => Number.isInteger(id));
+  const requestedFilter =
+    requested.length > 0
+      ? Prisma.sql`AND Fields.SectionID IN (${Prisma.join(requested.map((id) => Prisma.sql`${id}`))})`
+      : Prisma.empty;
+  const selectedId =
+    includeSearch && options.sectionId != null && Number.isInteger(options.sectionId)
+      ? options.sectionId
+      : null;
+  const selectedFilter =
+    selectedId != null ? Prisma.sql`AND Fields.SectionID = ${selectedId}` : Prisma.empty;
   const visibilityFilter = options.requireActiveVisible
     ? Prisma.sql`AND ISNULL(Fields.IsActive, 0) = 1 AND ISNULL(Fields.IsHidden, 0) = 0`
     : Prisma.empty;
@@ -352,46 +500,16 @@ async function listCatalogFields(
         options.displayTexts.map((name) => Prisma.sql`${name.toLowerCase()}`),
       )})`
     : Prisma.empty;
-
-  const rows = await db.$queryRaw<FieldQueryRow[]>`
-    SELECT
-        Fields.FieldID,
-        Fields.SectionID,
-        Section.Section,
-        Fields.FieldName,
-        Fields.DisplayText,
-        Fields.DisplayOrder,
-        Fields.FieldEntity,
-        FieldType.FieldType,
-        Fields.IsMandatory,
-        Fields.IsValidate,
-        Fields.IsHidden,
-        Fields.IsActive,
-        Fields.ValidationRule,
-        Fields.FieldType_JSON_SQL,
-        Fields.DB_Table,
-        Fields.DB_Column,
-        Fields.CountryID,
-        Country.NICENAME AS CountryName
-    FROM dbo.TEmployeeDetail_Fields AS Fields
-    LEFT JOIN dbo.TEmployeeDetail_Section AS Section
-        ON Section.SectionID = Fields.SectionID
-    LEFT JOIN dbo.TFieldType_LookUp AS FieldType
-        ON FieldType.FieldTypeID = Fields.FieldTypeID
-    LEFT JOIN dbo.TCOUNTRY AS Country
-        ON Country.ID = Fields.CountryID
-        AND Fields.CountryID <> 0
-    WHERE Fields.EmployerId = ${tenantId}
-        AND ISNULL(Fields.IsDeleted, 0) = 0
-        ${countryFilter}
-        ${sectionFilter}
-        ${visibilityFilter}
-        ${entityFilter}
-        ${excludedFilter}
-        ${displayFilter}
-    ORDER BY Fields.SectionID, Fields.DisplayOrder, Fields.FieldName, Fields.FieldID
-  `;
-  return rows.map(mapFieldRow);
+  const q = includeSearch ? searchText(options.q) : null;
+  const textFilter =
+    q == null
+      ? Prisma.empty
+      : Prisma.sql`AND (
+            Fields.FieldName LIKE ${likeContains(q)}
+            OR Fields.DisplayText LIKE ${likeContains(q)}
+            OR Fields.FieldEntity LIKE ${likeContains(q)}
+        )`;
+  return Prisma.sql`${countryFilter} ${sectionFilter} ${allowedFilter} ${requestedFilter} ${selectedFilter} ${visibilityFilter} ${entityFilter} ${excludedFilter} ${displayFilter} ${textFilter}`;
 }
 
 function mapFieldRow(row: FieldQueryRow): UploadCatalogField {
@@ -420,12 +538,8 @@ function mapFieldRow(row: FieldQueryRow): UploadCatalogField {
 
 function toCatalogSections(
   sections: SectionQueryRow[],
-  fields: UploadCatalogField[],
+  counts: Map<number, number>,
 ): UploadCatalogSection[] {
-  const counts = new Map<number, number>();
-  for (const field of fields) {
-    counts.set(field.sectionId, (counts.get(field.sectionId) ?? 0) + 1);
-  }
   return sections.map((section) => ({
     sectionId: section.SectionID,
     section: section.Section ?? `Section ${section.SectionID}`,

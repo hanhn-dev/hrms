@@ -1,7 +1,9 @@
 "use client";
 
+import { searchText } from "@hrms/db/page";
 import { Button, Form, Input } from "antd";
 import { useRouter } from "next/navigation";
+import { listHref } from "@/shared/list-query";
 
 export function BusinessUnitSearchForm({
   employerId,
@@ -19,13 +21,8 @@ export function BusinessUnitSearchForm({
       layout="inline"
       initialValues={{ search: initialSearch }}
       onFinish={(values: { search: string }) => {
-        const params = new URLSearchParams();
-        if (values.search?.trim()) {
-          params.set("q", values.search.trim());
-        }
-        const query = params.toString();
         const base = `/employers/${employerId}/employees/${encodeURIComponent(employmentNumber)}/business-unit`;
-        router.push(query ? `${base}?${query}` : base);
+        router.push(listHref(base, { page: 1, q: searchText(values.search) }));
       }}
     >
       <Form.Item className="!mb-0 flex-1" name="search">

@@ -124,9 +124,8 @@ export function HistoryPanel({
           }}
         />
         <Select
-          allowClear
           className="min-w-56"
-          placeholder="All sections"
+          placeholder="Select section"
           disabled={type === "Future"}
           value={section}
           options={HISTORY_SECTIONS.map((item) => ({
@@ -141,16 +140,19 @@ export function HistoryPanel({
           }}
         />
         {type === "History" ? (
-          <DatePicker.RangePicker
-            value={dateRange}
-            onChange={(values) => {
-              updateQuery({
-                from: values?.[0]?.format("YYYY-MM-DD") ?? null,
-                to: values?.[1]?.format("YYYY-MM-DD") ?? null,
-                page: null,
-              });
-            }}
-          />
+          <>
+            <DatePicker.RangePicker
+              value={dateRange}
+              onChange={(values) => {
+                updateQuery({
+                  from: values?.[0]?.format("YYYY-MM-DD") ?? null,
+                  to: values?.[1]?.format("YYYY-MM-DD") ?? null,
+                  page: null,
+                });
+              }}
+            />
+            <Text type="secondary">Defaults to the last 90 days.</Text>
+          </>
         ) : null}
       </div>
 

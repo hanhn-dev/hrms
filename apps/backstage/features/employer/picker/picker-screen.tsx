@@ -14,8 +14,12 @@ import { Text } from "@/shared/ui/antd-rsc";
 
 export async function EmployerPickerScreen({
   userName,
+  page,
+  search,
 }: {
   userName: string;
+  page: number;
+  search: string;
 }): Promise<React.JSX.Element> {
   const environment = await getSelectedEnvironment();
   const environments = listConfiguredEnvironments();
@@ -38,7 +42,7 @@ export async function EmployerPickerScreen({
           <PickerHealthSlot environment={environment} />
         </Suspense>
         <Suspense fallback={<SectionFallback title="Employers" />}>
-          <PickerEmployersSlot />
+          <PickerEmployersSlot page={page} search={search} />
         </Suspense>
       </div>
     </div>

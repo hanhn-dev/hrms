@@ -258,22 +258,30 @@ export function ValueSearchPanel({
   }
 
   useEffect(() => {
+    const q = tableSearch.trim();
+    if (q.length === 1) {
+      return;
+    }
     let cancelled = false;
-    void listSearchTargets()
-      .then((rows) => {
-        if (!cancelled) {
-          setTargets(rows);
-        }
-      })
-      .catch((err: unknown) => {
-        if (!cancelled) {
-          setCatalogError(err instanceof Error ? err.message : String(err));
-        }
-      });
+    const handle = setTimeout(() => {
+      void listSearchTargets({ q })
+        .then((page) => {
+          if (!cancelled) {
+            setTargets(page.rows);
+            setCatalogError(null);
+          }
+        })
+        .catch((err: unknown) => {
+          if (!cancelled) {
+            setCatalogError(err instanceof Error ? err.message : String(err));
+          }
+        });
+    }, 300);
     return () => {
       cancelled = true;
+      clearTimeout(handle);
     };
-  }, []);
+  }, [tableSearch]);
 
   const selectedTableSet = new Set(selectedTables);
   const containsNeedsTables =

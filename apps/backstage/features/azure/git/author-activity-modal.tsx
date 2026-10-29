@@ -1,8 +1,9 @@
 "use client";
 
-import { Modal, Table, Tag } from "antd";
+import { Button, Modal, Table, Tag } from "antd";
 import { useEffect, useState } from "react";
 import type { GitAuthorActivity, GitAuthorPullRequest, GitCommitSummary } from "@hrms/azure-devops";
+import { appendBy } from "@/features/azure/git/activity-page";
 import { buildGitCommitUrl, buildGitPullRequestUrl } from "@/features/azure/git/git-links";
 import { errorMessage, firstCommitLine, rethrowRedirect, shortCommit } from "@/features/azure/git/git-text";
 import { loadGitAuthorActivity } from "@/features/azure/git/queries";
@@ -36,6 +37,7 @@ export function AuthorActivityModal({
 }): React.JSX.Element {
   const [activity, setActivity] = useState<GitAuthorActivity | null>(null);
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const activityKey =
     authorName === null || branch.length === 0
@@ -61,6 +63,7 @@ export function AuthorActivityModal({
       authorName,
       branch,
       creatorId,
+      skip: 0,
     })
       .then((result) => {
         if (!cancelled) {
@@ -82,6 +85,33 @@ export function AuthorActivityModal({
       cancelled = true;
     };
   }, [authorName, branch, creatorId, repositoryId]);
+
+  async function loadMore(): Promise<void> {
+    if (!activity?.hasMore || loadingMore || authorName === null) {
+      return;
+    }
+    setLoadingMore(true);
+    setError(null);
+    try {
+      const next = await loadGitAuthorActivity({
+        repositoryId,
+        authorName,
+        branch,
+        creatorId,
+        skip: activity.skip + activity.top,
+      });
+      setActivity({
+        ...next,
+        commits: appendBy(activity.commits, next.commits, (commit) => commit.commitId),
+        pullRequests: appendBy(activity.pullRequests, next.pullRequests, (pullRequest) => pullRequest.id),
+      });
+    } catch (loadError) {
+      rethrowRedirect(loadError);
+      setError(errorMessage(loadError));
+    } finally {
+      setLoadingMore(false);
+    }
+  }
 
   return (
     <Modal
@@ -182,6 +212,17 @@ export function AuthorActivityModal({
         scroll={{ y: 220 }}
         size="small"
       />
+      {activity?.hasMore ? (
+        <Button
+          className="mt-3"
+          loading={loadingMore}
+          onClick={() => {
+            void loadMore();
+          }}
+        >
+          Load more activity
+        </Button>
+      ) : null}
     </Modal>
   );
 }

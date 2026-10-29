@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Button, Card, Descriptions, Drawer, Space, Tag } from "antd";
 import { DataTable } from "@/shared/ui/data-table";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ValidationRuleViewCell } from "@/features/employer/fields/validation-rule-cell";
 import { uploadsHref } from "@/features/employer/uploads/uploads-source";
 import type {
@@ -17,19 +18,20 @@ export function CatalogPanel({
   employerId,
   selectedSectionId,
   queryScript,
+  search,
 }: {
   catalog: UploadCatalog;
   employerId: number;
   selectedSectionId: number | null;
   queryScript: string;
+  search: string;
 }): React.JSX.Element {
+  const router = useRouter();
   const selected =
     catalog.sections.find((section) => section.sectionId === selectedSectionId) ??
     catalog.sections[0] ??
     null;
-  const fields = selected
-    ? catalog.fields.filter((field) => field.sectionId === selected.sectionId)
-    : catalog.fields;
+  const fields = catalog.fields;
   const [field, setField] = useState<UploadCatalogField | null>(null);
 
   return (
@@ -76,7 +78,7 @@ export function CatalogPanel({
       <Card
         title={
           selected
-            ? `Fields in ${selected.section} (${fields.length})`
+            ? `Fields in ${selected.section} (${catalog.fieldTotalCount})`
             : "Select a section to see its fields"
         }
       >
@@ -86,15 +88,37 @@ export function CatalogPanel({
           dataSource={fields}
           size="small"
           scroll={{ x: "max-content" }}
-          pagination={
-            fields.length > 20
-              ? {
-                  pageSize: 20,
-                  showSizeChanger: true,
-                  showTotal: (total) => `${total} fields`,
-                }
-              : false
-          }
+          searchQuery={search}
+          onSearch={(next) => {
+            router.push(
+              uploadsHref(employerId, {
+                view: "catalog",
+                type: catalog.type,
+                countryId: catalog.countryId,
+                sectionId: selected?.sectionId,
+                q: next || null,
+              }),
+            );
+          }}
+          pagination={{
+            current: catalog.fieldPage,
+            pageSize: catalog.fieldPageSize,
+            total: catalog.fieldTotalCount,
+            showSizeChanger: false,
+            showTotal: (total) => `${total} fields`,
+            onChange: (next) => {
+              router.push(
+                uploadsHref(employerId, {
+                  view: "catalog",
+                  type: catalog.type,
+                  countryId: catalog.countryId,
+                  sectionId: selected?.sectionId,
+                  q: search || null,
+                  page: next,
+                }),
+              );
+            },
+          }}
           locale={{ emptyText: "No fields match this upload type and country." }}
           columns={[
             {

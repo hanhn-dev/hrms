@@ -20,6 +20,8 @@ import {
 export const GIT_COMMIT_PAGE_SIZE = 50;
 export const GIT_CHANGE_PAGE_SIZE = 100;
 export const GIT_FILE_TEXT_LIMIT_BYTES = 100_000;
+export const GIT_PATH_SEARCH_CANDIDATE_LIMIT = 200;
+const GIT_PATH_SEARCH_DIRECTORY_LIMIT = 25;
 
 const HEADS_PREFIX = 'refs/heads/';
 /** Azure DevOps matches `heads/` against `refs/heads/*`. A `refs/heads/` filter returns nothing. */
@@ -65,6 +67,9 @@ export interface GitAuthorActivity {
   readonly authorName: string;
   readonly commits: readonly GitCommitSummary[];
   readonly pullRequests: readonly GitAuthorPullRequest[];
+  readonly skip: number;
+  readonly top: number;
+  readonly hasMore: boolean;
 }
 
 export interface GitChangedFile {
@@ -164,6 +169,8 @@ export interface ListGitAuthorActivityInput {
   readonly branch: string;
   /** Azure DevOps identity id. Pull requests are omitted when this is missing. */
   readonly creatorId?: string | null;
+  readonly skip?: number;
+  readonly top?: number;
 }
 
 const EMPTY_SIDE: GitFileSide = {
@@ -255,6 +262,79 @@ export async function listGitFiles(
   return [...paths].sort((left, right) => left.localeCompare(right, undefined, { sensitivity: 'base' }));
 }
 
+/**
+ * Reads a bounded set of tree pages for path suggestions. Each request is
+ * one directory deep, so searching never asks Azure DevOps to expand `/`
+ * recursively.
+ */
+export async function searchGitPaths(
+  client: AzureDevOpsClient,
+  repositoryId: string,
+  branch: string,
+  query: string,
+): Promise<string[]> {
+  const resolvedRepositoryId = requireText(repositoryId, 'Repository');
+  const resolvedBranch = normalizeBranchName(branch);
+  if (resolvedBranch.length === 0) {
+    throw new Error('Branch is required');
+  }
+  const normalizedQuery = optionalGitPath(query);
+  if (normalizedQuery === undefined) {
+    return [];
+  }
+
+  const gitApi = await client.getGitApi();
+  const descriptor = { version: resolvedBranch, versionType: GitVersionType.Branch };
+  const initialScope = searchScope(normalizedQuery);
+  const queue = [initialScope];
+  const visited = new Set<string>();
+  const paths = new Set<string>();
+
+  while (
+    queue.length > 0 &&
+    visited.size < GIT_PATH_SEARCH_DIRECTORY_LIMIT &&
+    paths.size < GIT_PATH_SEARCH_CANDIDATE_LIMIT
+  ) {
+    const scope = queue.shift()!;
+    if (visited.has(scope)) {
+      continue;
+    }
+    visited.add(scope);
+    const items = await withAzureDevOpsTimeout(
+      gitApi.getItems(
+        resolvedRepositoryId,
+        client.config.project,
+        scope,
+        VersionControlRecursionType.OneLevel,
+        false,
+        false,
+        false,
+        false,
+        descriptor,
+      ),
+    );
+    const folders: string[] = [];
+    for (const item of items ?? []) {
+      const path = formatPath(item.path);
+      if (path === null || path === scope) {
+        continue;
+      }
+      if (item.isFolder === true) {
+        folders.push(path);
+      } else {
+        paths.add(path);
+      }
+      if (paths.size >= GIT_PATH_SEARCH_CANDIDATE_LIMIT) {
+        break;
+      }
+    }
+    folders.sort((left, right) => pathSearchPriority(left, right, normalizedQuery));
+    queue.push(...folders);
+  }
+
+  return [...paths];
+}
+
 export async function listGitCommits(
   client: AzureDevOpsClient,
   input: ListGitCommitsInput,
@@ -320,13 +400,24 @@ export async function listGitAuthorActivity(
   const repositoryId = requireText(input.repositoryId, 'Repository');
   const authorName = requireText(input.authorName, 'Author');
   const branch = normalizeBranchName(input.branch);
-  const commits =
+  const skip = clampSkip(input.skip);
+  const top = clampPositive(input.top, GIT_COMMIT_PAGE_SIZE, GIT_COMMIT_PAGE_SIZE);
+  const commitPage =
     branch.length === 0
-      ? []
-      : (await listGitCommits(client, { repositoryId, branch, author: authorName })).commits;
+      ? { commits: [], skip, top, hasMore: false }
+      : await listGitCommits(client, { repositoryId, branch, author: authorName, skip, top });
+  const commits =
+    commitPage.commits;
   const creatorId = optionalText(input.creatorId ?? undefined);
   if (creatorId === undefined) {
-    return { authorName, commits, pullRequests: [] };
+    return {
+      authorName,
+      commits,
+      pullRequests: [],
+      skip,
+      top,
+      hasMore: commitPage.hasMore,
+    };
   }
 
   const gitApi = await client.getGitApi();
@@ -336,8 +427,8 @@ export async function listGitAuthorActivity(
       { creatorId, status: PullRequestStatus.All },
       client.config.project,
       undefined,
-      0,
-      GIT_COMMIT_PAGE_SIZE,
+      skip,
+      top,
     ),
   );
 
@@ -346,7 +437,32 @@ export async function listGitAuthorActivity(
     .filter((pullRequest): pullRequest is GitAuthorPullRequest => pullRequest !== null)
     .sort((left, right) => (right.createdAt ?? '').localeCompare(left.createdAt ?? ''));
 
-  return { authorName, commits, pullRequests };
+  return {
+    authorName,
+    commits,
+    pullRequests,
+    skip,
+    top,
+    hasMore: commitPage.hasMore || pullRequests.length >= top,
+  };
+}
+
+function searchScope(query: string): string {
+  const slash = query.lastIndexOf('/');
+  if (slash <= 0) {
+    return '/';
+  }
+  return query.slice(0, slash);
+}
+
+function pathSearchPriority(left: string, right: string, query: string): number {
+  const term = query.slice(query.lastIndexOf('/') + 1).toLowerCase();
+  const leftMatch = left.toLowerCase().includes(term);
+  const rightMatch = right.toLowerCase().includes(term);
+  if (leftMatch !== rightMatch) {
+    return leftMatch ? -1 : 1;
+  }
+  return left.localeCompare(right, undefined, { sensitivity: 'base' });
 }
 
 export async function getGitCommitDetail(

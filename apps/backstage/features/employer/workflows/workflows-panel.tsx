@@ -16,6 +16,7 @@ import {
   type WorkflowsTab,
 } from "@/features/employer/workflows/workflows-source";
 import { EntityLink } from "@/shared/entity-link";
+import { listHref } from "@/shared/list-query";
 import { groupIdMatches, namesMatch } from "@/shared/entity-link/focus";
 import { HighlightMatch } from "@/shared/ui";
 
@@ -89,9 +90,20 @@ export function WorkflowsPanel({
   employerId,
   tab,
   workflows,
+  workflowPage,
+  workflowPageSize,
+  workflowTotal,
   pages,
+  pagePage,
+  pagePageSize,
+  pageTotal,
   groups,
+  groupPage,
+  groupPageSize,
+  groupTotal,
   changeRequests,
+  listSearch,
+  requestStatus,
   changeRequestsScript,
   writesEnabled,
   pageName,
@@ -104,9 +116,25 @@ export function WorkflowsPanel({
   employerId: number;
   tab: WorkflowsTab;
   workflows: WorkflowListItem[];
+  workflowPage: number;
+  workflowPageSize: number;
+  workflowTotal: number;
   pages: WorkflowPageCatalogRow[];
+  pagePage: number;
+  pagePageSize: number;
+  pageTotal: number;
   groups: WorkflowGroupRow[];
-  changeRequests: ChangeRequestListItem[];
+  groupPage: number;
+  groupPageSize: number;
+  groupTotal: number;
+  changeRequests: {
+    rows: ChangeRequestListItem[];
+    totalCount: number;
+    page: number;
+    pageSize: number;
+  };
+  listSearch: string | null;
+  requestStatus: "pending" | "approved" | "rejected" | "all";
   changeRequestsScript: string;
   writesEnabled: boolean;
   pageName: string | null;
@@ -130,13 +158,41 @@ export function WorkflowsPanel({
     <>
       {tab === "workflows" ? (
         <>
-          <p className="mb-3 text-slate-600">{workflows.length} workflows</p>
+          <p className="mb-3 text-slate-600">{workflowTotal} workflows</p>
           <DataTable
                 queryScript={workflowsScript}
                 rowKey="workflowId"
                 dataSource={workflows}
                 size="small"
                 scroll={{ x: "max-content" }}
+                searchQuery={listSearch ?? ""}
+                onSearch={(next) => {
+                  router.push(
+                    listHref(
+                      `/employers/${employerId}/workflows`,
+                      { q: next },
+                      undefined,
+                      { pageParam: "p" },
+                    ),
+                  );
+                }}
+                pagination={{
+                  current: workflowPage,
+                  pageSize: workflowPageSize,
+                  total: workflowTotal,
+                  showSizeChanger: false,
+                  showTotal: (count) => `${count} workflows`,
+                  onChange: (next) => {
+                    router.push(
+                      listHref(
+                        `/employers/${employerId}/workflows`,
+                        { page: next, q: listSearch },
+                        undefined,
+                        { pageParam: "p" },
+                      ),
+                    );
+                  },
+                }}
                 columns={[
                   {
                     title: "Workflow",
@@ -184,7 +240,7 @@ export function WorkflowsPanel({
       ) : null}
       {tab === "pages" ? (
         <>
-          <p className="mb-3 text-slate-600">{visiblePages.length} pages</p>
+          <p className="mb-3 text-slate-600">{pageTotal} pages</p>
           <FocusNote
                   clearLabel="All pages"
                   missing={pageMissing}
@@ -200,6 +256,33 @@ export function WorkflowsPanel({
                 dataSource={visiblePages}
                 size="small"
                 scroll={{ x: "max-content" }}
+                searchQuery={listSearch ?? ""}
+                onSearch={(next) => {
+                  router.push(
+                    listHref(
+                      `/employers/${employerId}/workflows`,
+                      { q: next },
+                      { tab: "pages" },
+                      { pageParam: "p" },
+                    ),
+                  );
+                }}
+                pagination={{
+                  current: pagePage,
+                  pageSize: pagePageSize,
+                  total: pageTotal,
+                  showSizeChanger: false,
+                  onChange: (next) => {
+                    router.push(
+                      listHref(
+                        `/employers/${employerId}/workflows`,
+                        { page: next, q: listSearch },
+                        { tab: "pages", page: pageName },
+                        { pageParam: "p" },
+                      ),
+                    );
+                  },
+                }}
                 columns={[
                   {
                     title: "Page",
@@ -254,7 +337,7 @@ export function WorkflowsPanel({
       ) : null}
       {tab === "groups" ? (
         <>
-          <p className="mb-3 text-slate-600">{visibleGroups.length} groups</p>
+          <p className="mb-3 text-slate-600">{groupTotal} groups</p>
           <FocusNote
                   clearLabel="All groups"
                   missing={groupMissing}
@@ -270,6 +353,33 @@ export function WorkflowsPanel({
                 dataSource={visibleGroups}
                 size="small"
                 scroll={{ x: "max-content" }}
+                searchQuery={listSearch ?? ""}
+                onSearch={(next) => {
+                  router.push(
+                    listHref(
+                      `/employers/${employerId}/workflows`,
+                      { q: next },
+                      { tab: "groups" },
+                      { pageParam: "p" },
+                    ),
+                  );
+                }}
+                pagination={{
+                  current: groupPage,
+                  pageSize: groupPageSize,
+                  total: groupTotal,
+                  showSizeChanger: false,
+                  onChange: (next) => {
+                    router.push(
+                      listHref(
+                        `/employers/${employerId}/workflows`,
+                        { page: next, q: listSearch },
+                        { tab: "groups", group: groupId },
+                        { pageParam: "p" },
+                      ),
+                    );
+                  },
+                }}
                 columns={[
                   {
                     title: "Group",
@@ -338,12 +448,16 @@ export function WorkflowsPanel({
       ) : null}
       {tab === "requests" ? (
         <>
-          <p className="mb-3 text-slate-600">{changeRequests.length} requests</p>
           <ChangeRequestPanel
             employerId={employerId}
+            page={changeRequests.page}
+            pageSize={changeRequests.pageSize}
             queryScript={changeRequestsScript}
             requestId={requestId}
-            requests={changeRequests}
+            requests={changeRequests.rows}
+            search={listSearch ?? ""}
+            status={requestStatus}
+            total={changeRequests.totalCount}
             writesEnabled={writesEnabled}
           />
         </>

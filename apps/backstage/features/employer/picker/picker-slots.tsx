@@ -30,12 +30,18 @@ export async function PickerHealthSlot({
   );
 }
 
-export async function PickerEmployersSlot(): Promise<React.JSX.Element> {
+export async function PickerEmployersSlot({
+  page,
+  search,
+}: {
+  page: number;
+  search: string;
+}): Promise<React.JSX.Element> {
   let employers: Awaited<ReturnType<typeof listEmployers>> | null = null;
   let queryScript = "";
   let description: string | null = null;
   try {
-    const loaded = await captureQueryScript(() => listEmployers());
+    const loaded = await captureQueryScript(() => listEmployers({ page, q: search }));
     employers = loaded.result;
     queryScript = loaded.script;
   } catch (error) {
@@ -53,7 +59,14 @@ export async function PickerEmployersSlot(): Promise<React.JSX.Element> {
   }
   return (
     <Card>
-      <EmployerPickerTable employers={employers} queryScript={queryScript} />
+      <EmployerPickerTable
+        employers={employers.rows}
+        page={employers.page}
+        pageSize={employers.pageSize}
+        queryScript={queryScript}
+        search={search}
+        total={employers.totalCount}
+      />
     </Card>
   );
 }

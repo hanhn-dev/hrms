@@ -5,9 +5,13 @@ import { PageHelp, SectionFallback } from "@/shared/ui";
 export function MasterDataScreen({
   employerId,
   listKey,
+  page,
+  search,
 }: {
   employerId: number;
   listKey: string | null;
+  page: number;
+  search: string;
 }): React.JSX.Element {
   return (
     <>
@@ -19,7 +23,7 @@ export function MasterDataScreen({
             type: "info",
             title: "Search the catalog and the open list",
             description:
-              "The left search finds a master list by name. The right search filters the loaded rows.",
+              "The left search finds a master list by name. The table search asks the database for matching rows.",
           },
           {
             id: "hmac-confirm",
@@ -31,7 +35,7 @@ export function MasterDataScreen({
         ]}
       />
       <Suspense fallback={<SectionFallback title="Master data" />}>
-        <MasterDataSlot employerId={employerId} listKey={listKey} />
+        <MasterDataSlot employerId={employerId} listKey={listKey} page={page} search={search} />
       </Suspense>
     </>
   );

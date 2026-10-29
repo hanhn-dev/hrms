@@ -1,5 +1,13 @@
+import { Prisma } from "../../generated/prisma/client";
 import type { HrmsDb } from "../../shared/client";
 import { parseEmployerId } from "../../shared/ids";
+import {
+  likeContains,
+  pageQuery,
+  searchText,
+  totalCountOf,
+  type PageResult,
+} from "../../shared/page.ts";
 import type { FieldCatalogRow } from "./fields-compare";
 
 export {
@@ -33,88 +41,155 @@ type FieldQueryRow = {
   IsDefault: boolean | number | null;
   DB_Table: string | null;
   DB_Column: string | null;
+  TotalCount?: number | bigint | null;
+};
+
+export type FieldListFilters = {
+  page?: number | null;
+  q?: string | null;
+  section?: string | null;
 };
 
 export async function listEmployerFields(
   db: HrmsDb,
   employerId: number,
-): Promise<FieldCatalogRow[]> {
+  filters: FieldListFilters = {},
+): Promise<PageResult<FieldCatalogRow>> {
   const tenantId = parseEmployerId(employerId);
-  const rows = await db.$queryRaw<FieldQueryRow[]>`
-    SELECT
-        Fields.FieldID,
-        Fields.SectionID,
-        Section.Section,
-        Fields.EmployerId,
-        Fields.CountryID,
-        Country.NICENAME AS CountryName,
-        Fields.FieldName,
-        Fields.DisplayText,
-        Fields.DisplayOrder,
-        Fields.FieldEntity,
-        Fields.FieldTypeID,
-        FieldType.FieldType,
-        Fields.IsMandatory,
-        Fields.IsValidate,
-        Fields.ValidationRule,
-        Fields.FieldType_JSON_SQL,
-        Fields.IsHidden,
-        Fields.IsActive,
-        Fields.IsDefault,
-        Fields.DB_Table,
-        Fields.DB_Column
-    FROM dbo.TEmployeeDetail_Fields AS Fields
-    LEFT JOIN dbo.TEmployeeDetail_Section AS Section
-        ON Section.SectionID = Fields.SectionID
-    LEFT JOIN dbo.TFieldType_LookUp AS FieldType
-        ON FieldType.FieldTypeID = Fields.FieldTypeID
-    LEFT JOIN dbo.TCOUNTRY AS Country
-        ON Country.ID = Fields.CountryID
-        AND Fields.CountryID <> 0
-    WHERE Fields.EmployerId = ${tenantId}
-        AND ISNULL(Fields.IsDeleted, 0) = 0
-    ORDER BY Fields.SectionID, Fields.DisplayOrder, Fields.FieldName, Fields.FieldID
-  `;
-  return rows.map(mapFieldRow);
+  return queryFieldPage(db, "Fields", "dbo.TEmployeeDetail_Fields", tenantId, filters, true);
 }
 
-export async function listFieldTemplate(db: HrmsDb): Promise<FieldCatalogRow[]> {
+/** Compare needs every row in the chosen section or search, not one page of each side. */
+export async function listEmployerFieldsForCompare(
+  db: HrmsDb,
+  employerId: number,
+  filters: Pick<FieldListFilters, "q" | "section">,
+): Promise<FieldCatalogRow[]> {
+  if (!compareIsBounded(filters)) {
+    return [];
+  }
+  const tenantId = parseEmployerId(employerId);
+  const page = await queryFieldPage(
+    db,
+    "Fields",
+    "dbo.TEmployeeDetail_Fields",
+    tenantId,
+    filters,
+    false,
+  );
+  return page.rows;
+}
+
+export async function listFieldTemplate(
+  db: HrmsDb,
+  filters: FieldListFilters = {},
+): Promise<PageResult<FieldCatalogRow>> {
+  return queryFieldPage(
+    db,
+    "Master",
+    "dbo.TEmployeeDetail_Fields_Master",
+    TEMPLATE_EMPLOYER_ID,
+    filters,
+    true,
+  );
+}
+
+export async function listFieldTemplateForCompare(
+  db: HrmsDb,
+  filters: Pick<FieldListFilters, "q" | "section">,
+): Promise<FieldCatalogRow[]> {
+  if (!compareIsBounded(filters)) {
+    return [];
+  }
+  const page = await queryFieldPage(
+    db,
+    "Master",
+    "dbo.TEmployeeDetail_Fields_Master",
+    TEMPLATE_EMPLOYER_ID,
+    filters,
+    false,
+  );
+  return page.rows;
+}
+
+function compareIsBounded(filters: Pick<FieldListFilters, "q" | "section">): boolean {
+  return searchText(filters.q) != null || (filters.section?.trim() ?? "") !== "";
+}
+
+async function queryFieldPage(
+  db: HrmsDb,
+  alias: "Fields" | "Master",
+  tableName: "dbo.TEmployeeDetail_Fields" | "dbo.TEmployeeDetail_Fields_Master",
+  employerId: number,
+  filters: FieldListFilters,
+  paged: boolean,
+): Promise<PageResult<FieldCatalogRow>> {
+  const paging = pageQuery(filters.page);
+  const q = searchText(filters.q);
+  const pattern = q == null ? null : likeContains(q);
+  const column = Prisma.raw(alias);
+  const table = Prisma.raw(tableName);
+  const textFilter =
+    pattern == null
+      ? Prisma.empty
+      : Prisma.sql`AND (
+            ${column}.FieldName LIKE ${pattern}
+            OR ${column}.DisplayText LIKE ${pattern}
+            OR ${column}.FieldEntity LIKE ${pattern}
+        )`;
+  const sectionName = filters.section?.trim() ?? "";
+  const sectionFilter =
+    sectionName === ""
+      ? Prisma.empty
+      : Prisma.sql`AND LOWER(LTRIM(RTRIM(ISNULL(Section.Section, '')))) = LOWER(${sectionName})`;
+  const window = paged
+    ? Prisma.sql`OFFSET ${paging.offset} ROWS FETCH NEXT ${paging.pageSize} ROWS ONLY`
+    : Prisma.empty;
   const rows = await db.$queryRaw<FieldQueryRow[]>`
     SELECT
-        Master.FieldID,
-        Master.SectionID,
+        ${column}.FieldID,
+        ${column}.SectionID,
         Section.Section,
-        Master.EmployerId,
-        Master.CountryID,
+        ${column}.EmployerId,
+        ${column}.CountryID,
         Country.NICENAME AS CountryName,
-        Master.FieldName,
-        Master.DisplayText,
-        Master.DisplayOrder,
-        Master.FieldEntity,
-        Master.FieldTypeID,
+        ${column}.FieldName,
+        ${column}.DisplayText,
+        ${column}.DisplayOrder,
+        ${column}.FieldEntity,
+        ${column}.FieldTypeID,
         FieldType.FieldType,
-        Master.IsMandatory,
-        Master.IsValidate,
-        Master.ValidationRule,
-        Master.FieldType_JSON_SQL,
-        Master.IsHidden,
-        Master.IsActive,
-        Master.IsDefault,
-        Master.DB_Table,
-        Master.DB_Column
-    FROM dbo.TEmployeeDetail_Fields_Master AS Master
+        ${column}.IsMandatory,
+        ${column}.IsValidate,
+        ${column}.ValidationRule,
+        ${column}.FieldType_JSON_SQL,
+        ${column}.IsHidden,
+        ${column}.IsActive,
+        ${column}.IsDefault,
+        ${column}.DB_Table,
+        ${column}.DB_Column,
+        COUNT(*) OVER() AS TotalCount
+    FROM ${table} AS ${column}
     LEFT JOIN dbo.TEmployeeDetail_Section AS Section
-        ON Section.SectionID = Master.SectionID
+        ON Section.SectionID = ${column}.SectionID
     LEFT JOIN dbo.TFieldType_LookUp AS FieldType
-        ON FieldType.FieldTypeID = Master.FieldTypeID
+        ON FieldType.FieldTypeID = ${column}.FieldTypeID
     LEFT JOIN dbo.TCOUNTRY AS Country
-        ON Country.ID = Master.CountryID
-        AND Master.CountryID <> 0
-    WHERE Master.EmployerId = ${TEMPLATE_EMPLOYER_ID}
-        AND ISNULL(Master.IsDeleted, 0) = 0
-    ORDER BY Master.SectionID, Master.DisplayOrder, Master.FieldName, Master.FieldID
+        ON Country.ID = ${column}.CountryID
+        AND ${column}.CountryID <> 0
+    WHERE ${column}.EmployerId = ${employerId}
+        AND ISNULL(${column}.IsDeleted, 0) = 0
+        ${textFilter}
+        ${sectionFilter}
+    ORDER BY ${column}.SectionID, ${column}.DisplayOrder, ${column}.FieldName, ${column}.FieldID
+    ${window}
   `;
-  return rows.map(mapFieldRow);
+  return {
+    rows: rows.map(mapFieldRow),
+    totalCount: totalCountOf(rows[0]?.TotalCount),
+    page: paged ? paging.page : 1,
+    pageSize: paged ? paging.pageSize : rows.length,
+  };
 }
 
 export type FieldTypeOption = {

@@ -1,5 +1,4 @@
 import { notFound } from "next/navigation";
-import { listEmployers } from "@/features/employer/picker";
 import { getEmployerSettings } from "@/features/employer/settings";
 import { areWritesEnabled, requireFeaturePage } from "@/shared/auth";
 import { getSelectedEnvironment } from "@/shared/db";
@@ -17,9 +16,8 @@ export default async function EmployerLayout({
   const user = await requireFeaturePage("employers");
   const { employerId: rawId } = await params;
   const employerId = parsePositiveInt(rawId);
-  const [settings, employers, environment] = await Promise.all([
+  const [settings, environment] = await Promise.all([
     getEmployerSettings(employerId),
-    listEmployers(),
     getSelectedEnvironment(),
   ]);
   if (!settings) {
@@ -28,7 +26,9 @@ export default async function EmployerLayout({
   return (
     <AppShell
       employerId={employerId}
-      employers={employers}
+      employers={[
+        { employerId: settings.employerId, employerName: settings.employerName },
+      ]}
       environment={environment}
       environments={listConfiguredEnvironments()}
       roles={user.roles}
