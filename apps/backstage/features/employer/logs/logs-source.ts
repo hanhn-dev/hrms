@@ -1,10 +1,11 @@
 import {
   LOG_DEFAULT_WINDOW_MS,
   LOG_MAX_WINDOW_MS,
+  LOG_SQL_ERROR_MAX_WINDOW_MS,
   serverLocalBound,
 } from "@hrms/db/logs";
 
-export const LOG_TABS = ["activity", "pages", "exceptions", "login", "mydetails"] as const;
+export const LOG_TABS = ["activity", "pages", "exceptions", "login", "mydetails", "sqlerrors"] as const;
 
 export type LogsTab = (typeof LOG_TABS)[number];
 
@@ -38,7 +39,13 @@ export type ResolvedLogWindow = {
 };
 
 function parseTab(value: string | undefined): LogsTab {
-  if (value === "pages" || value === "exceptions" || value === "login" || value === "mydetails") {
+  if (
+    value === "pages" ||
+    value === "exceptions" ||
+    value === "login" ||
+    value === "mydetails" ||
+    value === "sqlerrors"
+  ) {
     return value;
   }
   return "activity";
@@ -88,6 +95,7 @@ export function resolveLogWindow(
   offsetMinutes = 0,
   now = new Date(),
 ): ResolvedLogWindow {
+  const maxMs = query.tab === "sqlerrors" ? LOG_SQL_ERROR_MAX_WINDOW_MS : LOG_MAX_WINDOW_MS;
   let from: Date;
   let to: Date;
   let usingDefaultWindow = false;
@@ -106,8 +114,8 @@ export function resolveLogWindow(
       to = from;
       windowLimited = true;
     }
-    if (to.getTime() - from.getTime() > LOG_MAX_WINDOW_MS) {
-      to = new Date(from.getTime() + LOG_MAX_WINDOW_MS);
+    if (to.getTime() - from.getTime() > maxMs) {
+      to = new Date(from.getTime() + maxMs);
       windowLimited = true;
     }
   }

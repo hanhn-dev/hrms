@@ -8,6 +8,10 @@ describe("parseLogsQuery", () => {
   it("keeps the My Details tab", () => {
     assert.equal(parseLogsQuery({ tab: "mydetails" }).tab, "mydetails");
   });
+
+  it("keeps the SQL errors tab", () => {
+    assert.equal(parseLogsQuery({ tab: "sqlerrors" }).tab, "sqlerrors");
+  });
 });
 
 describe("resolveLogWindow", () => {
@@ -35,5 +39,33 @@ describe("resolveLogWindow", () => {
     assert.equal(window.windowLimited, true);
     assert.equal(window.usingDefaultWindow, false);
     assert.equal(window.to.toISOString(), "2026-10-08T00:00:00.000Z");
+  });
+
+  it("keeps a 20-day span on SQL errors", () => {
+    const window = resolveLogWindow(
+      parseLogsQuery({
+        tab: "sqlerrors",
+        from: "2026-09-01T00:00:00.000Z",
+        to: "2026-09-21T00:00:00.000Z",
+      }),
+      0,
+      NOW,
+    );
+    assert.equal(window.windowLimited, false);
+    assert.equal(window.to.toISOString(), "2026-09-21T00:00:00.000Z");
+  });
+
+  it("cuts a SQL errors span past 45 days", () => {
+    const window = resolveLogWindow(
+      parseLogsQuery({
+        tab: "sqlerrors",
+        from: "2026-08-01T00:00:00.000Z",
+        to: "2026-10-01T00:00:00.000Z",
+      }),
+      0,
+      NOW,
+    );
+    assert.equal(window.windowLimited, true);
+    assert.equal(window.to.toISOString(), "2026-09-15T00:00:00.000Z");
   });
 });

@@ -21,10 +21,17 @@ import type {
   MyDetailsExecutionLogRow,
   PageHitRow,
   PageSessionList,
+  TsqlErrorLogList,
+  TsqlErrorLogRow,
 } from "@/features/employer/logs/queries";
 import { EntityLink } from "@/shared/entity-link";
 import { formatDate } from "@/shared/format-date";
 import { DataTable, HighlightMatch } from "@/shared/ui";
+import {
+  DatabaseObjectName,
+  DatabaseObjectProvider,
+  DatabaseObjectText,
+} from "@/features/database-object";
 
 dayjs.extend(utc);
 
@@ -125,6 +132,7 @@ export function LogsPanel({
   appliedTo,
   usingDefaultWindow,
   windowLimited,
+  writesEnabled,
   offsetLabel,
   offsetMinutes,
   loginAuditEnabled,
@@ -140,6 +148,8 @@ export function LogsPanel({
   loginScript,
   myDetails,
   myDetailsScript,
+  sqlErrors,
+  sqlErrorsScript,
 }: {
   employerId: number;
   query: LogsQuery;
@@ -147,6 +157,7 @@ export function LogsPanel({
   appliedTo: string;
   usingDefaultWindow: boolean;
   windowLimited: boolean;
+  writesEnabled: boolean;
   offsetLabel: string;
   offsetMinutes: number;
   loginAuditEnabled: boolean;
@@ -162,6 +173,8 @@ export function LogsPanel({
   loginScript: string;
   myDetails: MyDetailsExecutionLogList | null;
   myDetailsScript: string;
+  sqlErrors: TsqlErrorLogList | null;
+  sqlErrorsScript: string;
 }): React.JSX.Element {
   const router = useRouter();
   const marked = highlightQuery(query);
@@ -278,12 +291,17 @@ export function LogsPanel({
           className="mb-3"
           showIcon
           type="warning"
-          title="The time window is limited to 7 days."
+          title={
+            query.tab === "sqlerrors"
+              ? "The time window is limited to 45 days."
+              : "The time window is limited to 7 days."
+          }
         />
       ) : null}
       <p className="mb-3 text-sm text-slate-500">
         Activity and unhandled exceptions are shown in {offsetLabel}. Page access,
-        login steps, handled errors, and My Details use the database server clock.
+        login steps, handled errors, My Details, and SQL errors use the database
+        server clock.
       </p>
       <Tabs
         activeKey={query.tab}
@@ -658,6 +676,123 @@ export function LogsPanel({
                 scroll={{ x: "max-content" }}
                 size="small"
               />
+            ) : null,
+          },
+          {
+            key: "sqlerrors",
+            label: "SQL errors",
+            children: sqlErrors ? (
+              <DatabaseObjectProvider
+                texts={sqlErrors.rows.flatMap((row) => [
+                  row.procedureName,
+                  row.errorMessage ?? "",
+                  row.parameters ?? "",
+                ])}
+                writesEnabled={writesEnabled}
+              >
+                {usingDefaultWindow && sqlErrors.rows.length === 0 ? (
+                  <p className="mb-3 text-sm text-slate-500">
+                    Nothing was written in the last 24 hours. This table often has
+                    nothing in the last day. Move From back to look through the last
+                    45 days.
+                  </p>
+                ) : null}
+                <DataTable
+                  columns={[
+                    {
+                      title: "Time (server)",
+                      dataIndex: "errorDate",
+                      render: (value: string | null) => formatDate(value),
+                    },
+                    {
+                      title: "Person",
+                      dataIndex: "userName",
+                      render: (_: unknown, row: TsqlErrorLogRow) => {
+                        const name = row.userName || row.employmentNumber || "—";
+                        const link = row.employmentNumber ? (
+                          <EntityLink
+                            employerId={employerId}
+                            entity={{
+                              kind: "employee",
+                              employmentNumber: row.employmentNumber,
+                            }}
+                          >
+                            <HighlightMatch query={marked} text={name} />
+                          </EntityLink>
+                        ) : (
+                          <HighlightMatch query={marked} text={name} />
+                        );
+                        return (
+                          <div>
+                            {link}
+                            {row.employmentNumber && row.userName ? (
+                              <div className="text-xs text-slate-500">
+                                <HighlightMatch query={marked} text={row.employmentNumber} />
+                              </div>
+                            ) : null}
+                          </div>
+                        );
+                      },
+                    },
+                    {
+                      title: "Procedure",
+                      dataIndex: "procedureName",
+                      render: (value: string) => (
+                        <DatabaseObjectName query={marked} text={value} />
+                      ),
+                    },
+                    {
+                      title: "Line",
+                      dataIndex: "errorLine",
+                      render: (value: number | null) => text(value == null ? null : String(value)),
+                    },
+                    {
+                      title: "Login",
+                      dataIndex: "loginName",
+                      render: (value: string | null) => (
+                        <HighlightMatch query={marked} text={text(value)} />
+                      ),
+                    },
+                    {
+                      title: "Error",
+                      dataIndex: "errorMessage",
+                      render: (value: string | null) =>
+                        value?.trim() ? (
+                          <DatabaseObjectText query={marked} text={value} />
+                        ) : (
+                          "—"
+                        ),
+                    },
+                  ]}
+                  dataSource={sqlErrors.rows}
+                  expandable={{
+                    expandedRowRender: (row: TsqlErrorLogRow) => (
+                      <div className="text-sm">
+                        <div className="text-xs text-slate-500">Parameters</div>
+                        <div className="max-w-full whitespace-pre-wrap text-xs">
+                          {row.parameters ? (
+                            <DatabaseObjectText query={marked} text={row.parameters} />
+                          ) : (
+                            "—"
+                          )}
+                        </div>
+                      </div>
+                    ),
+                  }}
+                  pagination={pager(
+                    sqlErrors.page,
+                    sqlErrors.pageSize,
+                    sqlErrors.totalCount,
+                    (page) => {
+                      push({ page });
+                    },
+                  )}
+                  queryScript={sqlErrorsScript}
+                  rowKey="errorId"
+                  scroll={{ x: "max-content" }}
+                  size="small"
+                />
+              </DatabaseObjectProvider>
             ) : null,
           },
         ]}

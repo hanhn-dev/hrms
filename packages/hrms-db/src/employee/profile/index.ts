@@ -1,6 +1,11 @@
+import { Prisma } from "../../generated/prisma/client";
 import type { HrmsDb } from "../../shared/client";
 import { asIso } from "../../shared/iso";
 import { requireResolvedEmployee } from "../../shared/employee";
+import { accessibleEmployerIds } from "./accessible-employers";
+
+export { accessibleEmployerIds } from "./accessible-employers";
+export type { AccessibleEmployerInput } from "./accessible-employers";
 
 export type EmployeeProfile = {
   employeeId: number;
@@ -30,6 +35,13 @@ export type EmployeeProfile = {
   roleName: string | null;
   roleType: string | null;
   userEmployeeMappingCount: number;
+  isGlobalAccess: string | null;
+  employerIds: string | null;
+};
+
+export type AccessibleEmployer = {
+  employerId: number;
+  employerName: string | null;
 };
 
 type ProfileRow = {
@@ -60,6 +72,8 @@ type ProfileRow = {
   RoleName: string | null;
   RoleType: string | null;
   UserEmployeeMappingCount: number;
+  IsGlobalAccess: string | null;
+  EmployerIds: string | null;
 };
 
 export async function getEmployeeProfile(
@@ -96,6 +110,8 @@ export async function getEmployeeProfile(
         Roles.RoleID,
         Roles.RoleName,
         Roles.RoleType,
+        Users.IsGlobalAccess,
+        Users.EmployerIds,
         (
             SELECT COUNT(*)
             FROM dbo.TUserEmployee AS Mapping
@@ -164,5 +180,37 @@ export async function getEmployeeProfile(
     roleName: row.RoleName,
     roleType: row.RoleType,
     userEmployeeMappingCount: Number(row.UserEmployeeMappingCount),
+    isGlobalAccess: row.IsGlobalAccess,
+    employerIds: row.EmployerIds,
   };
+}
+
+export async function listAccessibleEmployers(
+  db: HrmsDb,
+  input: {
+    isGlobalAccess: string | null;
+    employerIds: string | null;
+    ownEmployerId: number;
+  },
+): Promise<AccessibleEmployer[]> {
+  const ids = accessibleEmployerIds(input);
+  if (ids.length === 0) {
+    return [];
+  }
+  const rows = await db.$queryRaw<
+    Array<{ EmployerId: number; EmployerName: string | null }>
+  >`
+    SELECT
+        Employer.Employerid AS EmployerId,
+        Employer.EmployerName
+    FROM dbo.TEmployerDetails AS Employer
+    WHERE Employer.Employerid IN (${Prisma.join(ids)})
+  `;
+  const names = new Map(
+    rows.map((row) => [Number(row.EmployerId), row.EmployerName]),
+  );
+  return ids.map((employerId) => ({
+    employerId,
+    employerName: names.get(employerId) ?? null,
+  }));
 }

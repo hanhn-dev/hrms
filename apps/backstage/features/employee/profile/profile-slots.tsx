@@ -1,5 +1,10 @@
-import { Alert, Card, Descriptions } from "antd";
-import { getEmployeeProfile } from "@/features/employee/profile/queries";
+import { Alert, Card, Descriptions, Tag } from "antd";
+import Link from "next/link";
+import { accessibleEmployerRows } from "@/features/employee/profile/accessible-employer-rows";
+import {
+  getEmployeeProfile,
+  listAccessibleEmployers,
+} from "@/features/employee/profile/queries";
 import { formatDate } from "@/shared/format-date";
 
 export async function EmployeeProfileSlot({
@@ -13,6 +18,10 @@ export async function EmployeeProfileSlot({
   if (!profile) {
     return <Alert showIcon type="error" title="Employee was not found." />;
   }
+  const employers = accessibleEmployerRows(
+    await listAccessibleEmployers(profile),
+    employerId,
+  );
 
   return (
     <>
@@ -85,7 +94,36 @@ export async function EmployeeProfileSlot({
             {
               key: "dot",
               label: "DOT",
+              span: 2,
               children: formatDate(profile.dateOfTermination),
+            },
+            {
+              key: "employers",
+              label: "Employers",
+              span: 2,
+              children: (
+                <span className="inline-flex flex-wrap items-center gap-x-3 gap-y-1">
+                  <span>{employers.length}</span>
+                  {employers.map((employer) =>
+                    employer.applied ? (
+                      <span
+                        key={employer.employerId}
+                        className="inline-flex items-center gap-1"
+                      >
+                        {employer.label}
+                        <Tag className="m-0">Applied</Tag>
+                      </span>
+                    ) : (
+                      <Link
+                        key={employer.employerId}
+                        href={`/employers/${employer.employerId}`}
+                      >
+                        {employer.label}
+                      </Link>
+                    ),
+                  )}
+                </span>
+              ),
             },
           ]}
         />

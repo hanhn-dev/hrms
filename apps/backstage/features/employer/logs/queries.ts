@@ -6,6 +6,7 @@ import {
   listLoginSteps as listLoginStepsFromDb,
   listMyDetailsExecutionLogs as listMyDetailsExecutionLogsFromDb,
   listPageSessions as listPageSessionsFromDb,
+  listTsqlErrorLogs as listTsqlErrorLogsFromDb,
   listSessionPages as listSessionPagesFromDb,
   type LogListFilters,
 } from "@hrms/db";
@@ -23,6 +24,8 @@ export type {
   LoginStepRow,
   MyDetailsExecutionLogList,
   MyDetailsExecutionLogRow,
+  TsqlErrorLogList,
+  TsqlErrorLogRow,
   PageHitRow,
   PageSessionList,
   PageSessionRow,
@@ -67,6 +70,11 @@ export async function listMyDetailsExecutionLogs(
 ) {
   await requireFeature("employers");
   return listMyDetailsExecutionLogsFromDb(await getHrmsDb(), employerId, filters);
+}
+
+export async function listTsqlErrorLogs(employerId: number, filters: LogListFilters) {
+  await requireFeature("employers");
+  return listTsqlErrorLogsFromDb(await getHrmsDb(), employerId, filters);
 }
 
 export async function getElmahStack(employerId: number, errorId: string) {

@@ -19,6 +19,7 @@ export {
   listMyDetailsExecutionLogs,
   listPageSessions,
   listSessionPages,
+  listTsqlErrorLogs,
   type ActivityLogList,
   type ActivityLogRow,
   type ElmahLogRow,
@@ -30,6 +31,8 @@ export {
   type LoginStepRow,
   type MyDetailsExecutionLogList,
   type MyDetailsExecutionLogRow,
+  type TsqlErrorLogList,
+  type TsqlErrorLogRow,
   type PageHitRow,
   type PageSessionList,
   type PageSessionRow,
@@ -44,5 +47,6 @@ export {
   LOG_DEFAULT_WINDOW_MS,
   LOG_MAX_WINDOW_MS,
   LOG_PAGE_SIZE,
+  LOG_SQL_ERROR_MAX_WINDOW_MS,
   type LogWindow,
 } from "./window";

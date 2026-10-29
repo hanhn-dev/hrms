@@ -47,7 +47,14 @@ export {
   type BusinessUnitEmployee,
   type BusinessUnitEmployees,
 } from "./employee/business-unit";
-export { getEmployeeProfile, type EmployeeProfile } from "./employee/profile";
+export {
+  accessibleEmployerIds,
+  getEmployeeProfile,
+  listAccessibleEmployers,
+  type AccessibleEmployer,
+  type AccessibleEmployerInput,
+  type EmployeeProfile,
+} from "./employee/profile";
 export {
   DEFAULT_RESET_PASSWORD,
   encodeHrmsPassword,
@@ -400,9 +407,11 @@ export {
   listMyDetailsExecutionLogs,
   listPageSessions,
   listSessionPages,
+  listTsqlErrorLogs,
   LOG_DEFAULT_WINDOW_MS,
   LOG_MAX_WINDOW_MS,
   LOG_PAGE_SIZE,
+  LOG_SQL_ERROR_MAX_WINDOW_MS,
   parseWindowsTimeZoneOffset,
   readablePageName,
   serverLocalBound,
@@ -417,6 +426,8 @@ export {
   type LoginStepRow,
   type MyDetailsExecutionLogList,
   type MyDetailsExecutionLogRow,
+  type TsqlErrorLogList,
+  type TsqlErrorLogRow,
   type PageHitRow,
   type PageSessionList,
   type PageSessionRow,

@@ -6,7 +6,12 @@ import { activityLabel, activityTypeIdsForText } from "./activity-label";
 import { ELMAH_LIST_COLUMNS, extractElmahStack, shortExceptionType } from "./elmah";
 import { readablePageName } from "./page-name";
 import { parseWindowsTimeZoneOffset, type TimeZoneOffset } from "./timezone";
-import { clampLogWindow, LOG_PAGE_SIZE, type LogWindow } from "./window";
+import {
+  clampLogWindow,
+  LOG_PAGE_SIZE,
+  LOG_SQL_ERROR_MAX_WINDOW_MS,
+  type LogWindow,
+} from "./window";
 
 export type LogListFilters = {
   from: Date;
@@ -140,6 +145,26 @@ export type MyDetailsExecutionLogRow = {
 
 export type MyDetailsExecutionLogList = {
   rows: MyDetailsExecutionLogRow[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+};
+
+export type TsqlErrorLogRow = {
+  errorId: number;
+  errorDate: string | null;
+  procedureName: string;
+  errorLine: number | null;
+  loginName: string | null;
+  errorMessage: string | null;
+  parameters: string | null;
+  employeeId: number | null;
+  userName: string | null;
+  employmentNumber: string | null;
+};
+
+export type TsqlErrorLogList = {
+  rows: TsqlErrorLogRow[];
   totalCount: number;
   page: number;
   pageSize: number;
@@ -800,6 +825,123 @@ export async function listMyDetailsExecutionLogs(
       parameters: clipDetail(row.Parameters),
       dynamicSql: clipDetail(row.DynamicSQL),
       additionalInfo: clipDetail(row.AdditionalInfo),
+    })),
+    totalCount: countOf(rows[0]?.TotalCount),
+    page,
+    pageSize: LOG_PAGE_SIZE,
+  };
+}
+
+export async function listTsqlErrorLogs(
+  db: HrmsDb,
+  employerIdInput: number,
+  filters: LogListFilters,
+): Promise<TsqlErrorLogList> {
+  const employerId = parseEmployerId(employerIdInput);
+  const window = clampLogWindow(
+    filters.serverFrom ?? filters.from,
+    filters.serverTo ?? filters.to,
+    LOG_SQL_ERROR_MAX_WINDOW_MS,
+  );
+  const page = pageOf(filters.page);
+  const offset = (page - 1) * LOG_PAGE_SIZE;
+  const person = textOf(filters.person, 100);
+  const text = textOf(filters.text, 100);
+  const employerToken = `%EmployerID= ${employerId} %`;
+  const personSql = person
+    ? likeAny(likePattern(person), [
+        Prisma.sql`Log.LoginName`,
+        Prisma.sql`Log.ParamterValue`,
+        Prisma.sql`Info.EmploymentNumber`,
+        Prisma.sql`Employee.FName`,
+        Prisma.sql`Employee.MiddleName`,
+        Prisma.sql`Employee.LName`,
+      ])
+    : Prisma.empty;
+  const textSql = text
+    ? likeAny(likePattern(text), [
+        Prisma.sql`Log.ErrorMessage`,
+        Prisma.sql`Log.Error_proc`,
+        Prisma.sql`Log.LoginName`,
+        Prisma.sql`Log.ParamterValue`,
+      ])
+    : Prisma.empty;
+
+  const rows = await db.$queryRaw<
+    Array<
+      Counted & {
+        TerrorId: number | bigint;
+        ErrorDate: Date | null;
+        Error_proc: string | null;
+        Errorline: number | bigint | null;
+        LoginName: string | null;
+        ErrorMessage: string | null;
+        ParamterValue: string | null;
+        EmployeeId: number | bigint | null;
+        FullName: string | null;
+        EmploymentNumber: string | null;
+      }
+    >
+  >`
+    SELECT
+      Log.TerrorId,
+      Log.ErrorDate,
+      Log.Error_proc,
+      Log.Errorline,
+      Log.LoginName,
+      LEFT(Log.ErrorMessage, 12001) AS ErrorMessage,
+      LEFT(Log.ParamterValue, 12001) AS ParamterValue,
+      Employee.EmployeeId,
+      LTRIM(RTRIM(CONCAT_WS(' ', Employee.FName, Employee.MiddleName, Employee.LName))) AS FullName,
+      Info.EmploymentNumber,
+      COUNT(*) OVER() AS TotalCount
+    FROM dbo.TSQL_Errorlogs AS Log
+    CROSS APPLY (
+      SELECT LTRIM(SUBSTRING(
+        Log.ParamterValue,
+        NULLIF(CHARINDEX(N'EmployeeID=', Log.ParamterValue), 0) + 11,
+        40
+      )) AS RawEmployeeId
+    ) AS Token
+    CROSS APPLY (
+      SELECT TRY_CONVERT(
+        int,
+        NULLIF(
+          LEFT(
+            Token.RawEmployeeId,
+            NULLIF(PATINDEX(N'%[^0-9]%', Token.RawEmployeeId + N' '), 0) - 1
+          ),
+          N''
+        )
+      ) AS EmployeeId
+    ) AS Parsed
+    LEFT JOIN dbo.TEmployee AS Employee
+      ON Employee.EmployeeId = Parsed.EmployeeId
+    LEFT JOIN dbo.TEmployeeInfo AS Info
+      ON Info.EmployeeId = Employee.EmployeeId
+    WHERE ${range(Prisma.sql`Log.ErrorDate`, window)}
+      AND (
+        Log.ParamterValue LIKE ${employerToken}
+        OR Employee.Employerid = ${employerId}
+      )
+      ${personSql}
+      ${textSql}
+    ORDER BY Log.ErrorDate DESC, Log.TerrorId DESC
+    OFFSET ${offset} ROWS FETCH NEXT ${LOG_PAGE_SIZE} ROWS ONLY
+  `;
+
+  return {
+    rows: rows.map((row) => ({
+      errorId: Number(row.TerrorId),
+      errorDate: asIso(row.ErrorDate),
+      procedureName: row.Error_proc?.trim() || "",
+      errorLine: asInt(row.Errorline),
+      loginName: blankToNull(row.LoginName),
+      errorMessage: clipDetail(row.ErrorMessage),
+      parameters: clipDetail(row.ParamterValue),
+      employeeId: asInt(row.EmployeeId),
+      userName: blankToNull(row.FullName),
+      employmentNumber: blankToNull(row.EmploymentNumber),
     })),
     totalCount: countOf(rows[0]?.TotalCount),
     page,

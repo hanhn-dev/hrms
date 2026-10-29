@@ -9,15 +9,18 @@ import {
   listLoginSteps,
   listMyDetailsExecutionLogs,
   listPageSessions,
+  listTsqlErrorLogs,
   listSessionPages,
 } from "@/features/employer/logs/queries";
 
 export async function LogsSlot({
   employerId,
   query,
+  writesEnabled,
 }: {
   employerId: number;
   query: LogsQuery;
+  writesEnabled: boolean;
 }): Promise<React.JSX.Element> {
   const context = await getLogEmployerContext(employerId);
   if (!context) {
@@ -68,6 +71,10 @@ export async function LogsSlot({
     query.tab === "mydetails"
       ? await captureQueryScript(() => listMyDetailsExecutionLogs(employerId, serverFilters))
       : null;
+  const sqlErrors =
+    query.tab === "sqlerrors"
+      ? await captureQueryScript(() => listTsqlErrorLogs(employerId, serverFilters))
+      : null;
 
   return (
     <LogsPanel
@@ -85,6 +92,8 @@ export async function LogsSlot({
       loginScript={login?.script ?? ""}
       myDetails={myDetails?.result ?? null}
       myDetailsScript={myDetails?.script ?? ""}
+      sqlErrors={sqlErrors?.result ?? null}
+      sqlErrorsScript={sqlErrors?.script ?? ""}
       offsetLabel={context.offset?.label ?? "UTC"}
       offsetMinutes={context.offset?.offsetMinutes ?? 0}
       pages={pages?.result ?? null}
@@ -92,6 +101,7 @@ export async function LogsSlot({
       query={query}
       usingDefaultWindow={window.usingDefaultWindow}
       windowLimited={window.windowLimited}
+      writesEnabled={writesEnabled}
     />
   );
 }
