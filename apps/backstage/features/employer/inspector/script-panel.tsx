@@ -1,18 +1,28 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
-import { Alert, Segmented, Space, Tabs, Typography } from "antd";
+import { Alert, App, Segmented, Space, Tabs, Tooltip, Typography } from "antd";
 import { KIND_COLOR } from "@/features/dbs/kind-style";
 import { SearchSelect } from "@/shared/ui";
 import { ScriptTabBody, type ScriptTab } from "@/features/employer/inspector/script-tab-body";
 import {
   getModuleDefinition,
+  listCallingScripts,
   listInspectorTables,
   listModules,
+  listNestedScripts,
   resolveScriptObject,
   type InspectorObjectKind,
   type ModuleKind,
 } from "@/features/employer/inspector/queries";
+import {
+  mergeRelatedTabs,
+  relationLabelClass,
+  relationTooltip,
+  scriptTabKey,
+  type RelatedScriptRef,
+  type ScriptRelation,
+} from "@/features/employer/inspector/script-relations";
 import {
   forgetRecentObject,
   matchRecentObjects,
@@ -26,6 +36,48 @@ import {
 import { getSetting, setSetting } from "@/shared/client-db/settings-db";
 
 const MIN_QUERY_LENGTH = 2;
+const DEFINITION_CONCURRENCY = 4;
+
+function isModuleKind(kind: ScriptTab["kind"]): kind is ModuleKind {
+  return kind === "storedProcedure" || kind === "function" || kind === "view";
+}
+
+function ScriptTabLabel({ tab }: { tab: ScriptTab }): React.JSX.Element {
+  const relation = tab.relation;
+  const body = (
+    <span className={relation ? relationLabelClass(relation.role) : "inline-flex items-center gap-1"}>
+      {tab.kind === "lookup" ? null : (
+        <span
+          className="inline-block h-2 w-2 rounded-full"
+          style={{ background: KIND_COLOR[tab.kind] }}
+        />
+      )}
+      {tab.name}
+      {relation?.role === "nested" ? (
+        <span className="font-sans text-[10px] leading-none">{relation.depth}</span>
+      ) : null}
+    </span>
+  );
+  if (!relation) {
+    return body;
+  }
+  return <Tooltip title={relationTooltip(relation)}>{body}</Tooltip>;
+}
+
+function RelationLegend(): React.JSX.Element {
+  return (
+    <Typography.Text className="text-xs" type="secondary">
+      <span className="mr-3 inline-flex items-center gap-1">
+        <span className="inline-block h-2 w-2 rounded-sm bg-amber-400" />
+        Amber tabs call the script you loaded them from.
+      </span>
+      <span className="inline-flex items-center gap-1">
+        <span className="inline-block h-2 w-2 rounded-sm bg-sky-400" />
+        Sky tabs are nested calls from that script. The number is depth.
+      </span>
+    </Typography.Text>
+  );
+}
 
 function useDebouncedValue<T>(value: T, delayMs: number): T {
   const [debounced, setDebounced] = useState(value);
@@ -49,10 +101,6 @@ function splitQualified(qualified: string): { schema: string; name: string } {
     schema: qualified.slice(0, dot),
     name: qualified.slice(dot + 1),
   };
-}
-
-function scriptKey(kind: string, schema: string, name: string): string {
-  return `${kind}:${schema}.${name}`.toLowerCase();
 }
 
 function lookupKey(schema: string, name: string): string {
@@ -110,6 +158,13 @@ export function ScriptPanel({
   const [error, setError] = useState<string | null>(null);
   const [, startTransition] = useTransition();
   const rootRef = useRef<HTMLDivElement>(null);
+  const { message } = App.useApp();
+  const tabsRef = useRef(tabs);
+  tabsRef.current = tabs;
+  const [relationLoad, setRelationLoad] = useState<{
+    key: string;
+    role: ScriptRelation["role"];
+  } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -231,7 +286,7 @@ export function ScriptPanel({
     if (focusExisting(schema, name)) {
       return;
     }
-    const key = scriptKey(moduleKind, schema, name);
+    const key = scriptTabKey(moduleKind, schema, name);
     setError(null);
     setActiveKey(key);
     setTabs((current) => {
@@ -341,10 +396,17 @@ export function ScriptPanel({
                 : tab,
             );
           }
-          const resolvedKey = scriptKey(resolved.kind, resolved.schema, resolved.name);
+          const resolvedKey = scriptTabKey(resolved.kind, resolved.schema, resolved.name);
+          const previous = current.find((tab) => tab.key === key);
           const withoutLookup = current.filter((tab) => tab.key !== key);
-          if (withoutLookup.some((tab) => tab.key === resolvedKey)) {
-            return withoutLookup;
+          const existing = withoutLookup.find((tab) => tab.key === resolvedKey);
+          if (existing) {
+            if (!previous?.relation || existing.relation) {
+              return withoutLookup;
+            }
+            return withoutLookup.map((tab) =>
+              tab.key === resolvedKey ? { ...tab, relation: previous.relation } : tab,
+            );
           }
           return [
             ...withoutLookup,
@@ -356,6 +418,7 @@ export function ScriptPanel({
               loading: false,
               error: null,
               script: resolved,
+              relation: previous?.relation,
             },
           ];
         });
@@ -364,7 +427,7 @@ export function ScriptPanel({
             return current;
           }
           return resolved
-            ? scriptKey(resolved.kind, resolved.schema, resolved.name)
+            ? scriptTabKey(resolved.kind, resolved.schema, resolved.name)
             : key;
         });
       } catch (err) {
@@ -481,6 +544,118 @@ export function ScriptPanel({
     }
   }
 
+  async function loadRelatedDefinitions(
+    pending: readonly ScriptTab[],
+  ): Promise<void> {
+    let cursor = 0;
+    async function worker(): Promise<void> {
+      while (cursor < pending.length) {
+        const index = cursor;
+        cursor += 1;
+        const item = pending[index];
+        if (!item || !isModuleKind(item.kind)) {
+          continue;
+        }
+        try {
+          const definition = await getModuleDefinition({
+            schema: item.schema,
+            name: item.name,
+            kind: item.kind,
+          });
+          setTabs((current) =>
+            current.map((tab) =>
+              tab.key === item.key
+                ? {
+                    ...tab,
+                    schema: definition.schema,
+                    name: definition.name,
+                    kind: definition.kind,
+                    loading: false,
+                    error: null,
+                    script: {
+                      schema: definition.schema,
+                      name: definition.name,
+                      kind: definition.kind,
+                      definition: definition.definition,
+                      unavailableReason: definition.unavailableReason,
+                    },
+                  }
+                : tab,
+            ),
+          );
+        } catch (err) {
+          const text = err instanceof Error ? err.message : String(err);
+          setTabs((current) =>
+            current.map((tab) =>
+              tab.key === item.key ? { ...tab, loading: false, error: text } : tab,
+            ),
+          );
+        }
+      }
+    }
+    const workers = Math.min(DEFINITION_CONCURRENCY, pending.length);
+    if (workers === 0) {
+      return;
+    }
+    await Promise.all(Array.from({ length: workers }, () => worker()));
+  }
+
+  async function loadRelated(tab: ScriptTab, role: ScriptRelation["role"]): Promise<void> {
+    if (tab.kind === "lookup" || (role === "nested" && tab.kind === "table")) {
+      return;
+    }
+    setRelationLoad({ key: tab.key, role });
+    try {
+      const list =
+        role === "caller"
+          ? await listCallingScripts({ schema: tab.schema, name: tab.name })
+          : await listNestedScripts({ schema: tab.schema, name: tab.name });
+      const source = { role, schema: tab.schema, name: tab.name };
+      const merged = mergeRelatedTabs(tabsRef.current, list, source, relatedTab);
+      const previousKeys = new Set(tabsRef.current.map((item) => item.key));
+      const pending = merged.tabs.filter((item) => !previousKeys.has(item.key));
+      if (merged.opened > 0 || merged.recolored > 0) {
+        setTabs((current) => {
+          const latest = mergeRelatedTabs(current, list, source, relatedTab);
+          if (latest.opened === 0 && latest.recolored === 0) {
+            return current;
+          }
+          return latest.tabs;
+        });
+      }
+      if (merged.message.tone === "warning") {
+        message.warning(merged.message.text);
+      } else if (merged.message.tone === "success") {
+        message.success(merged.message.text);
+      } else {
+        message.info(merged.message.text);
+      }
+      setRelationLoad((current) =>
+        current?.key === tab.key && current.role === role ? null : current,
+      );
+      await loadRelatedDefinitions(pending);
+    } catch (err) {
+      message.error(err instanceof Error ? err.message : String(err));
+    } finally {
+      setRelationLoad((current) =>
+        current?.key === tab.key && current.role === role ? null : current,
+      );
+    }
+  }
+
+  function relatedTab(item: RelatedScriptRef, relation: ScriptRelation): ScriptTab {
+    return {
+      key: scriptTabKey(item.kind, item.schema, item.name),
+      schema: item.schema,
+      name: item.name,
+      kind: item.kind,
+      loading: true,
+      error: null,
+      script: null,
+      relation,
+    };
+  }
+
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
       const root = rootRef.current;
@@ -575,27 +750,38 @@ export function ScriptPanel({
         </div>
       </div>
       {error ? <Alert type="error" showIcon title={error} /> : null}
+      {tabs.some((tab) => tab.relation) ? <RelationLegend /> : null}
       {tabs.length > 0 ? (
         <Tabs
           activeKey={activeKey}
           hideAdd
           items={tabs.map((tab) => ({
             key: tab.key,
-            label: (
-              <span className="inline-flex items-center gap-1">
-                {tab.kind === "lookup" ? null : (
-                  <span
-                    className="inline-block h-2 w-2 rounded-full"
-                    style={{ background: KIND_COLOR[tab.kind] }}
-                  />
-                )}
-                {tab.name}
-              </span>
-            ),
+            label: <ScriptTabLabel tab={tab} />,
             children: (
               <ScriptTabBody
+                loadingCallers={
+                  relationLoad?.key === tab.key && relationLoad.role === "caller"
+                }
+                loadingNested={
+                  relationLoad?.key === tab.key && relationLoad.role === "nested"
+                }
                 tab={tab}
                 writesEnabled={writesEnabled}
+                onLoadCallers={
+                  tab.kind === "lookup"
+                    ? undefined
+                    : () => {
+                        void loadRelated(tab, "caller");
+                      }
+                }
+                onLoadNested={
+                  tab.kind === "lookup" || tab.kind === "table"
+                    ? undefined
+                    : () => {
+                        void loadRelated(tab, "nested");
+                      }
+                }
                 onOpenObject={(object) => {
                   openReference(object.schema, object.name);
                 }}

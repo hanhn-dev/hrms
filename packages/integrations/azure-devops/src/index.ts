@@ -173,6 +173,7 @@ export {
 	listGitAuthorActivity,
 	listGitBranches,
 	listGitCommits,
+	listGitFiles,
 	listGitRepositories,
 	readGitFilePair,
 } from './git-trace.js';

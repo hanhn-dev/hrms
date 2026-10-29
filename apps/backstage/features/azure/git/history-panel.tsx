@@ -1,7 +1,7 @@
 "use client";
 
 import { SearchOutlined } from "@ant-design/icons";
-import { Alert, Button, Input, Spin, Table } from "antd";
+import { Alert, Button, Spin, Table } from "antd";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type {
   GitBranchSummary,
@@ -15,8 +15,10 @@ import type {
 import { AuthorActivityModal } from "@/features/azure/git/author-activity-modal";
 import { CommitDetailDrawer } from "@/features/azure/git/commit-detail-drawer";
 import { buildGitCommitUrl, buildGitPullRequestUrl, buildGitWorkItemUrl } from "@/features/azure/git/git-links";
-import { errorMessage, firstCommitLine, rethrowRedirect, shortCommit } from "@/features/azure/git/git-text";
+import { GitPathSearch } from "@/features/azure/git/git-path-search";
+import { displayGitPath, errorMessage, firstCommitLine, rethrowRedirect, shortCommit } from "@/features/azure/git/git-text";
 import { loadGitCommitDetail, loadGitCommits, loadGitFilePair } from "@/features/azure/git/queries";
+import { rememberRecentGitPath, type RecentGitPath } from "@/features/azure/git/recent-git-paths";
 import { formatDate } from "@/shared/format-date";
 import { SearchSelect } from "@/shared/ui";
 
@@ -132,6 +134,9 @@ export function HistoryPanel({
         hasMoreRef.current = page.hasMore;
         nextSkipRef.current = page.skip + page.top;
         setHasMore(page.hasMore);
+        if (displayGitPath(path).length > 0) {
+          rememberRecentGitPath(repositoryId, { path, historyBranch: branch });
+        }
       })
       .catch((loadError: unknown) => {
         rethrowRedirect(loadError);
@@ -210,10 +215,19 @@ export function HistoryPanel({
     return () => body.removeEventListener("scroll", onScroll);
   }, [loadMore, commits.length, bodyHeight, loading]);
 
-  function applyFilters(nextAuthors: readonly string[] = draftAuthors): void {
-    setPath(draftPath);
+  function applyFilters(nextAuthors: readonly string[] = draftAuthors, nextPath: string = draftPath): void {
+    const filePath = displayGitPath(nextPath);
+    setDraftPath(filePath);
+    setPath(filePath);
     setSelectedAuthors([...nextAuthors]);
     setSearchTick((value) => value + 1);
+  }
+
+  function selectRecent(recent: RecentGitPath): void {
+    setDraftPath(recent.path);
+    if (recent.historyBranch && branches.some((item) => item.name === recent.historyBranch)) {
+      setBranch(recent.historyBranch);
+    }
   }
 
   async function openCommit(commit: GitCommitSummary): Promise<void> {
@@ -281,14 +295,17 @@ export function HistoryPanel({
         </label>
         <label className="block min-w-52 flex-1">
           <span className="mb-1 block text-sm text-slate-600 dark:text-slate-300">Path</span>
-          <Input
-            allowClear
-            placeholder="/src/file.ts"
+          <GitPathSearch
+            branches={branches}
+            branchesLoading={branchesLoading}
+            fallbackBranch={branch}
+            repositoryId={repositoryId}
             value={draftPath}
-            onChange={(event) => setDraftPath(event.target.value)}
-            onPressEnter={() => {
-              applyFilters();
+            onChange={setDraftPath}
+            onPressEnter={(nextPath) => {
+              applyFilters(draftAuthors, nextPath);
             }}
+            onSelectRecent={selectRecent}
           />
         </label>
         <label className="block min-w-64 flex-1">

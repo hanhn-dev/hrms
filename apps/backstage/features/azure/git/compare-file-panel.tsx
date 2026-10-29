@@ -1,9 +1,10 @@
 "use client";
 
-import { Alert, Button, Input, Table } from "antd";
-import { useEffect, useState } from "react";
+import { Alert, Button, Table } from "antd";
+import { useEffect, useRef, useState } from "react";
 import type { GitBranchSummary, GitCommitSummary, GitFilePair } from "@hrms/azure-devops";
 import { FileDiff } from "@/features/azure/git/file-diff";
+import { GitPathSearch } from "@/features/azure/git/git-path-search";
 import { buildGitBlameUrl, buildGitCommitUrl } from "@/features/azure/git/git-links";
 import {
   displayGitPath,
@@ -13,6 +14,7 @@ import {
   shortCommit,
 } from "@/features/azure/git/git-text";
 import { loadGitCommits, loadGitFilePair } from "@/features/azure/git/queries";
+import { rememberRecentGitPath, type RecentGitPath } from "@/features/azure/git/recent-git-paths";
 import { formatDate } from "@/shared/format-date";
 import { SearchSelect, Text } from "@/shared/ui";
 
@@ -41,6 +43,8 @@ export function CompareFilePanel({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [comparedPath, setComparedPath] = useState<string | null>(null);
+  const branchChoice = useRef({ left: leftBranch, right: rightBranch });
+  branchChoice.current = { left: leftBranch, right: rightBranch };
 
   useEffect(() => {
     if (branches.length === 0) {
@@ -55,10 +59,24 @@ export function CompareFilePanel({
     setRightBranch((current) => (current && branches.some((item) => item.name === current) ? current : other));
   }, [branches, defaultBranch]);
 
-  async function compare(): Promise<void> {
-    const left = branches.find((item) => item.name === leftBranch);
-    const right = branches.find((item) => item.name === rightBranch);
-    const filePath = displayGitPath(path);
+  function selectRecent(recent: RecentGitPath): void {
+    setPath(recent.path);
+    const next = { ...branchChoice.current };
+    if (recent.leftBranch && branches.some((item) => item.name === recent.leftBranch)) {
+      next.left = recent.leftBranch;
+      setLeftBranch(recent.leftBranch);
+    }
+    if (recent.rightBranch && branches.some((item) => item.name === recent.rightBranch)) {
+      next.right = recent.rightBranch;
+      setRightBranch(recent.rightBranch);
+    }
+    branchChoice.current = next;
+  }
+
+  async function compare(nextPath: string = path): Promise<void> {
+    const left = branches.find((item) => item.name === branchChoice.current.left);
+    const right = branches.find((item) => item.name === branchChoice.current.right);
+    const filePath = displayGitPath(nextPath);
     if (!left || !right || filePath.length === 0) {
       return;
     }
@@ -92,6 +110,12 @@ export function CompareFilePanel({
       }
       setPair(filePair);
       setComparedPath(filePath);
+      setPath(filePath);
+      rememberRecentGitPath(repositoryId, {
+        path: filePath,
+        leftBranch: left.name,
+        rightBranch: right.name,
+      });
       setCommits(
         [...byId.values()].sort((leftCommit, rightCommit) =>
           (rightCommit.authoredAt ?? "").localeCompare(leftCommit.authoredAt ?? ""),
@@ -134,13 +158,17 @@ export function CompareFilePanel({
         </label>
         <label className="block min-w-64 flex-1">
           <span className="mb-1 block text-sm text-slate-600 dark:text-slate-300">Path</span>
-          <Input
-            placeholder="/src/file.ts"
+          <GitPathSearch
+            branches={branches}
+            branchesLoading={branchesLoading}
+            fallbackBranch={leftBranch}
+            repositoryId={repositoryId}
             value={path}
-            onChange={(event) => setPath(event.target.value)}
-            onPressEnter={() => {
-              void compare();
+            onChange={setPath}
+            onPressEnter={(nextPath) => {
+              void compare(nextPath);
             }}
+            onSelectRecent={selectRecent}
           />
         </label>
         <Button
@@ -155,34 +183,38 @@ export function CompareFilePanel({
         </Button>
       </div>
       {error ? <Alert title={error} type="error" /> : null}
-      {comparedPath && leftBranch && rightBranch ? (
+      {comparedPath && pair && leftBranch && rightBranch ? (
         <div className="flex flex-wrap gap-3 text-sm">
-          <a
-            href={buildGitBlameUrl({
-              organizationUrl,
-              project,
-              repositoryName,
-              path: comparedPath,
-              branch: leftBranch,
-            })}
-            rel="noreferrer"
-            target="_blank"
-          >
-            Open blame in Azure DevOps ({leftBranch})
-          </a>
-          <a
-            href={buildGitBlameUrl({
-              organizationUrl,
-              project,
-              repositoryName,
-              path: comparedPath,
-              branch: rightBranch,
-            })}
-            rel="noreferrer"
-            target="_blank"
-          >
-            Open blame in Azure DevOps ({rightBranch})
-          </a>
+          {pair.base.missing ? null : (
+            <a
+              href={buildGitBlameUrl({
+                organizationUrl,
+                project,
+                repositoryName,
+                path: comparedPath,
+                branch: leftBranch,
+              })}
+              rel="noreferrer"
+              target="_blank"
+            >
+              Open blame in Azure DevOps ({leftBranch})
+            </a>
+          )}
+          {pair.target.missing ? null : (
+            <a
+              href={buildGitBlameUrl({
+                organizationUrl,
+                project,
+                repositoryName,
+                path: comparedPath,
+                branch: rightBranch,
+              })}
+              rel="noreferrer"
+              target="_blank"
+            >
+              Open blame in Azure DevOps ({rightBranch})
+            </a>
+          )}
         </div>
       ) : null}
       {pair ? (

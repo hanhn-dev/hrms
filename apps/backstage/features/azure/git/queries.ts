@@ -6,6 +6,7 @@ import {
   listGitAuthorActivity,
   listGitBranches,
   listGitCommits,
+  listGitFiles,
   listGitRepositories,
   listProjectMembers,
   readGitFilePair,
@@ -53,6 +54,30 @@ export async function loadGitAuthorActivity(input: ListGitAuthorActivityInput): 
 export async function loadGitBranches(repositoryId: string): Promise<GitBranchSummary[]> {
   const client = await azureClient();
   return listGitBranches(client, repositoryId);
+}
+
+const gitFileIndexCache = new Map<string, readonly string[]>();
+
+export async function loadGitFileIndex(input: {
+  repositoryId: string;
+  branch: string;
+  commitId: string;
+}): Promise<readonly string[]> {
+  const commitId = input.commitId.trim();
+  const cacheKey = commitId.length > 0 ? `${input.repositoryId}\n${commitId}` : "";
+  if (cacheKey.length > 0) {
+    const cached = gitFileIndexCache.get(cacheKey);
+    if (cached) {
+      return cached;
+    }
+  }
+
+  const client = await azureClient();
+  const paths = await listGitFiles(client, input.repositoryId, input.branch);
+  if (cacheKey.length > 0) {
+    gitFileIndexCache.set(cacheKey, paths);
+  }
+  return paths;
 }
 
 export async function loadGitCommits(input: ListGitCommitsInput): Promise<GitCommitPage> {

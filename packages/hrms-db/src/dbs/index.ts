@@ -26,6 +26,12 @@ export {
   type ExecuteFunctionInput,
   type ExecuteFunctionResult,
 } from "./execute-function";
+export {
+  listCallingModules,
+  listNestedModules,
+  type RelatedModule,
+  type RelatedModuleList,
+} from "./object-relations";
 
 const MAX_TABLES_PER_SEARCH = 10;
 const MAX_EXISTENCE_TABLES = 20;

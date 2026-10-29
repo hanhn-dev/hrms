@@ -4,6 +4,7 @@ import {
   LineDiffBlockChangeType,
   PullRequestStatus,
   VersionControlChangeType,
+  VersionControlRecursionType,
   type GitChange,
   type GitCommitRef,
   type GitPullRequest,
@@ -211,6 +212,47 @@ export async function listGitBranches(
 
   branches.sort((left, right) => left.name.localeCompare(right.name, undefined, { sensitivity: 'base' }));
   return branches;
+}
+
+export async function listGitFiles(
+  client: AzureDevOpsClient,
+  repositoryId: string,
+  branch: string,
+): Promise<string[]> {
+  const resolvedRepositoryId = requireText(repositoryId, 'Repository');
+  const resolvedBranch = normalizeBranchName(branch);
+  if (resolvedBranch.length === 0) {
+    throw new Error('Branch is required');
+  }
+
+  const gitApi = await client.getGitApi();
+  const items = await withAzureDevOpsTimeout(
+    gitApi.getItems(
+      resolvedRepositoryId,
+      client.config.project,
+      '/',
+      VersionControlRecursionType.Full,
+      false,
+      false,
+      false,
+      false,
+      { version: resolvedBranch, versionType: GitVersionType.Branch },
+    ),
+  );
+
+  const paths = new Set<string>();
+  for (const item of items ?? []) {
+    if (item.isFolder === true) {
+      continue;
+    }
+    const path = formatPath(item.path);
+    if (path === null || path === '/') {
+      continue;
+    }
+    paths.add(path);
+  }
+
+  return [...paths].sort((left, right) => left.localeCompare(right, undefined, { sensitivity: 'base' }));
 }
 
 export async function listGitCommits(

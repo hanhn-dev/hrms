@@ -8,7 +8,8 @@ import { bindSql } from "@/features/employer/inspector/script-symbols";
 import { formatSql } from "@/features/employer/inspector/script-format";
 import { ScriptCompare } from "@/features/employer/inspector/script-compare";
 import { ScriptExecuteModal } from "@/features/employer/inspector/script-execute-modal";
-import { SqlScript } from "@/features/employer/inspector/script-view";
+import { RelatedScriptButtons, SqlScript } from "@/features/employer/inspector/script-view";
+import type { ScriptRelation } from "@/features/employer/inspector/script-relations";
 import {
   ScriptUsedObjects,
   type UsedObject,
@@ -28,6 +29,14 @@ export type ScriptTab = {
   loading: boolean;
   error: string | null;
   script: ResolvedScript | null;
+  relation?: ScriptRelation;
+};
+
+type RelatedActions = {
+  onLoadCallers?: () => void;
+  onLoadNested?: () => void;
+  loadingCallers?: boolean;
+  loadingNested?: boolean;
 };
 
 function ScriptReload({ onRefresh }: { onRefresh: () => void }): React.JSX.Element {
@@ -51,12 +60,16 @@ export function ScriptTabBody({
   writesEnabled,
   onOpenObject,
   onRefresh,
+  onLoadCallers,
+  onLoadNested,
+  loadingCallers,
+  loadingNested,
 }: {
   tab: ScriptTab;
   writesEnabled: boolean;
   onOpenObject: (object: { schema: string; name: string }) => void;
   onRefresh: () => void;
-}): React.JSX.Element {
+} & RelatedActions): React.JSX.Element {
   const [comparing, setComparing] = useState(false);
   if (tab.loading) {
     return <Typography.Text type="secondary">Loading {tab.schema}.{tab.name}…</Typography.Text>;
@@ -84,14 +97,22 @@ export function ScriptTabBody({
           <Typography.Text type="secondary">
             {tab.script.schema}.{tab.script.name} is a table. Columns:
           </Typography.Text>
-          <Button
-            size="small"
-            onClick={() => {
-              setComparing(true);
-            }}
-          >
-            Compare
-          </Button>
+          <div className="flex items-center gap-2">
+            <RelatedScriptButtons
+              loadingCallers={loadingCallers}
+              loadingNested={loadingNested}
+              onLoadCallers={onLoadCallers}
+              onLoadNested={onLoadNested}
+            />
+            <Button
+              size="small"
+              onClick={() => {
+                setComparing(true);
+              }}
+            >
+              Compare
+            </Button>
+          </div>
         </div>
         <pre className="max-h-[36rem] overflow-auto rounded bg-slate-50 p-3 font-mono text-xs leading-5 whitespace-pre dark:bg-slate-900">
           {tab.script.columns.map((column) => `${column.name}  ${column.typeName}`).join("\n")}
@@ -103,7 +124,13 @@ export function ScriptTabBody({
     return (
       <div className="flex flex-col gap-2">
         <ScriptReload onRefresh={onRefresh} />
-        <div>
+        <div className="flex items-center gap-2">
+          <RelatedScriptButtons
+            loadingCallers={loadingCallers}
+            loadingNested={loadingNested}
+            onLoadCallers={onLoadCallers}
+            onLoadNested={onLoadNested}
+          />
           <Button
             size="small"
             onClick={() => {
@@ -122,6 +149,8 @@ export function ScriptTabBody({
       <div className="flex flex-col gap-2">
         <ScriptReload onRefresh={onRefresh} />
         <ScriptBody
+          loadingCallers={loadingCallers}
+          loadingNested={loadingNested}
           name={tab.script.name}
           schema={tab.script.schema}
           sql={tab.script.definition}
@@ -129,6 +158,8 @@ export function ScriptTabBody({
           onCompare={() => {
             setComparing(true);
           }}
+          onLoadCallers={onLoadCallers}
+          onLoadNested={onLoadNested}
           onOpenObject={onOpenObject}
         />
       </div>
@@ -144,6 +175,10 @@ function ScriptBody({
   writesEnabled,
   onOpenObject,
   onCompare,
+  onLoadCallers,
+  onLoadNested,
+  loadingCallers,
+  loadingNested,
 }: {
   schema: string;
   name: string;
@@ -151,7 +186,7 @@ function ScriptBody({
   writesEnabled: boolean;
   onOpenObject: (object: { schema: string; name: string }) => void;
   onCompare: () => void;
-}): React.JSX.Element {
+} & RelatedActions): React.JSX.Element {
   const [kinds, setKinds] = useState<Record<string, ScriptObjectKind>>({});
   const [kindsReady, setKindsReady] = useState(false);
   const [executeTarget, setExecuteTarget] = useState<UsedObject | null>(null);
@@ -205,8 +240,12 @@ function ScriptBody({
             kinds={kinds}
             mode={mode}
             model={model}
+            loadingCallers={loadingCallers}
+            loadingNested={loadingNested}
             warning={mode === "formatted" ? formatted.warning : null}
             onCompare={onCompare}
+            onLoadCallers={onLoadCallers}
+            onLoadNested={onLoadNested}
             onMode={setMode}
             onOpenObject={onOpenObject}
           />

@@ -95,6 +95,51 @@ function symbolClass(kind: Piece["kind"], clickable: boolean, flash: boolean): s
   return [color, action, flashClass].filter(Boolean).join(" ");
 }
 
+export function RelatedScriptButtons({
+  onLoadCallers,
+  onLoadNested,
+  loadingCallers = false,
+  loadingNested = false,
+}: {
+  onLoadCallers?: () => void;
+  onLoadNested?: () => void;
+  loadingCallers?: boolean;
+  loadingNested?: boolean;
+}): React.JSX.Element | null {
+  if (!onLoadCallers && !onLoadNested) {
+    return null;
+  }
+  const busy = loadingCallers || loadingNested;
+  return (
+    <>
+      {onLoadCallers ? (
+        <Tooltip title="Open procedures, functions, and views that call this object">
+          <Button
+            disabled={busy && !loadingCallers}
+            loading={loadingCallers}
+            size="small"
+            onClick={onLoadCallers}
+          >
+            Callers
+          </Button>
+        </Tooltip>
+      ) : null}
+      {onLoadNested ? (
+        <Tooltip title="Open procedures, functions, and views this object calls, including nested calls">
+          <Button
+            disabled={busy && !loadingNested}
+            loading={loadingNested}
+            size="small"
+            onClick={onLoadNested}
+          >
+            Nested calls
+          </Button>
+        </Tooltip>
+      ) : null}
+    </>
+  );
+}
+
 export function SqlScript({
   model,
   warning,
@@ -104,6 +149,10 @@ export function SqlScript({
   onMode,
   onOpenObject,
   onCompare,
+  onLoadCallers,
+  onLoadNested,
+  loadingCallers,
+  loadingNested,
 }: {
   model: SqlModel;
   warning: string | null;
@@ -113,6 +162,10 @@ export function SqlScript({
   onMode: (mode: ScriptMode) => void;
   onOpenObject: (object: { schema: string; name: string }) => void;
   onCompare: () => void;
+  onLoadCallers?: () => void;
+  onLoadNested?: () => void;
+  loadingCallers?: boolean;
+  loadingNested?: boolean;
 }): React.JSX.Element {
   const { message } = App.useApp();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -270,9 +323,17 @@ export function SqlScript({
         >
           Collapse all
         </Button>
-        <Button className="ml-auto" size="small" type="primary" onClick={() => void copyScript()}>
-          Copy script
-        </Button>
+        <div className="ml-auto flex items-center gap-2">
+          <RelatedScriptButtons
+            loadingCallers={loadingCallers}
+            loadingNested={loadingNested}
+            onLoadCallers={onLoadCallers}
+            onLoadNested={onLoadNested}
+          />
+          <Button size="small" type="primary" onClick={() => void copyScript()}>
+            Copy script
+          </Button>
+        </div>
       </div>
       {warning ? (
         <Typography.Text className="shrink-0 px-3 py-1 text-xs" type="warning">

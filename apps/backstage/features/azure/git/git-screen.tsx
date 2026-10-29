@@ -11,7 +11,7 @@ const HELP = [
     type: "info" as const,
     title: "Who changed it",
     description:
-      "History lists recent commits on a branch. Scroll to the bottom of the table to load older commits. The PR column is the pull request that introduced the commit. Click an author to see their pull requests and commits in this repository. Click a row to open the commit beside the table. Azure DevOps does not offer line-by-line blame through its API. Use Open blame in Azure DevOps on Compare file when you need every line's last author.",
+      "History lists recent commits on a branch. Search the path by file name. Suggestions come from Dev, and recent paths stay in this browser. Scroll to the bottom of the table to load older commits. The PR column is the pull request that introduced the commit. Click an author to see their pull requests and commits in this repository. Click a row to open the commit beside the table. Azure DevOps does not offer line-by-line blame through its API. Use Open blame in Azure DevOps on Compare file when you need every line's last author.",
   },
   {
     id: "commits",
@@ -25,7 +25,7 @@ const HELP = [
     type: "info" as const,
     title: "One file, two branches",
     description:
-      "Pick a path and two branches to compare that file at each branch tip. Word changes are highlighted inside the line. The table under the diff lists commits that touched the file on one branch and not the other.",
+      "Search for a file by name. Suggestions come from Dev, and recent paths stay in this browser. Pick two branches to compare that file at each branch tip. Word changes are highlighted inside the line. The table under the diff lists commits that touched the file on one branch and not the other.",
   },
 ];
 

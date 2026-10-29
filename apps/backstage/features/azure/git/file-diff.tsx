@@ -4,6 +4,7 @@ import { useMemo, useRef } from "react";
 import { Alert, Button } from "antd";
 import type { GitFilePair } from "@hrms/azure-devops";
 import { diffCode, type CodeDiffRow, type DiffSpan } from "@/features/azure/git/code-diff";
+import { fileCompareView } from "@/features/azure/git/file-compare-view";
 
 function spanClass(changed: boolean, side: "left" | "right"): string {
   if (!changed) {
@@ -22,6 +23,21 @@ function cellClass(row: CodeDiffRow, side: "left" | "right"): string {
     return "bg-green-50 dark:bg-green-950/40";
   }
   return "";
+}
+
+function OneSide({
+  content,
+  missingLabel,
+}: {
+  content: string | null;
+  missingLabel: string;
+}): React.JSX.Element {
+  if (content === null) {
+    return <div className="px-2 py-2 text-sm text-slate-500 dark:text-slate-400">Not on {missingLabel}</div>;
+  }
+  return (
+    <pre className="m-0 min-w-0 px-2 py-1 font-mono text-xs whitespace-pre-wrap break-all">{content}</pre>
+  );
 }
 
 function DiffCell({
@@ -46,22 +62,6 @@ function DiffCell({
   );
 }
 
-function pairNotice(pair: GitFilePair): string | null {
-  if (pair.base.isBinary || pair.target.isBinary) {
-    return pair.base.omission ?? pair.target.omission ?? "Binary or non-text content omitted";
-  }
-  const blocked = [pair.base, pair.target].filter(
-    (side) => side.omission !== null && !side.missing && side.content === null,
-  );
-  if (blocked.length > 0) {
-    return blocked.map((side) => side.omission).filter((note): note is string => note !== null).join("; ");
-  }
-  if (pair.base.missing && pair.target.missing) {
-    return "This path is not in either version.";
-  }
-  return null;
-}
-
 export function FileDiff({
   pair,
   leftLabel,
@@ -71,11 +71,11 @@ export function FileDiff({
   leftLabel: string;
   rightLabel: string;
 }): React.JSX.Element {
-  const notice = pairNotice(pair);
-  const truncated = pair.base.truncated || pair.target.truncated;
+  const view = fileCompareView(pair, leftLabel, rightLabel);
+  const truncated = view.kind === "one-sided" ? view.truncated : pair.base.truncated || pair.target.truncated;
   const diff = useMemo(
-    () => (notice ? null : diffCode(pair.base.content ?? "", pair.target.content ?? "")),
-    [notice, pair],
+    () => (view.kind === "diff" ? diffCode(pair.base.content ?? "", pair.target.content ?? "") : null),
+    [view.kind, pair],
   );
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -89,8 +89,26 @@ export function FileDiff({
     root.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
   }
 
-  if (notice) {
-    return <Alert title={notice} type="info" />;
+  if (view.kind === "notice") {
+    return <Alert title={view.message} type="info" />;
+  }
+  if (view.kind === "one-sided") {
+    return (
+      <div className="flex flex-col gap-2">
+        <Alert title={view.message} type="info" />
+        {truncated ? <Alert title="Showing the first 100 KB of this file." type="warning" /> : null}
+        <div className="grid shrink-0 grid-cols-2 border-b border-slate-200 text-xs text-slate-500 dark:border-slate-700">
+          <div className="px-2 py-1">{leftLabel}</div>
+          <div className="border-l border-slate-200 px-2 py-1 dark:border-slate-700">{rightLabel}</div>
+        </div>
+        <div className="grid max-h-[32rem] grid-cols-2 overflow-auto rounded border border-slate-200 dark:border-slate-700">
+          <OneSide content={view.present === "left" ? view.content : null} missingLabel={leftLabel} />
+          <div className="min-w-0 border-l border-slate-200 dark:border-slate-700">
+            <OneSide content={view.present === "right" ? view.content : null} missingLabel={rightLabel} />
+          </div>
+        </div>
+      </div>
+    );
   }
   if (!diff) {
     return <Alert title="Nothing to compare." type="info" />;

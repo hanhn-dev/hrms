@@ -3,6 +3,8 @@
 import {
   findScriptObject,
   findScriptObjectKinds,
+  listCallingModules,
+  listNestedModules,
   formatTableLength,
   formatTableType,
   getModuleDefinition as getModuleDefinitionFromDb,
@@ -23,6 +25,7 @@ import {
   type ModuleDefinition,
   type ModuleKind,
   type ModuleSummary,
+  type RelatedModuleList,
   type ScriptObjectKind,
   type SearchTarget,
 } from "@hrms/db";
@@ -38,6 +41,7 @@ export type {
   ModuleDefinition,
   ModuleKind,
   ModuleSummary,
+  RelatedModuleList,
   ScriptObjectKind,
   SearchTarget,
 };
@@ -281,4 +285,20 @@ export async function resolveScriptObjectKinds(
     return [];
   }
   return findScriptObjectKinds(await getHrmsDb(), objects);
+}
+
+export async function listCallingScripts(input: {
+  schema: string;
+  name: string;
+}): Promise<RelatedModuleList> {
+  await requireFeature("employers");
+  return listCallingModules(await getHrmsDb(), input);
+}
+
+export async function listNestedScripts(input: {
+  schema: string;
+  name: string;
+}): Promise<RelatedModuleList> {
+  await requireFeature("employers");
+  return listNestedModules(await getHrmsDb(), input);
 }

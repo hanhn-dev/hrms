@@ -6,6 +6,7 @@ import {
   LineDiffBlockChangeType,
   PullRequestStatus,
   VersionControlChangeType,
+  VersionControlRecursionType,
 } from 'azure-devops-node-api/interfaces/GitInterfaces.js';
 import type { AzureDevOpsClient } from '../client.js';
 import type { AzureDevOpsConfig } from '../types.js';
@@ -15,6 +16,7 @@ import {
   listGitAuthorActivity,
   listGitBranches,
   listGitCommits,
+  listGitFiles,
   listGitRepositories,
   readGitFilePair,
 } from '../git-trace.js';
@@ -34,6 +36,7 @@ const mockGitApi = {
   getCommitDiffs: vi.fn(),
   getItem: vi.fn(),
   getItemContent: vi.fn(),
+  getItems: vi.fn(),
   getFileDiffs: vi.fn(),
   getPullRequestQuery: vi.fn(),
   getPullRequests: vi.fn(),
@@ -83,6 +86,39 @@ describe('git trace', () => {
       { name: 'main', commitId: '3'.repeat(40) },
       { name: 'release/2026.05', commitId: '1'.repeat(40) },
     ]);
+  });
+
+  it('lists files on a branch and skips folders and blank paths', async () => {
+    mockGitApi.getItems.mockResolvedValue([
+      { path: '/', isFolder: true },
+      { path: '/src', isFolder: true },
+      { path: '/src/b.ts', isFolder: false },
+      { path: '/src/a.ts' },
+      { path: '/src/a.ts', isFolder: false },
+      { path: '   ' },
+      { isFolder: false },
+      { path: '/', isFolder: false },
+    ]);
+
+    const paths = await listGitFiles(mockClient, 'repo-a', 'refs/heads/Dev');
+
+    expect(mockGitApi.getItems).toHaveBeenCalledWith(
+      'repo-a',
+      'Sample Project',
+      '/',
+      VersionControlRecursionType.Full,
+      false,
+      false,
+      false,
+      false,
+      { version: 'Dev', versionType: GitVersionType.Branch },
+    );
+    expect(paths).toEqual(['/src/a.ts', '/src/b.ts']);
+  });
+
+  it('rejects a blank branch before listing files', async () => {
+    await expect(listGitFiles(mockClient, 'repo-a', '  ')).rejects.toThrow('Branch is required');
+    expect(mockGitApi.getItems).not.toHaveBeenCalled();
   });
 
   it('maps commit author and work item ids and omits an empty path', async () => {
