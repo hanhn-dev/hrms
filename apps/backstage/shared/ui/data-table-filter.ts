@@ -138,7 +138,21 @@ export function columnCellText(column: DefaultFilterColumn, record: object): str
   if (renderedText.trim() !== "") {
     return renderedText;
   }
+  const flag = flagLabel(raw);
+  if (flag != null) {
+    return flag;
+  }
   return cellFilterText(raw);
+}
+
+function flagLabel(value: unknown): string | null {
+  if (value === true || value === 1 || value === "1" || value === "Y") {
+    return "Yes";
+  }
+  if (value === false || value === 0 || value === "0" || value === "N") {
+    return "No";
+  }
+  return null;
 }
 
 function cellFilterText(node: unknown, depth = 0): string {
@@ -155,27 +169,7 @@ function cellFilterText(node: unknown, depth = 0): string {
     return "";
   }
   const element = node as React.ReactElement<{ children?: ReactNode }>;
-  const childrenText = cellFilterText(element.props?.children, depth);
-  if (childrenText.trim() !== "") {
-    return childrenText;
-  }
-  if (typeof element.type !== "function" || !isHookFree(element.type)) {
-    return "";
-  }
-  try {
-    const rendered = (element.type as (props: unknown) => unknown)(element.props);
-    return cellFilterText(rendered, depth + 1);
-  } catch {
-    return "";
-  }
-}
-
-function isHookFree(type: unknown): boolean {
-  if (typeof type !== "function") {
-    return false;
-  }
-  const source = Function.prototype.toString.call(type);
-  return !/\buse[A-Z]/.test(source);
+  return cellFilterText(element.props?.children, depth + 1);
 }
 
 function isColumnDataIndex(value: unknown): value is ColumnDataIndex {

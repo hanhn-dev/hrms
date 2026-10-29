@@ -2,14 +2,15 @@ import { captureQueryScript } from "@hrms/db";
 import { FieldsPanel } from "@/features/employer/fields/fields-panel";
 import type { FieldSource } from "@/features/employer/fields/fields-source";
 import { PublicFieldsPanel } from "@/features/employer/fields/public-fields-panel";
+import { DEFAULT_FIELD_ENTITIES } from "@/features/employer/fields/section-list";
 import {
   compareEmployerFieldsToTemplate,
-  listEmployerFields,
+  listEmployerFieldSections,
   listEmployerFieldsForCompare,
-  listFieldTemplate,
   listFieldTemplateForCompare,
+  listFieldTemplateSections,
   listFieldTypes,
-  listPublicEmployerFields,
+  listPublicFieldSections,
 } from "@/features/employer/fields/queries";
 import { areWritesEnabled } from "@/shared/auth";
 import { getSelectedEnvironment } from "@/shared/db";
@@ -19,19 +20,21 @@ export async function FieldsSourceSlot({
   source,
   section,
   field,
-  listPage,
   listSearch,
 }: {
   employerId: number;
   source: FieldSource;
   section: string | null;
   field: string | null;
-  listPage: number;
   listSearch: string;
 }): Promise<React.JSX.Element> {
-  const filters = { page: listPage, q: listSearch, section };
+  const summaryFilters = {
+    q: listSearch,
+    section,
+    entities: [...DEFAULT_FIELD_ENTITIES],
+  };
   if (source === "template") {
-    const templateFields = await captureQueryScript(() => listFieldTemplate(filters));
+    const templateSections = await listFieldTemplateSections(summaryFilters);
     return (
       <FieldsPanel
         compareBounded
@@ -39,38 +42,30 @@ export async function FieldsSourceSlot({
         compared={[]}
         employerFields={[]}
         employerId={employerId}
-        employerScript=""
         field={field}
+        fieldSections={templateSections}
         fieldTypes={[]}
-        listPage={templateFields.result.page}
         listSearch={listSearch}
-        pageSize={templateFields.result.pageSize}
         section={section}
         source={source}
-        templateFields={templateFields.result.rows}
-        templateScript={templateFields.script}
-        totalCount={templateFields.result.totalCount}
+        templateFields={[]}
         writesEnabled={false}
       />
     );
   }
 
   if (source === "public") {
-    const [publicFields, writesEnabled] = await Promise.all([
-      captureQueryScript(() => listPublicEmployerFields(employerId, filters)),
+    const [publicSections, writesEnabled] = await Promise.all([
+      listPublicFieldSections(employerId, { q: listSearch, section }),
       getSelectedEnvironment().then((environment) => areWritesEnabled(environment)),
     ]);
     return (
       <PublicFieldsPanel
         employerId={employerId}
         field={field}
-        fields={publicFields.result.rows}
-        listPage={publicFields.result.page}
+        fieldSections={publicSections}
         listSearch={listSearch}
-        pageSize={publicFields.result.pageSize}
-        queryScript={publicFields.script}
         section={section}
-        totalCount={publicFields.result.totalCount}
         writesEnabled={writesEnabled}
       />
     );
@@ -94,24 +89,20 @@ export async function FieldsSourceSlot({
         )}
         employerFields={employerFields.result}
         employerId={employerId}
-        employerScript={employerFields.script}
         field={field}
+        fieldSections={[]}
         fieldTypes={[]}
-        listPage={1}
         listSearch={listSearch}
-        pageSize={employerFields.result.length}
         section={section}
         source={source}
         templateFields={templateFields.result}
-        templateScript={templateFields.script}
-        totalCount={0}
         writesEnabled={false}
       />
     );
   }
 
-  const [employerFields, fieldTypes, writesEnabled] = await Promise.all([
-    captureQueryScript(() => listEmployerFields(employerId, filters)),
+  const [fieldSections, fieldTypes, writesEnabled] = await Promise.all([
+    listEmployerFieldSections(employerId, summaryFilters),
     listFieldTypes(),
     getSelectedEnvironment().then((environment) => areWritesEnabled(environment)),
   ]);
@@ -120,19 +111,15 @@ export async function FieldsSourceSlot({
       compareBounded
       compareScript=""
       compared={[]}
-      employerFields={employerFields.result.rows}
+      employerFields={[]}
       employerId={employerId}
-      employerScript={employerFields.script}
       field={field}
+      fieldSections={fieldSections}
       fieldTypes={fieldTypes}
-      listPage={employerFields.result.page}
       listSearch={listSearch}
-      pageSize={employerFields.result.pageSize}
       section={section}
       source={source}
       templateFields={[]}
-      templateScript=""
-      totalCount={employerFields.result.totalCount}
       writesEnabled={writesEnabled}
     />
   );

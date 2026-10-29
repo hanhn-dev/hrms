@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useEffectEvent, useState } from "react";
+import type { ChangeRequestStatusCounts } from "@hrms/db";
 import { useRouter } from "next/navigation";
 import {
   Alert,
@@ -28,6 +29,7 @@ import type {
 import { formatDate } from "@/shared/format-date";
 import { EntityLink } from "@/shared/entity-link";
 import { listHref } from "@/shared/list-query";
+import { statusTabLabel } from "@/features/employee/change-requests/group";
 import { workflowsHref } from "@/features/employer/workflows/workflows-source";
 
 const STATUS_FILTERS = ["pending", "approved", "rejected", "all"] as const;
@@ -47,6 +49,7 @@ export function ChangeRequestPanel({
   requests,
   search,
   status,
+  statusCounts,
   total,
   writesEnabled,
   requestId,
@@ -58,6 +61,7 @@ export function ChangeRequestPanel({
   requests: ChangeRequestListItem[];
   search: string;
   status: StatusFilter;
+  statusCounts: ChangeRequestStatusCounts;
   total: number;
   writesEnabled: boolean;
   requestId: number | null;
@@ -160,7 +164,7 @@ export function ChangeRequestPanel({
         <div className="flex flex-wrap items-center gap-2">
           <Segmented
             options={STATUS_FILTERS.map((value) => ({
-              label: value[0]?.toUpperCase() + value.slice(1),
+              label: statusTabLabel(value, statusCounts[value]),
               value,
             }))}
             value={status}

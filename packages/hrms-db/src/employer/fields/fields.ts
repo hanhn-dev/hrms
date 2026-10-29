@@ -2,13 +2,14 @@ import { Prisma } from "../../generated/prisma/client";
 import type { HrmsDb } from "../../shared/client";
 import { parseEmployerId } from "../../shared/ids";
 import {
-  likeContains,
   pageQuery,
   searchText,
   totalCountOf,
   type PageResult,
 } from "../../shared/page.ts";
 import type { FieldCatalogRow } from "./fields-compare";
+import { fieldEntityFilter, fieldTextFilter, sectionDisplaySql, sectionNameFilter } from "./field-list-sql.ts";
+import { pageForFieldRow, UNSECTIONED_SECTION_NAME, type FieldSectionSummary } from "./section-page.ts";
 
 export {
   compareEmployerFieldsToTemplate,
@@ -48,7 +49,11 @@ export type FieldListFilters = {
   page?: number | null;
   q?: string | null;
   section?: string | null;
+  /** Omit to skip the entity predicate. An empty list matches no rows. */
+  entities?: readonly string[] | null;
 };
+
+export type { FieldSectionSummary } from "./section-page.ts";
 
 export async function listEmployerFields(
   db: HrmsDb,
@@ -116,6 +121,83 @@ function compareIsBounded(filters: Pick<FieldListFilters, "q" | "section">): boo
   return searchText(filters.q) != null || (filters.section?.trim() ?? "") !== "";
 }
 
+export async function listEmployerFieldSections(
+  db: HrmsDb,
+  employerId: number,
+  filters: FieldListFilters = {},
+): Promise<FieldSectionSummary[]> {
+  const tenantId = parseEmployerId(employerId);
+  return queryFieldSections(db, "Fields", "dbo.TEmployeeDetail_Fields", tenantId, filters);
+}
+
+export async function listFieldTemplateSections(
+  db: HrmsDb,
+  filters: FieldListFilters = {},
+): Promise<FieldSectionSummary[]> {
+  return queryFieldSections(
+    db,
+    "Master",
+    "dbo.TEmployeeDetail_Fields_Master",
+    TEMPLATE_EMPLOYER_ID,
+    filters,
+  );
+}
+
+export async function findEmployerFieldRowNumber(
+  db: HrmsDb,
+  employerId: number,
+  filters: FieldListFilters & { field: string },
+): Promise<number | null> {
+  const tenantId = parseEmployerId(employerId);
+  return queryFieldRowNumber(
+    db,
+    "Fields",
+    "dbo.TEmployeeDetail_Fields",
+    tenantId,
+    filters,
+    filters.field,
+  );
+}
+
+export async function findTemplateFieldRowNumber(
+  db: HrmsDb,
+  filters: FieldListFilters & { field: string },
+): Promise<number | null> {
+  return queryFieldRowNumber(
+    db,
+    "Master",
+    "dbo.TEmployeeDetail_Fields_Master",
+    TEMPLATE_EMPLOYER_ID,
+    filters,
+    filters.field,
+  );
+}
+
+export async function employerFieldPageForFocus(
+  db: HrmsDb,
+  employerId: number,
+  filters: FieldListFilters & { field?: string | null },
+): Promise<number> {
+  const field = filters.field?.trim() ?? "";
+  if (field === "") {
+    return pageForFieldRow(null);
+  }
+  const rowNumber = await findEmployerFieldRowNumber(db, employerId, { ...filters, field });
+  return pageForFieldRow(rowNumber);
+}
+
+export async function templateFieldPageForFocus(
+  db: HrmsDb,
+  filters: FieldListFilters & { field?: string | null },
+): Promise<number> {
+  const field = filters.field?.trim() ?? "";
+  if (field === "") {
+    return pageForFieldRow(null);
+  }
+  const rowNumber = await findTemplateFieldRowNumber(db, { ...filters, field });
+  return pageForFieldRow(rowNumber);
+}
+
 async function queryFieldPage(
   db: HrmsDb,
   alias: "Fields" | "Master",
@@ -125,23 +207,11 @@ async function queryFieldPage(
   paged: boolean,
 ): Promise<PageResult<FieldCatalogRow>> {
   const paging = pageQuery(filters.page);
-  const q = searchText(filters.q);
-  const pattern = q == null ? null : likeContains(q);
   const column = Prisma.raw(alias);
   const table = Prisma.raw(tableName);
-  const textFilter =
-    pattern == null
-      ? Prisma.empty
-      : Prisma.sql`AND (
-            ${column}.FieldName LIKE ${pattern}
-            OR ${column}.DisplayText LIKE ${pattern}
-            OR ${column}.FieldEntity LIKE ${pattern}
-        )`;
-  const sectionName = filters.section?.trim() ?? "";
-  const sectionFilter =
-    sectionName === ""
-      ? Prisma.empty
-      : Prisma.sql`AND LOWER(LTRIM(RTRIM(ISNULL(Section.Section, '')))) = LOWER(${sectionName})`;
+  const textFilter = fieldTextFilter(column, filters.q);
+  const sectionFilter = sectionNameFilter(filters.section);
+  const entityFilter = fieldEntityFilter(column, filters.entities);
   const window = paged
     ? Prisma.sql`OFFSET ${paging.offset} ROWS FETCH NEXT ${paging.pageSize} ROWS ONLY`
     : Prisma.empty;
@@ -181,6 +251,7 @@ async function queryFieldPage(
         AND ISNULL(${column}.IsDeleted, 0) = 0
         ${textFilter}
         ${sectionFilter}
+        ${entityFilter}
     ORDER BY ${column}.SectionID, ${column}.DisplayOrder, ${column}.FieldName, ${column}.FieldID
     ${window}
   `;
@@ -190,6 +261,86 @@ async function queryFieldPage(
     page: paged ? paging.page : 1,
     pageSize: paged ? paging.pageSize : rows.length,
   };
+}
+
+async function queryFieldSections(
+  db: HrmsDb,
+  alias: "Fields" | "Master",
+  tableName: "dbo.TEmployeeDetail_Fields" | "dbo.TEmployeeDetail_Fields_Master",
+  employerId: number,
+  filters: FieldListFilters,
+): Promise<FieldSectionSummary[]> {
+  const column = Prisma.raw(alias);
+  const table = Prisma.raw(tableName);
+  const display = sectionDisplaySql();
+  const rows = await db.$queryRaw<
+    Array<{ SectionID: number | null; Section: string | null; FieldCount: number | bigint | null }>
+  >`
+    SELECT
+        ${column}.SectionID AS SectionID,
+        ${display} AS Section,
+        COUNT(*) AS FieldCount
+    FROM ${table} AS ${column}
+    LEFT JOIN dbo.TEmployeeDetail_Section AS Section
+        ON Section.SectionID = ${column}.SectionID
+    WHERE ${column}.EmployerId = ${employerId}
+        AND ISNULL(${column}.IsDeleted, 0) = 0
+        ${fieldTextFilter(column, filters.q)}
+        ${sectionNameFilter(filters.section)}
+        ${fieldEntityFilter(column, filters.entities)}
+    GROUP BY ${column}.SectionID, ${display}
+    ORDER BY CASE WHEN ${column}.SectionID IS NULL THEN 1 ELSE 0 END, ${column}.SectionID
+  `;
+  return rows.map((row) => {
+    const section = row.Section?.trim() ?? "";
+    return {
+      sectionId: row.SectionID,
+      section: section === "" ? UNSECTIONED_SECTION_NAME : section,
+      fieldCount: totalCountOf(row.FieldCount),
+    };
+  });
+}
+
+async function queryFieldRowNumber(
+  db: HrmsDb,
+  alias: "Fields" | "Master",
+  tableName: "dbo.TEmployeeDetail_Fields" | "dbo.TEmployeeDetail_Fields_Master",
+  employerId: number,
+  filters: FieldListFilters,
+  fieldName: string,
+): Promise<number | null> {
+  const name = fieldName.trim();
+  if (name === "") {
+    return null;
+  }
+  const column = Prisma.raw(alias);
+  const table = Prisma.raw(tableName);
+  const rows = await db.$queryRaw<Array<{ RowNumber: number | bigint | null }>>`
+    WITH Ranked AS (
+        SELECT
+            ROW_NUMBER() OVER (
+                ORDER BY ${column}.SectionID, ${column}.DisplayOrder, ${column}.FieldName, ${column}.FieldID
+            ) AS RowNumber,
+            ${column}.FieldName AS FieldName
+        FROM ${table} AS ${column}
+        LEFT JOIN dbo.TEmployeeDetail_Section AS Section
+            ON Section.SectionID = ${column}.SectionID
+        WHERE ${column}.EmployerId = ${employerId}
+            AND ISNULL(${column}.IsDeleted, 0) = 0
+            ${fieldTextFilter(column, filters.q)}
+            ${sectionNameFilter(filters.section)}
+            ${fieldEntityFilter(column, filters.entities)}
+    )
+    SELECT TOP (1) Ranked.RowNumber
+    FROM Ranked
+    WHERE LOWER(LTRIM(RTRIM(ISNULL(Ranked.FieldName, N'')))) = LOWER(${name})
+  `;
+  const rowNumber = rows[0]?.RowNumber;
+  if (rowNumber == null) {
+    return null;
+  }
+  const value = Number(rowNumber);
+  return Number.isInteger(value) ? value : null;
 }
 
 export type FieldTypeOption = {

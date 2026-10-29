@@ -17,14 +17,12 @@ export function FieldsScreen({
   source,
   section,
   field,
-  listPage,
   listSearch,
 }: {
   employerId: number;
   source: FieldSource;
   section: string | null;
   field: string | null;
-  listPage: number;
   listSearch: string;
 }): React.JSX.Element {
   return (
@@ -94,7 +92,6 @@ export function FieldsScreen({
           <FieldsSourceSlot
             employerId={employerId}
             field={field}
-            listPage={listPage}
             listSearch={listSearch}
             section={section}
             source={source}

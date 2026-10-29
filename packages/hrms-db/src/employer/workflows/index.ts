@@ -30,6 +30,8 @@ export {
   listConfiguredApprovers,
   type ChangeRequestApprover,
   type ChangeRequestListPage,
+  type ChangeRequestStatusCounts,
+  type ChangeRequestWorkflowCount,
   type ChangeRequestDetail,
   type ChangeRequestDetailRow,
   type ChangeRequestListItem,

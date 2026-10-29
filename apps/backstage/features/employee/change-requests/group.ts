@@ -1,12 +1,26 @@
-import type { ChangeRequestListItem } from "@hrms/db";
+import type {
+  ChangeRequestListItem,
+  ChangeRequestWorkflowCount,
+} from "@hrms/db";
 
 export const NO_WORKFLOW_LABEL = "No workflow";
+
+export const STATUS_TAB_LABEL = {
+  all: "All",
+  pending: "Pending",
+  approved: "Approved",
+  rejected: "Rejected",
+} as const;
+
+export type ChangeRequestStatusTab = keyof typeof STATUS_TAB_LABEL;
 
 export type ChangeRequestWorkflowGroup = {
   key: string;
   workflowId: number | null;
   workflowName: string;
   requests: ChangeRequestListItem[];
+  /** Rows in this group on the current page, until database counts replace it. */
+  requestCount: number;
   pendingCount: number;
   workflowIsDefault: boolean;
   workflowAllLocations: boolean;
@@ -31,6 +45,32 @@ export function requestCountLabel(count: number): string {
   return `${count} ${count === 1 ? "request" : "requests"}`;
 }
 
+export function statusTabLabel(status: ChangeRequestStatusTab, count: number): string {
+  return `${STATUS_TAB_LABEL[status]} ${count}`;
+}
+
+/** The pending badge is the database total, and only on the All tab. */
+export function showWorkflowPendingTag(
+  status: ChangeRequestStatusTab,
+  pendingCount: number,
+): boolean {
+  return status === "all" && pendingCount > 0;
+}
+
+export function workflowGroupKey(
+  workflowId: number | null,
+  workflowName: string | null,
+): { key: string; workflowId: number | null; workflowName: string } {
+  const named = workflowName?.trim() ?? "";
+  const label = named || NO_WORKFLOW_LABEL;
+  const id = named ? workflowId : null;
+  return {
+    key: id != null ? `id:${id}` : `name:${label.toLowerCase()}`,
+    workflowId: id,
+    workflowName: label,
+  };
+}
+
 function trimmed(value: string | null): string | null {
   const text = value?.trim() ?? "";
   return text.length > 0 ? text : null;
@@ -41,39 +81,77 @@ export function groupChangeRequestsByWorkflow(
 ): ChangeRequestWorkflowGroup[] {
   const buckets = new Map<string, ChangeRequestWorkflowGroup>();
   for (const request of requests) {
-    const named = request.workflowName?.trim() ?? "";
-    const workflowName = named || NO_WORKFLOW_LABEL;
-    const workflowId = named ? request.workflowId : null;
-    const key =
-      workflowId != null
-        ? `id:${workflowId}`
-        : `name:${workflowName.toLowerCase()}`;
-    const existing = buckets.get(key);
+    const identity = workflowGroupKey(request.workflowId, request.workflowName);
+    const existing = buckets.get(identity.key);
     if (existing) {
       existing.requests.push(request);
+      existing.requestCount += 1;
       if (request.status === "pending") {
         existing.pendingCount += 1;
       }
       continue;
     }
-    buckets.set(key, {
-      key,
-      workflowId,
-      workflowName,
+    buckets.set(identity.key, {
+      key: identity.key,
+      workflowId: identity.workflowId,
+      workflowName: identity.workflowName,
       requests: [request],
+      requestCount: 1,
       pendingCount: request.status === "pending" ? 1 : 0,
       ...workflowScope(request),
     });
   }
 
-  return [...buckets.values()].sort((left, right) => {
-    const leftPending = left.pendingCount > 0 ? 0 : 1;
-    const rightPending = right.pendingCount > 0 ? 0 : 1;
-    if (leftPending !== rightPending) {
-      return leftPending - rightPending;
+  return [...buckets.values()].sort(compareWorkflowGroups);
+}
+
+/**
+ * Replace page-sized badges with the database totals for the same workflow.
+ * Groups that still have pending requests in the database sort first.
+ */
+export function applyWorkflowCounts(
+  groups: ChangeRequestWorkflowGroup[],
+  counts: readonly ChangeRequestWorkflowCount[],
+): ChangeRequestWorkflowGroup[] {
+  const totals = new Map<string, { requestCount: number; pendingCount: number }>();
+  for (const count of counts) {
+    const identity = workflowGroupKey(count.workflowId, count.workflowName);
+    const existing = totals.get(identity.key);
+    if (existing) {
+      existing.requestCount += count.requestCount;
+      existing.pendingCount += count.pendingCount;
+      continue;
     }
-    return left.workflowName.localeCompare(right.workflowName);
-  });
+    totals.set(identity.key, {
+      requestCount: count.requestCount,
+      pendingCount: count.pendingCount,
+    });
+  }
+  return groups
+    .map((group) => {
+      const total = totals.get(group.key);
+      if (!total) {
+        return group;
+      }
+      return {
+        ...group,
+        requestCount: total.requestCount,
+        pendingCount: total.pendingCount,
+      };
+    })
+    .sort(compareWorkflowGroups);
+}
+
+function compareWorkflowGroups(
+  left: ChangeRequestWorkflowGroup,
+  right: ChangeRequestWorkflowGroup,
+): number {
+  const leftPending = left.pendingCount > 0 ? 0 : 1;
+  const rightPending = right.pendingCount > 0 ? 0 : 1;
+  if (leftPending !== rightPending) {
+    return leftPending - rightPending;
+  }
+  return left.workflowName.localeCompare(right.workflowName);
 }
 
 /**

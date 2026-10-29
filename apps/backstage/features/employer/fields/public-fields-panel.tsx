@@ -1,9 +1,21 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Alert, Button, Collapse, Pagination, Switch, Tag, Tooltip } from "antd";
+import { Alert, Button, Spin, Switch, Tag, Tooltip } from "antd";
+import type { FieldSectionSummary } from "@hrms/db";
 import { useRouter } from "next/navigation";
 import { FieldListSearch } from "@/features/employer/fields/fields-panel";
+import {
+  SectionAccordion,
+  SectionPageLoader,
+} from "@/features/employer/fields/section-accordion";
+import { loadPublicSectionFields } from "@/features/employer/fields/section-actions";
+import {
+  fieldLinkOpenKey,
+  fieldSectionTotal,
+  sectionAccordionKey,
+  sectionTablePagination,
+} from "@/features/employer/fields/section-list";
 import {
   isLockedPublicFieldName,
   LOCKED_PUBLIC_FIELD_REASON,
@@ -19,50 +31,39 @@ import { ConfirmWriteModal, DataTable } from "@/shared/ui";
 
 export function PublicFieldsPanel({
   employerId,
-  fields,
+  fieldSections,
   section,
   field,
   writesEnabled,
-  queryScript,
-  listPage,
   listSearch,
-  pageSize,
-  totalCount,
 }: {
   employerId: number;
-  fields: PublicFieldRow[];
+  fieldSections: FieldSectionSummary[];
   section: string | null;
   field: string | null;
   writesEnabled: boolean;
-  queryScript: string;
-  listPage: number;
   listSearch: string;
-  pageSize: number;
-  totalCount: number;
 }): React.JSX.Element {
   const router = useRouter();
   const [pending, setPending] = useState<PublicFieldRow | null>(null);
-  const sectionKnown = (() => {
-    if (!section) {
-      return false;
-    }
-    return fields.some((row) => namesMatch(row.section, section));
-  })();
-  const visible = (() => {
-    if (!section || !sectionKnown) {
-      return fields;
-    }
-    return fields.filter((row) => namesMatch(row.section, section));
-  })();
+  const [pageRevision, setPageRevision] = useState(0);
+  const sectionKnown =
+    Boolean(section) && fieldSections.some((item) => namesMatch(item.section, section));
   const highlightField = sectionKnown ? field : null;
-  const sections = groupBySection(visible);
-
-  useEffect(() => {
-    if (!highlightField || !sectionKnown) {
-      return;
-    }
-    document.getElementById("field-focus")?.scrollIntoView({ block: "center" });
-  }, [highlightField, sectionKnown]);
+  const listKey = `${listSearch}|${section ?? ""}`;
+  const [seenListKey, setSeenListKey] = useState(listKey);
+  const [honorFieldLink, setHonorFieldLink] = useState(true);
+  if (seenListKey !== listKey) {
+    setSeenListKey(listKey);
+    setHonorFieldLink(false);
+  }
+  const focusedSection = fieldSections.find((item) => namesMatch(item.section, section));
+  const initialOpenKey = fieldLinkOpenKey(
+    honorFieldLink && Boolean(field),
+    focusedSection?.sectionId ?? null,
+    focusedSection != null,
+  );
+  const totalCount = fieldSectionTotal(fieldSections);
 
   return (
     <>
@@ -112,43 +113,53 @@ export function PublicFieldsPanel({
       <p className="mb-3 text-slate-600">
         {totalCount} public {totalCount === 1 ? "field" : "fields"}
       </p>
-      {sections.length === 0 ? (
-        <p className="text-slate-500">No public fields.</p>
-      ) : (
-        <Collapse
-          defaultActiveKey={sectionKnown ? sections.map((item) => item.key) : undefined}
-          items={sections.map((item) => ({
-            key: item.key,
-            label: `${item.section} (${item.fields.length})`,
-            children: (
-              <PublicFieldsTable
-                fields={item.fields}
-                highlightField={highlightField}
-                queryScript={queryScript}
-                writesEnabled={writesEnabled}
-                onTurnOff={setPending}
-              />
-            ),
-          }))}
-        />
-      )}
-      <Pagination
-        className="mt-4"
-        current={listPage}
-        pageSize={pageSize > 0 ? pageSize : 50}
-        showSizeChanger={false}
-        total={totalCount}
-        onChange={(next) => {
-          router.push(
-            fieldsHref(employerId, {
-              source: "public",
-              section,
-              field,
-              q: listSearch || null,
-              page: next,
-            }),
-          );
-        }}
+      <SectionAccordion
+        key={listKey}
+        emptyText="No public fields."
+        initialOpenKey={initialOpenKey}
+        sections={fieldSections}
+        renderPanel={(item) => (
+          <SectionPageLoader
+            focusField={
+              initialOpenKey != null && sectionAccordionKey(item.sectionId) === initialOpenKey
+                ? field
+                : null
+            }
+            revision={pageRevision}
+            onLoaded={() => {
+              setHonorFieldLink(false);
+            }}
+            load={(request) =>
+              loadPublicSectionFields({
+                employerId,
+                section: item.section,
+                q: listSearch,
+                page: request.page,
+                focusField: request.focusField,
+              })
+            }
+          >
+            {({ result, loading, error, onPage }) => {
+              if (error) {
+                return <Alert showIcon type="error" title={error} />;
+              }
+              if (!result) {
+                return <Spin />;
+              }
+              return (
+                <PublicFieldsTable
+                  fields={result.rows}
+                  highlightField={namesMatch(item.section, section) ? highlightField : null}
+                  loading={loading}
+                  pagination={sectionTablePagination(result, onPage)}
+                  queryScript={result.script}
+                  writesEnabled={writesEnabled}
+                  onTurnOff={setPending}
+                />
+              );
+            }}
+          </SectionPageLoader>
+        )}
       />
       <ConfirmWriteModal
         hideTrigger
@@ -172,6 +183,7 @@ export function PublicFieldsPanel({
           }
         }}
         onDone={() => {
+          setPageRevision((current) => current + 1);
           router.refresh();
         }}
       />
@@ -184,20 +196,37 @@ function PublicFieldsTable({
   highlightField,
   queryScript,
   writesEnabled,
+  loading = false,
+  pagination = false,
   onTurnOff,
 }: {
   fields: PublicFieldRow[];
   highlightField: string | null;
   queryScript: string;
   writesEnabled: boolean;
+  loading?: boolean;
+  pagination?: false | {
+    current: number;
+    pageSize: number;
+    total: number;
+    showSizeChanger: false;
+    onChange: (page: number) => void;
+  };
   onTurnOff: (row: PublicFieldRow) => void;
 }): React.JSX.Element {
+  useEffect(() => {
+    if (!highlightField) {
+      return;
+    }
+    document.getElementById("field-focus")?.scrollIntoView({ block: "center" });
+  }, [fields, highlightField]);
   return (
     <DataTable<PublicFieldRow>
       queryScript={queryScript}
       rowKey="fieldId"
       dataSource={fields}
-      pagination={false}
+      loading={loading}
+      pagination={pagination}
       scroll={{ x: "max-content" }}
       size="small"
       columns={[
@@ -287,37 +316,6 @@ function PublicSwitch({
       )}
       {locked ? <span className="text-slate-500">Stays public</span> : null}
     </span>
-  );
-}
-
-function groupBySection(fields: PublicFieldRow[]): Array<{
-  key: string;
-  sectionId: number | null;
-  section: string;
-  fields: PublicFieldRow[];
-}> {
-  const groups = new Map<
-    string,
-    { key: string; sectionId: number | null; section: string; fields: PublicFieldRow[] }
-  >();
-  for (const field of fields) {
-    const key = String(field.sectionId ?? "none");
-    const existing = groups.get(key);
-    if (existing) {
-      existing.fields.push(field);
-      continue;
-    }
-    groups.set(key, {
-      key,
-      sectionId: field.sectionId,
-      section: field.section ?? "Unsectioned",
-      fields: [field],
-    });
-  }
-  return [...groups.values()].sort(
-    (left, right) =>
-      (left.sectionId ?? Number.MAX_SAFE_INTEGER) -
-      (right.sectionId ?? Number.MAX_SAFE_INTEGER),
   );
 }
 

@@ -45,6 +45,8 @@ const EMPTY_REQUESTS = {
   totalCount: 0,
   page: 1,
   pageSize: 50,
+  statusCounts: { all: 0, pending: 0, approved: 0, rejected: 0 },
+  workflowCounts: [],
 };
 
 export async function WorkflowsTabSlot({

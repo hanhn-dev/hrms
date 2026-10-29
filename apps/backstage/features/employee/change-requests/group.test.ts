@@ -2,10 +2,13 @@ import assert from "node:assert/strict";
 import { describe, it } from "vitest";
 import type { ChangeRequestListItem } from "@hrms/db";
 import {
+  applyWorkflowCounts,
   expandedWorkflowGroupKeys,
   groupChangeRequestsByWorkflow,
   NO_WORKFLOW_LABEL,
   requestCountLabel,
+  showWorkflowPendingTag,
+  statusTabLabel,
   workflowGroupCaption,
 } from "./group.ts";
 
@@ -180,5 +183,117 @@ describe("groupChangeRequestsByWorkflow", () => {
       "Created 01-Mar-2026",
     );
     assert.equal(workflowGroupCaption(groups[1]!, groups, "—"), null);
+  });
+});
+
+describe("status and workflow totals", () => {
+  it("labels every status tab with its count, including zero", () => {
+    assert.equal(statusTabLabel("all", 0), "All 0");
+    assert.equal(statusTabLabel("pending", 38), "Pending 38");
+    assert.equal(statusTabLabel("approved", 150), "Approved 150");
+    assert.equal(statusTabLabel("rejected", 26), "Rejected 26");
+  });
+
+  it("keeps the page counts when the database sent no workflow totals", () => {
+    const groups = groupChangeRequestsByWorkflow([
+      request({
+        changeRequestId: 1,
+        workflowId: 10,
+        workflowName: "Alpha",
+        status: "pending",
+      }),
+    ]);
+    const applied = applyWorkflowCounts(groups, []);
+    assert.equal(applied[0]?.requestCount, 1);
+    assert.equal(applied[0]?.pendingCount, 1);
+    assert.equal(showWorkflowPendingTag("approved", applied[0]?.pendingCount ?? 0), false);
+  });
+
+  it("replaces a named workflow's page size with the database total", () => {
+    const groups = groupChangeRequestsByWorkflow([
+      request({
+        changeRequestId: 1,
+        workflowId: 10,
+        workflowName: "Alpha",
+        status: "approved",
+      }),
+    ]);
+    const applied = applyWorkflowCounts(groups, [
+      {
+        workflowId: 10,
+        workflowName: "Alpha",
+        requestCount: 214,
+        pendingCount: 38,
+      },
+    ]);
+    assert.equal(applied[0]?.requestCount, 214);
+    assert.equal(applied[0]?.pendingCount, 38);
+    assert.equal(applied[0]?.requests.length, 1);
+    assert.equal(showWorkflowPendingTag("all", 38), true);
+    assert.equal(showWorkflowPendingTag("pending", 38), false);
+    assert.equal(showWorkflowPendingTag("approved", 38), false);
+    assert.equal(showWorkflowPendingTag("rejected", 0), false);
+    assert.deepEqual(expandedWorkflowGroupKeys(applied), ["id:10"]);
+  });
+
+  it("folds blank workflow names into No workflow and sums them", () => {
+    const groups = groupChangeRequestsByWorkflow([
+      request({ changeRequestId: 1, workflowId: 9, workflowName: null }),
+    ]);
+    const applied = applyWorkflowCounts(groups, [
+      {
+        workflowId: 9,
+        workflowName: "  ",
+        requestCount: 3,
+        pendingCount: 1,
+      },
+      {
+        workflowId: 4,
+        workflowName: null,
+        requestCount: 4,
+        pendingCount: 1,
+      },
+    ]);
+    assert.equal(applied.length, 1);
+    assert.equal(applied[0]?.workflowName, NO_WORKFLOW_LABEL);
+    assert.equal(applied[0]?.key, "name:no workflow");
+    assert.equal(applied[0]?.requestCount, 7);
+    assert.equal(applied[0]?.pendingCount, 2);
+  });
+
+  it("sorts a group with database pending ahead of one that is only pending on this page", () => {
+    const groups = groupChangeRequestsByWorkflow([
+      request({
+        changeRequestId: 1,
+        workflowId: 11,
+        workflowName: "Beta",
+        status: "pending",
+      }),
+      request({
+        changeRequestId: 2,
+        workflowId: 10,
+        workflowName: "Alpha",
+        status: "approved",
+      }),
+    ]);
+    const applied = applyWorkflowCounts(groups, [
+      {
+        workflowId: 11,
+        workflowName: "Beta",
+        requestCount: 3,
+        pendingCount: 0,
+      },
+      {
+        workflowId: 10,
+        workflowName: "Alpha",
+        requestCount: 20,
+        pendingCount: 4,
+      },
+    ]);
+    assert.deepEqual(
+      applied.map((group) => group.workflowName),
+      ["Alpha", "Beta"],
+    );
+    assert.deepEqual(expandedWorkflowGroupKeys(applied), ["id:10"]);
   });
 });

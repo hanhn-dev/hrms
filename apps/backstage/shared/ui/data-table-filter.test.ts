@@ -9,10 +9,6 @@ import {
   shouldApplyDefaultFilter,
 } from "./data-table-filter.ts";
 
-function YesNoTag({ value }: { value: boolean }) {
-  return createElement("span", null, value ? "Yes" : "No");
-}
-
 describe("matchesColumnFilter", () => {
   it("matches every cell when the query is blank", () => {
     assert.equal(matchesColumnFilter("Yes", ""), true);
@@ -40,15 +36,29 @@ describe("columnCellText", () => {
     assert.equal(text, "All");
   });
 
-  it("reads the label from a simple tag", () => {
-    const text = columnCellText(
+  it("reads the label from element children without calling the component", () => {
+    let calls = 0;
+    function YesNoTag({ value }: { value: boolean }) {
+      calls += 1;
+      return createElement("span", null, value ? "Yes" : "No");
+    }
+    const fromChildren = columnCellText(
+      {
+        title: "Hidden",
+        render: () => createElement("span", null, "System Mandatory"),
+      },
+      {},
+    );
+    const fromComponent = columnCellText(
       {
         dataIndex: "isHidden",
         render: (value: unknown) => createElement(YesNoTag, { value: value === true }),
       },
       { isHidden: true },
     );
-    assert.equal(text, "Yes");
+    assert.equal(fromChildren, "System Mandatory");
+    assert.equal(calls, 0);
+    assert.equal(fromComponent, "Yes");
   });
 
   it("falls back to the raw value when the cell uses hooks", () => {

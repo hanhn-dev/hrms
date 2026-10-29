@@ -2,13 +2,17 @@ import { Prisma } from "../../generated/prisma/client.ts";
 import type { HrmsDb } from "../../shared/client.ts";
 import { fieldIdSchema, parseEmployerId } from "../../shared/ids.ts";
 import {
-  likeContains,
   pageQuery,
-  searchText,
   totalCountOf,
   type PageResult,
 } from "../../shared/page.ts";
+import { fieldTextFilter, sectionNameFilter, sectionDisplaySql } from "./field-list-sql.ts";
 import { publicFieldClearBlockReason } from "./public-fields.ts";
+import {
+  pageForFieldRow,
+  UNSECTIONED_SECTION_NAME,
+  type FieldSectionSummary,
+} from "./section-page.ts";
 
 export type PublicFieldRow = {
   fieldId: number;
@@ -48,21 +52,9 @@ export async function listPublicEmployerFields(
 ): Promise<PageResult<PublicFieldRow>> {
   const tenantId = parseEmployerId(employerId);
   const paging = pageQuery(filters.page);
-  const q = searchText(filters.q);
-  const pattern = q == null ? null : likeContains(q);
-  const textFilter =
-    pattern == null
-      ? Prisma.empty
-      : Prisma.sql`AND (
-            Fields.FieldName LIKE ${pattern}
-            OR Fields.DisplayText LIKE ${pattern}
-            OR Fields.FieldEntity LIKE ${pattern}
-        )`;
-  const sectionName = filters.section?.trim() ?? "";
-  const sectionFilter =
-    sectionName === ""
-      ? Prisma.empty
-      : Prisma.sql`AND LOWER(LTRIM(RTRIM(ISNULL(Section.Section, '')))) = LOWER(${sectionName})`;
+  const column = Prisma.raw("Fields");
+  const textFilter = fieldTextFilter(column, filters.q);
+  const sectionFilter = sectionNameFilter(filters.section);
   const rows = await db.$queryRaw<PublicFieldQueryRow[]>`
     SELECT
         Fields.FieldID,
@@ -98,6 +90,81 @@ export async function listPublicEmployerFields(
     page: paging.page,
     pageSize: paging.pageSize,
   };
+}
+
+export async function listPublicFieldSections(
+  db: HrmsDb,
+  employerId: number,
+  filters: { q?: string | null; section?: string | null } = {},
+): Promise<FieldSectionSummary[]> {
+  const tenantId = parseEmployerId(employerId);
+  const column = Prisma.raw("Fields");
+  const display = sectionDisplaySql();
+  const rows = await db.$queryRaw<
+    Array<{ SectionID: number | null; Section: string | null; FieldCount: number | bigint | null }>
+  >`
+    SELECT
+        Fields.SectionID AS SectionID,
+        ${display} AS Section,
+        COUNT(*) AS FieldCount
+    FROM dbo.TEmployeeDetail_Fields AS Fields
+    LEFT JOIN dbo.TEmployeeDetail_Section AS Section
+        ON Section.SectionID = Fields.SectionID
+    WHERE Fields.EmployerId = ${tenantId}
+        AND ISNULL(Fields.IsDeleted, 0) = 0
+        AND ISNULL(Fields.IsPublic, 0) = 1
+        ${fieldTextFilter(column, filters.q)}
+        ${sectionNameFilter(filters.section)}
+    GROUP BY Fields.SectionID, ${display}
+    ORDER BY CASE WHEN Fields.SectionID IS NULL THEN 1 ELSE 0 END, Fields.SectionID
+  `;
+  return rows.map((row) => {
+    const section = row.Section?.trim() ?? "";
+    return {
+      sectionId: row.SectionID,
+      section: section === "" ? UNSECTIONED_SECTION_NAME : section,
+      fieldCount: totalCountOf(row.FieldCount),
+    };
+  });
+}
+
+export async function publicFieldPageForFocus(
+  db: HrmsDb,
+  employerId: number,
+  filters: { q?: string | null; section?: string | null; field?: string | null },
+): Promise<number> {
+  const field = filters.field?.trim() ?? "";
+  if (field === "") {
+    return pageForFieldRow(null);
+  }
+  const tenantId = parseEmployerId(employerId);
+  const column = Prisma.raw("Fields");
+  const rows = await db.$queryRaw<Array<{ RowNumber: number | bigint | null }>>`
+    WITH Ranked AS (
+        SELECT
+            ROW_NUMBER() OVER (
+                ORDER BY Fields.SectionID, Fields.DisplayOrder, Fields.FieldName, Fields.FieldID
+            ) AS RowNumber,
+            Fields.FieldName AS FieldName
+        FROM dbo.TEmployeeDetail_Fields AS Fields
+        LEFT JOIN dbo.TEmployeeDetail_Section AS Section
+            ON Section.SectionID = Fields.SectionID
+        WHERE Fields.EmployerId = ${tenantId}
+            AND ISNULL(Fields.IsDeleted, 0) = 0
+            AND ISNULL(Fields.IsPublic, 0) = 1
+            ${fieldTextFilter(column, filters.q)}
+            ${sectionNameFilter(filters.section)}
+    )
+    SELECT TOP (1) Ranked.RowNumber
+    FROM Ranked
+    WHERE LOWER(LTRIM(RTRIM(ISNULL(Ranked.FieldName, N'')))) = LOWER(${field})
+  `;
+  const rowNumber = rows[0]?.RowNumber;
+  if (rowNumber == null) {
+    return pageForFieldRow(null);
+  }
+  const value = Number(rowNumber);
+  return pageForFieldRow(Number.isInteger(value) ? value : null);
 }
 
 export async function getPublicEmployerField(

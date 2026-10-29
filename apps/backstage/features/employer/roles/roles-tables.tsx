@@ -54,6 +54,7 @@ export function RolesTable({
         pageSize,
         total,
         showSizeChanger: false,
+        showTotal: (count) => `${count} roles`,
         onChange: (next) => {
           router.push(href({ page: next, q: search }));
         },
@@ -132,6 +133,7 @@ export function RoleGrantsTable({
         pageSize,
         total,
         showSizeChanger: false,
+        showTotal: (count) => `${count} grants`,
         onChange: (next) => {
           router.push(href({ page: next, q: search }));
         },

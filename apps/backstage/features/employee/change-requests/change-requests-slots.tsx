@@ -37,7 +37,9 @@ export async function EmployeeChangeRequestsSlot({
       requests={loaded.result.rows}
       search={search}
       status={status}
+      statusCounts={loaded.result.statusCounts}
       total={loaded.result.totalCount}
+      workflowCounts={loaded.result.workflowCounts}
       writesEnabled={writesEnabled}
     />
   );

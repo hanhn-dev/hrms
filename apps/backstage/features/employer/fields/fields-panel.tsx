@@ -1,10 +1,30 @@
 "use client";
 
 import { useEffect, useEffectEvent, useState } from "react";
-import { Alert, Button, Collapse, Input, Pagination, Select, Tabs, Tag } from "antd";
+import { Alert, Button, Collapse, Input, Select, Spin, Tabs, Tag } from "antd";
+import type { TablePaginationConfig } from "antd";
+import type { FieldSectionSummary } from "@hrms/db";
 import { DataTable } from "@/shared/ui/data-table";
 import { useRouter } from "next/navigation";
 import { fieldsHref, type FieldSource } from "@/features/employer/fields/fields-source";
+import {
+  SectionAccordion,
+  SectionPageLoader,
+} from "@/features/employer/fields/section-accordion";
+import {
+  loadEmployerFieldSections,
+  loadEmployerSectionFields,
+  loadTemplateFieldSections,
+  loadTemplateSectionFields,
+} from "@/features/employer/fields/section-actions";
+import {
+  DEFAULT_FIELD_ENTITIES,
+  fieldLinkOpenKey,
+  fieldSectionTotal,
+  sameEntitySelection,
+  sectionAccordionKey,
+  sectionTablePagination,
+} from "@/features/employer/fields/section-list";
 import {
   commitUpdateFieldRow,
   previewUpdateFieldRow,
@@ -28,7 +48,6 @@ import { namesMatch } from "@/shared/entity-link";
 import { serverSearchChanged } from "@/shared/ui/data-table-search";
 import { EditableTable, type EditableColumn } from "@/shared/ui";
 
-const DEFAULT_ENTITIES = ["System", "Country", "Custom"];
 const KNOWN_ENTITIES = [
   "System",
   "Country",
@@ -102,13 +121,9 @@ export function FieldsPanel({
   writesEnabled,
   section,
   field,
-  employerScript,
-  templateScript,
   compareScript,
-  listPage,
   listSearch,
-  pageSize,
-  totalCount,
+  fieldSections,
   compareBounded,
 }: {
   employerFields: FieldCatalogRow[];
@@ -120,17 +135,13 @@ export function FieldsPanel({
   writesEnabled: boolean;
   section: string | null;
   field: string | null;
-  employerScript: string;
-  templateScript: string;
   compareScript: string;
-  listPage: number;
   listSearch: string;
-  pageSize: number;
-  totalCount: number;
+  fieldSections: FieldSectionSummary[];
   compareBounded: boolean;
 }): React.JSX.Element {
   const router = useRouter();
-  const sectionKnown = (() => {
+  const compareSectionKnown = (() => {
     if (!section) {
       return false;
     }
@@ -138,26 +149,100 @@ export function FieldsPanel({
       namesMatch(row.section, section),
     );
   })();
-  const scopedEmployer = scopeRows(employerFields, section, sectionKnown);
-  const scopedTemplate = scopeRows(templateFields, section, sectionKnown);
-  const scopedCompared = scopeCompareRows(compared, section, sectionKnown);
   const [entities, setEntities] = useState<string[]>(() =>
-    initialEntities(employerFields, templateFields, section, sectionKnown),
+    source === "compare"
+      ? initialEntities(employerFields, templateFields, section, compareSectionKnown)
+      : [...DEFAULT_FIELD_ENTITIES],
+  );
+  const [customSections, setCustomSections] = useState<{
+    key: string;
+    rows: FieldSectionSummary[];
+  } | null>(null);
+  const [pageRevision, setPageRevision] = useState(0);
+  const entityKey = entities.join("\0");
+  const usingDefaults = sameEntitySelection(entities, DEFAULT_FIELD_ENTITIES);
+  const customReady = customSections?.key === `${entityKey}|${pageRevision}`;
+  const displayedSections = usingDefaults
+    ? fieldSections
+    : customReady
+      ? customSections.rows
+      : [];
+  const catalogSectionKnown =
+    Boolean(section) &&
+    displayedSections.some((item) => namesMatch(item.section, section));
+  const sectionKnown = source === "compare" ? compareSectionKnown : catalogSectionKnown;
+  const sectionsReady = source === "compare" || usingDefaults || customReady;
+  const listKey = `${source}|${listSearch}|${section ?? ""}|${entityKey}`;
+  const [seenListKey, setSeenListKey] = useState(listKey);
+  const [honorFieldLink, setHonorFieldLink] = useState(true);
+  if (seenListKey !== listKey) {
+    setSeenListKey(listKey);
+    setHonorFieldLink(false);
+  }
+  const focusedSection = displayedSections.find((item) => namesMatch(item.section, section));
+  const initialOpenKey = fieldLinkOpenKey(
+    honorFieldLink && Boolean(field),
+    focusedSection?.sectionId ?? null,
+    focusedSection != null,
   );
 
   useEffect(() => {
-    if (!field || !sectionKnown) {
+    if (source !== "employer" && source !== "template") {
+      return;
+    }
+    if (sameEntitySelection(entities, DEFAULT_FIELD_ENTITIES)) {
+      return;
+    }
+    let cancelled = false;
+    const requestKey = `${entityKey}|${pageRevision}`;
+    const request =
+      source === "employer"
+        ? loadEmployerFieldSections({
+            employerId,
+            q: listSearch,
+            section,
+            entities,
+          })
+        : loadTemplateFieldSections({
+            q: listSearch,
+            section,
+            entities,
+          });
+    void request
+      .then((rows) => {
+        if (cancelled) {
+          return;
+        }
+        setCustomSections({ key: requestKey, rows });
+      })
+      .catch(() => {
+        if (cancelled) {
+          return;
+        }
+        setCustomSections({ key: requestKey, rows: [] });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [source, employerId, listSearch, section, entityKey, entities, pageRevision]);
+
+  useEffect(() => {
+    if (source !== "compare" || !field || !sectionKnown) {
       return;
     }
     document.getElementById("field-focus")?.scrollIntoView({ block: "center" });
   }, [field, sectionKnown, source]);
 
   const entityOptions = entityFilterOptions(employerFields, templateFields);
-
-  const visibleEmployer = filterCatalogRows(scopedEmployer, entities);
-  const visibleTemplate = filterCatalogRows(scopedTemplate, entities);
+  const scopedCompared = scopeCompareRows(compared, section, sectionKnown);
   const visibleCompared = filterCompareRows(scopedCompared, entities);
   const highlightField = sectionKnown ? field : null;
+  const catalogCount = fieldSectionTotal(displayedSections);
+
+  function refreshOpenSection(): void {
+    setPageRevision((current) => current + 1);
+    router.refresh();
+  }
 
   return (
     <>
@@ -197,7 +282,7 @@ export function FieldsPanel({
           </Button>
         ) : null}
       </div>
-      {section && !sectionKnown ? (
+      {section && sectionsReady && !sectionKnown ? (
         <Alert
           className="mb-4"
           showIcon
@@ -213,33 +298,48 @@ export function FieldsPanel({
           title={`Section: ${section}${highlightField ? ` · ${highlightField}` : ""}`}
         />
       ) : null}
-      {source === "employer" ? (
+      {source === "employer" || source === "template" ? (
         <>
-          <p className="mb-3 text-slate-600">{totalCount} fields</p>
-          <SectionedFields
-          emptyText="No employer fields match the current filters."
-          employerId={employerId}
-          fieldTypes={fieldTypes}
-          fields={visibleEmployer}
-          highlightField={highlightField}
-          openSections={sectionKnown}
-          pinFocus
-          queryScript={employerScript}
-          writesEnabled={writesEnabled}
-        />
-        </>
-      ) : null}
-      {source === "template" ? (
-        <>
-          <p className="mb-3 text-slate-600">{totalCount} fields</p>
-          <SectionedFields
-          emptyText="No template fields match the current filters."
-          fields={visibleTemplate}
-          highlightField={highlightField}
-          openSections={sectionKnown}
-          pinFocus
-          queryScript={templateScript}
-        />
+          <p className="mb-3 text-slate-600">{catalogCount} fields</p>
+          {!usingDefaults && !customReady ? (
+            <Spin />
+          ) : (
+            <SectionAccordion
+              key={listKey}
+              emptyText={
+                source === "employer"
+                  ? "No employer fields match the current filters."
+                  : "No template fields match the current filters."
+              }
+              initialOpenKey={initialOpenKey}
+              sections={displayedSections}
+              renderPanel={(item) => (
+                <CatalogSectionTable
+                  employerId={source === "employer" ? employerId : undefined}
+                  entities={entities}
+                  fieldTypes={fieldTypes}
+                  focusField={
+                    initialOpenKey != null &&
+                    sectionAccordionKey(item.sectionId) === initialOpenKey
+                      ? field
+                      : null
+                  }
+                  highlightField={
+                    namesMatch(item.section, section) ? highlightField : null
+                  }
+                  listSearch={listSearch}
+                  revision={pageRevision}
+                  sectionName={item.section}
+                  onFieldLinkConsumed={() => {
+                    setHonorFieldLink(false);
+                  }}
+                  source={source}
+                  writesEnabled={writesEnabled}
+                  onSaved={refreshOpenSection}
+                />
+              )}
+            />
+          )}
         </>
       ) : null}
       {source === "compare" ? (
@@ -263,74 +363,85 @@ export function FieldsPanel({
             description="Compare loads the fields in that section or search on both sides. It does not download every employer field and every template field first."
           />
         )
-      ) : (
-        <Pagination
-          className="mt-4"
-          current={listPage}
-          pageSize={pageSize > 0 ? pageSize : 50}
-          showSizeChanger={false}
-          total={totalCount}
-          onChange={(next) => {
-            router.push(
-              fieldsHref(employerId, {
-                source,
-                section,
-                field,
-                q: listSearch || null,
-                page: next,
-              }),
-            );
-          }}
-        />
-      )}
+      ) : null}
     </>
   );
 }
 
-function SectionedFields({
-  fields,
-  emptyText,
+function CatalogSectionTable({
+  source,
+  sectionName,
   employerId,
   fieldTypes,
   writesEnabled,
+  entities,
+  listSearch,
+  focusField,
   highlightField,
-  openSections,
-  pinFocus,
-  queryScript,
+  revision,
+  onSaved,
+  onFieldLinkConsumed,
 }: {
-  fields: FieldCatalogRow[];
-  emptyText: string;
+  source: "employer" | "template";
+  sectionName: string;
   employerId?: number;
-  fieldTypes?: FieldTypeOption[];
-  writesEnabled?: boolean;
+  fieldTypes: FieldTypeOption[];
+  writesEnabled: boolean;
+  entities: string[];
+  listSearch: string;
+  focusField: string | null;
   highlightField: string | null;
-  openSections: boolean;
-  pinFocus: boolean;
-  queryScript: string;
+  revision: number;
+  onSaved: () => void;
+  onFieldLinkConsumed: () => void;
 }): React.JSX.Element {
-  const sections = groupBySection(fields);
-  if (sections.length === 0) {
-    return <p className="text-slate-500">{emptyText}</p>;
-  }
   return (
-    <Collapse
-      defaultActiveKey={openSections ? sections.map((section) => section.key) : undefined}
-      items={sections.map((section) => ({
-        key: section.key,
-        label: `${section.section} (${section.fields.length})`,
-        children: (
+    <SectionPageLoader
+      focusField={focusField}
+      revision={revision}
+      onLoaded={onFieldLinkConsumed}
+      load={(request) =>
+        source === "employer"
+          ? loadEmployerSectionFields({
+              employerId: employerId ?? 0,
+              section: sectionName,
+              q: listSearch,
+              entities,
+              page: request.page,
+              focusField: request.focusField,
+            })
+          : loadTemplateSectionFields({
+              section: sectionName,
+              q: listSearch,
+              entities,
+              page: request.page,
+              focusField: request.focusField,
+            })
+      }
+    >
+      {({ result, loading, error, onPage }) => {
+        if (error) {
+          return <Alert showIcon type="error" title={error} />;
+        }
+        if (!result) {
+          return <Spin />;
+        }
+        return (
           <FieldsTable
             employerId={employerId}
             fieldTypes={fieldTypes}
-            fields={section.fields}
+            fields={result.rows}
             highlightField={highlightField}
-            pinFocus={pinFocus}
-            queryScript={queryScript}
+            loading={loading}
+            pagination={sectionTablePagination(result, onPage)}
+            pinFocus
+            queryScript={result.script}
             writesEnabled={writesEnabled}
+            onSaved={onSaved}
           />
-        ),
-      }))}
-    />
+        );
+      }}
+    </SectionPageLoader>
   );
 }
 
@@ -380,6 +491,9 @@ function FieldsTable({
   highlightField,
   pinFocus,
   queryScript,
+  pagination = false,
+  loading = false,
+  onSaved,
 }: {
   fields: FieldCatalogRow[];
   employerId?: number;
@@ -388,8 +502,16 @@ function FieldsTable({
   highlightField: string | null;
   pinFocus: boolean;
   queryScript: string;
+  pagination?: TablePaginationConfig | false;
+  loading?: boolean;
+  onSaved?: () => void;
 }): React.JSX.Element {
-  const router = useRouter();
+  useEffect(() => {
+    if (!pinFocus || !highlightField) {
+      return;
+    }
+    document.getElementById("field-focus")?.scrollIntoView({ block: "center" });
+  }, [fields, highlightField, pinFocus]);
   const entityOptions = entitySelectOptions(fields);
   const typeOptions = fieldTypeSelectOptions(fieldTypes, fields);
   const columns: Array<EditableColumn<FieldCatalogRow>> = [
@@ -534,15 +656,16 @@ function FieldsTable({
               commitAction: commitUpdateFieldRow,
               successMessage: "Field updated.",
               onDone: () => {
-                router.refresh();
+                onSaved?.();
               },
             }
       }
       dataSource={fields}
+      loading={loading}
       onRow={(row) =>
         pinFocus && namesMatch(row.fieldName, highlightField) ? { id: "field-focus" } : {}
       }
-      pagination={false}
+      pagination={pagination}
       rowClassName={(row) =>
         namesMatch(row.fieldName, highlightField) ? "bg-amber-50" : ""
       }
@@ -722,17 +845,6 @@ function FlagTag({ value }: { value: unknown }): React.JSX.Element {
   return asFlag(value) ? <Tag color="green">Yes</Tag> : <Tag>No</Tag>;
 }
 
-function scopeRows(
-  rows: FieldCatalogRow[],
-  section: string | null,
-  sectionKnown: boolean,
-): FieldCatalogRow[] {
-  if (!section || !sectionKnown) {
-    return rows;
-  }
-  return rows.filter((row) => namesMatch(row.section, section));
-}
-
 function scopeCompareRows(
   rows: FieldCompareRow[],
   section: string | null,
@@ -751,7 +863,7 @@ function initialEntities(
   sectionKnown: boolean,
 ): string[] {
   if (!section || !sectionKnown) {
-    return DEFAULT_ENTITIES;
+    return [...DEFAULT_FIELD_ENTITIES];
   }
   const names = new Set<string>();
   for (const row of [...employerFields, ...templateFields]) {
@@ -763,12 +875,7 @@ function initialEntities(
       names.add(entity);
     }
   }
-  return names.size > 0 ? [...names] : DEFAULT_ENTITIES;
-}
-
-function filterCatalogRows(rows: FieldCatalogRow[], entities: string[]): FieldCatalogRow[] {
-  const selected = new Set(entities.map((entity) => entity.toLowerCase()));
-  return rows.filter((row) => selected.has((row.fieldEntity ?? "").trim().toLowerCase()));
+  return names.size > 0 ? [...names] : [...DEFAULT_FIELD_ENTITIES];
 }
 
 function filterCompareRows(rows: FieldCompareRow[], entities: string[]): FieldCompareRow[] {
@@ -830,33 +937,6 @@ function entityFilterOptions(
     }
   }
   return [...seen.values()].map((value) => ({ label: value, value }));
-}
-
-function groupBySection(fields: FieldCatalogRow[]): Array<{
-  key: string;
-  sectionId: number | null;
-  section: string;
-  fields: FieldCatalogRow[];
-}> {
-  const groups = new Map<
-    string,
-    { key: string; sectionId: number | null; section: string; fields: FieldCatalogRow[] }
-  >();
-  for (const field of fields) {
-    const key = String(field.sectionId ?? "none");
-    const existing = groups.get(key);
-    if (existing) {
-      existing.fields.push(field);
-      continue;
-    }
-    groups.set(key, {
-      key,
-      sectionId: field.sectionId,
-      section: field.section ?? "Unsectioned",
-      fields: [field],
-    });
-  }
-  return [...groups.values()].sort((left, right) => bySectionId(left.sectionId, right.sectionId));
 }
 
 function groupCompareBySection(rows: FieldCompareRow[]): Array<{
@@ -932,10 +1012,12 @@ export function FieldListSearch({
   onSearch: (query: string) => void;
 }): React.JSX.Element {
   const [value, setValue] = useState(initialQuery);
-  const emit = useEffectEvent(onSearch);
-  useEffect(() => {
+  const [seenQuery, setSeenQuery] = useState(initialQuery);
+  if (seenQuery !== initialQuery) {
+    setSeenQuery(initialQuery);
     setValue(initialQuery);
-  }, [initialQuery]);
+  }
+  const emit = useEffectEvent(onSearch);
   useEffect(() => {
     const handle = setTimeout(() => {
       const next = serverSearchChanged(value, initialQuery);

@@ -2,6 +2,10 @@
 
 import { useState } from "react";
 
+import type {
+  ChangeRequestStatusCounts,
+  ChangeRequestWorkflowCount,
+} from "@hrms/db";
 import { useRouter } from "next/navigation";
 import { App, Button, Collapse, Empty, Pagination, Segmented, Space, Tag } from "antd";
 import { listHref } from "@/shared/list-query";
@@ -22,9 +26,12 @@ import {
 } from "@/features/employee/change-requests/decide-actions";
 import type { ChangeRequestListItem } from "@/features/employee/change-requests/queries";
 import {
+  applyWorkflowCounts,
   expandedWorkflowGroupKeys,
   groupChangeRequestsByWorkflow,
   requestCountLabel,
+  showWorkflowPendingTag,
+  statusTabLabel,
   workflowGroupCaption,
 } from "@/features/employee/change-requests/group";
 import type {
@@ -52,7 +59,9 @@ export function ChangeRequestsPanel({
   requests,
   search,
   status,
+  statusCounts,
   total,
+  workflowCounts,
   queryScript,
   writesEnabled,
 }: {
@@ -63,7 +72,9 @@ export function ChangeRequestsPanel({
   requests: ChangeRequestListItem[];
   search: string;
   status: StatusFilter;
+  statusCounts: ChangeRequestStatusCounts;
   total: number;
+  workflowCounts: ChangeRequestWorkflowCount[];
   queryScript: string;
   writesEnabled: boolean;
 }): React.JSX.Element {
@@ -122,7 +133,10 @@ export function ChangeRequestsPanel({
     }
   }
 
-  const groups = groupChangeRequestsByWorkflow(requests);
+  const groups = applyWorkflowCounts(
+    groupChangeRequestsByWorkflow(requests),
+    workflowCounts,
+  );
   const groupSignature = `${status}|${groups.map((group) => group.key).join(",")}`;
   const activeKeys =
     openOverride?.signature === groupSignature
@@ -135,7 +149,7 @@ export function ChangeRequestsPanel({
         <div className="flex flex-wrap items-center gap-2">
           <Segmented
             options={STATUS_FILTERS.map((value) => ({
-              label: value[0]?.toUpperCase() + value.slice(1),
+              label: statusTabLabel(value, statusCounts[value]),
               value,
             }))}
             value={status}
@@ -180,8 +194,8 @@ export function ChangeRequestsPanel({
                       {group.workflowName}
                     </EntityLink>
                     {caption ? <Tag>{caption}</Tag> : null}
-                    <Tag>{requestCountLabel(group.requests.length)}</Tag>
-                    {group.pendingCount > 0 ? (
+                    <Tag>{requestCountLabel(group.requestCount)}</Tag>
+                    {showWorkflowPendingTag(status, group.pendingCount) ? (
                       <Tag color="orange">{group.pendingCount} pending</Tag>
                     ) : null}
                   </Space>
@@ -324,6 +338,7 @@ export function ChangeRequestsPanel({
           current={page}
           pageSize={pageSize}
           showSizeChanger={false}
+          showTotal={(count) => `${count} requests`}
           total={total}
           onChange={(next) => {
             openList({ page: next });

@@ -341,11 +341,27 @@ export type ChangeRequestListFilters = {
   status?: ChangeRequestStatus | "all" | null;
 };
 
+export type ChangeRequestStatusCounts = {
+  all: number;
+  pending: number;
+  approved: number;
+  rejected: number;
+};
+
+export type ChangeRequestWorkflowCount = {
+  workflowId: number | null;
+  workflowName: string | null;
+  requestCount: number;
+  pendingCount: number;
+};
+
 export type ChangeRequestListPage = {
   rows: ChangeRequestListItem[];
   totalCount: number;
   page: number;
   pageSize: number;
+  statusCounts: ChangeRequestStatusCounts;
+  workflowCounts: ChangeRequestWorkflowCount[];
 };
 
 function changeRequestStatusSql(
@@ -361,6 +377,126 @@ function changeRequestStatusSql(
     return Prisma.sql`AND ChangeRequest.IsApproved IS NOT NULL AND ChangeRequest.IsApproved <> 1`;
   }
   return Prisma.empty;
+}
+
+const workflowIdExpr = Prisma.sql`(
+    SELECT MAX(Queue.WorkflowId)
+    FROM dbo.TRequestWorkflows AS Queue
+    WHERE Queue.RequestTransid = ChangeRequest.ChangeRequestId
+        AND Queue.RequestType = ${REQUEST_TYPE}
+        AND ISNULL(Queue.IsDeleted, 0) = 0
+)`;
+
+const workflowNameExpr = Prisma.sql`(
+    SELECT TOP (1) Management.WorkflowName
+    FROM dbo.TRequestWorkflows AS Queue
+    LEFT JOIN dbo.TWorkflowManagement AS Management
+        ON Management.WorkflowId = Queue.WorkflowId
+    WHERE Queue.RequestTransid = ChangeRequest.ChangeRequestId
+        AND Queue.RequestType = ${REQUEST_TYPE}
+        AND ISNULL(Queue.IsDeleted, 0) = 0
+    ORDER BY Queue.Transid DESC
+)`;
+
+type StatusCountRow = {
+  AllCount: number | bigint | null;
+  PendingCount: number | bigint | null;
+  ApprovedCount: number | bigint | null;
+  RejectedCount: number | bigint | null;
+};
+
+function statusCountsFrom(row: StatusCountRow | undefined): ChangeRequestStatusCounts {
+  return {
+    all: totalCountOf(row?.AllCount),
+    pending: totalCountOf(row?.PendingCount),
+    approved: totalCountOf(row?.ApprovedCount),
+    rejected: totalCountOf(row?.RejectedCount),
+  };
+}
+
+function activeListCount(
+  counts: ChangeRequestStatusCounts,
+  status: ChangeRequestListFilters["status"],
+): number {
+  if (status === "pending" || status === "approved" || status === "rejected") {
+    return counts[status];
+  }
+  return counts.all;
+}
+
+function changeRequestCountFrom(
+  tenantId: number,
+  employeeFilter: Prisma.Sql,
+  textFilter: Prisma.Sql,
+): Prisma.Sql {
+  return Prisma.sql`
+    FROM dbo.TMyDetailsChangeRequests AS ChangeRequest
+    INNER JOIN dbo.TEmployee AS Subject
+        ON Subject.EmployeeId = ChangeRequest.EmployeeId
+    LEFT JOIN dbo.TEmployeeInfo AS SubjectInfo
+        ON SubjectInfo.EmployeeId = ChangeRequest.EmployeeId
+    WHERE ChangeRequest.EmployerId = ${tenantId}
+    ${employeeFilter}
+    ${textFilter}
+  `;
+}
+
+async function loadChangeRequestStatusCounts(
+  db: HrmsDb,
+  tenantId: number,
+  employeeFilter: Prisma.Sql,
+  textFilter: Prisma.Sql,
+): Promise<ChangeRequestStatusCounts> {
+  const rows = await db.$queryRaw<StatusCountRow[]>(Prisma.sql`
+    SELECT
+        COUNT(*) AS AllCount,
+        SUM(CASE WHEN ChangeRequest.IsApproved IS NULL THEN 1 ELSE 0 END) AS PendingCount,
+        SUM(CASE WHEN ChangeRequest.IsApproved = 1 THEN 1 ELSE 0 END) AS ApprovedCount,
+        SUM(CASE WHEN ChangeRequest.IsApproved IS NOT NULL AND ChangeRequest.IsApproved <> 1 THEN 1 ELSE 0 END) AS RejectedCount
+    ${changeRequestCountFrom(tenantId, employeeFilter, textFilter)}
+  `);
+  return statusCountsFrom(rows[0]);
+}
+
+async function loadChangeRequestWorkflowCounts(
+  db: HrmsDb,
+  tenantId: number,
+  employeeFilter: Prisma.Sql,
+  textFilter: Prisma.Sql,
+  status: ChangeRequestListFilters["status"],
+): Promise<ChangeRequestWorkflowCount[]> {
+  const rows = await db.$queryRaw<
+    Array<
+      StatusCountRow & {
+        WorkflowId: number | null;
+        WorkflowName: string | null;
+      }
+    >
+  >(Prisma.sql`
+    SELECT
+        Request.WorkflowId,
+        Request.WorkflowName,
+        COUNT(*) AS AllCount,
+        SUM(CASE WHEN Request.IsApproved IS NULL THEN 1 ELSE 0 END) AS PendingCount,
+        SUM(CASE WHEN Request.IsApproved = 1 THEN 1 ELSE 0 END) AS ApprovedCount,
+        SUM(CASE WHEN Request.IsApproved IS NOT NULL AND Request.IsApproved <> 1 THEN 1 ELSE 0 END) AS RejectedCount
+    FROM (
+        SELECT
+            ChangeRequest.IsApproved,
+            ${workflowIdExpr} AS WorkflowId,
+            ${workflowNameExpr} AS WorkflowName
+        ${changeRequestCountFrom(tenantId, employeeFilter, textFilter)}
+    ) AS Request
+    GROUP BY Request.WorkflowId, Request.WorkflowName
+  `);
+  return rows
+    .map((row) => ({
+      workflowId: row.WorkflowId,
+      workflowName: row.WorkflowName,
+      requestCount: activeListCount(statusCountsFrom(row), status),
+      pendingCount: totalCountOf(row.PendingCount),
+    }))
+    .filter((row) => row.requestCount > 0 || row.pendingCount > 0);
 }
 
 async function listChangeRequestHeaders(
@@ -389,7 +525,8 @@ async function listChangeRequestHeaders(
             OR ChangeRequest.PageName LIKE ${pattern}
         )`;
   const statusFilter = changeRequestStatusSql(filters.status);
-  const rows = await db.$queryRaw<ScopedHeaderRow[]>(Prisma.sql`
+  const [rows, statusCounts, workflowCounts] = await Promise.all([
+    db.$queryRaw<ScopedHeaderRow[]>(Prisma.sql`
     SELECT
         ChangeRequest.ChangeRequestId,
         ChangeRequest.EmployeeId,
@@ -411,23 +548,8 @@ async function listChangeRequestHeaders(
         RequesterInfo.EmploymentNumber AS CreatedByEmploymentNumber,
         ChangeRequest.RequestedDate,
         ChangeRequest.IsApproved,
-        (
-            SELECT MAX(Queue.WorkflowId)
-            FROM dbo.TRequestWorkflows AS Queue
-            WHERE Queue.RequestTransid = ChangeRequest.ChangeRequestId
-                AND Queue.RequestType = ${REQUEST_TYPE}
-                AND ISNULL(Queue.IsDeleted, 0) = 0
-        ) AS WorkflowId,
-        (
-            SELECT TOP (1) Management.WorkflowName
-            FROM dbo.TRequestWorkflows AS Queue
-            LEFT JOIN dbo.TWorkflowManagement AS Management
-                ON Management.WorkflowId = Queue.WorkflowId
-            WHERE Queue.RequestTransid = ChangeRequest.ChangeRequestId
-                AND Queue.RequestType = ${REQUEST_TYPE}
-                AND ISNULL(Queue.IsDeleted, 0) = 0
-            ORDER BY Queue.Transid DESC
-        ) AS WorkflowName,
+        ${workflowIdExpr} AS WorkflowId,
+        ${workflowNameExpr} AS WorkflowName,
         WorkflowScope.WorkflowIsDefault,
         WorkflowScope.WorkflowAllLocations,
         WorkflowScope.WorkflowAllBusinessUnits,
@@ -466,13 +588,7 @@ async function listChangeRequestHeaders(
                 WHERE Mapping.WorkFlowID = Management.WorkflowId
             ) AS WorkflowBusinessUnitNames
         FROM dbo.TWorkflowManagement AS Management
-        WHERE Management.WorkflowId = (
-            SELECT MAX(Queue.WorkflowId)
-            FROM dbo.TRequestWorkflows AS Queue
-            WHERE Queue.RequestTransid = ChangeRequest.ChangeRequestId
-                AND Queue.RequestType = ${REQUEST_TYPE}
-                AND ISNULL(Queue.IsDeleted, 0) = 0
-        )
+        WHERE Management.WorkflowId = ${workflowIdExpr}
     ) AS WorkflowScope
     WHERE ChangeRequest.EmployerId = ${tenantId}
     ${employeeFilter}
@@ -480,7 +596,18 @@ async function listChangeRequestHeaders(
     ${statusFilter}
     ORDER BY ChangeRequest.ChangeRequestId DESC
     OFFSET ${paging.offset} ROWS FETCH NEXT ${paging.pageSize} ROWS ONLY
-  `);
+  `),
+    loadChangeRequestStatusCounts(db, tenantId, employeeFilter, textFilter),
+    subjectId == null
+      ? Promise.resolve<ChangeRequestWorkflowCount[]>([])
+      : loadChangeRequestWorkflowCounts(
+          db,
+          tenantId,
+          employeeFilter,
+          textFilter,
+          filters.status,
+        ),
+  ]);
   const approvers = await loadApproversForHeaders(
     db,
     tenantId,
@@ -494,9 +621,11 @@ async function listChangeRequestHeaders(
         workflowScopeFromRow(row),
       ),
     ),
-    totalCount: totalCountOf(rows[0]?.TotalCount),
+    totalCount: activeListCount(statusCounts, filters.status),
     page: paging.page,
     pageSize: paging.pageSize,
+    statusCounts,
+    workflowCounts,
   };
 }
 

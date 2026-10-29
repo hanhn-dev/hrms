@@ -122,6 +122,7 @@ function pager(
     pageSize,
     total,
     showSizeChanger: false,
+    showTotal: (count) => `${count} rows`,
     onChange,
   };
 }

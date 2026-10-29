@@ -132,6 +132,12 @@ export function WorkflowsPanel({
     totalCount: number;
     page: number;
     pageSize: number;
+    statusCounts: {
+      all: number;
+      pending: number;
+      approved: number;
+      rejected: number;
+    };
   };
   listSearch: string | null;
   requestStatus: "pending" | "approved" | "rejected" | "all";
@@ -272,6 +278,7 @@ export function WorkflowsPanel({
                   pageSize: pagePageSize,
                   total: pageTotal,
                   showSizeChanger: false,
+                  showTotal: (count) => `${count} pages`,
                   onChange: (next) => {
                     router.push(
                       listHref(
@@ -369,6 +376,7 @@ export function WorkflowsPanel({
                   pageSize: groupPageSize,
                   total: groupTotal,
                   showSizeChanger: false,
+                  showTotal: (count) => `${count} groups`,
                   onChange: (next) => {
                     router.push(
                       listHref(
@@ -457,6 +465,7 @@ export function WorkflowsPanel({
             requests={changeRequests.rows}
             search={listSearch ?? ""}
             status={requestStatus}
+            statusCounts={changeRequests.statusCounts}
             total={changeRequests.totalCount}
             writesEnabled={writesEnabled}
           />
