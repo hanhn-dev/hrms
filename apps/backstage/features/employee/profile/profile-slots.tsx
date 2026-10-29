@@ -1,5 +1,5 @@
-import { Alert, Card, Descriptions, Tag } from "antd";
-import Link from "next/link";
+import { Alert, Card, Descriptions } from "antd";
+import { AccessibleEmployerChips } from "@/features/employee/profile/accessible-employer-chips";
 import { accessibleEmployerRows } from "@/features/employee/profile/accessible-employer-rows";
 import {
   getEmployeeProfile,
@@ -99,31 +99,9 @@ export async function EmployeeProfileSlot({
             },
             {
               key: "employers",
-              label: "Employers",
+              label: `Employers (${employers.length})`,
               span: 2,
-              children: (
-                <span className="inline-flex flex-wrap items-center gap-x-3 gap-y-1">
-                  <span>{employers.length}</span>
-                  {employers.map((employer) =>
-                    employer.applied ? (
-                      <span
-                        key={employer.employerId}
-                        className="inline-flex items-center gap-1"
-                      >
-                        {employer.label}
-                        <Tag className="m-0">Applied</Tag>
-                      </span>
-                    ) : (
-                      <Link
-                        key={employer.employerId}
-                        href={`/employers/${employer.employerId}`}
-                      >
-                        {employer.label}
-                      </Link>
-                    ),
-                  )}
-                </span>
-              ),
+              children: <AccessibleEmployerChips employers={employers} />,
             },
           ]}
         />
