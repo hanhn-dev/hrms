@@ -36,3 +36,13 @@ src/
 New query code goes in the matching leaf. Register new public names on the root barrel (`src/index.ts`). Apps import `from "@hrms/db"`. Pure helpers that Client Components need stay on subpaths so they never pull Prisma/`client.ts` — e.g. `@hrms/db/ids`, `@hrms/db/tree`, `@hrms/db/org-unit-tree`.
 
 List queries return one page from `src/shared/page.ts` (`LIST_PAGE_SIZE`, `pageQuery`, `searchText`) with `COUNT(*) OVER()`, `OFFSET` / `FETCH NEXT`, and a stable `ORDER BY`. Empty and one-character searches return page 1 of the ordered set. One-record reads stay unbounded. See `.cursor/rules/bounded-reads.mdc`.
+
+## Tests
+
+Colocate `*.test.ts` next to the module. Import `describe` and `it` from `vitest`. `node:assert/strict` is fine. Vitest discovers the file; do not list it in `package.json`.
+
+```bash
+npm run test --workspace=@hrms/db
+```
+
+Use that script (it canonicalizes the Windows path). Do not call `npx vitest` directly.

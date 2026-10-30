@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { describe, it } from "vitest";
 import {
   LOCATION_BU_IDS_MAX_LENGTH,
   employeeMatchesLocationBuScope,

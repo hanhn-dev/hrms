@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { describe, it } from "vitest";
 import { clampLogWindow, LOG_MAX_WINDOW_MS, LOG_SQL_ERROR_MAX_WINDOW_MS } from "./window.ts";
 
 describe("clampLogWindow", () => {

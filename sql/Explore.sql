@@ -151,8 +151,23 @@ SELECT TOP 200 * FROM TEmployeeDetail_Section ORDER BY 1 DESC
 
 SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME LIKE '%Education%'
 
+EXEC Usp_Mydetails_Enhanced_EmployeeSummary 4070
+
 DECLARE @ManagerId INT = 1431;
 DECLARE @SubjectId INT = 1434;
+
+-- Requested Org 10,46,61,84,85,89,90,106,186,189,193,261,293
+
+
+EXEC [dbo].[Sp_ApproveRejectMyDetailsReview] @EmployeeId = 1431,   -- int                    
+                                              @LoggedInUser = 1435, -- int                    
+                                              @EmployerId = 10,   -- int                    
+                                              @RequestType = 'EmploymentTypeChange', -- varchar(250)                    
+                                              @Status = 'Approved',      -- varchar(100)                    
+                                              @Comments = 'TEST'     -- varchar(2000)    
+
+
+
 
 IF @ManagerId IS NULL OR @SubjectId IS NULL OR @ManagerId = @SubjectId
 BEGIN

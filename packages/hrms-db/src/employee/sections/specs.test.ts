@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { describe, it } from "vitest";
 import { HISTORY_SECTIONS } from "../history/sections.ts";
 import { SECTION_COUNT_SPECS } from "./specs.ts";
 

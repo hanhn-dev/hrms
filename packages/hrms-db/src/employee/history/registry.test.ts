@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { describe, it } from "vitest";
 import { PAST_TABLE_SPECS, pastSpecForSection } from "./registry.ts";
 import { resolveHistorySectionName } from "./sections.ts";
 

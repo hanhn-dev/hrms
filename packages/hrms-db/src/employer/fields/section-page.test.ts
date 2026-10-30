@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { describe, it } from "vitest";
 import { LIST_PAGE_SIZE } from "../../shared/page.ts";
 import { fieldEntitySelection, pageForFieldRow } from "./section-page.ts";
 

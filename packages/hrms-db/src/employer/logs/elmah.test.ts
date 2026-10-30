@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { describe, it } from "vitest";
 import { ELMAH_LIST_COLUMNS, extractElmahStack, shortExceptionType } from "./elmah.ts";
 
 describe("ELMAH_LIST_COLUMNS", () => {
