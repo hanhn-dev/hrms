@@ -3,7 +3,7 @@ object: FN_ConvertMonthsToYearsAndMonths
 kind: function
 database: hrms
 source: HRMS-DATABASE/HRMS/FUNCTIONS/FN_ConvertMonthsToYearsAndMonths.sql
-last-analyzed: 2026-10-09
+last-analyzed: 2026-10-30
 ---
 
 # FN_ConvertMonthsToYearsAndMonths
@@ -23,6 +23,14 @@ Splits a total number of months into whole years and a remainder, then returns o
 
 Calls no other procedures or functions.
 
+## Callers
+
+No other procedure or function calls this object.
+
+## Nested
+
+Calls no other procedures or functions.
+
 ## Steps
 
 In `HRMS-DATABASE/HRMS/FUNCTIONS/FN_ConvertMonthsToYearsAndMonths.sql`:
@@ -37,10 +45,6 @@ In `HRMS-DATABASE/HRMS/FUNCTIONS/FN_ConvertMonthsToYearsAndMonths.sql`:
 | Table | Read or write |
 |---|---|
 | — | The function does not read or write a table |
-
-## Procedures and functions it calls
-
-Calls no other procedures or functions.
 
 ## Flow
 

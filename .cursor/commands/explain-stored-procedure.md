@@ -104,21 +104,34 @@ the page.
    List `sp_executesql` and other dynamic SQL under **Unresolved calls**.
    Do not guess which object the string builds.
 
-4. **Walk the call tree.** Write this object's page, then repeat these steps
+4. **Find callers.** Search the same database's `STOREPROCEDURE/`,
+   `Stored Procedures/`, and `FUNCTIONS/` for procedures and functions
+   whose live statements invoke this object. A caller is `EXEC` /
+   `EXECUTE` of the name, or a function invocation (`dbo.Name`,
+   `[dbo].[Name]`, and the same forms without a schema). Skip this
+   object's own file, comment-only mentions, string-only mentions, and
+   SQL Server built-ins. One row per object name. When a numeric
+   work-item folder such as `107753` also contains that name, use the
+   inventoried or non-work-item script. Do not write a page for a caller
+   that does not already have one. Link the row when
+   `content/database/<database-slug>/<ObjectName>.md` exists; otherwise
+   the Page cell is `No page yet`. Views and triggers stay off the list.
+
+5. **Walk the call tree.** Write this object's page, then repeat these steps
    for every nested procedure and function. Keep a visited set. When an
    object calls one already in the set, link that page and do not write it
-   again.
+   again. When this run writes both a caller and a callee, the callee's
+   Callers row links to the caller page.
 
-5. **Write the page** at
+6. **Write the page** at
    `apps/backstage/content/database/<database-slug>/<ObjectName>.md`.
    The filename and the H1 are the object name. Link each callee to
    `/docs/database/<database-slug>/<ObjectName>`.
    Use the page template section order for this procedure and for every
    nested procedure and function: What it does, Parameters, Call sequence,
-   Steps, Tables, Procedures and functions it calls, Unresolved calls
-   (omit when empty), Flow.
+   Callers, Nested, Steps, Tables, Unresolved calls (omit when empty), Flow.
 
-6. **Tell the user** the URL of the procedure they named, the count of
+7. **Tell the user** the URL of the procedure they named, the count of
    pages written or left unchanged, and any archive path written.
 
 ## Page template
@@ -161,6 +174,25 @@ sequenceDiagram
 When nothing is called, one line under this heading is enough: "Calls no
 other procedures or functions."
 
+## Callers
+
+Procedures and functions that call this object.
+
+| Object | Kind | Page |
+|---|---|---|
+| `SP_Parent` | procedure | [SP_Parent](/docs/database/hrms/SP_Parent) |
+| `SP_Other` | procedure | No page yet |
+
+Write "No other procedure or function calls this object." when that is true.
+
+## Nested
+
+| Object | Kind | When | Page |
+|---|---|---|---|
+| `SP_Child` | procedure | when `@Flag = 1` | [SP_Child](/docs/database/hrms/SP_Child) |
+
+Write "Calls no other procedures or functions." when that is true.
+
 ## Steps
 
 1. First thing the script does, with the condition that guards it.
@@ -170,14 +202,6 @@ other procedures or functions."
 | Table | Read or write |
 |---|---|
 | `dbo.TEmployee` | read |
-
-## Procedures and functions it calls
-
-| Object | Kind | When | Page |
-|---|---|---|---|
-| `SP_Child` | procedure | when `@Flag = 1` | [SP_Child](/docs/database/hrms/SP_Child) |
-
-Write "Calls no other procedures or functions." when that is true.
 
 ## Unresolved calls
 

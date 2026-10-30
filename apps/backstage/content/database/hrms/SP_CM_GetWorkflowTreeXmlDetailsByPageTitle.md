@@ -3,7 +3,7 @@ object: SP_CM_GetWorkflowTreeXmlDetailsByPageTitle
 kind: procedure
 database: hrms
 source: HRMS-DATABASE/HRMS/STOREPROCEDURE/SP_CM_GetWorkflowTreeXmlDetailsByPageTitle.sql
-last-analyzed: 2026-10-06
+last-analyzed: 2026-10-30
 ---
 
 # SP_CM_GetWorkflowTreeXmlDetailsByPageTitle
@@ -32,6 +32,124 @@ sequenceDiagram
     Main->>Emp: page title and employer
   end
 ```
+
+## Callers
+
+| Object | Kind | Page |
+|---|---|---|
+| `SP_AdminPMS_InsEmpAppraisalCycleMapping` | procedure | No page yet |
+| `SP_AdminPMS_InsEmpGoalSettingMapping` | procedure | No page yet |
+| `SP_AdminPMS_UpdInitiateAppraisalCycle` | procedure | No page yet |
+| `Sp_ApproveRejectMyDetailsReview` | procedure | [Sp_ApproveRejectMyDetailsReview](/docs/database/hrms/Sp_ApproveRejectMyDetailsReview) |
+| `Sp_ApproveRejectOfferRolledOut` | procedure | No page yet |
+| `SP_CM_ApproveWorkFlowRequest` | procedure | No page yet |
+| `SP_CM_ApproveWorkFlowRequestBKP03052025` | procedure | No page yet |
+| `SP_CMS_GetCompetencyforConfirmation` | procedure | No page yet |
+| `SP_CMS_GetWorkflowRoutingLevels_New` | procedure | No page yet |
+| `Sp_CMS_InsertEmployeeConfirmation` | procedure | No page yet |
+| `SP_EC_UpdateEmployeePersonalInformation` | procedure | No page yet |
+| `SP_EMPMD_AddCertificationDet` | procedure | No page yet |
+| `SP_EMPMD_AddEducationDetails` | procedure | No page yet |
+| `SP_EMPMD_AddEmpAttachment` | procedure | No page yet |
+| `SP_EMPMD_AddEmpBankDet` | procedure | No page yet |
+| `SP_EMPMD_AddEmpContactDet` | procedure | No page yet |
+| `SP_EMPMD_AddEmpEmergencyContactDet` | procedure | No page yet |
+| `SP_EMPMD_AddEmpFamilyDet` | procedure | No page yet |
+| `SP_EMPMD_AddEmpNominationInfo` | procedure | No page yet |
+| `SP_EMPMD_AddEmpPassportDet` | procedure | No page yet |
+| `SP_EMPMD_AddEmpVisaInfo` | procedure | No page yet |
+| `SP_EMPMD_AddPastEmploymentDet` | procedure | No page yet |
+| `SP_EMPMD_UpdCertificationDet` | procedure | No page yet |
+| `SP_EMPMD_UpdEducationDet` | procedure | No page yet |
+| `SP_EMPMD_UpdEmpAttachment` | procedure | No page yet |
+| `SP_EMPMD_UpdEmpBankDet` | procedure | No page yet |
+| `SP_EMPMD_UpdEmpContactDet` | procedure | No page yet |
+| `SP_EMPMD_UpdEmpCustomFields` | procedure | No page yet |
+| `SP_EMPMD_UpdEmpEmergencyContactDet` | procedure | No page yet |
+| `SP_EMPMD_UpdEmpFamilyDet` | procedure | No page yet |
+| `SP_EMPMD_UpdEmpNominationDet` | procedure | No page yet |
+| `SP_EMPMD_UpdEmpVisaInfo` | procedure | No page yet |
+| `SP_EMPMD_UpdPastEmploymentDet` | procedure | No page yet |
+| `SP_InsertUpdatePOBCandidateInfo` | procedure | No page yet |
+| `SP_InsertUpdateTBudget` | procedure | No page yet |
+| `SP_InsUpdatePOBCandidateLogin` | procedure | No page yet |
+| `SP_LA_UpdateARPullBack` | procedure | No page yet |
+| `SP_LA_UpdateLeavePullBack` | procedure | No page yet |
+| `SP_LA_UpdateOptionalHolidayPullBack` | procedure | No page yet |
+| `SP_LA_UpdateWFHPullBack` | procedure | No page yet |
+| `SP_MyDetails_EMPMD_UpdEmpCustomFields` | procedure | No page yet |
+| `SP_OD_UpdateODPullBack` | procedure | No page yet |
+| `SP_PMS_InsEmpGoalMappingForNewJoinees` | procedure | No page yet |
+| `Sp_RRS_GetStatusCounts` | procedure | No page yet |
+| `Sp_RRS_InsertCandidateFeedback` | procedure | No page yet |
+| `Sp_RRS_InsertDetails` | procedure | No page yet |
+| `Sp_RRS_UpdateChildDetails` | procedure | No page yet |
+| `Sp_RRS_UpdateDetails` | procedure | No page yet |
+| `SP_RRS_UpdateHiringApprovalOnHold` | procedure | No page yet |
+| `Sp_RRS_UpdateInitiateHiring` | procedure | No page yet |
+| `Sp_RRS_UpdCandidateShortListStatus` | procedure | No page yet |
+| `SP_RRS_UpdOnHoldCandidateStatus` | procedure | No page yet |
+| `SP_RRS_UpdShortlistCandidateStatus` | procedure | No page yet |
+| `Sp_SendCandidateForReview` | procedure | No page yet |
+| `SP_SEP_AddEmployeeActivityDetails` | procedure | No page yet |
+| `SP_SEP_AutoDeactivateEmployee` | procedure | No page yet |
+| `SP_SEP_GET_ResignationCommentsBasedOnConfig` | procedure | No page yet |
+| `SP_SEP_GETResignation_Approver_Details` | procedure | No page yet |
+| `SP_SEP_LockUnlockUserAccountByLWD` | procedure | No page yet |
+| `SP_SEP_Update_LastWorkingDatePast` | procedure | No page yet |
+| `SP_SEP_UpdateEmployeeActivityDetails` | procedure | No page yet |
+| `SP_TaskAtRiskReminderNotification` | procedure | No page yet |
+| `SP_TaskOverdueReminderNotification` | procedure | No page yet |
+| `SP_UpdatePOBCandidateStatus` | procedure | No page yet |
+| `SP_UpdatePreOfferCandidateStatus` | procedure | No page yet |
+| `USP_AttendanceOverTime_Process` | procedure | No page yet |
+| `USP_ClaimEventLeave_Pullback` | procedure | No page yet |
+| `USP_ClaimLocum_PullBack` | procedure | No page yet |
+| `USP_ClaimLocum_SaveUpdate` | procedure | No page yet |
+| `USP_ClaimOT_ProcessPendingRequests` | procedure | No page yet |
+| `USP_ClaimOT_SaveUpdate` | procedure | No page yet |
+| `USP_ClaimOT_SendThresholdAlert` | procedure | No page yet |
+| `USP_ClaimPH_PullBack` | procedure | No page yet |
+| `USP_ClaimPH_SaveUpdate` | procedure | No page yet |
+| `USP_CM_ValidateWorkflowConfigured` | procedure | No page yet |
+| `USP_CompOff_SaveRequest` | procedure | No page yet |
+| `USP_Employee_MyDetails_BudgetSource_Update` | procedure | No page yet |
+| `USP_Employer_Master_Data_Select` | procedure | No page yet |
+| `USP_EmployerMaster_GetData` | procedure | No page yet |
+| `USP_FNF_Employee_Pullback` | procedure | No page yet |
+| `USP_FNF_Employee_SaveUpdate` | procedure | No page yet |
+| `USP_InsUpdatePOCandidateInitiateLogin` | procedure | No page yet |
+| `USP_LA_LeaveType_Save` | procedure | No page yet |
+| `USP_LA_LeaveType_Update` | procedure | No page yet |
+| `USP_LE_Encashment_Save` | procedure | No page yet |
+| `Usp_Mydetails_Enhanced_ProcessEmployeesCertificationInformation` | procedure | No page yet |
+| `Usp_Mydetails_Enhanced_ProcessEmployeesFamilyInformation` | procedure | [Usp_Mydetails_Enhanced_ProcessEmployeesFamilyInformation](/docs/database/hrms/Usp_Mydetails_Enhanced_ProcessEmployeesFamilyInformation) |
+| `Usp_Mydetails_Enhanced_ProcessEmployeesPastEmploymentInformation` | procedure | No page yet |
+| `Usp_Mydetails_Enhanced_UpdateEmployeeVisaInformation` | procedure | No page yet |
+| `Usp_Mydetails_Enhanced_UpdateProfilePicture` | procedure | No page yet |
+| `USP_OfferAcceptance_SaveUpdate` | procedure | No page yet |
+| `USP_OH_PullbackRequest` | procedure | No page yet |
+| `USP_OT_Claim_Manual` | procedure | No page yet |
+| `USP_OT_Claim_Process` | procedure | No page yet |
+| `USP_OT_Claim_ThresholdAlert_Raise` | procedure | No page yet |
+| `USP_OT_Deviation_Save` | procedure | No page yet |
+| `USP_OT_OTRequest_SaveDeviation` | procedure | No page yet |
+| `USP_OT_OTRequest_SaveUpdate` | procedure | No page yet |
+| `USP_OT_Planned_SaveUpdate` | procedure | No page yet |
+| `USP_Process_TARRequestImport` | procedure | No page yet |
+| `USP_Process_TLeaveRequestImport` | procedure | No page yet |
+| `USP_SaveOnDutyConfig` | procedure | No page yet |
+| `USP_UpdatePOBCandidateExpectedDOJ` | procedure | No page yet |
+| `USP_UpdatePOBPreOfferRecruierStatus` | procedure | No page yet |
+| `usp_vw_UserAccountEnableDisable` | procedure | No page yet |
+| `USP_WFH_PullbackRequest` | procedure | No page yet |
+| `USP_WFH_SaveRequest` | procedure | No page yet |
+
+## Nested
+
+| Object | Kind | When | Page |
+|---|---|---|---|
+| `SP_CM_GetWorkflowTreeXmlDetailsByPageTitle_EmpId` | procedure | `@Employeeid` is null or 0 | [SP_CM_GetWorkflowTreeXmlDetailsByPageTitle_EmpId](/docs/database/hrms/SP_CM_GetWorkflowTreeXmlDetailsByPageTitle_EmpId) |
 
 ## Steps
 
@@ -66,12 +184,6 @@ In `HRMS-DATABASE/HRMS/STOREPROCEDURE/SP_CM_GetWorkflowTreeXmlDetailsByPageTitle
 | `dbo.TWorkFlowBusinessUnits` | read |
 | `#WorkFlow` | write |
 | `#CustomWorkFlows` | write |
-
-## Procedures and functions it calls
-
-| Object | Kind | When | Page |
-|---|---|---|---|
-| `SP_CM_GetWorkflowTreeXmlDetailsByPageTitle_EmpId` | procedure | `@Employeeid` is null or 0 | [SP_CM_GetWorkflowTreeXmlDetailsByPageTitle_EmpId](/docs/database/hrms/SP_CM_GetWorkflowTreeXmlDetailsByPageTitle_EmpId) |
 
 ## Flow
 

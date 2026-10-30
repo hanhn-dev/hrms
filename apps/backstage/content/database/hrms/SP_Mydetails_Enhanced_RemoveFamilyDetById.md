@@ -3,7 +3,7 @@ object: SP_Mydetails_Enhanced_RemoveFamilyDetById
 kind: procedure
 database: hrms
 source: HRMS-DATABASE/HRMS/STOREPROCEDURE/SP_Mydetails_Enhanced_RemoveFamilyDetById.sql
-last-analyzed: 2026-10-09
+last-analyzed: 2026-10-30
 ---
 
 # SP_Mydetails_Enhanced_RemoveFamilyDetById
@@ -24,6 +24,16 @@ Copies one family row into history and sets `IsDelete` on `TEmployeeFamilyDetail
 
 Calls no other procedures or functions.
 
+## Callers
+
+| Object | Kind | Page |
+|---|---|---|
+| `SP_Mydetails_Enhanced_ProcessEmployeeFamilyDetails` | procedure | [SP_Mydetails_Enhanced_ProcessEmployeeFamilyDetails](/docs/database/hrms/SP_Mydetails_Enhanced_ProcessEmployeeFamilyDetails) |
+
+## Nested
+
+Calls no other procedures or functions.
+
 ## Steps
 
 1. Insert the current row into `TEmployeeFamilyDetails_history` (`STOREPROCEDURE/SP_Mydetails_Enhanced_RemoveFamilyDetById.sql`).
@@ -35,10 +45,6 @@ Calls no other procedures or functions.
 |---|---|
 | `dbo.TEmployeeFamilyDetails` | read and write |
 | `dbo.TEmployeeFamilyDetails_history` | write |
-
-## Procedures and functions it calls
-
-Calls no other procedures or functions.
 
 ## Flow
 

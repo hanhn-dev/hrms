@@ -3,7 +3,7 @@ object: TVF_Get_AllApprovalsAndNotifications
 kind: function
 database: hrms
 source: HRMS-DATABASE/HRMS/FUNCTIONS/TVF_Get_AllApprovalsAndNotifications.sql
-last-analyzed: 2026-10-06
+last-analyzed: 2026-10-30
 ---
 
 # TVF_Get_AllApprovalsAndNotifications
@@ -22,6 +22,39 @@ Returns one `EmployeeID` column of people who approve or are notified at routing
 | `@NotificationOrApproval` | in | `A` uses `WorkflowRole`. `N` uses `LevelNotifications` |
 
 ## Call sequence
+
+Calls no other procedures or functions.
+
+## Callers
+
+| Object | Kind | Page |
+|---|---|---|
+| `Sp_InsertMyDetailsUpdateRequests` | procedure | No page yet |
+| `SP_Mydetails_Enhanced_AddCertificationDet` | procedure | No page yet |
+| `SP_Mydetails_Enhanced_AddEducationDetails` | procedure | No page yet |
+| `SP_Mydetails_Enhanced_AddEmpBankDet` | procedure | No page yet |
+| `SP_Mydetails_Enhanced_AddEmpEmergencyContactDet` | procedure | No page yet |
+| `SP_Mydetails_Enhanced_AddEmpFamilyDet` | procedure | [SP_Mydetails_Enhanced_AddEmpFamilyDet](/docs/database/hrms/SP_Mydetails_Enhanced_AddEmpFamilyDet) |
+| `SP_Mydetails_Enhanced_AddEmpNominationInfo` | procedure | No page yet |
+| `SP_Mydetails_Enhanced_AddEmpNomineeDet` | procedure | No page yet |
+| `SP_Mydetails_Enhanced_AddEmpPassportDet` | procedure | No page yet |
+| `SP_Mydetails_Enhanced_AddEmpVisaInfo` | procedure | No page yet |
+| `SP_Mydetails_Enhanced_AddPastEmploymentDet` | procedure | No page yet |
+| `SP_Mydetails_Enhanced_InsertEmpContactDet` | procedure | No page yet |
+| `SP_Mydetails_Enhanced_UpdateEmployeePersonalInformation` | procedure | [SP_Mydetails_Enhanced_UpdateEmployeePersonalInformation](/docs/database/hrms/SP_Mydetails_Enhanced_UpdateEmployeePersonalInformation) |
+| `SP_Mydetails_Enhanced_UpdCertificationDet` | procedure | No page yet |
+| `SP_Mydetails_Enhanced_UpdEducationDet` | procedure | No page yet |
+| `SP_Mydetails_Enhanced_UpdEmpBankDet` | procedure | No page yet |
+| `SP_Mydetails_Enhanced_UpdEmpContactDet` | procedure | No page yet |
+| `SP_MyDetails_Enhanced_UpdEmpCustomFields` | procedure | [SP_MyDetails_Enhanced_UpdEmpCustomFields](/docs/database/hrms/SP_MyDetails_Enhanced_UpdEmpCustomFields) |
+| `SP_Mydetails_Enhanced_UpdEmpEmergencyContactDet` | procedure | No page yet |
+| `SP_Mydetails_Enhanced_UpdEmpFamilyDet` | procedure | [SP_Mydetails_Enhanced_UpdEmpFamilyDet](/docs/database/hrms/SP_Mydetails_Enhanced_UpdEmpFamilyDet) |
+| `SP_Mydetails_Enhanced_UpdEmpNominationDet` | procedure | No page yet |
+| `SP_Mydetails_Enhanced_UpdEmpNomineeDet` | procedure | No page yet |
+| `SP_Mydetails_Enhanced_UpdEmpVisaInfo` | procedure | No page yet |
+| `SP_Mydetails_Enhanced_UpdPastEmploymentDet` | procedure | No page yet |
+
+## Nested
 
 Calls no other procedures or functions.
 
@@ -47,10 +80,6 @@ In `HRMS-DATABASE/HRMS/FUNCTIONS/TVF_Get_AllApprovalsAndNotifications.sql`:
 | `dbo.tRoleBusinessUnitMapping` | read |
 | `dbo.tRoleLocationMapping` | read |
 | `dbo.TRoleManagement` | read |
-
-## Procedures and functions it calls
-
-Calls no other procedures or functions.
 
 ## Flow
 

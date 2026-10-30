@@ -3,7 +3,7 @@ object: USP_Create_Employee_BudgetSourceHistory_Save
 kind: procedure
 database: hrms
 source: HRMS-DATABASE/HRMS/STOREPROCEDURE/USP_Create_Employee_BudgetSourceHistory_Save.sql
-last-analyzed: 2026-10-06
+last-analyzed: 2026-10-30
 ---
 
 # USP_Create_Employee_BudgetSourceHistory_Save
@@ -41,6 +41,19 @@ sequenceDiagram
   Main->>Ctc: history id and CTC bifurcation
 ```
 
+## Callers
+
+| Object | Kind | Page |
+|---|---|---|
+| `Sp_ApproveRejectMyDetailsReview` | procedure | [Sp_ApproveRejectMyDetailsReview](/docs/database/hrms/Sp_ApproveRejectMyDetailsReview) |
+| `USP_Create_Employee_BudgetSource_Save` | procedure | [USP_Create_Employee_BudgetSource_Save](/docs/database/hrms/USP_Create_Employee_BudgetSource_Save) |
+
+## Nested
+
+| Object | Kind | When | Page |
+|---|---|---|---|
+| `USP_TCTC_SaveUpdate` | procedure | after every history insert | [USP_TCTC_SaveUpdate](/docs/database/hrms/USP_TCTC_SaveUpdate) |
+
 ## Steps
 
 In `HRMS-DATABASE/HRMS/STOREPROCEDURE/USP_Create_Employee_BudgetSourceHistory_Save.sql`:
@@ -56,12 +69,6 @@ In `HRMS-DATABASE/HRMS/STOREPROCEDURE/USP_Create_Employee_BudgetSourceHistory_Sa
 |---|---|
 | `dbo.TEmployeeBudgetSourceDetailsHistory` | write |
 | `dbo.TEmployeeBudgetSourceDetails` | read |
-
-## Procedures and functions it calls
-
-| Object | Kind | When | Page |
-|---|---|---|---|
-| `USP_TCTC_SaveUpdate` | procedure | after every history insert | [USP_TCTC_SaveUpdate](/docs/database/hrms/USP_TCTC_SaveUpdate) |
 
 ## Flow
 

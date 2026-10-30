@@ -3,7 +3,7 @@ object: FN_Mydetails_Enhanced_BuildUpdateFamilyDetailsSQL
 kind: function
 database: hrms
 source: HRMS-DATABASE/HRMS/FUNCTIONS/FN_Mydetails_Enhanced_BuildUpdateFamilyDetailsSQL.sql
-last-analyzed: 2026-10-09
+last-analyzed: 2026-10-30
 ---
 
 # FN_Mydetails_Enhanced_BuildUpdateFamilyDetailsSQL
@@ -40,6 +40,18 @@ sequenceDiagram
 
 The returned batch names `SP_Mydetails_Enhanced_UpdEmpFamilyDet`. This function does not execute that procedure.
 
+## Callers
+
+| Object | Kind | Page |
+|---|---|---|
+| `SP_Mydetails_Enhanced_ProcessEmployeeFamilyDetails` | procedure | [SP_Mydetails_Enhanced_ProcessEmployeeFamilyDetails](/docs/database/hrms/SP_Mydetails_Enhanced_ProcessEmployeeFamilyDetails) |
+
+## Nested
+
+| Object | Kind | When | Page |
+|---|---|---|---|
+| `FN_BulkUpdateProfile_GetFieldValueFromJSON` | function | each mapped field in the cursor | [FN_BulkUpdateProfile_GetFieldValueFromJSON](/docs/database/hrms/FN_BulkUpdateProfile_GetFieldValueFromJSON) |
+
 ## Steps
 
 1. Start the batch with `Exec SP_Mydetails_Enhanced_UpdEmpFamilyDet` and the existing family id (`FUNCTIONS/FN_Mydetails_Enhanced_BuildUpdateFamilyDetailsSQL.sql`).
@@ -52,12 +64,6 @@ The returned batch names `SP_Mydetails_Enhanced_UpdEmpFamilyDet`. This function 
 | Table | Read or write |
 |---|---|
 | `dbo.TEmployeeDetail_Fields` | read |
-
-## Procedures and functions it calls
-
-| Object | Kind | When | Page |
-|---|---|---|---|
-| `FN_BulkUpdateProfile_GetFieldValueFromJSON` | function | each mapped field in the cursor | [FN_BulkUpdateProfile_GetFieldValueFromJSON](/docs/database/hrms/FN_BulkUpdateProfile_GetFieldValueFromJSON) |
 
 ## Unresolved calls
 

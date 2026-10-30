@@ -3,7 +3,7 @@ object: Fn_GetEmployeeNameWithEmploymentNumber
 kind: function
 database: hrms
 source: HRMS-DATABASE/HRMS/FUNCTIONS/Fn_GetEmployeeNameWithEmploymentNumber.sql
-last-analyzed: 2026-10-09
+last-analyzed: 2026-10-30
 ---
 
 # Fn_GetEmployeeNameWithEmploymentNumber
@@ -31,6 +31,16 @@ sequenceDiagram
   Main-->>Caller: name, employment number, employer
 ```
 
+## Callers
+
+No other procedure or function calls this object.
+
+## Nested
+
+| Object | Kind | When | Page |
+|---|---|---|---|
+| `Fn_GetEmployeeName` | function | always, for the joined employee | [Fn_GetEmployeeName](/docs/database/hrms/Fn_GetEmployeeName) |
+
 ## Steps
 
 In `HRMS-DATABASE/HRMS/FUNCTIONS/Fn_GetEmployeeNameWithEmploymentNumber.sql`:
@@ -46,12 +56,6 @@ In `HRMS-DATABASE/HRMS/FUNCTIONS/Fn_GetEmployeeNameWithEmploymentNumber.sql`:
 | `TEmployee` | read |
 | `TEmployeeInfo` | read |
 | `TEmployerDetails` | read |
-
-## Procedures and functions it calls
-
-| Object | Kind | When | Page |
-|---|---|---|---|
-| `Fn_GetEmployeeName` | function | always, for the joined employee | [Fn_GetEmployeeName](/docs/database/hrms/Fn_GetEmployeeName) |
 
 ## Flow
 

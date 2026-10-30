@@ -3,7 +3,7 @@ object: Usp_Mydetails_Enhanced_Process_Template
 kind: procedure
 database: hrms
 source: HRMS-DATABASE/HRMS/STOREPROCEDURE/Usp_Mydetails_Enhanced_Process_Template.sql
-last-analyzed: 2026-10-09
+last-analyzed: 2026-10-30
 ---
 
 # Usp_Mydetails_Enhanced_Process_Template
@@ -42,27 +42,11 @@ sequenceDiagram
 
 Other section names call their own processors. Those branches are listed below and are not on the add-family request.
 
-## Steps
+## Callers
 
-1. Read the employee id from the first JSON object (`STOREPROCEDURE/Usp_Mydetails_Enhanced_Process_Template.sql`).
-2. Open both encryption-key procedures.
-3. Load employer and country of employment from `Temployee`.
-4. Count active, visible, non-deleted fields for the section. Nomination adds 2 to that count and Nominee adds 1. Family Details uses the raw count.
-5. When the split `@FieldList` count equals that field count, enter the try block and run the matching section processor. Family Details runs `Usp_Mydetails_Enhanced_ProcessEmployeesFamilyInformation`.
-6. Close both encryption-key procedures and return `IsSuccessful = 1` plus `IsWaitingForApproval` from the section processor output.
-7. On error, insert `TSQL_Errorlogs` and `RAISERROR` the message.
-8. When the field counts differ, `RAISERROR` that the field configuration changed.
+No other procedure or function calls this object.
 
-## Tables
-
-| Table | Read or write |
-|---|---|
-| `dbo.Temployee` | read |
-| `dbo.Temployeedetail_fields` | read |
-| `dbo.TEmployeeDetail_Section` | read |
-| `dbo.TSQL_Errorlogs` | write |
-
-## Procedures and functions it calls
+## Nested
 
 | Object | Kind | When | Page |
 |---|---|---|---|
@@ -86,6 +70,26 @@ Other section names call their own processors. Those branches are listed below a
 | `Usp_Mydetails_Enhanced_ProcessEmployeesCertificationInformation` | procedure | section name is Certification Details | |
 | `Usp_Mydetails_Enhanced_UpdateCurrentEmploymentDetails` | procedure | section name is Current Employment Details | |
 | `Usp_Mydetails_Enhanced_UpdateAdditionalInfo` | procedure | section name is Additional Info | |
+
+## Steps
+
+1. Read the employee id from the first JSON object (`STOREPROCEDURE/Usp_Mydetails_Enhanced_Process_Template.sql`).
+2. Open both encryption-key procedures.
+3. Load employer and country of employment from `Temployee`.
+4. Count active, visible, non-deleted fields for the section. Nomination adds 2 to that count and Nominee adds 1. Family Details uses the raw count.
+5. When the split `@FieldList` count equals that field count, enter the try block and run the matching section processor. Family Details runs `Usp_Mydetails_Enhanced_ProcessEmployeesFamilyInformation`.
+6. Close both encryption-key procedures and return `IsSuccessful = 1` plus `IsWaitingForApproval` from the section processor output.
+7. On error, insert `TSQL_Errorlogs` and `RAISERROR` the message.
+8. When the field counts differ, `RAISERROR` that the field configuration changed.
+
+## Tables
+
+| Table | Read or write |
+|---|---|
+| `dbo.Temployee` | read |
+| `dbo.Temployeedetail_fields` | read |
+| `dbo.TEmployeeDetail_Section` | read |
+| `dbo.TSQL_Errorlogs` | write |
 
 ## Flow
 

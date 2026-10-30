@@ -3,7 +3,7 @@ object: SP_Mydetails_Enhanced_ProcessEmployeeFamilyDetails
 kind: procedure
 database: hrms
 source: HRMS-DATABASE/HRMS/STOREPROCEDURE/SP_Mydetails_Enhanced_ProcessEmployeeFamilyDetails.sql
-last-analyzed: 2026-10-09
+last-analyzed: 2026-10-30
 ---
 
 # SP_Mydetails_Enhanced_ProcessEmployeeFamilyDetails
@@ -48,6 +48,20 @@ sequenceDiagram
   Main->>Dyn: run the insert string
 ```
 
+## Callers
+
+| Object | Kind | Page |
+|---|---|---|
+| `Usp_Mydetails_Enhanced_ProcessEmployeesFamilyInformation` | procedure | [Usp_Mydetails_Enhanced_ProcessEmployeesFamilyInformation](/docs/database/hrms/Usp_Mydetails_Enhanced_ProcessEmployeesFamilyInformation) |
+
+## Nested
+
+| Object | Kind | When | Page |
+|---|---|---|---|
+| `SP_Mydetails_Enhanced_RemoveFamilyDetById` | procedure | existing row and Action Delete | [SP_Mydetails_Enhanced_RemoveFamilyDetById](/docs/database/hrms/SP_Mydetails_Enhanced_RemoveFamilyDetById) |
+| `FN_Mydetails_Enhanced_BuildUpdateFamilyDetailsSQL` | function | existing row and Action Update | [FN_Mydetails_Enhanced_BuildUpdateFamilyDetailsSQL](/docs/database/hrms/FN_Mydetails_Enhanced_BuildUpdateFamilyDetailsSQL) |
+| `FN_Mydetails_Enhanced_BuildInsertFamilyDetailsSQL` | function | missing row and Action Add | [FN_Mydetails_Enhanced_BuildInsertFamilyDetailsSQL](/docs/database/hrms/FN_Mydetails_Enhanced_BuildInsertFamilyDetailsSQL) |
+
 ## Steps
 
 1. Treat the int family id as the working id (`STOREPROCEDURE/SP_Mydetails_Enhanced_ProcessEmployeeFamilyDetails.sql`).
@@ -67,14 +81,6 @@ sequenceDiagram
 | `dbo.TEmployeeNominationHistory` | write on delete |
 | `dbo.TSQL_Errorlogs` | write |
 | `#SCOPE_VALUE` | read after the insert batch |
-
-## Procedures and functions it calls
-
-| Object | Kind | When | Page |
-|---|---|---|---|
-| `SP_Mydetails_Enhanced_RemoveFamilyDetById` | procedure | existing row and Action Delete | [SP_Mydetails_Enhanced_RemoveFamilyDetById](/docs/database/hrms/SP_Mydetails_Enhanced_RemoveFamilyDetById) |
-| `FN_Mydetails_Enhanced_BuildUpdateFamilyDetailsSQL` | function | existing row and Action Update | [FN_Mydetails_Enhanced_BuildUpdateFamilyDetailsSQL](/docs/database/hrms/FN_Mydetails_Enhanced_BuildUpdateFamilyDetailsSQL) |
-| `FN_Mydetails_Enhanced_BuildInsertFamilyDetailsSQL` | function | missing row and Action Add | [FN_Mydetails_Enhanced_BuildInsertFamilyDetailsSQL](/docs/database/hrms/FN_Mydetails_Enhanced_BuildInsertFamilyDetailsSQL) |
 
 ## Unresolved calls
 

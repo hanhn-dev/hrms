@@ -49,7 +49,7 @@ features/employer/roles/roles-screen.tsx
 | `content/llm-wiki/**` | `/wiki/<path>` | `/sync-llm-wiki` (mirror). `/track-db-updates` may patch pages contradicted by this run's SQL delta |
 | `content/wiki/database-changelog.md` | `/docs/database-changelog` | `/track-db-updates` only |
 | `content/wiki/*.md` | `/docs/<slug>` | Hand-authored; wiki-sync must not touch |
-| `content/database/<database>/<object>.md` | `/docs/database/<database>/<object>` | `/explain-stored-procedure`. On a later day, copy the previous file to `<object>/<last-analyzed>.md` first, then overwrite latest |
+| `content/database/<database>/<object>.md` | `/docs/database/<database>/<object>` | `/explain-stored-procedure`. Section order: What it does, Parameters, Call sequence, Callers, Nested, Steps, Tables, Unresolved calls, Flow. On a later day, copy the previous file to `<object>/<last-analyzed>.md` first, then overwrite latest |
 | `content/database/<database>/<object>/YYYY-MM-DD.md` | `/docs/database/<database>/<object>/YYYY-MM-DD` | Immutable snapshot — do not edit. Index and search list latest only |
 | `content/flows/<slug>.md` | `/docs/flows/<slug>` | `/create-flows`. Traces a feature's React component → API controller/service → stored procedures. Same freeze-then-overwrite rule as above |
 | `content/flows/<slug>/YYYY-MM-DD.md` | `/docs/flows/<slug>/YYYY-MM-DD` | Immutable snapshot — do not edit. Index and search list latest only |

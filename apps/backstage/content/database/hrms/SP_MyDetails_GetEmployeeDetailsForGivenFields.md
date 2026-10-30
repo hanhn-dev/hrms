@@ -3,7 +3,7 @@ object: SP_MyDetails_GetEmployeeDetailsForGivenFields
 kind: procedure
 database: hrms
 source: HRMS-DATABASE/HRMS/STOREPROCEDURE/SP_MyDetails_GetEmployeeDetailsForGivenFields.sql
-last-analyzed: 2026-10-09
+last-analyzed: 2026-10-30
 ---
 
 # SP_MyDetails_GetEmployeeDetailsForGivenFields
@@ -38,6 +38,24 @@ sequenceDiagram
   Main->>CloseOld: execute
   Main->>CloseNew: execute
 ```
+
+## Callers
+
+No other procedure or function calls this object.
+
+## Nested
+
+| Object | Kind | When | Page |
+|---|---|---|---|
+| `Sp_OpenEncryptionKeys` | procedure | always, before the reads | [Sp_OpenEncryptionKeys](/docs/database/hrms/Sp_OpenEncryptionKeys) |
+| `Sp_OpenEncryptionKeysNew` | procedure | always, immediately after the previous open | [Sp_OpenEncryptionKeysNew](/docs/database/hrms/Sp_OpenEncryptionKeysNew) |
+| `Fn_DecryptData` | function | a system or country field has `DB_Column_Encrypted = 1` | [Fn_DecryptData](/docs/database/hrms/Fn_DecryptData) |
+| `Fn_DecryptDataNew` | function | a system or country field has `DB_Column_Encrypted = 2` | [Fn_DecryptDataNew](/docs/database/hrms/Fn_DecryptDataNew) |
+| `FN_ConvertMonthsToYearsAndMonths` | function | a years or months experience field on skill, domain, current employment, or, for the years names, personal | [FN_ConvertMonthsToYearsAndMonths](/docs/database/hrms/FN_ConvertMonthsToYearsAndMonths) |
+| `Ufn_BulkProfile_languageIdstoNames` | function | personal `Language Read`, `Language Write`, or `Language Speak` | [Ufn_BulkProfile_languageIdstoNames](/docs/database/hrms/Ufn_BulkProfile_languageIdstoNames) |
+| `Fn_GetEmployeeNameWithEmploymentNumber` | function | a section table expression is present; the apply calls it for review manager, reporting manager, and functional manager | [Fn_GetEmployeeNameWithEmploymentNumber](/docs/database/hrms/Fn_GetEmployeeNameWithEmploymentNumber) |
+| `SP_CloseEncryptionKey` | procedure | always, after the dynamic batch | [SP_CloseEncryptionKey](/docs/database/hrms/SP_CloseEncryptionKey) |
+| `SP_CloseEncryptionKeyNew` | procedure | always, immediately after the previous close | [SP_CloseEncryptionKeyNew](/docs/database/hrms/SP_CloseEncryptionKeyNew) |
 
 ## Steps
 
@@ -98,20 +116,6 @@ In `HRMS-DATABASE/HRMS/STOREPROCEDURE/SP_MyDetails_GetEmployeeDetailsForGivenFie
 | `#ConvertCustFieldValuesID`, `#CustomFieldValues`, `#AttMode`, `#AttCaptureType`, `#AttendanceCaptureType`, `#AssessmentDetails`, `#Data`, `#Data_Fields`, `#IDs` | write |
 
 Other section tables are whatever `DB_Schema` and `DB_Table` the catalog row stores. The procedure does not name them.
-
-## Procedures and functions it calls
-
-| Object | Kind | When | Page |
-|---|---|---|---|
-| `Sp_OpenEncryptionKeys` | procedure | always, before the reads | [Sp_OpenEncryptionKeys](/docs/database/hrms/Sp_OpenEncryptionKeys) |
-| `Sp_OpenEncryptionKeysNew` | procedure | always, immediately after the previous open | [Sp_OpenEncryptionKeysNew](/docs/database/hrms/Sp_OpenEncryptionKeysNew) |
-| `Fn_DecryptData` | function | a system or country field has `DB_Column_Encrypted = 1` | [Fn_DecryptData](/docs/database/hrms/Fn_DecryptData) |
-| `Fn_DecryptDataNew` | function | a system or country field has `DB_Column_Encrypted = 2` | [Fn_DecryptDataNew](/docs/database/hrms/Fn_DecryptDataNew) |
-| `FN_ConvertMonthsToYearsAndMonths` | function | a years or months experience field on skill, domain, current employment, or, for the years names, personal | [FN_ConvertMonthsToYearsAndMonths](/docs/database/hrms/FN_ConvertMonthsToYearsAndMonths) |
-| `Ufn_BulkProfile_languageIdstoNames` | function | personal `Language Read`, `Language Write`, or `Language Speak` | [Ufn_BulkProfile_languageIdstoNames](/docs/database/hrms/Ufn_BulkProfile_languageIdstoNames) |
-| `Fn_GetEmployeeNameWithEmploymentNumber` | function | a section table expression is present; the apply calls it for review manager, reporting manager, and functional manager | [Fn_GetEmployeeNameWithEmploymentNumber](/docs/database/hrms/Fn_GetEmployeeNameWithEmploymentNumber) |
-| `SP_CloseEncryptionKey` | procedure | always, after the dynamic batch | [SP_CloseEncryptionKey](/docs/database/hrms/SP_CloseEncryptionKey) |
-| `SP_CloseEncryptionKeyNew` | procedure | always, immediately after the previous close | [SP_CloseEncryptionKeyNew](/docs/database/hrms/SP_CloseEncryptionKeyNew) |
 
 ## Unresolved calls
 

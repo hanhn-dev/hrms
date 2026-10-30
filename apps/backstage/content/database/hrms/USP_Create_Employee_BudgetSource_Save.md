@@ -3,7 +3,7 @@ object: USP_Create_Employee_BudgetSource_Save
 kind: procedure
 database: hrms
 source: HRMS-DATABASE/HRMS/STOREPROCEDURE/USP_Create_Employee_BudgetSource_Save.sql
-last-analyzed: 2026-10-06
+last-analyzed: 2026-10-30
 ---
 
 # USP_Create_Employee_BudgetSource_Save
@@ -35,6 +35,18 @@ sequenceDiagram
   end
 ```
 
+## Callers
+
+| Object | Kind | Page |
+|---|---|---|
+| `Sp_ApproveRejectMyDetailsReview` | procedure | [Sp_ApproveRejectMyDetailsReview](/docs/database/hrms/Sp_ApproveRejectMyDetailsReview) |
+
+## Nested
+
+| Object | Kind | When | Page |
+|---|---|---|---|
+| `USP_Create_Employee_BudgetSourceHistory_Save` | procedure | after each inserted live row | [USP_Create_Employee_BudgetSourceHistory_Save](/docs/database/hrms/USP_Create_Employee_BudgetSourceHistory_Save) |
+
 ## Steps
 
 In `HRMS-DATABASE/HRMS/STOREPROCEDURE/USP_Create_Employee_BudgetSource_Save.sql`:
@@ -51,12 +63,6 @@ In `HRMS-DATABASE/HRMS/STOREPROCEDURE/USP_Create_Employee_BudgetSource_Save.sql`
 | `@EmployeeBudgetSourceDetails` | read |
 | `#EmployeeBudgetSourceDetails` | write |
 | `dbo.TEmployeeBudgetSourceDetails` | write |
-
-## Procedures and functions it calls
-
-| Object | Kind | When | Page |
-|---|---|---|---|
-| `USP_Create_Employee_BudgetSourceHistory_Save` | procedure | after each inserted live row | [USP_Create_Employee_BudgetSourceHistory_Save](/docs/database/hrms/USP_Create_Employee_BudgetSourceHistory_Save) |
 
 ## Flow
 

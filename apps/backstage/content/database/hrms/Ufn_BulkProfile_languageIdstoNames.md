@@ -3,7 +3,7 @@ object: Ufn_BulkProfile_languageIdstoNames
 kind: function
 database: hrms
 source: HRMS-DATABASE/HRMS/FUNCTIONS/Ufn_BulkProfile_languageIdstoNames.sql
-last-analyzed: 2026-10-09
+last-analyzed: 2026-10-30
 ---
 
 # Ufn_BulkProfile_languageIdstoNames
@@ -22,6 +22,14 @@ Turns a comma-separated list of language ids into a comma-separated list of lang
 
 Calls no other procedures or functions.
 
+## Callers
+
+No other procedure or function calls this object.
+
+## Nested
+
+Calls no other procedures or functions.
+
 ## Steps
 
 In `HRMS-DATABASE/HRMS/FUNCTIONS/Ufn_BulkProfile_languageIdstoNames.sql`:
@@ -34,10 +42,6 @@ In `HRMS-DATABASE/HRMS/FUNCTIONS/Ufn_BulkProfile_languageIdstoNames.sql`:
 | Table | Read or write |
 |---|---|
 | `tlanguage` | read |
-
-## Procedures and functions it calls
-
-Calls no other procedures or functions.
 
 ## Flow
 

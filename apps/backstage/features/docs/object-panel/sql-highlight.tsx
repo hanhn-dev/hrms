@@ -13,6 +13,14 @@ const CHIP_COLOR: Record<ScriptObjectKind, string> = {
   function: "#13c2c2",
 };
 
+export const OBJECT_CHIP_CLASS =
+  "not-prose mx-0.5 inline-flex cursor-pointer rounded px-1 align-baseline font-mono text-[11px] leading-5 text-white";
+
+export function objectChipColor(kind: ScriptObjectKind | undefined): string {
+  if (!kind) return "#64748b";
+  return CHIP_COLOR[kind];
+}
+
 type Piece = {
   text: string;
   tokenIndex: number;
@@ -226,8 +234,8 @@ function ScriptPiece({
     const kind = kinds[kindKey(schema, name)];
     return (
       <button
-        className="mx-0.5 inline-flex cursor-pointer rounded px-1 align-baseline font-mono text-[11px] leading-5 text-white"
-        style={{ backgroundColor: kind ? CHIP_COLOR[kind] : "#64748b" }}
+        className={OBJECT_CHIP_CLASS}
+        style={{ backgroundColor: objectChipColor(kind) }}
         type="button"
         onClick={() => onOpenObject({ schema, name })}
       >

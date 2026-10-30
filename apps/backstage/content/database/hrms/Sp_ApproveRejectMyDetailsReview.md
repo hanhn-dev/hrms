@@ -3,7 +3,7 @@ object: Sp_ApproveRejectMyDetailsReview
 kind: procedure
 database: hrms
 source: HRMS-DATABASE/HRMS/STOREPROCEDURE/Sp_ApproveRejectMyDetailsReview.sql
-last-analyzed: 2026-10-06
+last-analyzed: 2026-10-30
 ---
 
 # Sp_ApproveRejectMyDetailsReview
@@ -49,6 +49,21 @@ sequenceDiagram
   end
   Main->>Close: close key
 ```
+
+## Callers
+
+No other procedure or function calls this object.
+
+## Nested
+
+| Object | Kind | When | Page |
+|---|---|---|---|
+| `Sp_OpenEncryptionKeys` | procedure | at the start | [Sp_OpenEncryptionKeys](/docs/database/hrms/Sp_OpenEncryptionKeys) |
+| `SP_CM_GetWorkflowTreeXmlDetailsByPageTitle` | procedure | before the transaction, to load `#tmpFlowDetails` | [SP_CM_GetWorkflowTreeXmlDetailsByPageTitle](/docs/database/hrms/SP_CM_GetWorkflowTreeXmlDetailsByPageTitle) |
+| `USP_TCTC_SaveUpdate` | procedure | final approval, when a budget update has a non-empty CTC bifurcation | [USP_TCTC_SaveUpdate](/docs/database/hrms/USP_TCTC_SaveUpdate) |
+| `USP_Create_Employee_BudgetSourceHistory_Save` | procedure | final approval, after each budget update or delete | [USP_Create_Employee_BudgetSourceHistory_Save](/docs/database/hrms/USP_Create_Employee_BudgetSourceHistory_Save) |
+| `USP_Create_Employee_BudgetSource_Save` | procedure | final approval, for each budget insert | [USP_Create_Employee_BudgetSource_Save](/docs/database/hrms/USP_Create_Employee_BudgetSource_Save) |
+| `SP_CloseEncryptionKey` | procedure | after commit and after the catch | [SP_CloseEncryptionKey](/docs/database/hrms/SP_CloseEncryptionKey) |
 
 ## Steps
 
@@ -130,17 +145,6 @@ In `HRMS-DATABASE/HRMS/STOREPROCEDURE/Sp_ApproveRejectMyDetailsReview.sql`:
 | `dbo.TRRSCandidate` | read |
 | `#MyDetailsBudgetSourceData`, `#BudgetUpdateDeleteData`, `#BudgetUpdateInsertData` | write |
 | `dbo.TEmployeeAttachment` | write |
-
-## Procedures and functions it calls
-
-| Object | Kind | When | Page |
-|---|---|---|---|
-| `Sp_OpenEncryptionKeys` | procedure | at the start | [Sp_OpenEncryptionKeys](/docs/database/hrms/Sp_OpenEncryptionKeys) |
-| `SP_CM_GetWorkflowTreeXmlDetailsByPageTitle` | procedure | before the transaction, to load `#tmpFlowDetails` | [SP_CM_GetWorkflowTreeXmlDetailsByPageTitle](/docs/database/hrms/SP_CM_GetWorkflowTreeXmlDetailsByPageTitle) |
-| `USP_TCTC_SaveUpdate` | procedure | final approval, when a budget update has a non-empty CTC bifurcation | [USP_TCTC_SaveUpdate](/docs/database/hrms/USP_TCTC_SaveUpdate) |
-| `USP_Create_Employee_BudgetSourceHistory_Save` | procedure | final approval, after each budget update or delete | [USP_Create_Employee_BudgetSourceHistory_Save](/docs/database/hrms/USP_Create_Employee_BudgetSourceHistory_Save) |
-| `USP_Create_Employee_BudgetSource_Save` | procedure | final approval, for each budget insert | [USP_Create_Employee_BudgetSource_Save](/docs/database/hrms/USP_Create_Employee_BudgetSource_Save) |
-| `SP_CloseEncryptionKey` | procedure | after commit and after the catch | [SP_CloseEncryptionKey](/docs/database/hrms/SP_CloseEncryptionKey) |
 
 ## Unresolved calls
 

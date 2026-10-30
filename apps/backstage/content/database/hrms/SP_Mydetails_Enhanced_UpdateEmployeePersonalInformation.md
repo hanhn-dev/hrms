@@ -3,7 +3,7 @@ object: SP_Mydetails_Enhanced_UpdateEmployeePersonalInformation
 kind: procedure
 database: hrms
 source: HRMS-DATABASE/HRMS/STOREPROCEDURE/SP_Mydetails_Enhanced_UpdateEmployeePersonalInformation.sql
-last-analyzed: 2026-10-06
+last-analyzed: 2026-10-30
 ---
 
 # SP_Mydetails_Enhanced_UpdateEmployeePersonalInformation
@@ -93,6 +93,23 @@ sequenceDiagram
   end
 ```
 
+## Callers
+
+No other procedure or function calls this object.
+
+## Nested
+
+| Object | Kind | When | Page |
+|---|---|---|---|
+| `Sp_OpenEncryptionKeys` | procedure | After the concurrency check passes, and again on the self-update path when a field differs | [Sp_OpenEncryptionKeys](/docs/database/hrms/Sp_OpenEncryptionKeys) |
+| `Sp_OpenEncryptionKeysNew` | procedure | After the concurrency check passes | [Sp_OpenEncryptionKeysNew](/docs/database/hrms/Sp_OpenEncryptionKeysNew) |
+| `Fn_DecryptData` | function | Self-update path, while comparing date of birth, names, tax id, and Aadhar | [Fn_DecryptData](/docs/database/hrms/Fn_DecryptData) |
+| `Fn_EncryptData` | function | Self-update path for encrypted text values, and on the direct update of those columns | [Fn_EncryptData](/docs/database/hrms/Fn_EncryptData) |
+| `TVF_Get_AllApprovalsAndNotifications` | function | A change request was inserted | [TVF_Get_AllApprovalsAndNotifications](/docs/database/hrms/TVF_Get_AllApprovalsAndNotifications) |
+| `FN_ConvertSTRToBase64` | function | Updating `tusers.useremail` after the main branch | [FN_ConvertSTRToBase64](/docs/database/hrms/FN_ConvertSTRToBase64) |
+| `SP_CloseEncryptionKey` | procedure | End of the self-update path when a field differed, and again before the procedure ends when it did not return early | [SP_CloseEncryptionKey](/docs/database/hrms/SP_CloseEncryptionKey) |
+| `SP_CloseEncryptionKeyNew` | procedure | Before the procedure ends when it did not return early | [SP_CloseEncryptionKeyNew](/docs/database/hrms/SP_CloseEncryptionKeyNew) |
+
 ## Steps
 
 In `HRMS-DATABASE/HRMS/STOREPROCEDURE/SP_Mydetails_Enhanced_UpdateEmployeePersonalInformation.sql`:
@@ -143,19 +160,6 @@ In `HRMS-DATABASE/HRMS/STOREPROCEDURE/SP_Mydetails_Enhanced_UpdateEmployeePerson
 | `dbo.TLeaveLocation` | read |
 | `dbo.TLeaveEmployeeStatus` | read |
 | `dbo.TLeaveBalanceLedger` | write |
-
-## Procedures and functions it calls
-
-| Object | Kind | When | Page |
-|---|---|---|---|
-| `Sp_OpenEncryptionKeys` | procedure | After the concurrency check passes, and again on the self-update path when a field differs | [Sp_OpenEncryptionKeys](/docs/database/hrms/Sp_OpenEncryptionKeys) |
-| `Sp_OpenEncryptionKeysNew` | procedure | After the concurrency check passes | [Sp_OpenEncryptionKeysNew](/docs/database/hrms/Sp_OpenEncryptionKeysNew) |
-| `Fn_DecryptData` | function | Self-update path, while comparing date of birth, names, tax id, and Aadhar | [Fn_DecryptData](/docs/database/hrms/Fn_DecryptData) |
-| `Fn_EncryptData` | function | Self-update path for encrypted text values, and on the direct update of those columns | [Fn_EncryptData](/docs/database/hrms/Fn_EncryptData) |
-| `TVF_Get_AllApprovalsAndNotifications` | function | A change request was inserted | [TVF_Get_AllApprovalsAndNotifications](/docs/database/hrms/TVF_Get_AllApprovalsAndNotifications) |
-| `FN_ConvertSTRToBase64` | function | Updating `tusers.useremail` after the main branch | [FN_ConvertSTRToBase64](/docs/database/hrms/FN_ConvertSTRToBase64) |
-| `SP_CloseEncryptionKey` | procedure | End of the self-update path when a field differed, and again before the procedure ends when it did not return early | [SP_CloseEncryptionKey](/docs/database/hrms/SP_CloseEncryptionKey) |
-| `SP_CloseEncryptionKeyNew` | procedure | Before the procedure ends when it did not return early | [SP_CloseEncryptionKeyNew](/docs/database/hrms/SP_CloseEncryptionKeyNew) |
 
 ## Unresolved calls
 

@@ -3,7 +3,7 @@ object: Usp_Mydetails_Enhanced_ProcessEmployeesFamilyInformation
 kind: procedure
 database: hrms
 source: HRMS-DATABASE/HRMS/STOREPROCEDURE/Usp_Mydetails_Enhanced_ProcessEmployeesFamilyInformation.sql
-last-analyzed: 2026-10-09
+last-analyzed: 2026-10-30
 ---
 
 # Usp_Mydetails_Enhanced_ProcessEmployeesFamilyInformation
@@ -40,6 +40,18 @@ sequenceDiagram
   Main->>Custom: when Action is Add or Update
 ```
 
+## Callers
+
+No other procedure or function calls this object.
+
+## Nested
+
+| Object | Kind | When | Page |
+|---|---|---|---|
+| `SP_Mydetails_Enhanced_ProcessEmployeeFamilyDetails` | procedure | each processed row | [SP_Mydetails_Enhanced_ProcessEmployeeFamilyDetails](/docs/database/hrms/SP_Mydetails_Enhanced_ProcessEmployeeFamilyDetails) |
+| `SP_CM_GetWorkflowTreeXmlDetailsByPageTitle` | procedure | after each processed row | [SP_CM_GetWorkflowTreeXmlDetailsByPageTitle](/docs/database/hrms/SP_CM_GetWorkflowTreeXmlDetailsByPageTitle) |
+| `SP_Mydetails_Enhanced_UpdateCustomFieldValues` | procedure | Action is Add or Update | [SP_Mydetails_Enhanced_UpdateCustomFieldValues](/docs/database/hrms/SP_Mydetails_Enhanced_UpdateCustomFieldValues) |
+
 ## Steps
 
 1. Open a cursor over `OPENJSON(@EmployeeData)` and read `ID`, `EmployeeFamilyDetailID`, `isValid`, and `Action` (`STOREPROCEDURE/Usp_Mydetails_Enhanced_ProcessEmployeesFamilyInformation.sql`).
@@ -63,14 +75,6 @@ sequenceDiagram
 | `dbo.TMyDetailsChangeRequests` | read |
 | `dbo.TEmployeeFamilyDetails` | read |
 | `dbo.TSQL_Errorlogs` | write |
-
-## Procedures and functions it calls
-
-| Object | Kind | When | Page |
-|---|---|---|---|
-| `SP_Mydetails_Enhanced_ProcessEmployeeFamilyDetails` | procedure | each processed row | [SP_Mydetails_Enhanced_ProcessEmployeeFamilyDetails](/docs/database/hrms/SP_Mydetails_Enhanced_ProcessEmployeeFamilyDetails) |
-| `SP_CM_GetWorkflowTreeXmlDetailsByPageTitle` | procedure | after each processed row | [SP_CM_GetWorkflowTreeXmlDetailsByPageTitle](/docs/database/hrms/SP_CM_GetWorkflowTreeXmlDetailsByPageTitle) |
-| `SP_Mydetails_Enhanced_UpdateCustomFieldValues` | procedure | Action is Add or Update | [SP_Mydetails_Enhanced_UpdateCustomFieldValues](/docs/database/hrms/SP_Mydetails_Enhanced_UpdateCustomFieldValues) |
 
 ## Flow
 

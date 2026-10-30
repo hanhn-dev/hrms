@@ -3,7 +3,7 @@ object: USP_TCTC_SaveUpdate
 kind: procedure
 database: hrms
 source: HRMS-DATABASE/HRMS/STOREPROCEDURE/USP_TCTC_SaveUpdate.sql
-last-analyzed: 2026-10-06
+last-analyzed: 2026-10-30
 ---
 
 # USP_TCTC_SaveUpdate
@@ -52,6 +52,14 @@ Inserts a `TCTC` row for a parent and reference type, or updates the existing ro
 
 Calls no other procedures or functions.
 
+## Callers
+
+No other procedure or function calls this object.
+
+## Nested
+
+Calls no other procedures or functions.
+
 ## Steps
 
 In `HRMS-DATABASE/HRMS/STOREPROCEDURE/USP_TCTC_SaveUpdate.sql`:
@@ -65,10 +73,6 @@ In `HRMS-DATABASE/HRMS/STOREPROCEDURE/USP_TCTC_SaveUpdate.sql`:
 | Table | Read or write |
 |---|---|
 | `dbo.TCTC` | read and write |
-
-## Procedures and functions it calls
-
-Calls no other procedures or functions.
 
 ## Flow
 

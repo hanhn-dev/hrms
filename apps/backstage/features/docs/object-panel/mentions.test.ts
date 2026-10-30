@@ -1,6 +1,13 @@
 import assert from "node:assert/strict";
 import { describe, it } from "vitest";
-import { objectFromDatabaseHref, objectMention, databaseSourcePath, resolveDatabaseDocHref } from "./mentions.ts";
+import {
+  databaseSourcePath,
+  mentionFromInlineCode,
+  objectFromDatabaseHref,
+  objectMention,
+  pageObjectMentions,
+  resolveDatabaseDocHref,
+} from "./mentions.ts";
 
 describe("objectMention", () => {
   it("reads a schema-qualified table, including brackets", () => {
@@ -52,6 +59,40 @@ describe("databaseSourcePath", () => {
     assert.equal(databaseSourcePath("HRMS-DATABASE/../secret.sql"), null);
   });
 });
+describe("mentionFromInlineCode", () => {
+  it("opens a SQL path and a named procedure, and leaves types and parameters plain", () => {
+    assert.deepEqual(
+      mentionFromInlineCode("HRMS-DATABASE/HRMS/FUNCTIONS/FN_ConvertSTRToBase64.sql"),
+      { schema: "dbo", name: "FN_ConvertSTRToBase64" },
+    );
+    assert.deepEqual(mentionFromInlineCode("SP_CloseEncryptionKey"), {
+      schema: "dbo",
+      name: "SP_CloseEncryptionKey",
+    });
+    assert.equal(mentionFromInlineCode("VARCHAR(MAX)"), null);
+    assert.equal(mentionFromInlineCode("@decodedString"), null);
+    assert.equal(mentionFromInlineCode("STRING_AGG"), null);
+  });
+});
+
+describe("pageObjectMentions", () => {
+  it("collects inline objects and doc links, and skips a fenced diagram", () => {
+    const markdown = [
+      "See `SP_Child` and `VARCHAR(MAX)`.",
+      "In `HRMS-DATABASE/HRMS/FUNCTIONS/FN_Example.sql`:",
+      "Also [SP_Child](/docs/database/hrms/SP_Child) and [SP_Other](SP_Other.md).",
+      "```mermaid",
+      "participant Hidden as SP_Hidden",
+      "```",
+    ].join("\n");
+    assert.deepEqual(pageObjectMentions(markdown, "hrms", ["hrms", "SP_Example"]), [
+      { schema: "dbo", name: "SP_Child" },
+      { schema: "dbo", name: "FN_Example" },
+      { schema: "dbo", name: "SP_Other" },
+    ]);
+  });
+});
+
 describe("resolveDatabaseDocHref", () => {
   it("keeps an in-app link and rewrites a sibling markdown link", () => {
     assert.equal(

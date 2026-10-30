@@ -3,7 +3,7 @@ object: SP_CM_GetWorkflowTreeXmlDetailsByPageTitle_EmpId
 kind: procedure
 database: hrms
 source: HRMS-DATABASE/HRMS/STOREPROCEDURE/SP_CM_GetWorkflowTreeXmlDetailsByPageTitle_EmpId.sql
-last-analyzed: 2026-10-06
+last-analyzed: 2026-10-30
 ---
 
 # SP_CM_GetWorkflowTreeXmlDetailsByPageTitle_EmpId
@@ -20,6 +20,16 @@ Returns the enabled workflow for a page title and employer when the caller has n
 | `@Employerid` | in | Employer whose workflow and partial-workflow setting are read |
 
 ## Call sequence
+
+Calls no other procedures or functions.
+
+## Callers
+
+| Object | Kind | Page |
+|---|---|---|
+| `SP_CM_GetWorkflowTreeXmlDetailsByPageTitle` | procedure | [SP_CM_GetWorkflowTreeXmlDetailsByPageTitle](/docs/database/hrms/SP_CM_GetWorkflowTreeXmlDetailsByPageTitle) |
+
+## Nested
 
 Calls no other procedures or functions.
 
@@ -41,10 +51,6 @@ In `HRMS-DATABASE/HRMS/STOREPROCEDURE/SP_CM_GetWorkflowTreeXmlDetailsByPageTitle
 | `dbo.TCustomerSettings` | read |
 | `dbo.TModulePages` | read |
 | `dbo.TWorkflowManagement` | read |
-
-## Procedures and functions it calls
-
-Calls no other procedures or functions.
 
 ## Flow
 

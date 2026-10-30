@@ -3,7 +3,7 @@ object: SP_Mydetails_Enhanced_UpdateCustomFieldValues
 kind: procedure
 database: hrms
 source: HRMS-DATABASE/HRMS/STOREPROCEDURE/SP_Mydetails_Enhanced_UpdateCustomFieldValues.sql
-last-analyzed: 2026-10-09
+last-analyzed: 2026-10-30
 ---
 
 # SP_Mydetails_Enhanced_UpdateCustomFieldValues
@@ -41,6 +41,34 @@ sequenceDiagram
   Main->>Save: custom value table
 ```
 
+## Callers
+
+| Object | Kind | Page |
+|---|---|---|
+| `Usp_Mydetails_Enhanced_ProcessEmployeesBankDetailInformation` | procedure | No page yet |
+| `Usp_Mydetails_Enhanced_ProcessEmployeesCertificationInformation` | procedure | No page yet |
+| `Usp_Mydetails_Enhanced_ProcessEmployeesContactInformation` | procedure | No page yet |
+| `Usp_Mydetails_Enhanced_ProcessEmployeesDomainInformation` | procedure | No page yet |
+| `Usp_Mydetails_Enhanced_ProcessEmployeesEducationInformation` | procedure | No page yet |
+| `Usp_Mydetails_Enhanced_ProcessEmployeesEmergencyContactInformation` | procedure | No page yet |
+| `Usp_Mydetails_Enhanced_ProcessEmployeesFamilyInformation` | procedure | [Usp_Mydetails_Enhanced_ProcessEmployeesFamilyInformation](/docs/database/hrms/Usp_Mydetails_Enhanced_ProcessEmployeesFamilyInformation) |
+| `Usp_Mydetails_Enhanced_ProcessEmployeesNominationInformation` | procedure | No page yet |
+| `Usp_Mydetails_Enhanced_ProcessEmployeesNomineeInformation` | procedure | No page yet |
+| `Usp_Mydetails_Enhanced_ProcessEmployeesPastEmploymentInformation` | procedure | No page yet |
+| `Usp_Mydetails_Enhanced_ProcessEmployeesSkillsInformation` | procedure | No page yet |
+| `Usp_Mydetails_Enhanced_UpdateAdditionalInfo` | procedure | No page yet |
+| `Usp_Mydetails_Enhanced_UpdateCurrentEmploymentDetails` | procedure | No page yet |
+| `Usp_Mydetails_Enhanced_UpdateEmployeeDetails` | procedure | No page yet |
+| `Usp_Mydetails_Enhanced_UpdateEmployeePassportInformation` | procedure | No page yet |
+| `Usp_Mydetails_Enhanced_UpdateEmployeeVisaInformation` | procedure | No page yet |
+
+## Nested
+
+| Object | Kind | When | Page |
+|---|---|---|---|
+| `FN_BulkUpdateProfile_GetFieldValueFromJSON` | function | each custom field in the cursor | [FN_BulkUpdateProfile_GetFieldValueFromJSON](/docs/database/hrms/FN_BulkUpdateProfile_GetFieldValueFromJSON) |
+| `SP_MyDetails_Enhanced_UpdEmpCustomFields` | procedure | after the cursor, including when no custom values were collected | [SP_MyDetails_Enhanced_UpdEmpCustomFields](/docs/database/hrms/SP_MyDetails_Enhanced_UpdEmpCustomFields) |
+
 ## Steps
 
 1. Split `@FieldList` and cursor active custom fields for the employer, section, and country (`STOREPROCEDURE/SP_Mydetails_Enhanced_UpdateCustomFieldValues.sql`).
@@ -57,13 +85,6 @@ sequenceDiagram
 | `dbo.TEmployeedetailCustomFieldValues` | read |
 | `dbo.TSQL_Errorlogs` | write |
 | `#CustomValues` | write |
-
-## Procedures and functions it calls
-
-| Object | Kind | When | Page |
-|---|---|---|---|
-| `FN_BulkUpdateProfile_GetFieldValueFromJSON` | function | each custom field in the cursor | [FN_BulkUpdateProfile_GetFieldValueFromJSON](/docs/database/hrms/FN_BulkUpdateProfile_GetFieldValueFromJSON) |
-| `SP_MyDetails_Enhanced_UpdEmpCustomFields` | procedure | after the cursor, including when no custom values were collected | [SP_MyDetails_Enhanced_UpdEmpCustomFields](/docs/database/hrms/SP_MyDetails_Enhanced_UpdEmpCustomFields) |
 
 ## Flow
 

@@ -3,7 +3,7 @@ object: SP_Mydetails_Enhanced_UpdEmpFamilyDet
 kind: procedure
 database: hrms
 source: HRMS-DATABASE/HRMS/STOREPROCEDURE/SP_Mydetails_Enhanced_UpdEmpFamilyDet.sql
-last-analyzed: 2026-10-09
+last-analyzed: 2026-10-30
 ---
 
 # SP_Mydetails_Enhanced_UpdEmpFamilyDet
@@ -53,6 +53,18 @@ sequenceDiagram
   Main->>Close: after the change-request branch
 ```
 
+## Callers
+
+No other procedure or function calls this object.
+
+## Nested
+
+| Object | Kind | When | Page |
+|---|---|---|---|
+| `Sp_OpenEncryptionKeys` | procedure | workflow path | [Sp_OpenEncryptionKeys](/docs/database/hrms/Sp_OpenEncryptionKeys) |
+| `TVF_Get_AllApprovalsAndNotifications` | function | workflow path, mode `A` | [TVF_Get_AllApprovalsAndNotifications](/docs/database/hrms/TVF_Get_AllApprovalsAndNotifications) |
+| `SP_CloseEncryptionKey` | procedure | end of the workflow path | [SP_CloseEncryptionKey](/docs/database/hrms/SP_CloseEncryptionKey) |
+
 ## Steps
 
 1. Return a refresh message when the concurrency count says another user already changed the page (`STOREPROCEDURE/SP_Mydetails_Enhanced_UpdEmpFamilyDet.sql`).
@@ -75,14 +87,6 @@ sequenceDiagram
 | `dbo.TMyDetailsChangeRequestDetails` | write |
 | `dbo.TRequestWorkflows` | write |
 | `dbo.TEmailNotification` | write |
-
-## Procedures and functions it calls
-
-| Object | Kind | When | Page |
-|---|---|---|---|
-| `Sp_OpenEncryptionKeys` | procedure | workflow path | [Sp_OpenEncryptionKeys](/docs/database/hrms/Sp_OpenEncryptionKeys) |
-| `TVF_Get_AllApprovalsAndNotifications` | function | workflow path, mode `A` | [TVF_Get_AllApprovalsAndNotifications](/docs/database/hrms/TVF_Get_AllApprovalsAndNotifications) |
-| `SP_CloseEncryptionKey` | procedure | end of the workflow path | [SP_CloseEncryptionKey](/docs/database/hrms/SP_CloseEncryptionKey) |
 
 ## Flow
 

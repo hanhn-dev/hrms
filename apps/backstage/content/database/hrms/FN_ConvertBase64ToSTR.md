@@ -3,7 +3,7 @@ object: FN_ConvertBase64ToSTR
 kind: function
 database: hrms
 source: HRMS-DATABASE/HRMS/FUNCTIONS/FN_ConvertBase64ToSTR.sql
-last-analyzed: 2026-10-09
+last-analyzed: 2026-10-30
 ---
 
 # FN_ConvertBase64ToSTR
@@ -22,6 +22,42 @@ Decodes a Base64 string to text. It reads `xs:base64Binary` through an XML value
 
 Calls no other procedures or functions.
 
+## Callers
+
+| Object | Kind | Page |
+|---|---|---|
+| `Fn_DecryptDataNew` | function | [Fn_DecryptDataNew](/docs/database/hrms/Fn_DecryptDataNew) |
+| `SP_AddEmployerDetails` | procedure | No page yet |
+| `SP_AdminORG_AddEmployerDet` | procedure | No page yet |
+| `SP_AdminUM_CreateUser` | procedure | No page yet |
+| `SP_AdminUM_GetActiveUserList` | procedure | No page yet |
+| `Sp_AdminUM_GetAdminUsers` | procedure | No page yet |
+| `SP_CheckUser` | procedure | No page yet |
+| `SP_CheckUserNameAvailability` | procedure | No page yet |
+| `SP_CreateUser` | procedure | No page yet |
+| `SP_GetActiveUserList` | procedure | No page yet |
+| `sp_GetAdminUsers` | procedure | No page yet |
+| `SP_GetCustomerNo` | procedure | No page yet |
+| `SP_GetEmailIdOfAdminUsers` | procedure | No page yet |
+| `SP_GetParameterList` | procedure | No page yet |
+| `SP_GetSMTPParameterDetails` | procedure | No page yet |
+| `SP_GetUserPassword` | procedure | No page yet |
+| `SP_IsValidUserName` | procedure | No page yet |
+| `SP_LOG_CheckUser` | procedure | No page yet |
+| `SP_LOG_CheckUser_ExternalLogin` | procedure | No page yet |
+| `SP_LOG_IsValidUserName` | procedure | No page yet |
+| `SP_LOG_UserEmployee` | procedure | No page yet |
+| `SP_UserEmployee` | procedure | No page yet |
+| `USP_GetParameterDetails` | procedure | No page yet |
+| `USP_IsEmployeeAllowToAdd` | procedure | No page yet |
+| `USP_IsMultipleOrganizationAllow` | procedure | No page yet |
+| `usp_vw_RetirementReminder` | procedure | No page yet |
+| `usp_VW_UserCreation` | procedure | No page yet |
+
+## Nested
+
+Calls no other procedures or functions.
+
 ## Steps
 
 In `HRMS-DATABASE/HRMS/FUNCTIONS/FN_ConvertBase64ToSTR.sql`:
@@ -34,10 +70,6 @@ In `HRMS-DATABASE/HRMS/FUNCTIONS/FN_ConvertBase64ToSTR.sql`:
 | Table | Read or write |
 |---|---|
 | — | The function does not read or write a table |
-
-## Procedures and functions it calls
-
-Calls no other procedures or functions.
 
 ## Flow
 

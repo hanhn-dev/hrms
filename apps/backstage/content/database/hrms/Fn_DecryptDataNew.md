@@ -3,7 +3,7 @@ object: Fn_DecryptDataNew
 kind: function
 database: hrms
 source: HRMS-DATABASE/HRMS/FUNCTIONS/Fn_DecryptDataNew.sql
-last-analyzed: 2026-10-09
+last-analyzed: 2026-10-30
 ---
 
 # Fn_DecryptDataNew
@@ -31,6 +31,19 @@ sequenceDiagram
   Main-->>Caller: varchar result
 ```
 
+## Callers
+
+| Object | Kind | Page |
+|---|---|---|
+| `SP_vw_EmployeeFullInfoReports` | procedure | No page yet |
+| `USP_GetLogo` | procedure | No page yet |
+
+## Nested
+
+| Object | Kind | When | Page |
+|---|---|---|---|
+| `FN_ConvertBase64ToSTR` | function | always, on the `DecryptByKey` result | [FN_ConvertBase64ToSTR](/docs/database/hrms/FN_ConvertBase64ToSTR) |
+
 ## Steps
 
 In `HRMS-DATABASE/HRMS/FUNCTIONS/Fn_DecryptDataNew.sql`:
@@ -43,12 +56,6 @@ In `HRMS-DATABASE/HRMS/FUNCTIONS/Fn_DecryptDataNew.sql`:
 | Table | Read or write |
 |---|---|
 | — | The function does not read or write a table |
-
-## Procedures and functions it calls
-
-| Object | Kind | When | Page |
-|---|---|---|---|
-| `FN_ConvertBase64ToSTR` | function | always, on the `DecryptByKey` result | [FN_ConvertBase64ToSTR](/docs/database/hrms/FN_ConvertBase64ToSTR) |
 
 ## Flow
 

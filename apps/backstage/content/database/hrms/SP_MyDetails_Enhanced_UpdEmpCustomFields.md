@@ -3,7 +3,7 @@ object: SP_MyDetails_Enhanced_UpdEmpCustomFields
 kind: procedure
 database: hrms
 source: HRMS-DATABASE/HRMS/STOREPROCEDURE/SP_MyDetails_Enhanced_UpdEmpCustomFields.sql
-last-analyzed: 2026-10-09
+last-analyzed: 2026-10-30
 ---
 
 # SP_MyDetails_Enhanced_UpdEmpCustomFields
@@ -39,6 +39,20 @@ sequenceDiagram
   Main->>Close: end of the workflow path
 ```
 
+## Callers
+
+| Object | Kind | Page |
+|---|---|---|
+| `SP_Mydetails_Enhanced_UpdateCustomFieldValues` | procedure | [SP_Mydetails_Enhanced_UpdateCustomFieldValues](/docs/database/hrms/SP_Mydetails_Enhanced_UpdateCustomFieldValues) |
+
+## Nested
+
+| Object | Kind | When | Page |
+|---|---|---|---|
+| `Sp_OpenEncryptionKeys` | procedure | workflow path | [Sp_OpenEncryptionKeys](/docs/database/hrms/Sp_OpenEncryptionKeys) |
+| `TVF_Get_AllApprovalsAndNotifications` | function | workflow path, mode `A` | [TVF_Get_AllApprovalsAndNotifications](/docs/database/hrms/TVF_Get_AllApprovalsAndNotifications) |
+| `SP_CloseEncryptionKey` | procedure | end of the workflow path | [SP_CloseEncryptionKey](/docs/database/hrms/SP_CloseEncryptionKey) |
+
 ## Steps
 
 1. Copy `@CustomValue` into a table variable and resolve the `EmploymentTypeChange` workflow into `#tmpFlowDetails` (`STOREPROCEDURE/SP_MyDetails_Enhanced_UpdEmpCustomFields.sql`).
@@ -58,14 +72,6 @@ sequenceDiagram
 | `dbo.TMyDetailsChangeRequestDetails` | write |
 | `dbo.TRequestWorkflows` | write |
 | `dbo.TEmailNotification` | write |
-
-## Procedures and functions it calls
-
-| Object | Kind | When | Page |
-|---|---|---|---|
-| `Sp_OpenEncryptionKeys` | procedure | workflow path | [Sp_OpenEncryptionKeys](/docs/database/hrms/Sp_OpenEncryptionKeys) |
-| `TVF_Get_AllApprovalsAndNotifications` | function | workflow path, mode `A` | [TVF_Get_AllApprovalsAndNotifications](/docs/database/hrms/TVF_Get_AllApprovalsAndNotifications) |
-| `SP_CloseEncryptionKey` | procedure | end of the workflow path | [SP_CloseEncryptionKey](/docs/database/hrms/SP_CloseEncryptionKey) |
 
 ## Flow
 

@@ -95,6 +95,54 @@ export function databaseSourcePath(text: string): string | null {
   return trimmed;
 }
 
+/** The procedure or function a checkout SQL path names. */
+export function objectFromSourcePath(relativePath: string): ObjectMention | null {
+  const file = relativePath.split("/").at(-1) ?? "";
+  if (!file.toLowerCase().endsWith(".sql")) return null;
+  const name = file.slice(0, -".sql".length);
+  if (!IDENT.test(name)) return null;
+  return { schema: "dbo", name };
+}
+
+/**
+ * An inline code span that should open a script: a SQL path, or one catalog object.
+ * Parameters, types, and built-ins stay plain code.
+ */
+export function mentionFromInlineCode(text: string): ObjectMention | null {
+  const source = databaseSourcePath(text);
+  if (source) return objectFromSourcePath(source);
+  return objectMention(text);
+}
+
+function addMention(found: ObjectMention[], seen: Set<string>, mention: ObjectMention | null): void {
+  if (!mention) return;
+  const key = `${mention.schema}.${mention.name}`.toLowerCase();
+  if (seen.has(key)) return;
+  seen.add(key);
+  found.push(mention);
+}
+
+/**
+ * Objects named in inline code or database-doc links. Fenced diagrams are skipped.
+ */
+export function pageObjectMentions(
+  markdown: string,
+  database: string,
+  slug: readonly string[],
+): ObjectMention[] {
+  const prose = markdown.replace(/```[\s\S]*?```/g, "");
+  const found: ObjectMention[] = [];
+  const seen = new Set<string>();
+  for (const match of prose.matchAll(/`([^`\n]+)`/g)) {
+    addMention(found, seen, mentionFromInlineCode(match[1] ?? ""));
+  }
+  for (const match of prose.matchAll(/\[[^\]]*\]\(([^)\s]+)\)/g)) {
+    const href = match[1] ?? "";
+    addMention(found, seen, objectFromDatabaseHref(resolveDatabaseDocHref(href, [...slug]), database));
+  }
+  return found;
+}
+
 /** A database-document href for this catalog opens that object instead of navigating. */
 export function objectFromDatabaseHref(href: string, database: string): ObjectMention | null {
   const path = href.split(/[?#]/, 1)[0] ?? "";

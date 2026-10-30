@@ -3,7 +3,7 @@ object: SP_Mydetails_Enhanced_AddEmpFamilyDet
 kind: procedure
 database: hrms
 source: HRMS-DATABASE/HRMS/STOREPROCEDURE/SP_Mydetails_Enhanced_AddEmpFamilyDet.sql
-last-analyzed: 2026-10-09
+last-analyzed: 2026-10-30
 ---
 
 # SP_Mydetails_Enhanced_AddEmpFamilyDet
@@ -52,6 +52,18 @@ sequenceDiagram
   Main->>Close: after the change-request branch
 ```
 
+## Callers
+
+No other procedure or function calls this object.
+
+## Nested
+
+| Object | Kind | When | Page |
+|---|---|---|---|
+| `Sp_OpenEncryptionKeys` | procedure | workflow path | [Sp_OpenEncryptionKeys](/docs/database/hrms/Sp_OpenEncryptionKeys) |
+| `TVF_Get_AllApprovalsAndNotifications` | function | workflow path, mode `A` | [TVF_Get_AllApprovalsAndNotifications](/docs/database/hrms/TVF_Get_AllApprovalsAndNotifications) |
+| `SP_CloseEncryptionKey` | procedure | end of the workflow path | [SP_CloseEncryptionKey](/docs/database/hrms/SP_CloseEncryptionKey) |
+
 ## Steps
 
 1. Read the employer from `Temployee` and build `#tmpFlowDetails` for page title `EmploymentTypeChange` (`STOREPROCEDURE/SP_Mydetails_Enhanced_AddEmpFamilyDet.sql`).
@@ -79,14 +91,6 @@ sequenceDiagram
 | `dbo.TEmailNotification` | write |
 | `dbo.TEmployeeFamilyDetails` | write |
 | `dbo.TEmployeeFamilyDetails_history` | write |
-
-## Procedures and functions it calls
-
-| Object | Kind | When | Page |
-|---|---|---|---|
-| `Sp_OpenEncryptionKeys` | procedure | workflow path | [Sp_OpenEncryptionKeys](/docs/database/hrms/Sp_OpenEncryptionKeys) |
-| `TVF_Get_AllApprovalsAndNotifications` | function | workflow path, mode `A` | [TVF_Get_AllApprovalsAndNotifications](/docs/database/hrms/TVF_Get_AllApprovalsAndNotifications) |
-| `SP_CloseEncryptionKey` | procedure | end of the workflow path | [SP_CloseEncryptionKey](/docs/database/hrms/SP_CloseEncryptionKey) |
 
 ## Flow
 
