@@ -20,6 +20,7 @@ export function JobScreen({
   workEmail,
   batchId,
   listPage,
+  listPageSize,
   listSearch,
 }: {
   employerId: number;
@@ -31,6 +32,7 @@ export function JobScreen({
   workEmail: string | null;
   batchId: number | null;
   listPage: number;
+  listPageSize: number;
   listSearch: string;
 }): React.JSX.Element {
   const query = {
@@ -43,6 +45,7 @@ export function JobScreen({
     workEmail,
     batchId,
     listPage,
+    listPageSize,
     listSearch,
   };
 

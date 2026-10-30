@@ -48,10 +48,10 @@ type PublicFieldQueryRow = {
 export async function listPublicEmployerFields(
   db: HrmsDb,
   employerId: number,
-  filters: { page?: number | null; q?: string | null; section?: string | null } = {},
+  filters: { page?: number | null; pageSize?: number | null; q?: string | null; section?: string | null } = {},
 ): Promise<PageResult<PublicFieldRow>> {
   const tenantId = parseEmployerId(employerId);
-  const paging = pageQuery(filters.page);
+  const paging = pageQuery(filters.page, filters.pageSize);
   const column = Prisma.raw("Fields");
   const textFilter = fieldTextFilter(column, filters.q);
   const sectionFilter = sectionNameFilter(filters.section);
@@ -131,11 +131,11 @@ export async function listPublicFieldSections(
 export async function publicFieldPageForFocus(
   db: HrmsDb,
   employerId: number,
-  filters: { q?: string | null; section?: string | null; field?: string | null },
+  filters: { q?: string | null; section?: string | null; field?: string | null; pageSize?: number | null },
 ): Promise<number> {
   const field = filters.field?.trim() ?? "";
   if (field === "") {
-    return pageForFieldRow(null);
+    return pageForFieldRow(null, filters.pageSize ?? undefined);
   }
   const tenantId = parseEmployerId(employerId);
   const column = Prisma.raw("Fields");
@@ -161,10 +161,10 @@ export async function publicFieldPageForFocus(
   `;
   const rowNumber = rows[0]?.RowNumber;
   if (rowNumber == null) {
-    return pageForFieldRow(null);
+    return pageForFieldRow(null, filters.pageSize ?? undefined);
   }
   const value = Number(rowNumber);
-  return pageForFieldRow(Number.isInteger(value) ? value : null);
+  return pageForFieldRow(Number.isInteger(value) ? value : null, filters.pageSize ?? undefined);
 }
 
 export async function getPublicEmployerField(

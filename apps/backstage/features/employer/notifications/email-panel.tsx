@@ -235,8 +235,8 @@ export function EmailPanel({
           total: result.totalCount,
           showSizeChanger: false,
           showTotal: (total) => `${total} notifications`,
-          onChange: (next) => {
-            push({ page: next });
+          onChange: (next, nextSize) => {
+            push({ page: next, pageSize: nextSize });
           },
         }}
         columns={[

@@ -59,13 +59,14 @@ async function loadWorkflowGroups(
   employerId: number,
   filters: {
     page?: number | null;
+    pageSize?: number | null;
     q?: string | null;
     roleId?: number | null;
     unbounded?: boolean;
   },
 ): Promise<WorkflowGroupPage> {
   const tenantId = parseEmployerId(employerId);
-  const paging = filters.unbounded ? null : pageQuery(filters.page);
+  const paging = filters.unbounded ? null : pageQuery(filters.page, filters.pageSize);
   const q = searchText(filters.q);
   const pattern = q == null ? null : likeContains(q);
   const nameFilter =
@@ -201,7 +202,7 @@ async function loadWorkflowGroups(
 export async function listWorkflowGroups(
   db: HrmsDb,
   employerId: number,
-  filters: { page?: number | null; q?: string | null; roleId?: number | null } = {},
+  filters: { page?: number | null; pageSize?: number | null; q?: string | null; roleId?: number | null } = {},
 ): Promise<WorkflowGroupPage> {
   return loadWorkflowGroups(db, employerId, filters);
 }

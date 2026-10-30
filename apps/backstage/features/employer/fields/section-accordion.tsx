@@ -61,6 +61,7 @@ export function SectionPageLoader<T>({
   revision: number;
   load: (request: {
     page: number | null;
+    pageSize: number | null;
     focusField: string | null;
   }) => Promise<SectionPageResult<T>>;
   onLoaded?: () => void;
@@ -68,13 +69,14 @@ export function SectionPageLoader<T>({
     result: SectionPageResult<T> | null;
     loading: boolean;
     error: string | null;
-    onPage: (page: number) => void;
+    onPage: (page: number, pageSize?: number) => void;
   }) => React.ReactNode;
 }): React.JSX.Element {
   const [explicitPage, setExplicitPage] = useState<number | null>(null);
+  const [pageSize, setPageSize] = useState<number | null>(null);
   const [result, setResult] = useState<SectionPageResult<T> | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const requestKey = `${revision}:${explicitPage ?? "focus"}`;
+  const requestKey = `${revision}:${explicitPage ?? "focus"}:${pageSize ?? "default"}`;
   const [settledKey, setSettledKey] = useState<string | null>(null);
   const [errorKey, setErrorKey] = useState(requestKey);
   if (errorKey !== requestKey) {
@@ -91,30 +93,34 @@ export function SectionPageLoader<T>({
   useEffect(() => {
     let cancelled = false;
     const page = explicitPage;
+    const size = pageSize;
     const focus = page == null ? focusForFirstPage() : null;
-    void loadPage({ page, focusField: focus })
+    void loadPage({ page, pageSize: size, focusField: focus })
       .then((loaded) => {
         if (cancelled) {
           return;
         }
         setResult(loaded);
-        setSettledKey(`${revision}:${page ?? "focus"}`);
+        setSettledKey(`${revision}:${page ?? "focus"}:${size ?? "default"}`);
         notifyLoaded();
       })
       .catch((caught: unknown) => {
         if (cancelled) {
           return;
         }
-        setSettledKey(`${revision}:${page ?? "focus"}`);
+        setSettledKey(`${revision}:${page ?? "focus"}:${size ?? "default"}`);
         setError(caught instanceof Error ? caught.message : "Could not load fields.");
       });
     return () => {
       cancelled = true;
     };
-  }, [explicitPage, revision]);
+  }, [explicitPage, pageSize, revision]);
 
-  function onPage(page: number): void {
+  function onPage(page: number, nextSize?: number): void {
     setExplicitPage(page);
+    if (nextSize != null) {
+      setPageSize(nextSize);
+    }
   }
 
   return <>{children({ result, loading, error, onPage })}</>;

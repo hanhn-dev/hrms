@@ -23,7 +23,7 @@ export type {
 
 export async function listRoles(
   employerId: number,
-  filters: { page?: number | null; q?: string | null } = {},
+  filters: { page?: number | null; pageSize?: number | null; q?: string | null } = {},
 ) {
   await requireFeature("employers");
   return listRolesFromDb(await getHrmsDb(), employerId, filters);
@@ -32,7 +32,7 @@ export async function listRoles(
 export async function listRolePageGrants(
   employerId: number,
   roleId: number | null,
-  filters: { page?: number | null; q?: string | null } = {},
+  filters: { page?: number | null; pageSize?: number | null; q?: string | null } = {},
 ) {
   await requireFeature("employers");
   return listRolePageGrantsFromDb(await getHrmsDb(), employerId, roleId, filters);

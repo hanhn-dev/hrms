@@ -430,6 +430,22 @@ describe('git trace', () => {
     expect(mockGitApi.getItemContent).not.toHaveBeenCalled();
   });
 
+  it('reads a UTF-16 SQL script that contains null bytes', async () => {
+    const script = 'CREATE PROCEDURE dbo.SP_Foo AS SELECT 1\n';
+    mockGitApi.getItem.mockResolvedValue({ contentMetadata: { isBinary: true } });
+    mockGitApi.getItemContent.mockImplementation(async () => Readable.from([Buffer.from(script, 'utf16le')]));
+    mockGitApi.getFileDiffs.mockResolvedValue([]);
+
+    const pair = await readGitFilePair(mockClient, {
+      repositoryId: 'repo-a',
+      base: { commitId: BASE_COMMIT, path: '/HRMS-DATABASE/HRMS/STOREPROCEDURE/SP_Foo.sql' },
+      target: { commitId: TARGET_COMMIT, path: '/HRMS-DATABASE/HRMS/STOREPROCEDURE/SP_Foo.sql' },
+    });
+
+    expect(pair.target.content).toBe(script);
+    expect(pair.target.isBinary).toBe(false);
+  });
+
   it('reads both texts and maps line diff blocks', async () => {
     mockGitApi.getItem.mockResolvedValue({ contentMetadata: { isBinary: false } });
     mockGitApi.getItemContent.mockImplementation(async () => Readable.from([Buffer.from('const name = 1;\n')]));

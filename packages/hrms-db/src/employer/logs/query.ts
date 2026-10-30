@@ -6,10 +6,9 @@ import { activityLabel, activityTypeIdsForText } from "./activity-label";
 import { ELMAH_LIST_COLUMNS, extractElmahStack, shortExceptionType } from "./elmah";
 import { readablePageName } from "./page-name";
 import { parseWindowsTimeZoneOffset, type TimeZoneOffset } from "./timezone";
-import { pageOf } from "../../shared/page.ts";
+import { pageQuery } from "../../shared/page.ts";
 import {
   clampLogWindow,
-  LOG_PAGE_SIZE,
   LOG_SQL_ERROR_MAX_WINDOW_MS,
   type LogWindow,
 } from "./window";
@@ -22,6 +21,7 @@ export type LogListFilters = {
   person?: string | null;
   text?: string | null;
   page?: number | null;
+  pageSize?: number | null;
 };
 
 export type LogEmployerContext = {
@@ -264,8 +264,9 @@ export async function listActivityLogs(
 ): Promise<ActivityLogList> {
   const employerId = parseEmployerId(employerIdInput);
   const window = clampLogWindow(filters.from, filters.to);
-  const page = pageOf(filters.page);
-  const offset = (page - 1) * LOG_PAGE_SIZE;
+  const paging = pageQuery(filters.page, filters.pageSize);
+  const page = paging.page;
+  const offset = paging.offset;
   const person = textOf(filters.person, 100);
   const text = textOf(filters.text, 100);
   const personSql = person
@@ -326,7 +327,7 @@ export async function listActivityLogs(
       ${personSql}
       ${textSql}
     ORDER BY Log.LoggedDate DESC, Log.LogId DESC
-    OFFSET ${offset} ROWS FETCH NEXT ${LOG_PAGE_SIZE} ROWS ONLY
+    OFFSET ${offset} ROWS FETCH NEXT ${paging.pageSize} ROWS ONLY
   `;
 
   return {
@@ -358,7 +359,7 @@ export async function listActivityLogs(
     }),
     totalCount: countOf(rows[0]?.TotalCount),
     page,
-    pageSize: LOG_PAGE_SIZE,
+    pageSize: paging.pageSize,
   };
 }
 
@@ -392,8 +393,9 @@ export async function listPageSessions(
 ): Promise<PageSessionList> {
   const employerId = parseEmployerId(employerIdInput);
   const window = clampLogWindow(filters.from, filters.to);
-  const page = pageOf(filters.page);
-  const offset = (page - 1) * LOG_PAGE_SIZE;
+  const paging = pageQuery(filters.page, filters.pageSize);
+  const page = paging.page;
+  const offset = paging.offset;
   const person = textOf(filters.person, 100);
   const text = textOf(filters.text, 100);
   const personSql = person
@@ -431,7 +433,7 @@ export async function listPageSessions(
       ${textSql}
     GROUP BY Trail.SessionID
     ORDER BY MAX(Trail.AccessTime) DESC
-    OFFSET ${offset} ROWS FETCH NEXT ${LOG_PAGE_SIZE} ROWS ONLY
+    OFFSET ${offset} ROWS FETCH NEXT ${paging.pageSize} ROWS ONLY
   `;
 
   return {
@@ -444,7 +446,7 @@ export async function listPageSessions(
     })),
     totalCount: countOf(rows[0]?.TotalCount),
     page,
-    pageSize: LOG_PAGE_SIZE,
+    pageSize: paging.pageSize,
   };
 }
 
@@ -504,8 +506,9 @@ export async function listExceptionLogs(
     filters.serverFrom ?? filters.from,
     filters.serverTo ?? filters.to,
   );
-  const page = pageOf(filters.page);
-  const offset = (page - 1) * LOG_PAGE_SIZE;
+  const paging = pageQuery(filters.page, filters.pageSize);
+  const page = paging.page;
+  const offset = paging.offset;
   const person = textOf(filters.person, 100);
   const text = textOf(filters.text, 100);
   const personSql = person
@@ -550,7 +553,7 @@ export async function listExceptionLogs(
       ${personSql}
       ${elmahText}
     ORDER BY Error.TimeUtc DESC, Error.Sequence DESC
-    OFFSET ${offset} ROWS FETCH NEXT ${LOG_PAGE_SIZE} ROWS ONLY
+    OFFSET ${offset} ROWS FETCH NEXT ${paging.pageSize} ROWS ONLY
   `;
 
   const handled = await db.$queryRaw<
@@ -575,7 +578,7 @@ export async function listExceptionLogs(
     WHERE ${range(Prisma.sql`Error.OccuredOn`, serverWindow)}
       ${handledText}
     ORDER BY Error.ErrorID DESC
-    OFFSET ${offset} ROWS FETCH NEXT ${LOG_PAGE_SIZE} ROWS ONLY
+    OFFSET ${offset} ROWS FETCH NEXT ${paging.pageSize} ROWS ONLY
   `;
 
   return {
@@ -599,7 +602,7 @@ export async function listExceptionLogs(
     elmahTotal: countOf(elmah[0]?.TotalCount),
     handledTotal: countOf(handled[0]?.TotalCount),
     page,
-    pageSize: LOG_PAGE_SIZE,
+    pageSize: paging.pageSize,
   };
 }
 
@@ -642,8 +645,9 @@ export async function listLoginSteps(
     filters.serverFrom ?? filters.from,
     filters.serverTo ?? filters.to,
   );
-  const page = pageOf(filters.page);
-  const offset = (page - 1) * LOG_PAGE_SIZE;
+  const paging = pageQuery(filters.page, filters.pageSize);
+  const page = paging.page;
+  const offset = paging.offset;
   const person = textOf(filters.person, 100);
   const text = textOf(filters.text, 100);
   const personSql = person
@@ -677,7 +681,7 @@ export async function listLoginSteps(
       ${personSql}
       ${textSql}
     ORDER BY Trail.AccessTime DESC, Trail.Id DESC
-    OFFSET ${offset} ROWS FETCH NEXT ${LOG_PAGE_SIZE} ROWS ONLY
+    OFFSET ${offset} ROWS FETCH NEXT ${paging.pageSize} ROWS ONLY
   `;
 
   return {
@@ -689,7 +693,7 @@ export async function listLoginSteps(
     })),
     totalCount: countOf(rows[0]?.TotalCount),
     page,
-    pageSize: LOG_PAGE_SIZE,
+    pageSize: paging.pageSize,
   };
 }
 
@@ -703,8 +707,9 @@ export async function listMyDetailsExecutionLogs(
     filters.serverFrom ?? filters.from,
     filters.serverTo ?? filters.to,
   );
-  const page = pageOf(filters.page);
-  const offset = (page - 1) * LOG_PAGE_SIZE;
+  const paging = pageQuery(filters.page, filters.pageSize);
+  const page = paging.page;
+  const offset = paging.offset;
   const person = textOf(filters.person, 100);
   const text = textOf(filters.text, 100);
   const personSql = person
@@ -793,7 +798,7 @@ export async function listMyDetailsExecutionLogs(
       ${personSql}
       ${textSql}
     ORDER BY Log.CreatedDate DESC, Log.LogID DESC
-    OFFSET ${offset} ROWS FETCH NEXT ${LOG_PAGE_SIZE} ROWS ONLY
+    OFFSET ${offset} ROWS FETCH NEXT ${paging.pageSize} ROWS ONLY
   `;
 
   return {
@@ -822,7 +827,7 @@ export async function listMyDetailsExecutionLogs(
     })),
     totalCount: countOf(rows[0]?.TotalCount),
     page,
-    pageSize: LOG_PAGE_SIZE,
+    pageSize: paging.pageSize,
   };
 }
 
@@ -837,8 +842,9 @@ export async function listTsqlErrorLogs(
     filters.serverTo ?? filters.to,
     LOG_SQL_ERROR_MAX_WINDOW_MS,
   );
-  const page = pageOf(filters.page);
-  const offset = (page - 1) * LOG_PAGE_SIZE;
+  const paging = pageQuery(filters.page, filters.pageSize);
+  const page = paging.page;
+  const offset = paging.offset;
   const person = textOf(filters.person, 100);
   const text = textOf(filters.text, 100);
   const employerToken = `%EmployerID= ${employerId} %`;
@@ -921,7 +927,7 @@ export async function listTsqlErrorLogs(
       ${personSql}
       ${textSql}
     ORDER BY Log.ErrorDate DESC, Log.TerrorId DESC
-    OFFSET ${offset} ROWS FETCH NEXT ${LOG_PAGE_SIZE} ROWS ONLY
+    OFFSET ${offset} ROWS FETCH NEXT ${paging.pageSize} ROWS ONLY
   `;
 
   return {
@@ -939,6 +945,6 @@ export async function listTsqlErrorLogs(
     })),
     totalCount: countOf(rows[0]?.TotalCount),
     page,
-    pageSize: LOG_PAGE_SIZE,
+    pageSize: paging.pageSize,
   };
 }

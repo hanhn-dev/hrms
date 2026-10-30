@@ -19,6 +19,7 @@ export function UploadsScreen({
   jobStatus,
   jobUploadId,
   page,
+  pageSize,
   search,
 }: {
   employerId: number;
@@ -30,6 +31,7 @@ export function UploadsScreen({
   jobStatus: string | null;
   jobUploadId: number | null;
   page: number;
+  pageSize: number;
   search: string;
 }): React.JSX.Element {
   return (
@@ -63,6 +65,7 @@ export function UploadsScreen({
             jobType={jobType}
             jobUploadId={jobUploadId}
             page={page}
+            pageSize={pageSize}
             search={search}
           />
         </Suspense>
@@ -72,6 +75,7 @@ export function UploadsScreen({
             countryId={countryId}
             employerId={employerId}
             page={page}
+            pageSize={pageSize}
             search={search}
             sectionId={sectionId}
             type={type}

@@ -135,6 +135,7 @@ export function PublicFieldsPanel({
                 section: item.section,
                 q: listSearch,
                 page: request.page,
+                pageSize: request.pageSize,
                 focusField: request.focusField,
               })
             }
@@ -210,7 +211,7 @@ function PublicFieldsTable({
     pageSize: number;
     total: number;
     showSizeChanger: false;
-    onChange: (page: number) => void;
+    onChange: (page: number, pageSize: number) => void;
   };
   onTurnOff: (row: PublicFieldRow) => void;
 }): React.JSX.Element {

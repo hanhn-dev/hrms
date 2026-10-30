@@ -176,8 +176,8 @@ export function InboxPanel({
           total: result.totalCount,
           showSizeChanger: false,
           showTotal: (count) => `${count} requests`,
-          onChange: (next) => {
-            push({ page: next });
+          onChange: (next, nextSize) => {
+            push({ page: next, pageSize: nextSize });
           },
         }}
         columns={[

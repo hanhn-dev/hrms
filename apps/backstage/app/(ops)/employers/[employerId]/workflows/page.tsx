@@ -4,7 +4,7 @@ import {
   parseWorkflowsTab,
   WorkflowsScreen,
 } from "@/features/employer/workflows";
-import { readListPage, readListSearch } from "@/shared/list-query";
+import { readListPage, readListPageSize, readListSearch } from "@/shared/list-query";
 import { parsePositiveInt } from "@/shared/routing";
 
 function requestStatus(
@@ -27,6 +27,7 @@ export default async function WorkflowsPage({
     group?: string;
     request?: string;
     p?: string;
+    pageSize?: string;
     q?: string;
     status?: string;
   }>;
@@ -37,6 +38,7 @@ export default async function WorkflowsPage({
       employerId={parsePositiveInt(employerId)}
       groupId={parseWorkflowGroupId(query.group)}
       listPage={readListPage(query.p)}
+      listPageSize={readListPageSize(query.pageSize)}
       listSearch={readListSearch(query.q)}
       pageName={parseWorkflowFocus(query.page)}
       requestId={parseWorkflowGroupId(query.request)}

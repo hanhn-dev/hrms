@@ -30,9 +30,10 @@ export function RolesTable({
   total: number;
 }): React.JSX.Element {
   const router = useRouter();
-  const href = (next: { page?: number; q?: string | null }) =>
+  const href = (next: { page?: number; pageSize?: number; q?: string | null }) =>
     rolesListHref(employerId, {
       page: next.page,
+      pageSize: next.pageSize ?? pageSize,
       q: next.q === undefined ? search || null : next.q,
       roleId: selectedRoleId,
       grantPage,
@@ -55,8 +56,8 @@ export function RolesTable({
         total,
         showSizeChanger: false,
         showTotal: (count) => `${count} roles`,
-        onChange: (next) => {
-          router.push(href({ page: next, q: search }));
+        onChange: (next, nextSize) => {
+          router.push(href({ page: next, pageSize: nextSize, q: search }));
         },
       }}
       columns={[
@@ -109,9 +110,10 @@ export function RoleGrantsTable({
   total: number;
 }): React.JSX.Element {
   const router = useRouter();
-  const href = (next: { page?: number; q?: string | null }) =>
+  const href = (next: { page?: number; pageSize?: number; q?: string | null }) =>
     roleGrantsHref(employerId, {
       page: rolePage,
+      pageSize: next.pageSize ?? pageSize,
       q: roleSearch || null,
       roleId: selectedRoleId,
       grantPage: next.page,
@@ -134,8 +136,8 @@ export function RoleGrantsTable({
         total,
         showSizeChanger: false,
         showTotal: (count) => `${count} grants`,
-        onChange: (next) => {
-          router.push(href({ page: next, q: search }));
+        onChange: (next, nextSize) => {
+          router.push(href({ page: next, pageSize: nextSize, q: search }));
         },
       }}
       columns={[

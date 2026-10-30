@@ -1,5 +1,5 @@
 import { EmployeeBusinessUnitScreen } from "@/features/employee/business-unit";
-import { readListPage } from "@/shared/list-query";
+import { readListPage, readListPageSize } from "@/shared/list-query";
 import { parsePositiveInt } from "@/shared/routing";
 
 export default async function EmployeeBusinessUnitPage({
@@ -7,7 +7,7 @@ export default async function EmployeeBusinessUnitPage({
   searchParams,
 }: {
   params: Promise<{ employerId: string; employmentNumber: string }>;
-  searchParams: Promise<{ q?: string; page?: string }>;
+  searchParams: Promise<{ q?: string; page?: string; pageSize?: string }>;
 }): Promise<React.JSX.Element> {
   const [{ employerId, employmentNumber }, query] = await Promise.all([
     params,
@@ -18,6 +18,7 @@ export default async function EmployeeBusinessUnitPage({
       employerId={parsePositiveInt(employerId)}
       employmentNumber={decodeURIComponent(employmentNumber)}
       page={readListPage(query.page)}
+      pageSize={readListPageSize(query.pageSize)}
       search={query.q ?? ""}
     />
   );

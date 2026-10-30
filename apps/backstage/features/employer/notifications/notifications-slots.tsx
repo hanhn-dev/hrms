@@ -28,6 +28,7 @@ export async function NotificationsSlot({
             createdFrom: window.from,
             createdTo: window.to,
             page: query.page,
+            pageSize: query.pageSize,
           }),
         )
       : Promise.resolve(null),
@@ -39,6 +40,7 @@ export async function NotificationsSlot({
             requestType: query.requestType,
             employee: query.employee,
             page: query.page,
+            pageSize: query.pageSize,
           }),
         )
       : Promise.resolve(null),

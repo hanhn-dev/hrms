@@ -3,6 +3,7 @@ import {
   type UploadErrorClass,
   type UploadTypeKey,
 } from "@hrms/db/uploads";
+import { LIST_PAGE_SIZE, pageSizeOf } from "@hrms/db/page";
 
 export type UploadsView = "catalog" | "jobs";
 
@@ -70,6 +71,7 @@ export function uploadsHref(
     status?: string | null;
     uploadId?: number | null;
     page?: number | null;
+    pageSize?: number | null;
     q?: string | null;
   },
 ): string {
@@ -95,6 +97,9 @@ export function uploadsHref(
   if (params.q) {
     search.set("q", params.q);
   }
+  if (params.pageSize != null && pageSizeOf(params.pageSize) !== LIST_PAGE_SIZE) {
+    search.set("pageSize", String(pageSizeOf(params.pageSize)));
+  }
   if (params.page != null && params.page > 1) {
     search.set("page", String(params.page));
   }
@@ -113,6 +118,7 @@ export function uploadDetailHref(
     workEmail?: string | null;
     batchId?: number | null;
     page?: number | null;
+    pageSize?: number | null;
     q?: string | null;
   } = {},
 ): string {
@@ -137,6 +143,9 @@ export function uploadDetailHref(
   }
   if (params.q) {
     search.set("q", params.q);
+  }
+  if (params.pageSize != null && pageSizeOf(params.pageSize) !== LIST_PAGE_SIZE) {
+    search.set("pageSize", String(pageSizeOf(params.pageSize)));
   }
   if (params.page != null && params.page > 1) {
     search.set("page", String(params.page));

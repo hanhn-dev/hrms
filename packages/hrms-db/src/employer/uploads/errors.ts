@@ -310,8 +310,8 @@ export async function getUploadBatch(
   }, null);
 }
 
-function emptyExecutionPage(page?: number | null): UploadExecutionErrorPage {
-  const paging = pageQuery(page);
+function emptyExecutionPage(page?: number | null, pageSize?: number | null): UploadExecutionErrorPage {
+  const paging = pageQuery(page, pageSize);
   return { rows: [], totalCount: 0, page: paging.page, pageSize: paging.pageSize };
 }
 
@@ -319,7 +319,7 @@ export async function listUploadExecutionErrors(
   db: HrmsDb,
   employerId: number,
   uploadId: number,
-  filters: { page?: number | null; q?: string | null } = {},
+  filters: { page?: number | null; pageSize?: number | null; q?: string | null } = {},
 ): Promise<UploadExecutionErrorPage> {
   return optionalQuery(async () => {
   const tenantId = parseEmployerId(employerId);
@@ -335,11 +335,11 @@ export async function listUploadExecutionErrors(
     return listCreationExecutionErrors(db, tenantId, parsedUploadId, filters);
   }
   return listProfileExecutionErrors(db, tenantId, parsedUploadId, filters);
-  }, emptyExecutionPage(filters.page));
+  }, emptyExecutionPage(filters.page, filters.pageSize));
 }
 
-function emptyStaging(page?: number | null): CreationStagingSummary {
-  const paging = pageQuery(page);
+function emptyStaging(page?: number | null, pageSize?: number | null): CreationStagingSummary {
+  const paging = pageQuery(page, pageSize);
   return {
     stagingCount: 0,
     orphanCount: 0,
@@ -354,12 +354,12 @@ export async function listCreationStaging(
   db: HrmsDb,
   employerId: number,
   uploadId: number,
-  filters: { page?: number | null; q?: string | null } = {},
+  filters: { page?: number | null; pageSize?: number | null; q?: string | null } = {},
 ): Promise<CreationStagingSummary> {
   return optionalQuery(async () => {
   const tenantId = parseEmployerId(employerId);
   const parsedUploadId = uploadIdSchema.parse(uploadId);
-  const paging = pageQuery(filters.page);
+  const paging = pageQuery(filters.page, filters.pageSize);
   const q = searchText(filters.q);
   const pattern = q == null ? null : likeContains(q);
   const textFilter =
@@ -427,7 +427,7 @@ export async function listCreationStaging(
     page: paging.page,
     pageSize: paging.pageSize,
   };
-  }, emptyStaging(filters.page));
+  }, emptyStaging(filters.page, filters.pageSize));
 }
 
 export async function getCreationFinalize(
@@ -635,9 +635,9 @@ async function listProfileExecutionErrors(
   db: HrmsDb,
   tenantId: number,
   uploadId: number,
-  filters: { page?: number | null; q?: string | null },
+  filters: { page?: number | null; pageSize?: number | null; q?: string | null },
 ): Promise<UploadExecutionErrorPage> {
-  const paging = pageQuery(filters.page);
+  const paging = pageQuery(filters.page, filters.pageSize);
   const q = searchText(filters.q);
   const pattern = q == null ? null : likeContains(q);
   const textFilter =
@@ -712,9 +712,9 @@ async function listCreationExecutionErrors(
   db: HrmsDb,
   tenantId: number,
   uploadId: number,
-  filters: { page?: number | null; q?: string | null },
+  filters: { page?: number | null; pageSize?: number | null; q?: string | null },
 ): Promise<UploadExecutionErrorPage> {
-  const paging = pageQuery(filters.page);
+  const paging = pageQuery(filters.page, filters.pageSize);
   const q = searchText(filters.q);
   const pattern = q == null ? null : likeContains(q);
   const textFilter =

@@ -23,10 +23,14 @@ import {
   type ReadGitFilePairInput,
   type TeamMember,
 } from "@hrms/azure-devops";
+import { findScriptObject, getModuleDefinition } from "@hrms/db";
 import { DEFAULT_BOARD_TEAM } from "@/features/azure/board/defaults";
 import type { GitTraceCatalog } from "@/features/azure/git/catalog";
+import type { DatabaseModuleScript } from "@/features/azure/git/script-object";
 import { requireFeature } from "@/shared/auth";
 import { getAzureDevOpsClient } from "@/shared/azure";
+import { getHrmsDb } from "@/shared/db";
+import { parseEnvironmentName } from "@/shared/db/environments";
 
 async function azureClient(): Promise<AzureDevOpsClient> {
   await requireFeature("azure");
@@ -101,4 +105,50 @@ export async function loadGitCommitCompare(input: CompareGitCommitsInput): Promi
 export async function loadGitFilePair(input: ReadGitFilePairInput): Promise<GitFilePair> {
   const client = await azureClient();
   return readGitFilePair(client, input);
+}
+
+export async function loadDatabaseModuleScript(input: {
+  environment: string;
+  schema: string;
+  name: string;
+}): Promise<DatabaseModuleScript> {
+  await requireFeature("azure");
+  const environment = parseEnvironmentName(input.environment);
+  if (!environment) {
+    throw new Error("Unknown environment.");
+  }
+  const schema = input.schema.trim() || "dbo";
+  const name = input.name.trim();
+  const db = await getHrmsDb(environment);
+  const found = await findScriptObject(db, { schema, name });
+  if (!found) {
+    return {
+      schema,
+      name,
+      kind: null,
+      definition: null,
+      unavailableReason: `Unable to find ${schema}.${name} in the ${environment} database.`,
+    };
+  }
+  if (found.kind === "table") {
+    return {
+      schema: found.schema,
+      name: found.name,
+      kind: "table",
+      definition: null,
+      unavailableReason: `${found.schema}.${found.name} is a table, so there is no module script to compare.`,
+    };
+  }
+  const definition = await getModuleDefinition(db, {
+    schema: found.schema,
+    name: found.name,
+    kind: found.kind,
+  });
+  return {
+    schema: definition.schema,
+    name: definition.name,
+    kind: definition.kind,
+    definition: definition.definition,
+    unavailableReason: definition.unavailableReason,
+  };
 }

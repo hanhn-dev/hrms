@@ -2,7 +2,7 @@ import { Prisma } from "../../generated/prisma/client";
 import type { HrmsDb } from "../../shared/client";
 import { parseEmployerId } from "../../shared/ids";
 import { asIso } from "../../shared/iso";
-import { pageOf } from "../../shared/page.ts";
+import { pageQuery } from "../../shared/page.ts";
 import { isMissingObjectError } from "../uploads/classify";
 import {
   EMAIL_MODULE_LABELS,
@@ -23,6 +23,7 @@ export type EmailNotificationFilters = {
   createdFrom?: Date | null;
   createdTo?: Date | null;
   page?: number;
+  pageSize?: number | null;
 };
 
 export type EmailNotificationRow = {
@@ -90,10 +91,6 @@ const SATELLITE_STATUS_COLUMN: Record<Exclude<EmailModuleKey, "core">, string> =
   "resource-allocation": "Notification.IsCompleted",
   travel: "Notification.IsCompleted",
 };
-
-function clampPage(page: number | undefined): number {
-  return pageOf(page);
-}
 
 function statusCase(column: Prisma.Sql): Prisma.Sql {
   return Prisma.sql`CASE
@@ -341,12 +338,16 @@ function mapRow(row: EmailSourceRow): EmailNotificationRow {
   };
 }
 
-function emptyList(page: number, satellitesUnavailable: boolean): EmailNotificationList {
+function emptyList(
+  page: number,
+  satellitesUnavailable: boolean,
+  pageSize: number = EMAIL_PAGE_SIZE,
+): EmailNotificationList {
   return {
     rows: [],
     totalCount: 0,
     page,
-    pageSize: EMAIL_PAGE_SIZE,
+    pageSize,
     counts: foldCounts([]),
     satellitesUnavailable,
   };
@@ -358,11 +359,10 @@ export async function listEmailNotifications(
   filters: EmailNotificationFilters = {},
 ): Promise<EmailNotificationList> {
   const tenantId = parseEmployerId(employerId);
-  const page = clampPage(filters.page);
-  const offset = (page - 1) * EMAIL_PAGE_SIZE;
+  const paging = pageQuery(filters.page, filters.pageSize);
   const branches = branchesFor(tenantId, filters);
   if (branches.length === 0) {
-    return emptyList(page, false);
+    return emptyList(paging.page, false, paging.pageSize);
   }
 
   try {
@@ -375,8 +375,8 @@ export async function listEmailNotifications(
         db,
         branches.map((branch) => branch.sql),
         filters.status,
-        offset,
-        EMAIL_PAGE_SIZE,
+        paging.offset,
+        paging.pageSize,
       ),
     ]);
     const counts = foldCounts(countRows);
@@ -386,8 +386,8 @@ export async function listEmailNotifications(
     return {
       rows: pageRows.map(mapRow),
       totalCount,
-      page,
-      pageSize: EMAIL_PAGE_SIZE,
+      page: paging.page,
+      pageSize: paging.pageSize,
       counts,
       satellitesUnavailable: false,
     };
@@ -395,7 +395,7 @@ export async function listEmailNotifications(
     if (!isMissingObjectError(error)) {
       throw error;
     }
-    return listEmailNotificationsBySource(db, branches, filters, page, offset);
+    return listEmailNotificationsBySource(db, branches, filters, paging);
   }
 }
 
@@ -403,10 +403,9 @@ async function listEmailNotificationsBySource(
   db: HrmsDb,
   branches: Array<{ module: EmailModuleKey; sql: Prisma.Sql }>,
   filters: EmailNotificationFilters,
-  page: number,
-  offset: number,
+  paging: { page: number; pageSize: number; offset: number },
 ): Promise<EmailNotificationList> {
-  const window = offset + EMAIL_PAGE_SIZE;
+  const window = paging.offset + paging.pageSize;
   const countRows: StatusCountRow[] = [];
   const pageRows: EmailSourceRow[] = [];
   let satellitesUnavailable = false;
@@ -441,10 +440,10 @@ async function listEmailNotificationsBySource(
     : counts.reduce((sum, item) => sum + item.count, 0);
 
   return {
-    rows: pageRows.slice(offset, offset + EMAIL_PAGE_SIZE).map(mapRow),
+    rows: pageRows.slice(paging.offset, paging.offset + paging.pageSize).map(mapRow),
     totalCount,
-    page,
-    pageSize: EMAIL_PAGE_SIZE,
+    page: paging.page,
+    pageSize: paging.pageSize,
     counts,
     satellitesUnavailable,
   };

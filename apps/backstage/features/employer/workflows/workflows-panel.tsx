@@ -103,6 +103,7 @@ export function WorkflowsPanel({
   groupTotal,
   changeRequests,
   listSearch,
+  listPageSize,
   requestStatus,
   changeRequestsScript,
   writesEnabled,
@@ -140,6 +141,7 @@ export function WorkflowsPanel({
     };
   };
   listSearch: string | null;
+  listPageSize: number;
   requestStatus: "pending" | "approved" | "rejected" | "all";
   changeRequestsScript: string;
   writesEnabled: boolean;
@@ -176,7 +178,7 @@ export function WorkflowsPanel({
                   router.push(
                     listHref(
                       `/employers/${employerId}/workflows`,
-                      { q: next },
+                      { pageSize: listPageSize, q: next },
                       undefined,
                       { pageParam: "p" },
                     ),
@@ -188,11 +190,11 @@ export function WorkflowsPanel({
                   total: workflowTotal,
                   showSizeChanger: false,
                   showTotal: (count) => `${count} workflows`,
-                  onChange: (next) => {
+                  onChange: (next, nextSize) => {
                     router.push(
                       listHref(
                         `/employers/${employerId}/workflows`,
-                        { page: next, q: listSearch },
+                        { page: next, pageSize: nextSize, q: listSearch },
                         undefined,
                         { pageParam: "p" },
                       ),
@@ -267,7 +269,7 @@ export function WorkflowsPanel({
                   router.push(
                     listHref(
                       `/employers/${employerId}/workflows`,
-                      { q: next },
+                      { pageSize: listPageSize, q: next },
                       { tab: "pages" },
                       { pageParam: "p" },
                     ),
@@ -279,11 +281,11 @@ export function WorkflowsPanel({
                   total: pageTotal,
                   showSizeChanger: false,
                   showTotal: (count) => `${count} pages`,
-                  onChange: (next) => {
+                  onChange: (next, nextSize) => {
                     router.push(
                       listHref(
                         `/employers/${employerId}/workflows`,
-                        { page: next, q: listSearch },
+                        { page: next, pageSize: nextSize, q: listSearch },
                         { tab: "pages", page: pageName },
                         { pageParam: "p" },
                       ),
@@ -365,7 +367,7 @@ export function WorkflowsPanel({
                   router.push(
                     listHref(
                       `/employers/${employerId}/workflows`,
-                      { q: next },
+                      { pageSize: listPageSize, q: next },
                       { tab: "groups" },
                       { pageParam: "p" },
                     ),
@@ -377,11 +379,11 @@ export function WorkflowsPanel({
                   total: groupTotal,
                   showSizeChanger: false,
                   showTotal: (count) => `${count} groups`,
-                  onChange: (next) => {
+                  onChange: (next, nextSize) => {
                     router.push(
                       listHref(
                         `/employers/${employerId}/workflows`,
-                        { page: next, q: listSearch },
+                        { page: next, pageSize: nextSize, q: listSearch },
                         { tab: "groups", group: groupId },
                         { pageParam: "p" },
                       ),

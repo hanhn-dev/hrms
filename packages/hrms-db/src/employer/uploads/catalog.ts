@@ -385,7 +385,7 @@ async function listCatalogFields(
   page: number;
   pageSize: number;
 }> {
-  const paging = pageQuery(options.page);
+  const paging = pageQuery(options.page, options.pageSize);
   const filters = catalogFieldFilters(countryId, options, true);
   const window = options.unpaged
     ? Prisma.empty

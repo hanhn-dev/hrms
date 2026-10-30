@@ -337,6 +337,7 @@ function workflowScopeFromRow(row: ScopedHeaderRow): WorkflowScopeFields {
 
 export type ChangeRequestListFilters = {
   page?: number | null;
+  pageSize?: number | null;
   q?: string | null;
   status?: ChangeRequestStatus | "all" | null;
 };
@@ -506,7 +507,7 @@ async function listChangeRequestHeaders(
   filters: ChangeRequestListFilters = {},
 ): Promise<ChangeRequestListPage> {
   const tenantId = parseEmployerId(employerId);
-  const paging = pageQuery(filters.page);
+  const paging = pageQuery(filters.page, filters.pageSize);
   const subjectId =
     employeeId == null ? null : employeeIdSchema.parse(employeeId);
   const employeeFilter =

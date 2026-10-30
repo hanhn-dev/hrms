@@ -1,5 +1,5 @@
 import { RolesScreen } from "@/features/employer/roles";
-import { readListPage, readListSearch } from "@/shared/list-query";
+import { readListPage, readListPageSize, readListSearch } from "@/shared/list-query";
 import { parsePositiveInt } from "@/shared/routing";
 
 export default async function RolesPage({
@@ -10,6 +10,7 @@ export default async function RolesPage({
   searchParams: Promise<{
     roleId?: string;
     page?: string;
+    pageSize?: string;
     q?: string;
     gpage?: string;
     gq?: string;
@@ -23,6 +24,7 @@ export default async function RolesPage({
       grantPage={readListPage(query.gpage)}
       grantSearch={readListSearch(query.gq) ?? ""}
       page={readListPage(query.page)}
+      pageSize={readListPageSize(query.pageSize)}
       search={readListSearch(query.q) ?? ""}
       selectedRoleId={
         selectedRoleId && Number.isInteger(selectedRoleId) && selectedRoleId > 0

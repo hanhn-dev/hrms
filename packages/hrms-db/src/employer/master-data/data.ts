@@ -231,9 +231,9 @@ async function selectRowPage(
   db: HrmsDb | Tx,
   entry: MasterDataEntry,
   employerId: number,
-  filters: { page?: number | null; q?: string | null },
+  filters: { page?: number | null; pageSize?: number | null; q?: string | null },
 ): Promise<{ rows: MasterDataRow[]; totalCount: number; page: number; pageSize: number }> {
-  const paging = pageQuery(filters.page);
+  const paging = pageQuery(filters.page, filters.pageSize);
   const names = [entry.idColumn, ...entry.columns.map((column) => column.name)];
   const scopedId = masterDataEmployerId(entry, employerId);
   const filtersSql: Prisma.Sql[] = [];
@@ -264,7 +264,7 @@ export async function listMasterDataRows(
   db: HrmsDb,
   employerId: number,
   key: string,
-  filters: { page?: number | null; q?: string | null } = {},
+  filters: { page?: number | null; pageSize?: number | null; q?: string | null } = {},
 ): Promise<{
   entry: MasterDataEntry;
   rows: MasterDataRow[];
@@ -346,12 +346,12 @@ export async function loadMasterDataPage(
   db: HrmsDb,
   employerId: number,
   key: string | null,
-  filters: { page?: number | null; q?: string | null } = {},
+  filters: { page?: number | null; pageSize?: number | null; q?: string | null } = {},
 ): Promise<MasterDataPageData> {
   const catalog = await listAvailableMasterData(db, employerId);
   const selected =
     (key ? catalog.find((entry) => entry.key === key) : catalog[0]) ?? null;
-  const paging = pageQuery(filters.page);
+  const paging = pageQuery(filters.page, filters.pageSize);
   if (!selected) {
     return {
       catalog,

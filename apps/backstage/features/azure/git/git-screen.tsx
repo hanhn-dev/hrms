@@ -25,7 +25,7 @@ const HELP = [
     type: "info" as const,
     title: "One file, two branches",
     description:
-      "Search for a file by name. Suggestions come from Dev, and recent paths stay in this browser. Pick two branches to compare that file at each branch tip. Word changes are highlighted inside the line. The table under the diff lists commits that touched the file on one branch and not the other.",
+      "Search for a file by name. Suggestions come from Dev, and recent paths stay in this browser. Pick two branches to compare that file at each branch tip. Word changes are highlighted inside the line. The table under the diff lists commits that touched the file on one branch and not the other. For TDG HRMS DB, the branches start at QA and Staging. Pick a database to see whether the right-branch procedure, view, or function matches the script in that database.",
   },
 ];
 

@@ -2,8 +2,8 @@ import { Prisma } from "../../generated/prisma/client";
 import type { HrmsDb } from "../../shared/client";
 import { parseEmployerId } from "../../shared/ids";
 import { asIso } from "../../shared/iso";
-import { pageOf } from "../../shared/page.ts";
-import { INBOX_PAGE_SIZE, type InboxSide } from "./status";
+import { pageQuery } from "../../shared/page.ts";
+import { type InboxSide } from "./status";
 import { parseWaitingOn, type InboxPerson } from "./waiting-on";
 
 const UNCATEGORIZED = "Other";
@@ -16,6 +16,7 @@ export type PendingInboxFilters = {
   requestType?: string | null;
   employee?: string | null;
   page?: number | null;
+  pageSize?: number | null;
 };
 
 export type { InboxPerson } from "./waiting-on";
@@ -229,8 +230,9 @@ export async function listPendingInbox(
   filters: PendingInboxFilters,
 ): Promise<PendingInboxList> {
   const employerId = parseEmployerId(employerIdInput);
-  const page = pageOf(filters.page);
-  const offset = (page - 1) * INBOX_PAGE_SIZE;
+  const paging = pageQuery(filters.page, filters.pageSize);
+  const page = paging.page;
+  const offset = paging.offset;
   const employee = textFilter(filters.employee, 100);
   const requestedCategory = textFilter(filters.category, 100);
   const requestType = textFilter(filters.requestType, 50);
@@ -325,7 +327,7 @@ export async function listPendingInbox(
     ) AS Reasons
     ORDER BY Grouped.CreatedDate DESC, Grouped.RequestId DESC
     OFFSET ${Prisma.raw(String(offset))} ROWS
-    FETCH NEXT ${Prisma.raw(String(INBOX_PAGE_SIZE))} ROWS ONLY
+    FETCH NEXT ${paging.pageSize} ROWS ONLY
   `;
 
   const active = categories.find((category) => category.name === activeCategory);
@@ -344,6 +346,6 @@ export async function listPendingInbox(
     rows: rows.map(toRow),
     totalCount: typeCount,
     page,
-    pageSize: INBOX_PAGE_SIZE,
+    pageSize: paging.pageSize,
   };
 }

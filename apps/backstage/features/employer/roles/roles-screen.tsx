@@ -13,6 +13,7 @@ export function RolesScreen({
   grantSearch,
   selectedRoleId,
   page,
+  pageSize,
   search,
 }: {
   employerId: number;
@@ -20,6 +21,7 @@ export function RolesScreen({
   grantSearch: string;
   selectedRoleId: number | null;
   page: number;
+  pageSize: number;
   search: string;
 }): React.JSX.Element {
   return (
@@ -49,6 +51,7 @@ export function RolesScreen({
           grantPage={grantPage}
           grantSearch={grantSearch}
           page={page}
+          pageSize={pageSize}
           search={search}
           selectedRoleId={selectedRoleId}
         />
@@ -83,6 +86,7 @@ export function RolesScreen({
         <RoleGrantsSlot
           employerId={employerId}
           page={grantPage}
+          pageSize={pageSize}
           rolePage={page}
           roleSearch={search}
           search={grantSearch}

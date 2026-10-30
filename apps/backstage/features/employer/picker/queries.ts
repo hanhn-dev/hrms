@@ -11,7 +11,7 @@ import { getHrmsDb } from "@/shared/db";
 export type { EmployerListItem, EmployerListPage, EmployerLookup } from "@hrms/db";
 
 export async function listEmployers(
-  filters: { page?: number | null; q?: string | null } = {},
+  filters: { page?: number | null; pageSize?: number | null; q?: string | null } = {},
 ) {
   await requireFeature("employers");
   return listEmployersFromDb(await getHrmsDb(), filters);

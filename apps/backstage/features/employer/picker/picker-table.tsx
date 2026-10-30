@@ -36,7 +36,7 @@ export function EmployerPickerTable({
       scroll={{ x: "max-content" }}
       searchQuery={search}
       onSearch={(next) => {
-        router.push(listHref("/employers", { q: next }));
+        router.push(listHref("/employers", { pageSize, q: next }));
       }}
       pagination={{
         current: page,
@@ -44,8 +44,8 @@ export function EmployerPickerTable({
         total,
         showSizeChanger: false,
         showTotal: (count) => `${count} employers`,
-        onChange: (next) => {
-          router.push(listHref("/employers", { page: next, q: search }));
+        onChange: (next, nextSize) => {
+          router.push(listHref("/employers", { page: next, pageSize: nextSize, q: search }));
         },
       }}
       locale={{ emptyText: "No employers found." }}

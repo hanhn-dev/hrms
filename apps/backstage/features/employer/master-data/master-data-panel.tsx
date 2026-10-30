@@ -218,6 +218,7 @@ export function MasterDataPanel({
                 router.push(
                   listHref(`/employers/${employerId}/master-data`, {
                     page: 1,
+                    pageSize: listPageSize,
                     q: next || null,
                   }, { list: selected.key }),
                 );
@@ -228,10 +229,11 @@ export function MasterDataPanel({
                 total,
                 showSizeChanger: false,
                 showTotal: (count) => `${count} rows`,
-                onChange: (next) => {
+                onChange: (next, nextSize) => {
                   router.push(
                     listHref(`/employers/${employerId}/master-data`, {
                       page: next,
+                      pageSize: nextSize,
                       q: search || null,
                     }, { list: selected.key }),
                   );

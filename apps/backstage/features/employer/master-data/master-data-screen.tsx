@@ -6,11 +6,13 @@ export function MasterDataScreen({
   employerId,
   listKey,
   page,
+  pageSize,
   search,
 }: {
   employerId: number;
   listKey: string | null;
   page: number;
+  pageSize: number;
   search: string;
 }): React.JSX.Element {
   return (
@@ -35,7 +37,13 @@ export function MasterDataScreen({
         ]}
       />
       <Suspense fallback={<SectionFallback title="Master data" />}>
-        <MasterDataSlot employerId={employerId} listKey={listKey} page={page} search={search} />
+        <MasterDataSlot
+          employerId={employerId}
+          listKey={listKey}
+          page={page}
+          pageSize={pageSize}
+          search={search}
+        />
       </Suspense>
     </>
   );

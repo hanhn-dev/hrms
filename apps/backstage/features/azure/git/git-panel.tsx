@@ -22,7 +22,13 @@ function initialRepositoryId(repositories: GitTraceCatalog["repositories"]): str
   return preferred?.id ?? repositories[0]?.id ?? "";
 }
 
-export function GitPanel({ catalog }: { catalog: GitTraceCatalog }): React.JSX.Element {
+export function GitPanel({
+  catalog,
+  databaseEnvironments,
+}: {
+  catalog: GitTraceCatalog;
+  databaseEnvironments: readonly string[];
+}): React.JSX.Element {
   const [repositoryId, setRepositoryId] = useState(() => initialRepositoryId(catalog.repositories));
   const repository = catalog.repositories.find((item) => item.id === repositoryId) ?? catalog.repositories[0];
   const [branches, setBranches] = useState<GitBranchSummary[]>([]);
@@ -116,6 +122,7 @@ export function GitPanel({ catalog }: { catalog: GitTraceCatalog }): React.JSX.E
             key={repository.id}
             branches={branches}
             branchesLoading={branchesLoading}
+            databaseEnvironments={databaseEnvironments}
             defaultBranch={repository.defaultBranch}
             organizationUrl={catalog.organizationUrl}
             project={catalog.project}

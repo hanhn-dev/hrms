@@ -69,11 +69,12 @@ export async function searchEmployees(
   employerId: number,
   search: string,
   page?: number | null,
+  pageSize?: number | null,
 ): Promise<EmployeeSearchResult> {
   const tenantId = parseEmployerId(employerId);
   const present = await presentTables(db, sectionCountTableNames());
   const unavailable = unavailableSectionCounts(present);
-  const paging = pageQuery(page);
+  const paging = pageQuery(page, pageSize);
   const q = searchText(search);
   const pattern = q == null ? null : likeContains(q);
   const nameFilter =

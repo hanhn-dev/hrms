@@ -97,6 +97,7 @@ export function CatalogPanel({
                 countryId: catalog.countryId,
                 sectionId: selected?.sectionId,
                 q: next || null,
+                pageSize: catalog.fieldPageSize,
               }),
             );
           }}
@@ -106,7 +107,7 @@ export function CatalogPanel({
             total: catalog.fieldTotalCount,
             showSizeChanger: false,
             showTotal: (total) => `${total} fields`,
-            onChange: (next) => {
+            onChange: (next, nextSize) => {
               router.push(
                 uploadsHref(employerId, {
                   view: "catalog",
@@ -115,6 +116,7 @@ export function CatalogPanel({
                   sectionId: selected?.sectionId,
                   q: search || null,
                   page: next,
+                  pageSize: nextSize,
                 }),
               );
             },

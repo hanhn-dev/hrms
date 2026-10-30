@@ -1,3 +1,5 @@
+import { readListPageSize } from "@/shared/list-query";
+import { LIST_PAGE_SIZE } from "@hrms/db/page";
 import {
   LOG_DEFAULT_WINDOW_MS,
   LOG_MAX_WINDOW_MS,
@@ -17,6 +19,7 @@ export type LogsQuery = {
   to: string | null;
   sessionId: string | null;
   page: number;
+  pageSize: number;
 };
 
 export type LogsSearchParams = {
@@ -27,6 +30,7 @@ export type LogsSearchParams = {
   to?: string;
   session?: string;
   page?: string;
+  pageSize?: string;
 };
 
 export type ResolvedLogWindow = {
@@ -87,6 +91,7 @@ export function parseLogsQuery(input: LogsSearchParams): LogsQuery {
     to: parseInstant(input.to),
     sessionId: parseText(input.session),
     page: parsePage(input.page),
+    pageSize: readListPageSize(input.pageSize),
   };
 }
 
@@ -152,6 +157,9 @@ export function logsHref(employerId: number, query: LogsQuery): string {
   }
   if (query.page > 1) {
     search.set("page", String(query.page));
+  }
+  if (query.pageSize !== LIST_PAGE_SIZE) {
+    search.set("pageSize", String(query.pageSize));
   }
   const qs = search.toString();
   return `/employers/${employerId}/logs${qs ? `?${qs}` : ""}`;

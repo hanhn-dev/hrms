@@ -850,9 +850,9 @@ function optionalEmployerId(employerId: number | null | undefined): number | nul
 
 export async function listSearchTargets(
   db: HrmsDb,
-  filters: { page?: number | null; q?: string | null } = {},
+  filters: { page?: number | null; pageSize?: number | null; q?: string | null } = {},
 ): Promise<SearchTargetPage> {
-  const paging = pageQuery(filters.page);
+  const paging = pageQuery(filters.page, filters.pageSize);
   const q = searchText(filters.q);
   const pattern = q == null ? null : likeContains(q);
   const nameFilter =

@@ -619,6 +619,7 @@ export function JobStagingCard({
                   section: selectedSection?.uploadSectionId,
                   error: errorClass,
                   q: next || null,
+                  pageSize: staging.pageSize,
                 }),
               );
             }}
@@ -628,13 +629,14 @@ export function JobStagingCard({
               total: staging.totalCount,
               showSizeChanger: false,
               showTotal: (count) => `${count} orphans`,
-              onChange: (next) => {
+              onChange: (next, nextSize) => {
                 router.push(
                   uploadDetailHref(employerId, upload.uploadId, {
                     section: selectedSection?.uploadSectionId,
                     error: errorClass,
                     q: stagingSearch || null,
                     page: next,
+                    pageSize: nextSize,
                   }),
                 );
               },
@@ -1044,6 +1046,7 @@ function ExecutionTable({
             section: selectedSectionId,
             error: "system",
             q: next || null,
+            pageSize,
           }),
         );
       }}
@@ -1053,13 +1056,14 @@ function ExecutionTable({
         total,
         showSizeChanger: false,
         showTotal: (count) => `${count} system errors`,
-        onChange: (next) => {
+        onChange: (next, nextSize) => {
           router.push(
             uploadDetailHref(employerId, uploadId, {
               section: selectedSectionId,
               error: "system",
               q: search || null,
               page: next,
+              pageSize: nextSize,
             }),
           );
         },

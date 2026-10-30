@@ -33,8 +33,15 @@ describe("pageQuery", () => {
     });
   });
 
-  it("offsets later pages by the fixed page size", () => {
+  it("offsets later pages by the chosen page size", () => {
     assert.equal(pageQuery(2).offset, LIST_PAGE_SIZE);
+    assert.equal(pageQuery(2, 50).offset, 50);
+    assert.equal(pageQuery(3, 100).pageSize, 100);
+  });
+
+  it("rejects a page size outside the offered choices", () => {
+    assert.equal(pageQuery(1, 10).pageSize, LIST_PAGE_SIZE);
+    assert.equal(pageQuery(1, 75).pageSize, LIST_PAGE_SIZE);
   });
 });
 

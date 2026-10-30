@@ -7,11 +7,13 @@ export function EmployeeBusinessUnitScreen({
   employerId,
   employmentNumber,
   page,
+  pageSize,
   search,
 }: {
   employerId: number;
   employmentNumber: string;
   page: number;
+  pageSize: number;
   search: string;
 }): React.JSX.Element {
   return (
@@ -33,12 +35,14 @@ export function EmployeeBusinessUnitScreen({
         employerId={employerId}
         employmentNumber={employmentNumber}
         initialSearch={search}
+        pageSize={pageSize}
       />
       <Suspense fallback={<SectionFallback title="Business unit" />}>
         <EmployeeBusinessUnitSlot
           employerId={employerId}
           employmentNumber={employmentNumber}
           page={page}
+          pageSize={pageSize}
           search={search}
         />
       </Suspense>

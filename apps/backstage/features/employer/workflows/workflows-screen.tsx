@@ -24,6 +24,7 @@ export async function WorkflowsScreen({
   groupId,
   requestId,
   listPage,
+  listPageSize,
   listSearch,
   requestStatus,
 }: {
@@ -33,6 +34,7 @@ export async function WorkflowsScreen({
   groupId: number | null;
   requestId: number | null;
   listPage: number;
+  listPageSize: number;
   listSearch: string | null;
   requestStatus: "pending" | "approved" | "rejected" | "all";
 }): Promise<React.JSX.Element> {
@@ -68,6 +70,7 @@ export async function WorkflowsScreen({
             employerId={employerId}
             groupId={groupId}
             listPage={listPage}
+            listPageSize={listPageSize}
             listSearch={listSearch}
             pageName={pageName}
             requestId={requestId}

@@ -32,7 +32,7 @@ export type {
 
 export async function listWorkflows(
   employerId: number,
-  filters: { page?: number | null; q?: string | null } = {},
+  filters: { page?: number | null; pageSize?: number | null; q?: string | null } = {},
 ) {
   await requireFeature("employers");
   return listWorkflowsFromDb(await getHrmsDb(), employerId, filters);
@@ -45,7 +45,7 @@ export async function getWorkflowSettings(employerId: number) {
 
 export async function listWorkflowPages(
   employerId: number,
-  filters: { page?: number | null; q?: string | null; name?: string | null } = {},
+  filters: { page?: number | null; pageSize?: number | null; q?: string | null; name?: string | null } = {},
 ) {
   await requireFeature("employers");
   return listWorkflowPagesFromDb(await getHrmsDb(), employerId, filters);
@@ -58,7 +58,7 @@ export async function listMappablePages(employerId: number) {
 
 export async function listWorkflowGroups(
   employerId: number,
-  filters: { page?: number | null; q?: string | null; roleId?: number | null } = {},
+  filters: { page?: number | null; pageSize?: number | null; q?: string | null; roleId?: number | null } = {},
 ) {
   await requireFeature("employers");
   return listWorkflowGroupsFromDb(await getHrmsDb(), employerId, filters);
@@ -99,6 +99,7 @@ export async function listChangeRequests(
   employerId: number,
   filters: {
     page?: number | null;
+    pageSize?: number | null;
     q?: string | null;
     status?: "pending" | "approved" | "rejected" | "all" | null;
   } = {},

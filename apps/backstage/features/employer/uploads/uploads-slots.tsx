@@ -40,6 +40,7 @@ export async function UploadsJobsSlot({
   jobStatus,
   jobUploadId,
   page,
+  pageSize,
   search,
 }: {
   employerId: number;
@@ -47,6 +48,7 @@ export async function UploadsJobsSlot({
   jobStatus: string | null;
   jobUploadId: number | null;
   page: number;
+  pageSize: number;
   search: string;
 }): Promise<React.JSX.Element> {
   const jobs = await captureQueryScript(() =>
@@ -55,6 +57,7 @@ export async function UploadsJobsSlot({
       status: jobStatus,
       uploadId: jobUploadId,
       page,
+      pageSize,
       q: search,
     }),
   );
@@ -80,6 +83,7 @@ export async function UploadsCatalogSlot({
   countryId,
   sectionId,
   page,
+  pageSize,
   search,
 }: {
   employerId: number;
@@ -87,11 +91,13 @@ export async function UploadsCatalogSlot({
   countryId: number;
   sectionId: number | null;
   page: number;
+  pageSize: number;
   search: string;
 }): Promise<React.JSX.Element> {
   const catalog = await captureQueryScript(() =>
     listUploadCatalog(employerId, type, countryId, {
       page,
+      pageSize,
       q: search,
       sectionId,
     }),

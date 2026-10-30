@@ -7,15 +7,17 @@ export async function EmployeeBusinessUnitSlot({
   employerId,
   employmentNumber,
   page,
+  pageSize,
   search,
 }: {
   employerId: number;
   employmentNumber: string;
   page: number;
+  pageSize: number;
   search: string;
 }): Promise<React.JSX.Element | null> {
   const loaded = await captureQueryScript(() =>
-    listBusinessUnitEmployees(employerId, employmentNumber, search, page),
+    listBusinessUnitEmployees(employerId, employmentNumber, search, page, pageSize),
   );
   const result = loaded.result;
   if (!result) {

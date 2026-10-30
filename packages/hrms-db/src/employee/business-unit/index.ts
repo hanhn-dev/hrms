@@ -49,6 +49,7 @@ export async function listBusinessUnitEmployees(
   employmentNumber: string,
   search: string,
   page?: number | null,
+  pageSize?: number | null,
 ): Promise<BusinessUnitEmployees | null> {
   const tenantId = parseEmployerId(employerId);
   const identity = await resolveEmployee(db, employerId, employmentNumber);
@@ -74,7 +75,7 @@ export async function listBusinessUnitEmployees(
   const businessUnitId = subject?.BusinessUnitId ?? null;
   const businessUnitName = subject?.BusinessUnitName ?? null;
 
-  const paging = pageQuery(page);
+  const paging = pageQuery(page, pageSize);
   if (businessUnitId == null) {
     return {
       currentEmployeeId: identity.employeeId,

@@ -1,3 +1,5 @@
+import { readListPageSize } from "@/shared/list-query";
+import { LIST_PAGE_SIZE } from "@hrms/db/page";
 import {
   parseEmailModuleKey,
   parseEmailStatus,
@@ -20,6 +22,7 @@ export type NotificationsQuery = {
   to: string | null;
   rangeAll: boolean;
   page: number;
+  pageSize: number;
   side: InboxSide;
   category: string | null;
   requestType: string | null;
@@ -36,6 +39,7 @@ export type NotificationsSearchParams = {
   to?: string;
   range?: string;
   page?: string;
+  pageSize?: string;
   side?: string;
   category?: string;
   requestType?: string;
@@ -87,6 +91,7 @@ export function parseNotificationsQuery(
     to: parseInstant(input.to),
     rangeAll: input.range === "all",
     page: parsePage(input.page),
+    pageSize: readListPageSize(input.pageSize),
     side: input.side === "by" ? "by" : "for",
     category: parseText(input.category),
     requestType: parseText(input.requestType),
@@ -147,6 +152,9 @@ export function notificationsHref(
   }
   if (query.page > 1) {
     search.set("page", String(query.page));
+  }
+  if (query.pageSize !== LIST_PAGE_SIZE) {
+    search.set("pageSize", String(query.pageSize));
   }
   if (query.side === "by") {
     search.set("side", "by");

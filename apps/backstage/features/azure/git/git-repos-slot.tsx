@@ -3,6 +3,7 @@ import type { GitTraceCatalog } from "@/features/azure/git/catalog";
 import { GitPanel } from "@/features/azure/git/git-panel";
 import { errorMessage, rethrowRedirect } from "@/features/azure/git/git-text";
 import { loadGitCatalog } from "@/features/azure/git/queries";
+import { listConfiguredEnvironments } from "@/shared/db/environments";
 
 export async function GitReposSlot(): Promise<React.JSX.Element> {
   let catalog: GitTraceCatalog;
@@ -17,5 +18,5 @@ export async function GitReposSlot(): Promise<React.JSX.Element> {
     return <Alert title="This Azure DevOps project has no Git repositories." type="info" />;
   }
 
-  return <GitPanel catalog={catalog} />;
+  return <GitPanel catalog={catalog} databaseEnvironments={listConfiguredEnvironments()} />;
 }

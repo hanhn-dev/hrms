@@ -9,6 +9,7 @@ export async function listBusinessUnitEmployees(
   employmentNumber: string,
   search: string,
   page?: number | null,
+  pageSize?: number | null,
 ) {
   await requireFeature("employers");
   return listBusinessUnitEmployeesFromDb(
@@ -17,5 +18,6 @@ export async function listBusinessUnitEmployees(
     employmentNumber,
     search,
     page,
+    pageSize,
   );
 }

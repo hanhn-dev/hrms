@@ -4,7 +4,7 @@ import {
   parseOptionalPositiveInt,
   parseSectionIdParam,
 } from "@/features/employer/uploads";
-import { readListPage, readListSearch } from "@/shared/list-query";
+import { readListPage, readListPageSize, readListSearch } from "@/shared/list-query";
 import { parsePositiveInt } from "@/shared/routing";
 
 export default async function UploadDetailPage({
@@ -20,6 +20,7 @@ export default async function UploadDetailPage({
     workEmail?: string;
     batchId?: string;
     page?: string;
+    pageSize?: string;
     q?: string;
   }>;
 }): Promise<React.JSX.Element> {
@@ -35,6 +36,7 @@ export default async function UploadDetailPage({
       workEmail={query.workEmail?.trim() || null}
       batchId={parseOptionalPositiveInt(query.batchId)}
       listPage={readListPage(query.page)}
+      listPageSize={readListPageSize(query.pageSize)}
       listSearch={readListSearch(query.q) ?? ""}
     />
   );

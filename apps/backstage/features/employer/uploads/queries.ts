@@ -56,6 +56,7 @@ export async function listUploadCatalog(
   countryId: number,
   filters: {
     page?: number | null;
+    pageSize?: number | null;
     q?: string | null;
     sectionId?: number | null;
     sectionIds?: number[] | null;
@@ -124,7 +125,7 @@ export async function getUploadBatch(
 export async function listUploadExecutionErrors(
   employerId: number,
   uploadId: number,
-  filters: { page?: number | null; q?: string | null } = {},
+  filters: { page?: number | null; pageSize?: number | null; q?: string | null } = {},
 ) {
   await requireFeature("employers");
   return listUploadExecutionErrorsFromDb(await getHrmsDb(), employerId, uploadId, filters);
@@ -133,7 +134,7 @@ export async function listUploadExecutionErrors(
 export async function listCreationStaging(
   employerId: number,
   uploadId: number,
-  filters: { page?: number | null; q?: string | null } = {},
+  filters: { page?: number | null; pageSize?: number | null; q?: string | null } = {},
 ) {
   await requireFeature("employers");
   return listCreationStagingFromDb(await getHrmsDb(), employerId, uploadId, filters);

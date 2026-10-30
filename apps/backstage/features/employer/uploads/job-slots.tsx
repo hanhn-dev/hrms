@@ -1,6 +1,6 @@
 import { cache, Suspense } from "react";
 import { Alert } from "antd";
-import { captureQueryScript, compareUploadHeaders } from "@hrms/db";
+import { captureQueryScript, compareUploadHeaders, LIST_PAGE_SIZE } from "@hrms/db";
 import { isMissingObjectError } from "@hrms/db/uploads";
 import type { UploadTypeKey } from "@hrms/db/uploads";
 import { getEmployeeAccess } from "@/features/employee/access/queries";
@@ -68,6 +68,7 @@ export type JobStreamQuery = {
   workEmail: string | null;
   batchId: number | null;
   listPage: number;
+  listPageSize: number;
   listSearch: string;
 };
 
@@ -102,6 +103,7 @@ export async function JobSummarySlot(input: JobStreamQuery): Promise<React.JSX.E
             employerId={input.employerId}
             errorClass={job.resolved.errorClass}
             listPage={input.listPage}
+            listPageSize={input.listPageSize}
             listSearch={input.listSearch}
             selectedSection={job.resolved.section}
             upload={job.upload}
@@ -159,6 +161,7 @@ export async function UploadRowErrorsStream(
       employerId={input.employerId}
       errorClass={job.resolved.errorClass}
       listPage={input.listPage}
+      listPageSize={input.listPageSize}
       listSearch={input.listSearch}
       selectedSection={job.resolved.section}
       upload={job.upload}
@@ -282,6 +285,7 @@ export async function UploadRowErrorsSlot({
   upload,
   errorClass,
   listPage,
+  listPageSize,
   listSearch,
   selectedSection,
 }: {
@@ -289,6 +293,7 @@ export async function UploadRowErrorsSlot({
   upload: UploadDetail;
   errorClass: UploadErrorClass;
   listPage: number;
+  listPageSize: number;
   listSearch: string;
   selectedSection: UploadSectionRollup | null;
 }): Promise<React.JSX.Element> {
@@ -296,9 +301,10 @@ export async function UploadRowErrorsSlot({
     () =>
       listUploadExecutionErrors(employerId, upload.uploadId, {
         page: listPage,
+        pageSize: listPageSize,
         q: listSearch,
       }),
-    { rows: [], totalCount: 0, page: listPage, pageSize: 50 },
+    { rows: [], totalCount: 0, page: listPage, pageSize: LIST_PAGE_SIZE },
   );
   const catalog =
     upload.type != null
@@ -378,6 +384,7 @@ export async function UploadStagingSlot({
   upload,
   errorClass,
   listPage,
+  listPageSize,
   listSearch,
   selectedSection,
 }: {
@@ -385,6 +392,7 @@ export async function UploadStagingSlot({
   upload: UploadDetail;
   errorClass: UploadErrorClass;
   listPage: number;
+  listPageSize: number;
   listSearch: string;
   selectedSection: UploadSectionRollup | null;
 }): Promise<React.JSX.Element> {
@@ -393,6 +401,7 @@ export async function UploadStagingSlot({
       () =>
         listCreationStaging(employerId, upload.uploadId, {
           page: listPage,
+          pageSize: listPageSize,
           q: listSearch,
         }),
       {
@@ -401,7 +410,7 @@ export async function UploadStagingSlot({
         orphans: [],
         totalCount: 0,
         page: listPage,
-        pageSize: 50,
+        pageSize: LIST_PAGE_SIZE,
       },
     ),
     missingObjectFallback(getCreationFinalize(employerId, upload.uploadId), null),

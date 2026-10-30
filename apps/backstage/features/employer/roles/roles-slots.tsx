@@ -16,6 +16,7 @@ export async function RolesListSlot({
   grantPage,
   grantSearch,
   page,
+  pageSize,
   search,
   selectedRoleId,
 }: {
@@ -23,10 +24,13 @@ export async function RolesListSlot({
   grantPage: number;
   grantSearch: string;
   page: number;
+  pageSize: number;
   search: string;
   selectedRoleId: number | null;
 }): Promise<React.JSX.Element> {
-  const roles = await captureQueryScript(() => listRoles(employerId, { page, q: search }));
+  const roles = await captureQueryScript(() =>
+    listRoles(employerId, { page, pageSize, q: search }),
+  );
   return (
     <Card className="mb-4" title="Tenant roles">
       <RolesTable
@@ -89,6 +93,7 @@ export async function RoleLocationBuSlot({
 export async function RoleGrantsSlot({
   employerId,
   page,
+  pageSize,
   rolePage,
   roleSearch,
   search,
@@ -96,13 +101,14 @@ export async function RoleGrantsSlot({
 }: {
   employerId: number;
   page: number;
+  pageSize: number;
   rolePage: number;
   roleSearch: string;
   search: string;
   selectedRoleId: number | null;
 }): Promise<React.JSX.Element> {
   const grants = await captureQueryScript(() =>
-    listRolePageGrants(employerId, selectedRoleId, { page, q: search }),
+    listRolePageGrants(employerId, selectedRoleId, { page, pageSize, q: search }),
   );
   return (
     <Card

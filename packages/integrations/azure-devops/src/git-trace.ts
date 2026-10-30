@@ -855,7 +855,7 @@ async function readFileSide(
     if (item.isFolder === true) {
       return omitted('Folder omitted');
     }
-    if (item.contentMetadata?.isBinary === true) {
+    if (item.contentMetadata?.isBinary === true && !version.path.toLowerCase().endsWith('.sql')) {
       return omitted('Binary or non-text content omitted', true);
     }
 
@@ -1106,9 +1106,62 @@ async function streamToString(stream: NodeJS.ReadableStream): Promise<string> {
     chunks.push(Buffer.from(String(chunk)));
   }
 
-  const buffer = Buffer.concat(chunks);
+  return decodeFileText(Buffer.concat(chunks));
+}
+
+function decodeFileText(buffer: Buffer): string {
+  if (buffer.length >= 2 && buffer[0] === 0xff && buffer[1] === 0xfe) {
+    return buffer.subarray(2).toString('utf16le').replace(/^\uFEFF/, '');
+  }
+  if (buffer.length >= 2 && buffer[0] === 0xfe && buffer[1] === 0xff) {
+    return decodeUtf16Be(buffer.subarray(2)).replace(/^\uFEFF/, '');
+  }
+  const utf16 = utf16Encoding(buffer);
+  if (utf16 === 'le') {
+    return buffer.toString('utf16le').replace(/^\uFEFF/, '');
+  }
+  if (utf16 === 'be') {
+    return decodeUtf16Be(buffer).replace(/^\uFEFF/, '');
+  }
   if (buffer.includes(0)) {
     throw new Error('Binary content detected');
   }
   return buffer.toString('utf8');
+}
+
+function utf16Encoding(buffer: Buffer): 'le' | 'be' | null {
+  if (buffer.length < 8 || buffer.length % 2 !== 0) {
+    return null;
+  }
+  const little = zeroRatio(buffer, 1);
+  const big = zeroRatio(buffer, 0);
+  if (little >= 0.6 && little > big) {
+    return 'le';
+  }
+  if (big >= 0.6 && big > little) {
+    return 'be';
+  }
+  return null;
+}
+
+function zeroRatio(buffer: Buffer, offset: number): number {
+  let zeros = 0;
+  let count = 0;
+  const end = Math.min(buffer.length, 512);
+  for (let index = offset; index < end; index += 2) {
+    count += 1;
+    if (buffer[index] === 0) {
+      zeros += 1;
+    }
+  }
+  return count === 0 ? 0 : zeros / count;
+}
+
+function decodeUtf16Be(buffer: Buffer): string {
+  const swapped = Buffer.alloc(buffer.length - (buffer.length % 2));
+  for (let index = 0; index + 1 < buffer.length; index += 2) {
+    swapped[index] = buffer[index + 1]!;
+    swapped[index + 1] = buffer[index]!;
+  }
+  return swapped.toString('utf16le');
 }

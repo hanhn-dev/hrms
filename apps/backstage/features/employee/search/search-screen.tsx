@@ -1,17 +1,18 @@
 import { Suspense } from "react";
 import { Card } from "antd";
 import { RecentEmployeeStrip } from "@/features/employee/recent";
-import { EmployeeSearchForm } from "@/features/employee/search/search-form";
 import { EmployeeSearchResultsSlot } from "@/features/employee/search/search-slots";
 import { PageHelp, SectionFallback } from "@/shared/ui";
 
 export function EmployeeSearchScreen({
   employerId,
   page,
+  pageSize,
   search,
 }: {
   employerId: number;
   page: number;
+  pageSize: number;
   search: string;
 }): React.JSX.Element {
   return (
@@ -36,10 +37,14 @@ export function EmployeeSearchScreen({
         ]}
       />
       <Card>
-        <EmployeeSearchForm employerId={employerId} initialSearch={search} />
         <RecentEmployeeStrip employerId={employerId} />
         <Suspense fallback={<SectionFallback title="Employees" />}>
-          <EmployeeSearchResultsSlot employerId={employerId} page={page} search={search} />
+          <EmployeeSearchResultsSlot
+            employerId={employerId}
+            page={page}
+            pageSize={pageSize}
+            search={search}
+          />
         </Suspense>
       </Card>
     </>

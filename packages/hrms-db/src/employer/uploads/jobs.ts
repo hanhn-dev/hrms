@@ -63,7 +63,7 @@ export async function listUploads(
   filters: UploadListFilters = {},
 ): Promise<UploadListPage> {
   const tenantId = parseEmployerId(employerId);
-  const paging = pageQuery(filters.page);
+  const paging = pageQuery(filters.page, filters.pageSize);
   const q = searchText(filters.q);
   const pattern = q == null ? null : likeContains(q);
   const textFilter =

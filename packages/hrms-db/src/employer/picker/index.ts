@@ -49,6 +49,11 @@ function employerNameFilter(q: string | null): Prisma.Sql {
     )`;
 }
 
+/** Active employers first, then id. NULL and 0 stay with the inactive group. */
+export function employerListOrder(): Prisma.Sql {
+  return Prisma.sql`CASE WHEN Employer.IsActive = 1 THEN 0 ELSE 1 END, Employer.Employerid ASC`;
+}
+
 function mapEmployer(row: EmployerSqlRow): EmployerListItem {
   return {
     employerId: row.EmployerId,
@@ -66,9 +71,9 @@ function mapEmployer(row: EmployerSqlRow): EmployerListItem {
 
 export async function listEmployers(
   db: HrmsDb,
-  filters: { page?: number | null; q?: string | null } = {},
+  filters: { page?: number | null; pageSize?: number | null; q?: string | null } = {},
 ): Promise<EmployerListPage> {
-  const paging = pageQuery(filters.page);
+  const paging = pageQuery(filters.page, filters.pageSize);
   const rows = await db.$queryRaw<EmployerSqlRow[]>`
     SELECT
         Employer.Employerid AS EmployerId,
@@ -90,7 +95,7 @@ export async function listEmployers(
         ON EmployeeCounts.EmployerId = Employer.Employerid
     WHERE 1 = 1
         ${employerNameFilter(searchText(filters.q))}
-    ORDER BY Employer.Employerid ASC
+    ORDER BY ${employerListOrder()}
     OFFSET ${paging.offset} ROWS FETCH NEXT ${paging.pageSize} ROWS ONLY
   `;
   return {

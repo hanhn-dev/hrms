@@ -46,14 +46,14 @@ export function fieldLinkOpenKey(
 
 export function sectionTablePagination(
   result: { page: number; pageSize: number; totalCount: number } | null,
-  onPage: (page: number) => void,
+  onPage: (page: number, pageSize?: number) => void,
 ):
   | {
       current: number;
       pageSize: number;
       total: number;
       showSizeChanger: false;
-      onChange: (page: number) => void;
+      onChange: (page: number, pageSize: number) => void;
     }
   | false {
   if (result == null || result.pageSize <= 0 || result.totalCount <= result.pageSize) {
@@ -64,8 +64,8 @@ export function sectionTablePagination(
     pageSize: result.pageSize,
     total: result.totalCount,
     showSizeChanger: false,
-    onChange: (page) => {
-      onPage(page);
+    onChange: (page, pageSize) => {
+      onPage(page, pageSize);
     },
   };
 }

@@ -113,7 +113,7 @@ function pageSearch(q: string | null): Prisma.Sql {
 async function selectModulePages(
   db: HrmsDb,
   tenantId: number,
-  filters: { page?: number | null; q?: string | null; name?: string | null } | null,
+  filters: { page?: number | null; pageSize?: number | null; q?: string | null; name?: string | null } | null,
 ): Promise<{ rows: PageRow[]; totalCount: number; page: number; pageSize: number }> {
   const search = pageSearch(searchText(filters?.q));
   const name = filters?.name?.trim() ? filters.name.trim() : null;
@@ -132,7 +132,7 @@ async function selectModulePages(
       pageSize: rows.length || LIST_PAGE_SIZE,
     };
   }
-  const paging = pageQuery(filters.page);
+  const paging = pageQuery(filters.page, filters.pageSize);
   const rows = await db.$queryRaw<PageRow[]>`
     SELECT
         Pages.ModulePageId,
@@ -232,7 +232,7 @@ async function loadWorkflowMappings(db: HrmsDb, tenantId: number): Promise<Mappi
 export async function listWorkflowPages(
   db: HrmsDb,
   employerId: number,
-  filters: { page?: number | null; q?: string | null; name?: string | null } = {},
+  filters: { page?: number | null; pageSize?: number | null; q?: string | null; name?: string | null } = {},
 ): Promise<WorkflowPageCatalogPage> {
   const tenantId = parseEmployerId(employerId);
   const [listed, workflows] = await Promise.all([

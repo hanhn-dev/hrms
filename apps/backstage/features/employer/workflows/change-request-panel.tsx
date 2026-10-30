@@ -68,11 +68,15 @@ export function ChangeRequestPanel({
   queryScript: string;
 }): React.JSX.Element {
   const router = useRouter();
-  function openList(next: { page?: number; q?: string | null; status?: StatusFilter }): void {
+  function openList(next: { page?: number; pageSize?: number; q?: string | null; status?: StatusFilter }): void {
     router.push(
       listHref(
         `/employers/${employerId}/workflows`,
-        { page: next.page ?? 1, q: next.q === undefined ? search || null : next.q },
+        {
+          page: next.page ?? 1,
+          pageSize: next.pageSize ?? pageSize,
+          q: next.q === undefined ? search || null : next.q,
+        },
         {
           tab: "requests",
           status: (next.status ?? status) === "pending" ? null : (next.status ?? status),
@@ -188,8 +192,8 @@ export function ChangeRequestPanel({
             total,
             showSizeChanger: false,
             showTotal: (count) => `${count} requests`,
-            onChange: (next) => {
-              openList({ page: next });
+            onChange: (next, nextSize) => {
+              openList({ page: next, pageSize: nextSize });
             },
           }}
           rowClassName={(row) =>

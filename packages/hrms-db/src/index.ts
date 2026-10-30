@@ -5,11 +5,14 @@ export { asIso } from "./shared/iso";
 export {
   likeContains,
   LIST_PAGE_SIZE,
+  LIST_PAGE_SIZES,
   LOOKUP_LIMIT,
   pageOf,
   pageQuery,
+  pageSizeOf,
   searchText,
   totalCountOf,
+  type ListPageSize,
   type PageQuery,
   type PageResult,
 } from "./shared/page";

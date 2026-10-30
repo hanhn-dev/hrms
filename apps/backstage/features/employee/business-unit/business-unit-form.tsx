@@ -9,10 +9,12 @@ export function BusinessUnitSearchForm({
   employerId,
   employmentNumber,
   initialSearch,
+  pageSize,
 }: {
   employerId: number;
   employmentNumber: string;
   initialSearch: string;
+  pageSize: number;
 }): React.JSX.Element {
   const router = useRouter();
   return (
@@ -22,7 +24,7 @@ export function BusinessUnitSearchForm({
       initialValues={{ search: initialSearch }}
       onFinish={(values: { search: string }) => {
         const base = `/employers/${employerId}/employees/${encodeURIComponent(employmentNumber)}/business-unit`;
-        router.push(listHref(base, { page: 1, q: searchText(values.search) }));
+        router.push(listHref(base, { page: 1, pageSize, q: searchText(values.search) }));
       }}
     >
       <Form.Item className="!mb-0 flex-1" name="search">

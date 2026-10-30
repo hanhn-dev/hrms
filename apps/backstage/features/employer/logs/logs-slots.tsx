@@ -31,6 +31,7 @@ export async function LogsSlot({
     person: query.employee,
     text: query.text,
     page: query.page,
+    pageSize: query.pageSize,
     from: window.from,
     to: window.to,
     serverFrom: window.serverFrom,

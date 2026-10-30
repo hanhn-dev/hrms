@@ -74,10 +74,10 @@ export type WorkflowListPage = PageResult<WorkflowListItem>;
 export async function listWorkflows(
   db: HrmsDb,
   employerId: number,
-  filters: { page?: number | null; q?: string | null } = {},
+  filters: { page?: number | null; pageSize?: number | null; q?: string | null } = {},
 ): Promise<WorkflowListPage> {
   const tenantId = parseEmployerId(employerId);
-  const paging = pageQuery(filters.page);
+  const paging = pageQuery(filters.page, filters.pageSize);
   const q = searchText(filters.q);
   const pattern = q == null ? null : likeContains(q);
   const nameFilter =

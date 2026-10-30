@@ -4,6 +4,11 @@ import { Alert, Button, Table } from "antd";
 import { useEffect, useRef, useState } from "react";
 import type { GitBranchSummary, GitCommitSummary, GitFilePair } from "@hrms/azure-devops";
 import { mergeCommitPages } from "@/features/azure/git/activity-page";
+import {
+  isDatabaseRepository,
+  preferredDatabaseEnvironment,
+  preferredFileBranches,
+} from "@/features/azure/git/file-branch-defaults";
 import { FileDiff } from "@/features/azure/git/file-diff";
 import { GitPathSearch } from "@/features/azure/git/git-path-search";
 import { buildGitBlameUrl, buildGitCommitUrl } from "@/features/azure/git/git-links";
@@ -14,10 +19,29 @@ import {
   rethrowRedirect,
   shortCommit,
 } from "@/features/azure/git/git-text";
-import { loadGitCommits, loadGitFilePair } from "@/features/azure/git/queries";
+import { loadDatabaseModuleScript, loadGitCommits, loadGitFilePair } from "@/features/azure/git/queries";
 import { rememberRecentGitPath, type RecentGitPath } from "@/features/azure/git/recent-git-paths";
+import {
+  databaseScriptPair,
+  databaseScriptStatus,
+  readScriptObject,
+  type DatabaseModuleScript,
+} from "@/features/azure/git/script-object";
 import { formatDate } from "@/shared/format-date";
 import { SearchSelect, Text } from "@/shared/ui";
+
+type DatabaseTarget = {
+  schema: string;
+  name: string;
+  branch: string;
+  script: string | null;
+  truncated: boolean;
+};
+
+type DatabaseResult = {
+  environment: string;
+  script: DatabaseModuleScript;
+};
 
 export function CompareFilePanel({
   repositoryId,
@@ -27,6 +51,7 @@ export function CompareFilePanel({
   defaultBranch,
   branches,
   branchesLoading,
+  databaseEnvironments,
 }: {
   repositoryId: string;
   repositoryName: string;
@@ -35,6 +60,7 @@ export function CompareFilePanel({
   defaultBranch: string | null;
   branches: readonly GitBranchSummary[];
   branchesLoading: boolean;
+  databaseEnvironments: readonly string[];
 }): React.JSX.Element {
   const [leftBranch, setLeftBranch] = useState("");
   const [rightBranch, setRightBranch] = useState("");
@@ -56,22 +82,61 @@ export function CompareFilePanel({
   } | null>(null);
   const [appliedBranches, setAppliedBranches] = useState<readonly GitBranchSummary[] | null>(null);
   const [appliedDefaultBranch, setAppliedDefaultBranch] = useState<string | null | undefined>(undefined);
+  const [databaseEnvironment, setDatabaseEnvironment] = useState(() =>
+    preferredDatabaseEnvironment(databaseEnvironments),
+  );
+  const [databaseTarget, setDatabaseTarget] = useState<DatabaseTarget | null>(null);
+  const [databaseResult, setDatabaseResult] = useState<DatabaseResult | null>(null);
+  const [databaseNote, setDatabaseNote] = useState<string | null>(null);
+  const [databaseLoading, setDatabaseLoading] = useState(false);
+  const [databaseError, setDatabaseError] = useState<string | null>(null);
   const branchChoice = useRef({ left: leftBranch, right: rightBranch });
+  const showDatabase = isDatabaseRepository(repositoryName);
   if (branches.length > 0 && (branches !== appliedBranches || defaultBranch !== appliedDefaultBranch)) {
     setAppliedBranches(branches);
     setAppliedDefaultBranch(defaultBranch);
-    const preferred =
-      defaultBranch && branches.some((item) => item.name === defaultBranch)
-        ? defaultBranch
-        : (branches[0]?.name ?? "");
-    const other = branches.find((item) => item.name !== preferred)?.name ?? preferred;
-    setLeftBranch((current) => (current && branches.some((item) => item.name === current) ? current : preferred));
-    setRightBranch((current) => (current && branches.some((item) => item.name === current) ? current : other));
+    const choice = preferredFileBranches(repositoryName, branches, defaultBranch);
+    setLeftBranch((current) => (current && branches.some((item) => item.name === current) ? current : choice.left));
+    setRightBranch((current) => (current && branches.some((item) => item.name === current) ? current : choice.right));
   }
 
   useEffect(() => {
     branchChoice.current = { left: leftBranch, right: rightBranch };
   });
+
+  useEffect(() => {
+    if (!databaseTarget || databaseEnvironment.length === 0) {
+      return;
+    }
+    let cancelled = false;
+    setDatabaseLoading(true);
+    setDatabaseError(null);
+    loadDatabaseModuleScript({
+      environment: databaseEnvironment,
+      schema: databaseTarget.schema,
+      name: databaseTarget.name,
+    })
+      .then((script) => {
+        if (!cancelled) {
+          setDatabaseResult({ environment: databaseEnvironment, script });
+        }
+      })
+      .catch((loadError: unknown) => {
+        rethrowRedirect(loadError);
+        if (!cancelled) {
+          setDatabaseResult(null);
+          setDatabaseError(errorMessage(loadError));
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setDatabaseLoading(false);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [databaseTarget, databaseEnvironment]);
 
   function selectRecent(recent: RecentGitPath): void {
     setPath(recent.path);
@@ -99,6 +164,11 @@ export function CompareFilePanel({
     setPair(null);
     setCommits([]);
     setHistoryPage(null);
+    setDatabaseTarget(null);
+    setDatabaseResult(null);
+    setDatabaseNote(null);
+    setDatabaseError(null);
+    setDatabaseLoading(false);
     try {
       const [filePair, onRight, onLeft] = await Promise.all([
         loadGitFilePair({
@@ -126,6 +196,44 @@ export function CompareFilePanel({
       setPair(filePair);
       setComparedPath(filePath);
       setPath(filePath);
+      if (showDatabase) {
+        if (databaseEnvironments.length === 0) {
+          setDatabaseNote("No database environment is configured.");
+        } else if (filePair.target.missing || filePair.target.content === null) {
+          const object = filePair.target.missing ? null : readScriptObject("", filePath);
+          setDatabaseNote(
+            filePair.target.missing
+              ? `This file is not on ${right.name}, so there is no script to compare with the database.`
+              : (filePair.target.omission ?? "The branch script could not be read."),
+          );
+          if (object) {
+            setDatabaseLoading(true);
+            setDatabaseTarget({
+              schema: object.schema,
+              name: object.name,
+              branch: right.name,
+              script: null,
+              truncated: false,
+            });
+          }
+        } else {
+          const object = readScriptObject(filePair.target.content, filePath);
+          if (!object) {
+            setDatabaseNote(
+              "This file is not a procedure, view, or function, so there is no database script to compare.",
+            );
+          } else {
+            setDatabaseLoading(true);
+            setDatabaseTarget({
+              schema: object.schema,
+              name: object.name,
+              branch: right.name,
+              script: filePair.target.content,
+              truncated: filePair.target.truncated,
+            });
+          }
+        }
+      }
       rememberRecentGitPath(repositoryId, {
         path: filePath,
         leftBranch: left.name,
@@ -201,6 +309,19 @@ export function CompareFilePanel({
   }
 
   const ready = leftBranch.length > 0 && rightBranch.length > 0 && path.trim().length > 0;
+  const liveDefinition =
+    !databaseLoading && databaseResult?.environment === databaseEnvironment
+      ? databaseResult.script.definition
+      : null;
+  const databaseStatus =
+    databaseTarget?.script && liveDefinition
+      ? databaseScriptStatus(databaseTarget.branch, databaseEnvironment, databaseTarget.script, liveDefinition)
+      : null;
+  const databaseUnavailable =
+    !databaseLoading && databaseResult?.environment === databaseEnvironment && !liveDefinition
+      ? (databaseResult.script.unavailableReason ??
+        `Unable to read ${databaseTarget?.schema ?? "dbo"}.${databaseTarget?.name ?? "object"}.`)
+      : null;
 
   return (
     <div className="flex flex-col gap-3">
@@ -227,6 +348,24 @@ export function CompareFilePanel({
             onChange={(value) => setRightBranch(String(value))}
           />
         </label>
+        {showDatabase && databaseEnvironments.length > 0 ? (
+          <label className="block min-w-40">
+            <span className="mb-1 block text-sm text-slate-600 dark:text-slate-300">Database</span>
+            <SearchSelect
+              aria-label="Database"
+              className="w-full"
+              options={databaseEnvironments.map((name) => ({ value: name, label: name }))}
+              value={databaseEnvironment || undefined}
+              onChange={(value) => {
+                setDatabaseEnvironment(String(value));
+                if (databaseTarget) {
+                  setDatabaseLoading(true);
+                  setDatabaseError(null);
+                }
+              }}
+            />
+          </label>
+        ) : null}
         <label className="block min-w-64 flex-1">
           <span className="mb-1 block text-sm text-slate-600 dark:text-slate-300">Path</span>
           <GitPathSearch
@@ -291,6 +430,37 @@ export function CompareFilePanel({
       {pair ? (
         <div className="flex flex-col">
           <FileDiff leftLabel={leftBranch} pair={pair} rightLabel={rightBranch} />
+        </div>
+      ) : null}
+      {pair && showDatabase && (databaseNote || databaseTarget || databaseError) ? (
+        <div className="flex flex-col gap-2">
+          <Text>Database script</Text>
+          {databaseNote ? <Alert title={databaseNote} type="info" /> : null}
+          {databaseError ? <Alert title={databaseError} type="error" /> : null}
+          {databaseTarget ? (
+            <>
+              <Text>
+                {databaseTarget.schema}.{databaseTarget.name}
+              </Text>
+              {databaseLoading ? <Alert title={`Reading the ${databaseEnvironment} database.`} type="info" /> : null}
+              {databaseStatus && liveDefinition && databaseTarget.script ? (
+                <>
+                  <Alert title={databaseStatus.message} type={databaseStatus.match ? "success" : "warning"} />
+                  <FileDiff
+                    leftLabel={`${databaseTarget.branch} script`}
+                    pair={databaseScriptPair(databaseTarget.script, liveDefinition, databaseTarget.truncated)}
+                    rightLabel={`${databaseEnvironment} database`}
+                  />
+                </>
+              ) : null}
+              {!databaseLoading && liveDefinition && databaseTarget.script === null ? (
+                <pre className="m-0 max-h-[32rem] overflow-auto rounded border border-slate-200 px-2 py-1 font-mono text-xs whitespace-pre-wrap break-all dark:border-slate-700">
+                  {liveDefinition}
+                </pre>
+              ) : null}
+              {databaseUnavailable ? <Alert title={databaseUnavailable} type="warning" /> : null}
+            </>
+          ) : null}
         </div>
       ) : null}
       {pair ? (

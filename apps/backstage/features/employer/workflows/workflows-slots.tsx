@@ -1,4 +1,4 @@
-import { captureQueryScript } from "@hrms/db";
+import { captureQueryScript, LIST_PAGE_SIZE } from "@hrms/db";
 import { WorkflowsPanel } from "@/features/employer/workflows/workflows-panel";
 import type { WorkflowsTab } from "@/features/employer/workflows/workflows-source";
 import {
@@ -44,7 +44,7 @@ const EMPTY_REQUESTS = {
   rows: [],
   totalCount: 0,
   page: 1,
-  pageSize: 50,
+  pageSize: LIST_PAGE_SIZE,
   statusCounts: { all: 0, pending: 0, approved: 0, rejected: 0 },
   workflowCounts: [],
 };
@@ -56,6 +56,7 @@ export async function WorkflowsTabSlot({
   groupId,
   requestId,
   listPage,
+  listPageSize,
   listSearch,
   requestStatus,
   writesEnabled,
@@ -66,6 +67,7 @@ export async function WorkflowsTabSlot({
   groupId: number | null;
   requestId: number | null;
   listPage: number;
+  listPageSize: number;
   listSearch: string | null;
   requestStatus: "pending" | "approved" | "rejected" | "all";
   writesEnabled: boolean;
@@ -73,18 +75,19 @@ export async function WorkflowsTabSlot({
   const workflows =
     tab === "workflows"
       ? await captureQueryScript(() =>
-          listWorkflows(employerId, { page: listPage, q: listSearch }),
+          listWorkflows(employerId, { page: listPage, pageSize: listPageSize, q: listSearch }),
         )
       : {
-          result: { rows: [], totalCount: 0, page: 1, pageSize: 50 },
+          result: { rows: [], totalCount: 0, page: 1, pageSize: LIST_PAGE_SIZE },
           script: "",
         };
-  const emptyPage = { rows: [], totalCount: 0, page: 1, pageSize: 50 };
+  const emptyPage = { rows: [], totalCount: 0, page: 1, pageSize: LIST_PAGE_SIZE };
   let pages =
     tab === "pages"
       ? await captureQueryScript(() =>
           listWorkflowPages(employerId, {
             page: pageName ? 1 : listPage,
+            pageSize: listPageSize,
             q: pageName ? null : listSearch,
             name: pageName,
           }),
@@ -92,7 +95,7 @@ export async function WorkflowsTabSlot({
       : { result: emptyPage, script: "" };
   if (tab === "pages" && pageName && pages.result.rows.length === 0) {
     pages = await captureQueryScript(() =>
-      listWorkflowPages(employerId, { page: listPage, q: listSearch }),
+      listWorkflowPages(employerId, { page: listPage, pageSize: listPageSize, q: listSearch }),
     );
   }
   let groups =
@@ -100,6 +103,7 @@ export async function WorkflowsTabSlot({
       ? await captureQueryScript(() =>
           listWorkflowGroups(employerId, {
             page: groupId == null ? listPage : 1,
+            pageSize: listPageSize,
             q: groupId == null ? listSearch : null,
             roleId: groupId,
           }),
@@ -107,7 +111,7 @@ export async function WorkflowsTabSlot({
       : { result: emptyPage, script: "" };
   if (tab === "groups" && groupId != null && groups.result.rows.length === 0) {
     groups = await captureQueryScript(() =>
-      listWorkflowGroups(employerId, { page: listPage, q: listSearch }),
+      listWorkflowGroups(employerId, { page: listPage, pageSize: listPageSize, q: listSearch }),
     );
   }
   const changeRequests =
@@ -115,6 +119,7 @@ export async function WorkflowsTabSlot({
       ? await captureQueryScript(() =>
           listChangeRequests(employerId, {
             page: listPage,
+            pageSize: listPageSize,
             q: listSearch,
             status: requestStatus,
           }),
@@ -126,6 +131,7 @@ export async function WorkflowsTabSlot({
       changeRequests={changeRequests.result}
       changeRequestsScript={changeRequests.script}
       listSearch={listSearch}
+      listPageSize={listPageSize}
       requestStatus={requestStatus}
       employerId={employerId}
       groupId={groupId}

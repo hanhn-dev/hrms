@@ -6,10 +6,12 @@ import { MissingObjectAlert } from "@/shared/ui";
 export async function EmployeeSearchResultsSlot({
   employerId,
   page,
+  pageSize,
   search,
 }: {
   employerId: number;
   page: number;
+  pageSize: number;
   search: string;
 }): Promise<React.JSX.Element> {
   let results: Awaited<ReturnType<typeof searchEmployees>>["hits"] = [];
@@ -17,17 +19,17 @@ export async function EmployeeSearchResultsSlot({
   let blockedObject: string | null = null;
   let queryScript = "";
   let resultPage = page;
-  let pageSize = 50;
+  let resolvedPageSize = pageSize;
   let total = 0;
   try {
     const found = await captureQueryScript(() =>
-      searchEmployees(employerId, search, page),
+      searchEmployees(employerId, search, page, pageSize),
     );
     results = found.result.hits;
     unavailable = found.result.unavailable;
     queryScript = found.script;
     resultPage = found.result.page;
-    pageSize = found.result.pageSize;
+    resolvedPageSize = found.result.pageSize;
     total = found.result.totalCount;
   } catch (error) {
     blockedObject = missingObjectName(error);
@@ -49,7 +51,7 @@ export async function EmployeeSearchResultsSlot({
         <EmployeeSearchTable
           employerId={employerId}
           page={resultPage}
-          pageSize={pageSize}
+          pageSize={resolvedPageSize}
           queryScript={queryScript}
           results={results}
           search={search}

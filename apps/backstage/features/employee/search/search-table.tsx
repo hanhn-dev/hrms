@@ -170,7 +170,7 @@ export function EmployeeSearchTable({
       scroll={{ x: "max-content" }}
       searchQuery={search}
       onSearch={(next) => {
-        router.push(listHref(path, { page: 1, q: next || null }));
+        router.push(listHref(path, { page: 1, pageSize, q: next || null }));
       }}
       pagination={{
         current: page,
@@ -178,8 +178,8 @@ export function EmployeeSearchTable({
         total,
         showSizeChanger: false,
         showTotal: (count) => `${count} employees`,
-        onChange: (next) => {
-          router.push(listHref(path, { page: next, q: search || null }));
+        onChange: (next, nextSize) => {
+          router.push(listHref(path, { page: next, pageSize: nextSize, q: search || null }));
         },
       }}
       locale={{

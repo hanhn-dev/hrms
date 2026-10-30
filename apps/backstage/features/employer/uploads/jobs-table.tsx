@@ -65,23 +65,24 @@ export function JobsTable({
         scroll={{ x: "max-content" }}
         rowClassName={(row) => (row.expired ? "upload-row-expired" : "")}
         searchQuery={search}
-        onSearch={(next) => {
-          router.push(
-            uploadsHref(employerId, {
-              type,
-              status,
-              uploadId,
-              q: next || null,
-            }),
-          );
-        }}
+          onSearch={(next) => {
+            router.push(
+              uploadsHref(employerId, {
+                type,
+                status,
+                uploadId,
+                q: next || null,
+                pageSize,
+              }),
+            );
+          }}
         pagination={{
           current: page,
           pageSize,
           total,
           showSizeChanger: false,
           showTotal: (count) => `${count} uploads`,
-          onChange: (next) => {
+          onChange: (next, nextSize) => {
             router.push(
               uploadsHref(employerId, {
                 type,
@@ -89,6 +90,7 @@ export function JobsTable({
                 uploadId,
                 q: search || null,
                 page: next,
+                pageSize: nextSize,
               }),
             );
           },

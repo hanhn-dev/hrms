@@ -32,16 +32,18 @@ export async function PickerHealthSlot({
 
 export async function PickerEmployersSlot({
   page,
+  pageSize,
   search,
 }: {
   page: number;
+  pageSize: number;
   search: string;
 }): Promise<React.JSX.Element> {
   let employers: Awaited<ReturnType<typeof listEmployers>> | null = null;
   let queryScript = "";
   let description: string | null = null;
   try {
-    const loaded = await captureQueryScript(() => listEmployers({ page, q: search }));
+    const loaded = await captureQueryScript(() => listEmployers({ page, pageSize, q: search }));
     employers = loaded.result;
     queryScript = loaded.script;
   } catch (error) {

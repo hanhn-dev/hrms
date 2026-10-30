@@ -86,6 +86,7 @@ export type UploadCatalog = {
 
 export type UploadCatalogListFilters = {
   page?: number | null;
+  pageSize?: number | null;
   q?: string | null;
   sectionId?: number | null;
   /** Upload header compare: every field in these sections, not one page. */
@@ -97,6 +98,7 @@ export type UploadListFilters = {
   status?: string | null;
   uploadId?: number | null;
   page?: number | null;
+  pageSize?: number | null;
   q?: string | null;
 };
 

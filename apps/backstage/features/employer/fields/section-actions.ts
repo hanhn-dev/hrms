@@ -34,6 +34,7 @@ const employerSummarySchema = summarySchema.extend({
 const pageSchema = summarySchema.extend({
   section: z.string().trim().min(1).max(200),
   page: z.number().int().positive().max(10_000).nullable().optional(),
+  pageSize: z.number().int().positive().max(10_000).nullable().optional(),
   focusField: z.string().max(255).nullable().optional(),
 });
 
@@ -50,6 +51,7 @@ const publicSummarySchema = z.object({
 const publicPageSchema = publicSummarySchema.extend({
   section: z.string().trim().min(1).max(200),
   page: z.number().int().positive().max(10_000).nullable().optional(),
+  pageSize: z.number().int().positive().max(10_000).nullable().optional(),
   focusField: z.string().max(255).nullable().optional(),
 });
 
@@ -117,6 +119,7 @@ export async function loadEmployerSectionFields(input: {
   q?: string | null;
   entities: string[];
   page?: number | null;
+  pageSize?: number | null;
   focusField?: string | null;
 }): Promise<CatalogSectionPage> {
   await requireFeature("employers");
@@ -131,10 +134,11 @@ export async function loadEmployerSectionFields(input: {
     parsed.page ??
     (await employerFieldPageForFocus(db, parsed.employerId, {
       ...filters,
+      pageSize: parsed.pageSize,
       field: parsed.focusField,
     }));
   const captured = await captureQueryScript(() =>
-    listEmployerFields(db, parsed.employerId, { ...filters, page }),
+    listEmployerFields(db, parsed.employerId, { ...filters, page, pageSize: parsed.pageSize }),
   );
   return { ...captured.result, script: captured.script };
 }
@@ -144,6 +148,7 @@ export async function loadTemplateSectionFields(input: {
   q?: string | null;
   entities: string[];
   page?: number | null;
+  pageSize?: number | null;
   focusField?: string | null;
 }): Promise<CatalogSectionPage> {
   await requireFeature("employers");
@@ -156,9 +161,13 @@ export async function loadTemplateSectionFields(input: {
   };
   const page =
     parsed.page ??
-    (await templateFieldPageForFocus(db, { ...filters, field: parsed.focusField }));
+    (await templateFieldPageForFocus(db, {
+      ...filters,
+      pageSize: parsed.pageSize,
+      field: parsed.focusField,
+    }));
   const captured = await captureQueryScript(() =>
-    listFieldTemplate(db, { ...filters, page }),
+    listFieldTemplate(db, { ...filters, page, pageSize: parsed.pageSize }),
   );
   return { ...captured.result, script: captured.script };
 }
@@ -168,6 +177,7 @@ export async function loadPublicSectionFields(input: {
   section: string;
   q?: string | null;
   page?: number | null;
+  pageSize?: number | null;
   focusField?: string | null;
 }): Promise<PublicSectionPage> {
   await requireFeature("employers");
@@ -178,10 +188,11 @@ export async function loadPublicSectionFields(input: {
     parsed.page ??
     (await publicFieldPageForFocus(db, parsed.employerId, {
       ...filters,
+      pageSize: parsed.pageSize,
       field: parsed.focusField,
     }));
   const captured = await captureQueryScript(() =>
-    listPublicEmployerFields(db, parsed.employerId, { ...filters, page }),
+    listPublicEmployerFields(db, parsed.employerId, { ...filters, page, pageSize: parsed.pageSize }),
   );
   return { ...captured.result, script: captured.script };
 }

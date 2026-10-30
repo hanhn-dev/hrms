@@ -115,7 +115,7 @@ function pager(
   page: number,
   pageSize: number,
   total: number,
-  onChange: (page: number) => void,
+  onChange: (page: number, pageSize: number) => void,
 ): TablePaginationConfig {
   return {
     current: page,
@@ -328,8 +328,8 @@ export function LogsPanel({
                     </div>
                   ),
                 }}
-                pagination={pager(activity.page, activity.pageSize, activity.totalCount, (page) => {
-                  push({ page });
+                pagination={pager(activity.page, activity.pageSize, activity.totalCount, (page, pageSize) => {
+                  push({ page, pageSize });
                 })}
                 queryScript={activityScript}
                 rowKey="logId"
@@ -421,8 +421,8 @@ export function LogsPanel({
                   },
                 ]}
                 dataSource={pages.rows}
-                pagination={pager(pages.page, pages.pageSize, pages.totalCount, (page) => {
-                  push({ page });
+                pagination={pager(pages.page, pages.pageSize, pages.totalCount, (page, pageSize) => {
+                  push({ page, pageSize });
                 })}
                 queryScript={pagesScript}
                 rowKey="sessionId"
@@ -470,8 +470,8 @@ export function LogsPanel({
                     exceptions.page,
                     exceptions.pageSize,
                     exceptions.elmahTotal,
-                    (page) => {
-                      push({ page });
+                    (page, pageSize) => {
+                      push({ page, pageSize });
                     },
                   )}
                   queryScript={exceptionsScript}
@@ -513,8 +513,8 @@ export function LogsPanel({
                     exceptions.page,
                     exceptions.pageSize,
                     exceptions.handledTotal,
-                    (page) => {
-                      push({ page });
+                    (page, pageSize) => {
+                      push({ page, pageSize });
                     },
                   )}
                   queryScript={exceptionsScript}
@@ -562,8 +562,8 @@ export function LogsPanel({
                     },
                   ]}
                   dataSource={login.rows}
-                  pagination={pager(login.page, login.pageSize, login.totalCount, (page) => {
-                    push({ page });
+                  pagination={pager(login.page, login.pageSize, login.totalCount, (page, pageSize) => {
+                    push({ page, pageSize });
                   })}
                   queryScript={loginScript}
                   rowKey="id"
@@ -669,8 +669,8 @@ export function LogsPanel({
                   myDetails.page,
                   myDetails.pageSize,
                   myDetails.totalCount,
-                  (page) => {
-                    push({ page });
+                  (page, pageSize) => {
+                    push({ page, pageSize });
                   },
                 )}
                 queryScript={myDetailsScript}
@@ -785,8 +785,8 @@ export function LogsPanel({
                     sqlErrors.page,
                     sqlErrors.pageSize,
                     sqlErrors.totalCount,
-                    (page) => {
-                      push({ page });
+                    (page, pageSize) => {
+                      push({ page, pageSize });
                     },
                   )}
                   queryScript={sqlErrorsScript}

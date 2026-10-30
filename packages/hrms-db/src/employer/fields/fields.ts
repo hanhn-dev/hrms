@@ -47,6 +47,7 @@ type FieldQueryRow = {
 
 export type FieldListFilters = {
   page?: number | null;
+  pageSize?: number | null;
   q?: string | null;
   section?: string | null;
   /** Omit to skip the entity predicate. An empty list matches no rows. */
@@ -180,10 +181,10 @@ export async function employerFieldPageForFocus(
 ): Promise<number> {
   const field = filters.field?.trim() ?? "";
   if (field === "") {
-    return pageForFieldRow(null);
+    return pageForFieldRow(null, filters.pageSize ?? undefined);
   }
   const rowNumber = await findEmployerFieldRowNumber(db, employerId, { ...filters, field });
-  return pageForFieldRow(rowNumber);
+  return pageForFieldRow(rowNumber, filters.pageSize ?? undefined);
 }
 
 export async function templateFieldPageForFocus(
@@ -192,10 +193,10 @@ export async function templateFieldPageForFocus(
 ): Promise<number> {
   const field = filters.field?.trim() ?? "";
   if (field === "") {
-    return pageForFieldRow(null);
+    return pageForFieldRow(null, filters.pageSize ?? undefined);
   }
   const rowNumber = await findTemplateFieldRowNumber(db, { ...filters, field });
-  return pageForFieldRow(rowNumber);
+  return pageForFieldRow(rowNumber, filters.pageSize ?? undefined);
 }
 
 async function queryFieldPage(
@@ -206,7 +207,7 @@ async function queryFieldPage(
   filters: FieldListFilters,
   paged: boolean,
 ): Promise<PageResult<FieldCatalogRow>> {
-  const paging = pageQuery(filters.page);
+  const paging = pageQuery(filters.page, filters.pageSize);
   const column = Prisma.raw(alias);
   const table = Prisma.raw(tableName);
   const textFilter = fieldTextFilter(column, filters.q);

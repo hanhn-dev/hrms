@@ -66,10 +66,10 @@ function textFilter(q: string | null, sql: Prisma.Sql): Prisma.Sql {
 export async function listRoles(
   db: HrmsDb,
   employerId: number,
-  filters: { page?: number | null; q?: string | null } = {},
+  filters: { page?: number | null; pageSize?: number | null; q?: string | null } = {},
 ): Promise<RoleListPage> {
   const tenantId = parseEmployerId(employerId);
-  const paging = pageQuery(filters.page);
+  const paging = pageQuery(filters.page, filters.pageSize);
   const q = searchText(filters.q);
   const pattern = q == null ? null : likeContains(q);
   const nameFilter = textFilter(
@@ -157,10 +157,10 @@ export async function listRolePageGrants(
   db: HrmsDb,
   employerId: number,
   roleId: number | null,
-  filters: { page?: number | null; q?: string | null } = {},
+  filters: { page?: number | null; pageSize?: number | null; q?: string | null } = {},
 ): Promise<RoleGrantPage> {
   const tenantId = parseEmployerId(employerId);
-  const paging = pageQuery(filters.page);
+  const paging = pageQuery(filters.page, filters.pageSize);
   if (!roleId) {
     return { rows: [], totalCount: 0, page: paging.page, pageSize: paging.pageSize };
   }

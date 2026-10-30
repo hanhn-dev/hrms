@@ -8,7 +8,8 @@ export async function searchEmployees(
   employerId: number,
   search: string,
   page?: number | null,
+  pageSize?: number | null,
 ) {
   await requireFeature("employers");
-  return searchEmployeesFromDb(await getHrmsDb(), employerId, search, page);
+  return searchEmployeesFromDb(await getHrmsDb(), employerId, search, page, pageSize);
 }

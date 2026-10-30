@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useEffectEvent, useState, useTransition } from "react";
+import { useEffect, useEffectEvent, useRef, useState, useTransition } from "react";
 
 import { CopyOutlined, ReloadOutlined, SearchOutlined } from "@ant-design/icons";
-import { App, Button, Input, Table, Tooltip } from "antd";
+import { LIST_PAGE_SIZE } from "@hrms/db/page";
+import { App, Button, Input, Pagination, Select, Table, Tooltip, type InputRef } from "antd";
 import type { TableProps } from "antd";
 import type { ColumnGroupType, ColumnsType, ColumnType } from "antd/es/table";
 import type { TablePaginationConfig } from "antd/es/table/interface";
@@ -21,7 +22,8 @@ import {
 import { runTableRefresh } from "@/shared/ui/data-table-refresh";
 import { TableCompareButton } from "@/shared/ui/data-table-compare-button";
 import { TableSqlButton } from "@/shared/ui/data-table-sql-button";
-import { serverSearchChanged } from "@/shared/ui/data-table-search";
+import { pageRowCountLabel, pageSizeChoices } from "@/shared/ui/data-table-page";
+import { searchInputValue, serverSearchChanged } from "@/shared/ui/data-table-search";
 import { HighlightMatch, SearchQueryProvider } from "@/shared/ui/highlight-match";
 
 export type DataTableProps<RecordType extends object> = TableProps<RecordType> & {
@@ -185,6 +187,7 @@ function listRows<RecordType extends object>(
   if (
     dataSource != null &&
     typeof dataSource === "object" &&
+    "rows" in dataSource &&
     Array.isArray(dataSource.rows)
   ) {
     return dataSource.rows;
@@ -204,18 +207,28 @@ function isServerPaged(pagination: TableProps<unknown>["pagination"]): boolean {
 function clientPagination(
   pagination: TableProps<unknown>["pagination"],
   page: number,
+  clientTotal: number,
+  shownSize: number,
   onPage: (page: number, pageSize: number) => void,
-): TableProps<unknown>["pagination"] {
-  if (pagination === false || isServerPaged(pagination)) {
-    return pagination;
+): TablePaginationConfig | false {
+  if (pagination === false) {
+    return false;
   }
   const config: TablePaginationConfig = pagination ?? {};
+  const pageSize = isServerPaged(pagination)
+    ? (config.pageSize ?? LIST_PAGE_SIZE)
+    : shownSize;
   return {
     ...config,
-    current: page,
+    current: isServerPaged(pagination) ? config.current : page,
+    pageSize,
+    total: isServerPaged(pagination) ? config.total : clientTotal,
+    placement: ["none"],
+    showSizeChanger: false,
     onChange: (nextPage, nextSize) => {
-      onPage(nextPage, nextSize);
-      config.onChange?.(nextPage, nextSize);
+      const pageToUse = nextSize !== pageSize ? 1 : nextPage;
+      onPage(pageToUse, nextSize);
+      config.onChange?.(pageToUse, nextSize);
     },
   };
 }
@@ -279,14 +292,21 @@ const SEARCH_DEBOUNCE_MS = 200;
  * Only the debounced value is reported upward.
  */
 function TableSearchInput({
-  initialQuery,
+  appliedQuery,
   onFilterQueryChange,
 }: {
-  initialQuery: string;
+  appliedQuery: string;
   onFilterQueryChange: (query: string) => void;
 }): React.JSX.Element {
-  const [query, setQuery] = useState(initialQuery);
+  const [query, setQuery] = useState(appliedQuery);
+  const inputRef = useRef<InputRef>(null);
   const report = useEffectEvent(onFilterQueryChange);
+
+  useEffect(() => {
+    const input = inputRef.current?.input;
+    const focused = input != null && document.activeElement === input;
+    setQuery((typed) => searchInputValue(typed, appliedQuery, focused));
+  }, [appliedQuery]);
 
   useEffect(() => {
     const timeout = setTimeout(() => {
@@ -299,6 +319,7 @@ function TableSearchInput({
 
   return (
     <Input
+      ref={inputRef}
       allowClear
       aria-label="Search table"
       className="min-w-0 flex-1"
@@ -333,6 +354,7 @@ export function DataTable<RecordType extends object>({
   columns,
   dataSource,
   locale,
+  onChange,
   pagination,
   styles,
   ...tableProps
@@ -343,6 +365,22 @@ export function DataTable<RecordType extends object>({
   const [customPending, setCustomPending] = useState(false);
   const [filterQuery, setFilterQuery] = useState("");
   const [page, setPage] = useState(1);
+  const propPageSize =
+    pagination !== false && pagination != null && typeof pagination.pageSize === "number"
+      ? pagination.pageSize
+      : LIST_PAGE_SIZE;
+  const [shownSize, setShownSize] = useState(propPageSize);
+  const [trackedSize, setTrackedSize] = useState(propPageSize);
+  if (trackedSize !== propPageSize) {
+    setTrackedSize(propPageSize);
+    setShownSize(propPageSize);
+  }
+  const [filteredTotal, setFilteredTotal] = useState<number | null>(null);
+  const [trackedSource, setTrackedSource] = useState(dataSource);
+  if (trackedSource !== dataSource) {
+    setTrackedSource(dataSource);
+    setFilteredTotal(null);
+  }
   const serverPaged = isServerPaged(pagination);
   const serverSearch = onSearch != null;
   const appliedSearch = searchQuery;
@@ -361,6 +399,7 @@ export function DataTable<RecordType extends object>({
     }
     startSearchTransition(() => {
       setFilterQuery(next);
+      setFilteredTotal(null);
       if (!serverPaged) {
         setPage(1);
       }
@@ -416,6 +455,20 @@ export function DataTable<RecordType extends object>({
     locale?.emptyText != null || !searchActive
       ? locale
       : { ...locale, emptyText: "No rows match." };
+  const columnFilteredTotal = trackedSource === dataSource ? filteredTotal : null;
+  const clientTotal = columnFilteredTotal ?? visibleRows.length;
+  const resolvedPagination = clientPagination(
+    pagination,
+    page,
+    clientTotal,
+    shownSize,
+    (nextPage, nextSize) => {
+      setShownSize(nextSize);
+      if (!serverPaged) {
+        setPage(nextPage);
+      }
+    },
+  );
 
   const copyRows = Array.isArray(visibleRows) ? visibleRows : sourceRows;
   const baseColumns = copyColumns(columns, copyRows, columnFilter);
@@ -443,17 +496,44 @@ export function DataTable<RecordType extends object>({
       ? callerStyles.title
       : undefined;
 
+  function changePage(nextPage: number, nextSize: number): void {
+    const pageToUse = nextSize !== shownSize ? 1 : nextPage;
+    if (resolvedPagination !== false) {
+      resolvedPagination.onChange?.(pageToUse, nextSize);
+    }
+    onChange?.(
+      { current: pageToUse, pageSize: nextSize },
+      {},
+      {},
+      { action: "paginate", currentDataSource: [...visibleRows] },
+    );
+  }
+
   return (
     <SearchQueryProvider query={highlightQuery}>
+      <div className="flex items-center gap-2">
+        <TableSearchInput
+          appliedQuery={serverSearch ? appliedSearch : ""}
+          onFilterQueryChange={onFilterQueryChange}
+        />
+        {typeof title === "function" ? (
+          <div className="min-w-0 shrink-0">{title(visibleRows)}</div>
+        ) : null}
+        <div className="flex shrink-0 items-center gap-1">
+          <TableSqlButton script={queryScript} />
+          <TableCompareButton script={queryScript} />
+          <Tooltip title={reloadLabel}>
+            {skipRefresh ? <span>{reloadButton}</span> : reloadButton}
+          </Tooltip>
+        </div>
+      </div>
       <Table<RecordType>
         {...tableProps}
         columns={highlightedColumns}
         dataSource={visibleRows}
         loading={refreshing ? true : loading}
         locale={visibleLocale}
-        pagination={clientPagination(pagination, page, (nextPage) => {
-          setPage(nextPage);
-        })}
+        pagination={resolvedPagination}
         styles={{
           ...callerStyles,
           title: {
@@ -461,26 +541,70 @@ export function DataTable<RecordType extends object>({
             paddingInline: 0,
           },
         }}
-        title={(currentPageData) => (
-          <div className="flex items-center gap-2">
-            <TableSearchInput
-              key={serverSearch ? appliedSearch : "client"}
-              initialQuery={serverSearch ? appliedSearch : ""}
-              onFilterQueryChange={onFilterQueryChange}
-            />
-            {typeof title === "function" ? (
-              <div className="min-w-0 shrink-0">{title(currentPageData)}</div>
-            ) : null}
-            <div className="flex shrink-0 items-center gap-1">
-              <TableSqlButton script={queryScript} />
-              <TableCompareButton script={queryScript} />
-              <Tooltip title={reloadLabel}>
-                {skipRefresh ? <span>{reloadButton}</span> : reloadButton}
-              </Tooltip>
-            </div>
-          </div>
-        )}
+        title={
+          resolvedPagination === false
+            ? undefined
+            : (currentPageData) => (
+                <PageBar
+                  count={currentPageData.length}
+                  pagination={resolvedPagination}
+                  onChange={changePage}
+                />
+              )
+        }
+        onChange={(nextPagination, filters, sorter, extra) => {
+          if (!serverPaged && extra.action === "filter") {
+            setFilteredTotal(extra.currentDataSource.length);
+          }
+          onChange?.(nextPagination, filters, sorter, extra);
+        }}
       />
     </SearchQueryProvider>
+  );
+}
+
+function PageBar({
+  count,
+  pagination,
+  onChange,
+}: {
+  count: number;
+  pagination: TablePaginationConfig;
+  onChange: (page: number, pageSize: number) => void;
+}): React.JSX.Element {
+  const pageSize = pagination.pageSize ?? LIST_PAGE_SIZE;
+  const total = pagination.total ?? 0;
+  const maxPage = Math.max(1, Math.ceil(total / pageSize) || 1);
+  const current = Math.min(pagination.current ?? 1, maxPage);
+  const showPager = total > 0 && !(pagination.hideOnSinglePage === true && total <= pageSize);
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <div className="flex items-center gap-2">
+        <span>{pageRowCountLabel(count)}</span>
+        <Select
+          aria-label="Rows per page"
+          className="min-w-[7.5rem]"
+          options={pageSizeChoices(pageSize).map((size) => ({
+            label: `${size} / page`,
+            value: size,
+          }))}
+          size="small"
+          value={pageSize}
+          onChange={(next: number) => {
+            onChange(1, next);
+          }}
+        />
+      </div>
+      {showPager ? (
+        <Pagination
+          current={current}
+          pageSize={pageSize}
+          showSizeChanger={pagination.showSizeChanger ?? false}
+          showTotal={pagination.showTotal}
+          total={total}
+          onChange={onChange}
+        />
+      ) : null}
+    </div>
   );
 }

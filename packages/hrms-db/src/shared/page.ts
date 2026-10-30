@@ -1,5 +1,10 @@
-/** Rows returned by one list query. The table page size matches this. */
-export const LIST_PAGE_SIZE = 50;
+/** Rows returned by one list query when the reader has not chosen a size. */
+export const LIST_PAGE_SIZE = 25;
+
+/** Sizes the table offers. Anything else falls back to {@link LIST_PAGE_SIZE}. */
+export const LIST_PAGE_SIZES = [25, 50, 100, 200] as const;
+
+export type ListPageSize = (typeof LIST_PAGE_SIZES)[number];
 
 /** Employer switcher and other typeaheads. */
 export const LOOKUP_LIMIT = 20;
@@ -29,15 +34,27 @@ export function pageOf(value: number | null | undefined): number {
   return Math.min(value, LIST_PAGE_MAX);
 }
 
+export function pageSizeOf(value: number | null | undefined): ListPageSize {
+  if (
+    value != null &&
+    Number.isInteger(value) &&
+    (LIST_PAGE_SIZES as readonly number[]).includes(value)
+  ) {
+    return value as ListPageSize;
+  }
+  return LIST_PAGE_SIZE;
+}
+
 export function pageQuery(
   value: number | null | undefined,
-  pageSize: number = LIST_PAGE_SIZE,
+  pageSize: number | null | undefined = LIST_PAGE_SIZE,
 ): PageQuery {
   const page = pageOf(value);
+  const size = pageSizeOf(pageSize);
   return {
     page,
-    pageSize,
-    offset: (page - 1) * pageSize,
+    pageSize: size,
+    offset: (page - 1) * size,
   };
 }
 

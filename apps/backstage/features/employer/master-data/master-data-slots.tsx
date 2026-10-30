@@ -9,15 +9,17 @@ export async function MasterDataSlot({
   employerId,
   listKey,
   page,
+  pageSize,
   search,
 }: {
   employerId: number;
   listKey: string | null;
   page: number;
+  pageSize: number;
   search: string;
 }): Promise<React.JSX.Element> {
   const [loaded, writesEnabled] = await Promise.all([
-    captureQueryScript(() => loadMasterData(employerId, listKey, { page, q: search })),
+    captureQueryScript(() => loadMasterData(employerId, listKey, { page, pageSize, q: search })),
     getSelectedEnvironment().then((environment) => areWritesEnabled(environment)),
   ]);
 

@@ -2,6 +2,7 @@ import { listHref } from "@/shared/list-query";
 
 export type RolesQuery = {
   page?: number;
+  pageSize?: number;
   q?: string | null;
   roleId?: number | null;
   grantPage?: number;
@@ -11,7 +12,7 @@ export type RolesQuery = {
 export function rolesListHref(employerId: number, query: RolesQuery): string {
   return listHref(
     `/employers/${employerId}/roles`,
-    { page: query.page, q: query.q },
+    { page: query.page, pageSize: query.pageSize, q: query.q },
     {
       roleId: query.roleId,
       gpage: query.grantPage != null && query.grantPage > 1 ? query.grantPage : null,
@@ -23,7 +24,7 @@ export function rolesListHref(employerId: number, query: RolesQuery): string {
 export function roleGrantsHref(employerId: number, query: RolesQuery): string {
   return listHref(
     `/employers/${employerId}/roles`,
-    { page: query.grantPage ?? 1, q: null },
+    { page: query.grantPage ?? 1, pageSize: query.pageSize, q: null },
     {
       roleId: query.roleId,
       page: query.page != null && query.page > 1 ? query.page : null,

@@ -408,6 +408,7 @@ function CatalogSectionTable({
               q: listSearch,
               entities,
               page: request.page,
+              pageSize: request.pageSize,
               focusField: request.focusField,
             })
           : loadTemplateSectionFields({
@@ -415,6 +416,7 @@ function CatalogSectionTable({
               q: listSearch,
               entities,
               page: request.page,
+              pageSize: request.pageSize,
               focusField: request.focusField,
             })
       }
