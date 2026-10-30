@@ -14,6 +14,7 @@ import {
   HistoryOutlined,
   IdcardOutlined,
   MenuFoldOutlined,
+  MenuOutlined,
   MenuUnfoldOutlined,
   ProfileOutlined,
   SettingOutlined,
@@ -57,6 +58,9 @@ function moduleTitle(
   }
   if (pathname.startsWith(`${base}/roles`)) {
     return "Roles";
+  }
+  if (pathname.startsWith(`${base}/menu`)) {
+    return "Menu";
   }
   if (pathname.startsWith(`${base}/fields`)) {
     return "Fields";
@@ -155,6 +159,8 @@ export function AppShell({
     ? "logs"
     : pathname.startsWith(`${base}/inspector`)
     ? "inspector"
+    : pathname.startsWith(`${base}/menu`)
+      ? "menu"
     : pathname.startsWith(`${base}/roles`)
       ? "roles"
       : pathname.startsWith(`${base}/fields`)
@@ -266,6 +272,12 @@ export function AppShell({
                 icon: <TeamOutlined />,
                 title: "Roles",
                 label: <Link href={`${base}/roles`}>Roles</Link>,
+              },
+              {
+                key: "menu",
+                icon: <MenuOutlined />,
+                title: "Menu",
+                label: <Link href={`${base}/menu`}>Menu</Link>,
               },
               {
                 key: "fields",

@@ -20,6 +20,10 @@
       "types": "./src/employee/access/tree.ts",
       "default": "./src/employee/access/tree.ts"
     },
+    "./menu-tree": {
+      "types": "./src/employer/menu/tree.ts",
+      "default": "./src/employer/menu/tree.ts"
+    },
     "./ids": {
       "types": "./src/shared/ids.ts",
       "default": "./src/shared/ids.ts"

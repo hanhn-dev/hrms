@@ -375,6 +375,29 @@ export {
 } from "./employer/roles";
 
 export {
+  copyTemplateToEmployers,
+  getEmployerMenu,
+  getMenuDiagnosis,
+  listCopyTargets,
+  listTemplateMenus,
+  parseMenuEmployerId,
+  previewTemplateCopy,
+  rebuildMenuXml,
+  restoreMenuSnapshot,
+  saveEmployerMenu,
+  type CopyEmployerPreview,
+  type CopyTargetRow,
+  type CopyTemplateResult,
+  type EmployerMenu,
+  type MenuDiagnosis,
+  type MenuHistorySnapshot,
+  type MenuIdRef,
+  type RestoreMenuResult,
+  type SaveEmployerMenuResult,
+  type TemplateMenuRow,
+} from "./employer/menu";
+
+export {
   EXPIRED_AFTER_DAYS,
   IMAGE_SECTION_ID,
   IMAGE_SECTION_NAME,
