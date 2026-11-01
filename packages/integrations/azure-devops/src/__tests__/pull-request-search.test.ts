@@ -40,6 +40,7 @@ function criteria(overrides: Partial<PullRequestSearchCriteria> = {}): PullReque
 function candidate(overrides: Partial<PullRequestCandidate> & { pullRequestId: number }): PullRequestCandidate {
   return {
     repositoryId: 'repo',
+    repositoryName: null,
     title: 'Title',
     author: 'Alice',
     authorId: 'alice-id',
@@ -185,7 +186,7 @@ describe('searchPullRequests', () => {
         title: 'Direct',
         createdBy: { displayName: 'Alice', id: 'alice-id' },
         status: PullRequestStatus.Completed,
-        repository: { id: 'repo-a', project: { id: 'project-guid' } },
+        repository: { id: 'repo-a', name: 'HRMS.Web', project: { id: 'project-guid' } },
         creationDate: '2026-10-05T00:00:00.000Z',
         closedDate: '2026-10-06T00:00:00.000Z',
         targetRefName: 'refs/heads/main',
@@ -206,6 +207,7 @@ describe('searchPullRequests', () => {
 
     expect(result.results).toHaveLength(1);
     expect(result.results[0]?.pullRequestId).toBe(9);
+    expect(result.results[0]?.repositoryName).toBe('HRMS.Web');
     expect(result.truncated).toBe(false);
     expect(mockGitApi.getPullRequestsByProject).toHaveBeenCalledTimes(1);
     expect(mockWitApi.queryByWiql).not.toHaveBeenCalled();

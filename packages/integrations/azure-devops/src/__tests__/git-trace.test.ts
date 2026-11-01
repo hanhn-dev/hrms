@@ -38,6 +38,7 @@ const mockGitApi = {
   getItem: vi.fn(),
   getItemContent: vi.fn(),
   getItems: vi.fn(),
+  getRepository: vi.fn(),
   getFileDiffs: vi.fn(),
   getPullRequestQuery: vi.fn(),
   getPullRequests: vi.fn(),
@@ -46,6 +47,7 @@ const mockGitApi = {
 const mockClient = {
   config: mockConfig,
   getGitApi: vi.fn().mockResolvedValue(mockGitApi),
+  postJson: vi.fn(),
 } as unknown as AzureDevOpsClient;
 
 const BASE_COMMIT = 'a'.repeat(40);
@@ -55,6 +57,7 @@ describe('git trace', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockClient.getGitApi = vi.fn().mockResolvedValue(mockGitApi);
+    mockClient.postJson = vi.fn();
     mockGitApi.getPullRequestQuery.mockResolvedValue({ results: [{}, {}] });
   });
 
@@ -122,34 +125,94 @@ describe('git trace', () => {
     expect(mockGitApi.getItems).not.toHaveBeenCalled();
   });
 
-  it('searches bounded one-level tree pages instead of recursively expanding root', async () => {
-    mockGitApi.getItems
-      .mockResolvedValueOnce([
-        { path: '/', isFolder: true },
-        { path: '/apps', isFolder: true },
-        { path: '/README.md', isFolder: false },
-      ])
-      .mockResolvedValueOnce([
-        { path: '/apps', isFolder: true },
-        { path: '/apps/backstage', isFolder: true },
-        { path: '/apps/index.ts', isFolder: false },
-      ])
-      .mockResolvedValueOnce([
-        { path: '/apps/backstage', isFolder: true },
-        { path: '/apps/backstage/page.tsx', isFolder: false },
-      ]);
+  it('finds a deep file by name and collapses duplicate hits', async () => {
+    const validationHelper =
+      '/HRMS.CoreAPI/HRMS.Core.WebAPI.Node/Features/Employee/BulkProfileUpdate/Utils/ValidationHelper.js';
+    mockGitApi.getRepository.mockResolvedValue({ id: 'repo-a', name: 'TDG HRMS' });
+    mockClient.postJson = vi.fn().mockResolvedValue({
+      infoCode: 0,
+      results: [
+        { path: validationHelper },
+        { path: validationHelper },
+        { path: '/HRMS.CoreAPI/HRMS.Core.WebAPI.Node/Features/Employee/BulkProfileUpdate/Utils/ValidationEngine.js' },
+      ],
+    });
 
-    const paths = await searchGitPaths(mockClient, 'repo-a', 'Dev', 'page');
+    const paths = await searchGitPaths(mockClient, 'repo-a', 'refs/heads/Dev', 'ValidationHelper.js');
 
-    expect(paths).toEqual(['/README.md', '/apps/index.ts', '/apps/backstage/page.tsx']);
-    expect(mockGitApi.getItems).toHaveBeenCalledTimes(3);
-    expect(mockGitApi.getItems.mock.calls.every((call) => call[3] === VersionControlRecursionType.OneLevel)).toBe(true);
-    expect(mockGitApi.getItems.mock.calls.some((call) => call[3] === VersionControlRecursionType.Full)).toBe(false);
+    expect(paths).toEqual([validationHelper]);
+    expect(mockGitApi.getItems).not.toHaveBeenCalled();
+    expect(mockGitApi.getRepository).toHaveBeenCalledWith('repo-a', 'Sample Project');
+    expect(mockClient.postJson).toHaveBeenCalledWith(
+      'https://almsearch.dev.azure.com/example/Sample%20Project/_apis/search/codesearchresults?api-version=7.1',
+      {
+        searchText: 'file:"*ValidationHelper.js*"',
+        $skip: 0,
+        $top: 200,
+        filters: {
+          Project: ['Sample Project'],
+          Repository: ['TDG HRMS'],
+          Branch: ['Dev'],
+        },
+        includeFacets: false,
+        includeSnippet: false,
+      },
+    );
+  });
+
+  it('adds a path filter when the query includes a directory', async () => {
+    mockGitApi.getRepository.mockResolvedValue({ id: 'repo-a', name: 'TDG HRMS' });
+    mockClient.postJson = vi.fn().mockResolvedValue({ results: [] });
+
+    await searchGitPaths(mockClient, 'repo-a', 'Dev', 'Utils/ValidationHelper.js');
+
+    expect(mockClient.postJson).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        searchText: 'file:"*ValidationHelper.js*" path:**/Utils/**',
+      }),
+    );
+  });
+
+  it('uses the visualstudio.com code search host', async () => {
+    const visualStudioClient = {
+      config: { ...mockConfig, orgUrl: 'https://contoso.visualstudio.com' },
+      getGitApi: vi.fn().mockResolvedValue(mockGitApi),
+      postJson: vi.fn().mockResolvedValue({ results: [] }),
+    } as unknown as AzureDevOpsClient;
+    mockGitApi.getRepository.mockResolvedValue({ id: 'repo-a', name: 'TDG HRMS' });
+
+    await searchGitPaths(visualStudioClient, 'repo-a', 'Dev', 'ValidationHelper.js');
+
+    expect(visualStudioClient.postJson).toHaveBeenCalledWith(
+      'https://contoso.almsearch.visualstudio.com/Sample%20Project/_apis/search/codesearchresults?api-version=7.1',
+      expect.any(Object),
+    );
   });
 
   it('does not call Azure for a blank path search', async () => {
     await expect(searchGitPaths(mockClient, 'repo-a', 'Dev', '  ')).resolves.toEqual([]);
     expect(mockGitApi.getItems).not.toHaveBeenCalled();
+    expect(mockGitApi.getRepository).not.toHaveBeenCalled();
+    expect(mockClient.postJson).not.toHaveBeenCalled();
+  });
+
+  it('throws when code search fails', async () => {
+    mockGitApi.getRepository.mockResolvedValue({ id: 'repo-a', name: 'TDG HRMS' });
+    mockClient.postJson = vi.fn().mockRejectedValue(new Error('Azure DevOps request failed (500)'));
+
+    await expect(searchGitPaths(mockClient, 'repo-a', 'Dev', 'ValidationHelper.js')).rejects.toThrow(
+      'Azure DevOps request failed (500)',
+    );
+  });
+
+  it('throws when code search reports no paths for a failing info code', async () => {
+    mockGitApi.getRepository.mockResolvedValue({ id: 'repo-a', name: 'TDG HRMS' });
+    mockClient.postJson = vi.fn().mockResolvedValue({ infoCode: 1, results: [] });
+
+    await expect(searchGitPaths(mockClient, 'repo-a', 'Dev', 'ValidationHelper.js')).rejects.toThrow(
+      'Code search could not list files on Dev.',
+    );
   });
 
   it('maps commit author and work item ids and omits an empty path', async () => {

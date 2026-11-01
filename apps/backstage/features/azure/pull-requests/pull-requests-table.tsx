@@ -22,11 +22,12 @@ const STATUS_COLORS: Record<string, string> = {
   not_set: "default",
 };
 
-type ColumnKey = "mergedDate" | "title" | "author" | "status" | "targetBranch" | "done";
+type ColumnKey = "mergedDate" | "title" | "repository" | "author" | "status" | "targetBranch" | "done";
 
 const COLUMN_LABELS: Record<ColumnKey, string> = {
   mergedDate: "Merged",
   title: "Title",
+  repository: "Repository",
   author: "Author",
   status: "Status",
   targetBranch: "Target",
@@ -36,6 +37,7 @@ const COLUMN_LABELS: Record<ColumnKey, string> = {
 const ALL_COLUMN_KEYS: readonly ColumnKey[] = [
   "mergedDate",
   "title",
+  "repository",
   "author",
   "status",
   "targetBranch",
@@ -87,6 +89,10 @@ export function PullRequestsTable({
   const visibleResults = showDone ? results : results.filter((row) => !doneIds.has(row.pullRequestId));
 
   const authorFilters = buildFilterOptions(visibleResults.flatMap((row) => (row.author ? [row.author] : [])));
+
+  const repositoryFilters = buildFilterOptions(
+    visibleResults.flatMap((row) => (row.repositoryName ? [row.repositoryName] : [])),
+  );
 
   const statusFilters = buildFilterOptions(visibleResults.map((row) => row.status));
 
@@ -185,6 +191,21 @@ export function PullRequestsTable({
             {title}
           </span>
         </div>
+      ),
+    },
+    {
+      key: "repository",
+      title: "Repository",
+      dataIndex: "repositoryName",
+      width: 180,
+      ellipsis: true,
+      filters: repositoryFilters,
+      filterSearch: true,
+      onFilter: (value, record) => record.repositoryName === (value as string),
+      render: (value: string | null) => (
+        <span className="block max-w-full truncate" title={value ?? undefined}>
+          {value ?? "—"}
+        </span>
       ),
     },
     {

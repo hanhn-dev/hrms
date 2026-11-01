@@ -1,20 +1,28 @@
 import assert from "node:assert/strict";
 import { describe, it } from "vitest";
-import { azureLandingCards } from "./azure-landing-cards.tsx";
+import { azureLandingGroups } from "./azure-landing-cards.tsx";
 
-describe("azureLandingCards", () => {
-  it("gives every card its own color", () => {
-    const bars = azureLandingCards.map((card) => card.bar);
-    assert.equal(new Set(bars).size, azureLandingCards.length);
-    assert.equal(azureLandingCards.length, 6);
+describe("azureLandingGroups", () => {
+  it("groups the six tools into Plan, Review, and Publish", () => {
+    assert.deepEqual(
+      azureLandingGroups.map((group) => group.id),
+      ["plan", "review", "publish"],
+    );
+    const tools = azureLandingGroups.flatMap((group) => group.tools);
+    assert.equal(tools.length, 6);
+    const hrefs = tools.map((tool) => tool.href);
+    assert.equal(new Set(hrefs).size, hrefs.length);
   });
 
-  it("keeps a title, description, and destination on every card", () => {
-    for (const card of azureLandingCards) {
-      assert.ok(card.title.length > 0);
-      assert.ok(card.description.length > 0);
-      assert.match(card.href, /^\/azure\//);
-      assert.match(card.bar, /^bg-/);
+  it("keeps a title, description, and destination on every tool", () => {
+    for (const group of azureLandingGroups) {
+      assert.ok(group.title.length > 0);
+      assert.ok(group.summary.length > 0);
+      for (const tool of group.tools) {
+        assert.ok(tool.title.length > 0);
+        assert.ok(tool.description.length > 0);
+        assert.match(tool.href, /^\/azure\//);
+      }
     }
   });
 });

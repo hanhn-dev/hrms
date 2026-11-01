@@ -22,7 +22,7 @@ import {
 import { runTableRefresh } from "@/shared/ui/data-table-refresh";
 import { TableCompareButton } from "@/shared/ui/data-table-compare-button";
 import { TableSqlButton } from "@/shared/ui/data-table-sql-button";
-import { pageRowCountLabel, pageSizeChoices } from "@/shared/ui/data-table-page";
+import { pageRowCountLabel, pageSizeChoices, showPageSize } from "@/shared/ui/data-table-page";
 import { searchInputValue, serverSearchChanged } from "@/shared/ui/data-table-search";
 import { HighlightMatch, SearchQueryProvider } from "@/shared/ui/highlight-match";
 
@@ -581,19 +581,21 @@ function PageBar({
     <div className="flex items-center justify-between gap-3">
       <div className="flex items-center gap-2">
         <span>{pageRowCountLabel(count)}</span>
-        <Select
-          aria-label="Rows per page"
-          className="min-w-[7.5rem]"
-          options={pageSizeChoices(pageSize).map((size) => ({
-            label: `${size} / page`,
-            value: size,
-          }))}
-          size="small"
-          value={pageSize}
-          onChange={(next: number) => {
-            onChange(1, next);
-          }}
-        />
+        {showPageSize(count) ? (
+          <Select
+            aria-label="Rows per page"
+            className="min-w-[7.5rem]"
+            options={pageSizeChoices(pageSize).map((size) => ({
+              label: `${size} / page`,
+              value: size,
+            }))}
+            size="small"
+            value={pageSize}
+            onChange={(next: number) => {
+              onChange(1, next);
+            }}
+          />
+        ) : null}
       </div>
       {showPager ? (
         <Pagination

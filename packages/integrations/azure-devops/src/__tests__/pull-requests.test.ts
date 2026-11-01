@@ -80,7 +80,10 @@ describe('getWorkItemPullRequests', () => {
 		mockWitApi.getWorkItem.mockResolvedValueOnce(null);
 		mockGitApi.getPullRequest.mockImplementation(
 			async (repositoryId: string, pullRequestId: number, projectId?: string) => ({
-				repository: { id: repositoryId },
+				repository: {
+					id: repositoryId,
+					name: pullRequestId === 501 ? '  HRMS.Web  ' : '   ',
+				},
 				pullRequestId,
 				artifactId: `vstfs:///Git/PullRequestId/${projectId}/${repositoryId}/${pullRequestId}`,
 				title: `PR ${pullRequestId}`,
@@ -125,6 +128,7 @@ describe('getWorkItemPullRequests', () => {
 		});
 		expect(result.results?.[0]).toMatchObject({
 			repositoryId: 'repo-a',
+			repositoryName: 'HRMS.Web',
 			pullRequestId: 501,
 			author: 'Alice',
 			status: 'completed',
@@ -142,6 +146,7 @@ describe('getWorkItemPullRequests', () => {
 				targetCommit: 'target-501',
 			},
 		});
+		expect(result.results?.[1]?.repositoryName).toBeNull();
 		expect(mockGitApi.getPullRequest).toHaveBeenCalledTimes(2);
 		expect(mockGitApi.getPullRequest).toHaveBeenCalledWith(
 			'repo-a',

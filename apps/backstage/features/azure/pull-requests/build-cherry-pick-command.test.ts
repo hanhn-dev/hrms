@@ -11,6 +11,7 @@ function candidate(
 ): PullRequestCandidate {
   return {
     repositoryId: "repo",
+    repositoryName: null,
     title: "Title",
     author: "Author",
     authorId: null,

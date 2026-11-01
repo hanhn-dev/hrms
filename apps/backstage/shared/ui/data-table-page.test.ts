@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "vitest";
-import { pageRowCountLabel, pageSizeChoices } from "./data-table-page";
+import { pageRowCountLabel, pageSizeChoices, showPageSize } from "./data-table-page";
 
 describe("pageRowCountLabel", () => {
   it("uses the plural for an empty page", () => {
@@ -13,6 +13,17 @@ describe("pageRowCountLabel", () => {
 
   it("counts a full page", () => {
     assert.equal(pageRowCountLabel(25), "25 rows");
+  });
+});
+
+describe("showPageSize", () => {
+  it("hides the size control when the table is empty", () => {
+    assert.equal(showPageSize(0), false);
+  });
+
+  it("shows the size control when the table has rows", () => {
+    assert.equal(showPageSize(1), true);
+    assert.equal(showPageSize(8), true);
   });
 });
 

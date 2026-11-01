@@ -27,12 +27,15 @@ const mockLookupResponse: PullRequestLookupResponse = {
 	results: [
 		{
 			repositoryId: 'repo-a',
+			repositoryName: 'HRMS.Web',
 			pullRequestId: 501,
 			title: 'PR 501',
 			author: 'Alice',
+			authorId: null,
 			status: 'completed',
 			sourceBranch: 'refs/heads/feature/login',
 			targetBranch: 'refs/heads/main',
+			openedDate: null,
 			mergedDate: '2026-05-16T11:20:00Z',
 			url: 'https://dev.azure.com/example/project/_git/repo-a/pullrequest/501',
 			hashes: {

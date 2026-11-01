@@ -10,6 +10,7 @@ const master = { name: "master" };
 const qa = { name: "QA" };
 const staging = { name: "Staging" };
 const dev = { name: "Dev" };
+const feature = { name: "123464_150465_pbi" };
 
 describe("preferredFileBranches", () => {
   it("opens TDG HRMS DB on QA and Staging", () => {
@@ -41,8 +42,30 @@ describe("preferredFileBranches", () => {
     });
   });
 
-  it("uses the repository default for any other repository", () => {
-    assert.deepEqual(preferredFileBranches("TDG HRMS", [master, qa, staging], "master"), {
+  it("opens TDG HRMS on the default branch and Staging", () => {
+    assert.deepEqual(preferredFileBranches("TDG HRMS", [feature, dev, staging], "Dev"), {
+      left: "Dev",
+      right: "Staging",
+    });
+    assert.deepEqual(preferredFileBranches("tdg hrms", [dev, { name: "staging" }, feature], "Dev"), {
+      left: "Dev",
+      right: "staging",
+    });
+  });
+
+  it("keeps Staging on the right when it is the TDG HRMS default", () => {
+    assert.deepEqual(preferredFileBranches("TDG HRMS", [staging, dev, feature], "Staging"), {
+      left: "Dev",
+      right: "Staging",
+    });
+  });
+
+  it("uses the repository default when Staging is missing or the repository is neither", () => {
+    assert.deepEqual(preferredFileBranches("TDG HRMS", [master, qa, dev], "master"), {
+      left: "master",
+      right: "QA",
+    });
+    assert.deepEqual(preferredFileBranches("Other", [master, qa, staging], "master"), {
       left: "master",
       right: "QA",
     });

@@ -126,6 +126,25 @@ export class AzureDevOpsClient {
     return withAzureDevOpsTimeout(streamToBuffer(contentStream));
   }
 
+  async postJson(url: string, body: unknown): Promise<unknown> {
+    const response = await fetch(url, {
+      method: 'POST',
+      signal: AbortSignal.timeout(AZURE_DEVOPS_REQUEST_TIMEOUT_MS),
+      headers: {
+        Accept: 'application/json',
+        Authorization: `Basic ${Buffer.from(`:${this.config.token}`).toString('base64')}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Azure DevOps request failed (${response.status})`);
+    }
+
+    return response.json() as Promise<unknown>;
+  }
+
   private async fetchAttachmentMetadata(
     url: string,
     method: 'GET' | 'HEAD',

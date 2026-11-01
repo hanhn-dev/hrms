@@ -297,8 +297,12 @@ export function mapGitPullRequestToCandidate(
     readonly childWorkItemIds?: readonly number[];
   },
 ): PullRequestCandidate {
+  const rawRepositoryName = pullRequest.repository?.name;
+  const repositoryName = typeof rawRepositoryName === 'string' ? rawRepositoryName.trim() : '';
+
   return {
     repositoryId: pullRequest.repository?.id ?? links.repositoryId,
+    repositoryName: repositoryName.length > 0 ? repositoryName : null,
     pullRequestId: pullRequest.pullRequestId ?? links.pullRequestId,
     title: typeof pullRequest.title === 'string' ? pullRequest.title : '',
     author: getDisplayName(pullRequest.createdBy),

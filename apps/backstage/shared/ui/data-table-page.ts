@@ -5,6 +5,11 @@ export function pageRowCountLabel(count: number): string {
   return count === 1 ? "1 row" : `${count} rows`;
 }
 
+/** The size control is only useful when the table has rows. */
+export function showPageSize(count: number): boolean {
+  return count > 0;
+}
+
 /** Offered sizes, plus the current size when a table already uses another one. */
 export function pageSizeChoices(current: number): number[] {
   if ((LIST_PAGE_SIZES as readonly number[]).includes(current)) {

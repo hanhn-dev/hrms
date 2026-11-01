@@ -11,6 +11,7 @@ import {
   type GitVersionDescriptor,
   type LineDiffBlock,
 } from 'azure-devops-node-api/interfaces/GitInterfaces.js';
+import { z } from 'zod';
 import {
   getAzureDevOpsErrorMessage,
   withAzureDevOpsTimeout,
@@ -21,7 +22,6 @@ export const GIT_COMMIT_PAGE_SIZE = 50;
 export const GIT_CHANGE_PAGE_SIZE = 100;
 export const GIT_FILE_TEXT_LIMIT_BYTES = 100_000;
 export const GIT_PATH_SEARCH_CANDIDATE_LIMIT = 200;
-const GIT_PATH_SEARCH_DIRECTORY_LIMIT = 25;
 
 const HEADS_PREFIX = 'refs/heads/';
 /** Azure DevOps matches `heads/` against `refs/heads/*`. A `refs/heads/` filter returns nothing. */
@@ -262,10 +262,20 @@ export async function listGitFiles(
   return [...paths].sort((left, right) => left.localeCompare(right, undefined, { sensitivity: 'base' }));
 }
 
+const CodeSearchResponseSchema = z.object({
+  infoCode: z.number().optional(),
+  results: z
+    .array(
+      z.object({
+        path: z.string().optional(),
+      }),
+    )
+    .optional(),
+});
+
 /**
- * Reads a bounded set of tree pages for path suggestions. Each request is
- * one directory deep, so searching never asks Azure DevOps to expand `/`
- * recursively.
+ * Asks Azure DevOps code search for file-name matches. A filename can sit
+ * many directories down, so suggestions do not walk the tree from `/`.
  */
 export async function searchGitPaths(
   client: AzureDevOpsClient,
@@ -278,58 +288,52 @@ export async function searchGitPaths(
   if (resolvedBranch.length === 0) {
     throw new Error('Branch is required');
   }
-  const normalizedQuery = optionalGitPath(query);
-  if (normalizedQuery === undefined) {
+  const terms = gitPathSearchTerms(query);
+  if (terms === undefined) {
     return [];
   }
+  const searchText = gitPathSearchText(terms);
 
   const gitApi = await client.getGitApi();
-  const descriptor = { version: resolvedBranch, versionType: GitVersionType.Branch };
-  const initialScope = searchScope(normalizedQuery);
-  const queue = [initialScope];
-  const visited = new Set<string>();
-  const paths = new Set<string>();
+  const repository = await withAzureDevOpsTimeout(
+    gitApi.getRepository(resolvedRepositoryId, client.config.project),
+  );
+  const repositoryName = repository.name?.trim() ?? '';
+  if (repositoryName.length === 0) {
+    throw new Error('Repository was not found');
+  }
 
-  while (
-    queue.length > 0 &&
-    visited.size < GIT_PATH_SEARCH_DIRECTORY_LIMIT &&
-    paths.size < GIT_PATH_SEARCH_CANDIDATE_LIMIT
-  ) {
-    const scope = queue.shift()!;
-    if (visited.has(scope)) {
+  const payload = await client.postJson(codeSearchUrl(client.config.orgUrl, client.config.project), {
+    searchText,
+    $skip: 0,
+    $top: GIT_PATH_SEARCH_CANDIDATE_LIMIT,
+    filters: {
+      Project: [client.config.project],
+      Repository: [repositoryName],
+      Branch: [resolvedBranch],
+    },
+    includeFacets: false,
+    includeSnippet: false,
+  });
+  const parsed = CodeSearchResponseSchema.safeParse(payload);
+  if (!parsed.success) {
+    throw new Error('Code search returned an unexpected response.');
+  }
+
+  const paths = new Set<string>();
+  for (const hit of parsed.data.results ?? []) {
+    const path = formatPath(hit.path);
+    if (path === null || path === '/' || !pathContainsTerms(path, terms)) {
       continue;
     }
-    visited.add(scope);
-    const items = await withAzureDevOpsTimeout(
-      gitApi.getItems(
-        resolvedRepositoryId,
-        client.config.project,
-        scope,
-        VersionControlRecursionType.OneLevel,
-        false,
-        false,
-        false,
-        false,
-        descriptor,
-      ),
-    );
-    const folders: string[] = [];
-    for (const item of items ?? []) {
-      const path = formatPath(item.path);
-      if (path === null || path === scope) {
-        continue;
-      }
-      if (item.isFolder === true) {
-        folders.push(path);
-      } else {
-        paths.add(path);
-      }
-      if (paths.size >= GIT_PATH_SEARCH_CANDIDATE_LIMIT) {
-        break;
-      }
+    paths.add(path);
+    if (paths.size >= GIT_PATH_SEARCH_CANDIDATE_LIMIT) {
+      break;
     }
-    folders.sort((left, right) => pathSearchPriority(left, right, normalizedQuery));
-    queue.push(...folders);
+  }
+
+  if ((parsed.data.infoCode ?? 0) !== 0 && paths.size === 0) {
+    throw new Error(`Code search could not list files on ${resolvedBranch}.`);
   }
 
   return [...paths];
@@ -447,22 +451,72 @@ export async function listGitAuthorActivity(
   };
 }
 
-function searchScope(query: string): string {
-  const slash = query.lastIndexOf('/');
-  if (slash <= 0) {
-    return '/';
+type GitPathSearchTerms = {
+  readonly directory: string;
+  readonly name: string;
+};
+
+function gitPathSearchText(terms: GitPathSearchTerms): string {
+  const parts: string[] = [];
+  if (terms.name.length > 0) {
+    parts.push(`file:"*${terms.name}*"`);
   }
-  return query.slice(0, slash);
+  if (terms.directory.length > 0) {
+    const directory = terms.directory.includes(' ') ? `"**/${terms.directory}/**"` : `**/${terms.directory}/**`;
+    parts.push(`path:${directory}`);
+  }
+  return parts.join(' ');
 }
 
-function pathSearchPriority(left: string, right: string, query: string): number {
-  const term = query.slice(query.lastIndexOf('/') + 1).toLowerCase();
-  const leftMatch = left.toLowerCase().includes(term);
-  const rightMatch = right.toLowerCase().includes(term);
-  if (leftMatch !== rightMatch) {
-    return leftMatch ? -1 : 1;
+function gitPathSearchTerms(query: string): GitPathSearchTerms | undefined {
+  const normalized = query.trim().replace(/\\/g, '/').replace(/^\/+/, '');
+  if (normalized.length === 0) {
+    return undefined;
   }
-  return left.localeCompare(right, undefined, { sensitivity: 'base' });
+  const slash = normalized.lastIndexOf('/');
+  const directory = literalSearchTerm(slash >= 0 ? normalized.slice(0, slash) : '');
+  const name = literalSearchTerm(slash >= 0 ? normalized.slice(slash + 1) : normalized);
+  if (directory.length === 0 && name.length === 0) {
+    return undefined;
+  }
+  return { directory, name };
+}
+
+function literalSearchTerm(value: string): string {
+  return value.replace(/[*?:"]/g, '').trim();
+}
+
+function pathContainsTerms(path: string, terms: GitPathSearchTerms): boolean {
+  const lowerPath = path.toLowerCase();
+  if (terms.name.length > 0 && !lowerPath.includes(terms.name.toLowerCase())) {
+    return false;
+  }
+  if (terms.directory.length > 0 && !lowerPath.includes(terms.directory.toLowerCase())) {
+    return false;
+  }
+  return true;
+}
+
+function codeSearchUrl(orgUrl: string, project: string): string {
+  const org = new URL(orgUrl);
+  const projectSegment = encodeURIComponent(project);
+  const api = `_apis/search/codesearchresults?api-version=7.1`;
+  if (org.hostname === 'dev.azure.com') {
+    const organization = org.pathname.split('/').filter((segment) => segment.length > 0)[0];
+    if (organization === undefined) {
+      throw new Error('Azure DevOps organization URL is invalid');
+    }
+    return `https://almsearch.dev.azure.com/${encodeURIComponent(organization)}/${projectSegment}/${api}`;
+  }
+  const visualStudioSuffix = '.visualstudio.com';
+  if (org.hostname.endsWith(visualStudioSuffix)) {
+    const organization = org.hostname.slice(0, -visualStudioSuffix.length);
+    if (organization.length === 0) {
+      throw new Error('Azure DevOps organization URL is invalid');
+    }
+    return `https://${organization}.almsearch.visualstudio.com/${projectSegment}/${api}`;
+  }
+  throw new Error('Azure DevOps organization URL is invalid');
 }
 
 export async function getGitCommitDetail(

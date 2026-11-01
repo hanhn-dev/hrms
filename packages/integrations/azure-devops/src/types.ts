@@ -249,6 +249,7 @@ export interface PullRequestHashes {
 
 export interface PullRequestCandidate {
   readonly repositoryId: string;
+  readonly repositoryName: string | null;
   readonly pullRequestId: number;
   readonly title: string;
   readonly author: string | null;
