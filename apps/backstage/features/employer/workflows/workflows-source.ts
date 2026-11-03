@@ -30,6 +30,25 @@ export function workflowsHref(
   return `/employers/${employerId}/workflows${search}`;
 }
 
-export function workflowHref(employerId: number, workflowId: number | "new"): string {
-  return `/employers/${employerId}/workflows/${workflowId}`;
+export const WORKFLOW_DETAIL_TABS = ["details", "tree"] as const;
+
+export type WorkflowDetailTab = (typeof WORKFLOW_DETAIL_TABS)[number];
+
+export function parseWorkflowDetailTab(value: string | undefined): WorkflowDetailTab {
+  if (value === "tree") {
+    return "tree";
+  }
+  return "details";
+}
+
+export function workflowHref(
+  employerId: number,
+  workflowId: number | "new",
+  tab: WorkflowDetailTab = "details",
+): string {
+  const path = `/employers/${employerId}/workflows/${workflowId}`;
+  if (tab === "details") {
+    return path;
+  }
+  return `${path}?tab=${tab}`;
 }

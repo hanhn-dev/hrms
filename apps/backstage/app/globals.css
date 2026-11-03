@@ -161,3 +161,9 @@ html[data-read-mode] [data-feature-toc] {
   width: 100% !important;
   height: 100% !important;
 }
+
+/* Ant Design draws a scroll shadow on the container edge. It sits in the
+   table's right padding, so the data table hides it. */
+.ant-table-wrapper.hrms-data-table .ant-table-container::after {
+  box-shadow: none !important;
+}

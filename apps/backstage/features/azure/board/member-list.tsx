@@ -8,9 +8,11 @@ import { HighlightMatch } from "@/shared/ui";
 export function MemberList({
   people,
   query,
+  onOpenWorkItem,
 }: {
   people: PersonWork[];
   query?: string;
+  onOpenWorkItem: (id: number) => void;
 }): React.JSX.Element {
   if (people.length === 0) {
     return <p className="text-slate-500">No one is assigned work that matches.</p>;
@@ -28,9 +30,15 @@ export function MemberList({
               <ul className="m-0 list-none p-0">
                 {person.pbis.map((pbi) => (
                   <li key={pbi.id}>
-                    <a href={pbi.url} rel="noopener noreferrer" target="_blank">
+                    <button
+                      className="cursor-pointer border-0 bg-transparent p-0 text-left text-blue-600 hover:underline"
+                      type="button"
+                      onClick={() => {
+                        onOpenWorkItem(pbi.id);
+                      }}
+                    >
                       #{pbi.id} <HighlightMatch query={query} text={pbi.title} />
-                    </a>
+                    </button>
                   </li>
                 ))}
               </ul>
@@ -41,19 +49,39 @@ export function MemberList({
             {person.cards.map((card) => (
               <li key={card.item.id}>
                 <div className="flex flex-wrap items-center gap-1">
-                  <a href={card.item.url} rel="noopener noreferrer" target="_blank">
+                  <button
+                    className="cursor-pointer border-0 bg-transparent p-0 text-blue-600 hover:underline"
+                    type="button"
+                    onClick={() => {
+                      onOpenWorkItem(card.item.id);
+                    }}
+                  >
                     <HighlightMatch query={query} text={String(card.item.id)} />
-                  </a>
+                  </button>
                   <WorkItemTypeTag type={card.item.type} />
                   <WorkItemStateTag state={card.item.state} />
-                  <HighlightMatch query={query} text={card.item.title} />
+                  <button
+                    className="cursor-pointer border-0 bg-transparent p-0 text-left hover:underline"
+                    type="button"
+                    onClick={() => {
+                      onOpenWorkItem(card.item.id);
+                    }}
+                  >
+                    <HighlightMatch query={query} text={card.item.title} />
+                  </button>
                 </div>
                 {card.parent ? (
                   <div className="mt-1">
-                    <ParentLink parent={card.parent} query={query} />
+                    <ParentLink
+                      parent={card.parent}
+                      query={query}
+                      onOpenWorkItem={onOpenWorkItem}
+                    />
                   </div>
                 ) : null}
-                <ChildList query={query}>{card.children}</ChildList>
+                <ChildList query={query} onOpenWorkItem={onOpenWorkItem}>
+                  {card.children}
+                </ChildList>
               </li>
             ))}
           </ul>

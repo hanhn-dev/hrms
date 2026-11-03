@@ -1,5 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { CommentFormat } from 'azure-devops-node-api/interfaces/WorkItemTrackingInterfaces.js';
+import {
+  CommentExpandOptions,
+  CommentFormat,
+} from 'azure-devops-node-api/interfaces/WorkItemTrackingInterfaces.js';
 import type { AzureDevOpsClient } from '../client.js';
 import type { AzureDevOpsConfig } from '../types.js';
 import { getWorkItemComments } from '../work-item-comments.js';
@@ -55,6 +58,15 @@ describe('getWorkItemComments', () => {
 
     const result = await getWorkItemComments(mockClient, 1234, 50);
 
+    expect(mockWitApi.getComments).toHaveBeenCalledWith(
+      'MyProject',
+      1234,
+      50,
+      undefined,
+      false,
+      CommentExpandOptions.RenderedText,
+      expect.anything(),
+    );
     expect(result.workItemId).toBe(1234);
     expect(result.totalCount).toBe(3);
     expect(result.hasMore).toBe(true);
@@ -70,6 +82,33 @@ describe('getWorkItemComments', () => {
         author: 'Dev',
         createdDate: '2026-08-19T10:00:00Z',
         text: 'Old note',
+      },
+    ]);
+  });
+
+  it('uses rendered HTML when markdown text is omitted', async () => {
+    mockWitApi.getComments.mockResolvedValue({
+      totalCount: 1,
+      comments: [
+        {
+          id: 7,
+          text: '',
+          renderedText: '<p>Verified on staging</p>',
+          format: CommentFormat.Markdown,
+          createdBy: { displayName: 'QA' },
+          createdDate: '2026-10-28T12:48:09Z',
+          isDeleted: false,
+        },
+      ],
+    });
+
+    const result = await getWorkItemComments(mockClient, 179243);
+    expect(result.comments).toEqual([
+      {
+        id: 7,
+        author: 'QA',
+        createdDate: '2026-10-28T12:48:09Z',
+        text: 'Verified on staging',
       },
     ]);
   });

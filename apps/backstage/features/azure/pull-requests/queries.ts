@@ -1,7 +1,6 @@
 "use server";
 
 import {
-  getWorkItem,
   listAreaModules,
   listTeamMembers,
   listTeamIterations,
@@ -11,7 +10,6 @@ import {
   type PullRequestSearchResult,
   type TeamIteration,
   type TeamMember,
-  type WorkItem,
 } from "@hrms/azure-devops";
 import { DEFAULT_BOARD_TEAM } from "@/features/azure/board/defaults";
 import {
@@ -21,7 +19,7 @@ import {
 import { requireFeature } from "@/shared/auth";
 import { getAzureDevOpsClient } from "@/shared/azure";
 
-export type { PullRequestSearchResult, WorkItem };
+export type { PullRequestSearchResult };
 
 export type PullRequestSearchOptions = {
   readonly teamMembers: readonly TeamMember[];
@@ -51,11 +49,6 @@ export async function searchPullRequests(
 ): Promise<PullRequestSearchResult> {
   await requireFeature("azure");
   return searchPullRequestsInAzure(getAzureDevOpsClient(), criteria, skip);
-}
-
-export async function getWorkItemDetail(id: number): Promise<WorkItem> {
-  await requireFeature("azure");
-  return getWorkItem(getAzureDevOpsClient(), id);
 }
 
 /** Which of the given pull request ids an operator has already marked done. */

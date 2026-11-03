@@ -108,12 +108,36 @@ function taskCount(lane: Swimlane): number {
   return count;
 }
 
+function WorkItemIdButton({
+  id,
+  query,
+  onOpenWorkItem,
+}: {
+  id: number;
+  query?: string;
+  onOpenWorkItem: (id: number) => void;
+}): React.JSX.Element {
+  return (
+    <button
+      className="cursor-pointer border-0 bg-transparent p-0 text-left text-blue-600 hover:underline"
+      type="button"
+      onClick={() => {
+        onOpenWorkItem(id);
+      }}
+    >
+      <HighlightMatch query={query} text={String(id)} />
+    </button>
+  );
+}
+
 function ParentRowCard({
   lane,
   query,
+  onOpenWorkItem,
 }: {
   lane: Swimlane;
   query?: string;
+  onOpenWorkItem: (id: number) => void;
 }): React.JSX.Element {
   if (lane.key === "none") {
     return (
@@ -128,7 +152,6 @@ function ParentRowCard({
 
   const item = lane.parentCard?.item;
   const id = item?.id ?? lane.parent?.id;
-  const url = item?.url ?? lane.parent?.url;
   const title = item?.title ?? lane.parent?.title;
   const type = item?.type ?? lane.parent?.type;
 
@@ -137,14 +160,22 @@ function ParentRowCard({
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <div className="mb-1 flex flex-wrap items-center gap-1">
-            {url != null && id != null ? (
-              <a href={url} rel="noopener noreferrer" target="_blank">
-                <HighlightMatch query={query} text={String(id)} />
-              </a>
+            {id != null ? (
+              <WorkItemIdButton id={id} query={query} onOpenWorkItem={onOpenWorkItem} />
             ) : null}
             {type ? <WorkItemTypeTag type={type} /> : null}
           </div>
-          {title ? (
+          {title && id != null ? (
+            <button
+              className="mb-1 cursor-pointer border-0 bg-transparent p-0 text-left hover:underline"
+              type="button"
+              onClick={() => {
+                onOpenWorkItem(id);
+              }}
+            >
+              <HighlightMatch query={query} text={title} />
+            </button>
+          ) : title ? (
             <div className="mb-1">
               <HighlightMatch query={query} text={title} />
             </div>
@@ -169,16 +200,30 @@ function ParentRowCard({
   );
 }
 
-function TaskCard({ card, query }: { card: BoardCard; query?: string }): React.JSX.Element {
+function TaskCard({
+  card,
+  query,
+  onOpenWorkItem,
+}: {
+  card: BoardCard;
+  query?: string;
+  onOpenWorkItem: (id: number) => void;
+}): React.JSX.Element {
   return (
     <Card size="small" style={cardBorderStyle(card.item.type)}>
       <div className="mb-1 flex flex-wrap items-center gap-1">
-        <a href={card.item.url} rel="noopener noreferrer" target="_blank">
-          <HighlightMatch query={query} text={String(card.item.id)} />
-        </a>
+        <WorkItemIdButton id={card.item.id} query={query} onOpenWorkItem={onOpenWorkItem} />
         <WorkItemTypeTag type={card.item.type} />
       </div>
-      <HighlightMatch query={query} text={card.item.title} />
+      <button
+        className="cursor-pointer border-0 bg-transparent p-0 text-left hover:underline"
+        type="button"
+        onClick={() => {
+          onOpenWorkItem(card.item.id);
+        }}
+      >
+        <HighlightMatch query={query} text={card.item.title} />
+      </button>
       <div className="mt-1 text-sm text-slate-500">
         <HighlightMatch query={query} text={card.item.assignedTo ?? "Unassigned"} />
       </div>
@@ -189,9 +234,11 @@ function TaskCard({ card, query }: { card: BoardCard; query?: string }): React.J
 export function BoardColumns({
   columns,
   query,
+  onOpenWorkItem,
 }: {
   columns: BoardColumnView[];
   query?: string;
+  onOpenWorkItem: (id: number) => void;
 }): React.JSX.Element {
   if (columns.length === 0) {
     return <p className="text-slate-500">This team has no taskboard columns.</p>;
@@ -224,12 +271,17 @@ export function BoardColumns({
       {lanes.map((lane) => (
         <div className="flex items-stretch border-b border-slate-300 bg-slate-50 py-3" key={lane.key}>
           <div className="sticky left-0 z-10 w-72 shrink-0 self-stretch border-r border-slate-200 bg-slate-50 px-2">
-            <ParentRowCard lane={lane} query={query} />
+            <ParentRowCard lane={lane} query={query} onOpenWorkItem={onOpenWorkItem} />
           </div>
           {columns.map((column) => (
             <div className="flex w-60 shrink-0 flex-col gap-3 border-r border-slate-200 px-2" key={column.id}>
               {(lane.tasksByColumn.get(column.id) ?? []).map((card) => (
-                <TaskCard card={card} key={card.item.id} query={query} />
+                <TaskCard
+                  card={card}
+                  key={card.item.id}
+                  query={query}
+                  onOpenWorkItem={onOpenWorkItem}
+                />
               ))}
             </div>
           ))}

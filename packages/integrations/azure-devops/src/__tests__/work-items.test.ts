@@ -176,6 +176,21 @@ describe('getWorkItem', () => {
     expect(result.reproSteps).toBe('Steps to reproduce text');
   });
 
+  it('maps Item Description onto description when System.Description is empty', async () => {
+    mockWitApi.getWorkItem.mockResolvedValue({
+      ...rawWorkItem,
+      fields: {
+        ...rawWorkItem.fields,
+        'System.WorkItemType': 'Bug',
+        'System.Description': '',
+        'Microsoft.VSTS.TCM.ItemDescription': '<p><strong>Domain:</strong> staging</p>',
+        'Microsoft.VSTS.TCM.ReproSteps': '',
+      },
+    });
+    const result = await getWorkItem(mockClient, 1234);
+    expect(result.description).toBe('**Domain:** staging');
+  });
+
   it('requests relation expansion and maps attached files with image flags', async () => {
     const result = await getWorkItem(mockClient, 1234);
 

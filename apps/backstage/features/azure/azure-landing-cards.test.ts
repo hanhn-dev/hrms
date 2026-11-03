@@ -3,13 +3,13 @@ import { describe, it } from "vitest";
 import { azureLandingGroups } from "./azure-landing-cards.tsx";
 
 describe("azureLandingGroups", () => {
-  it("groups the six tools into Plan, Review, and Publish", () => {
+  it("groups the tools into Plan, Review, and Publish", () => {
     assert.deepEqual(
       azureLandingGroups.map((group) => group.id),
       ["plan", "review", "publish"],
     );
     const tools = azureLandingGroups.flatMap((group) => group.tools);
-    assert.equal(tools.length, 6);
+    assert.equal(tools.length, 8);
     const hrefs = tools.map((tool) => tool.href);
     assert.equal(new Set(hrefs).size, hrefs.length);
   });

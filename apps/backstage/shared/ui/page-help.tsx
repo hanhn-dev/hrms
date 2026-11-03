@@ -14,9 +14,15 @@ export type PageHelpNote = {
 export function PageHelpTrigger({
   notes,
   title = "About this page",
+  icon = <InfoCircleOutlined />,
+  ariaLabel,
+  className,
 }: {
   notes: PageHelpNote[];
   title?: string;
+  icon?: React.ReactNode;
+  ariaLabel?: string;
+  className?: string;
 }): React.JSX.Element | null {
   const [open, setOpen] = useState(false);
   if (notes.length === 0) {
@@ -26,9 +32,9 @@ export function PageHelpTrigger({
   return (
     <>
       <Button
-        aria-label={`About ${title}`}
-        className="!h-auto !w-auto !p-0"
-        icon={<InfoCircleOutlined />}
+        aria-label={ariaLabel ?? `About ${title}`}
+        className={className ?? "!h-auto !w-auto !p-0"}
+        icon={icon}
         type="text"
         onClick={() => {
           setOpen(true);

@@ -6,7 +6,9 @@ import {
   CalendarOutlined,
   DiffOutlined,
   FileSearchOutlined,
+  LineChartOutlined,
   PullRequestOutlined,
+  TeamOutlined,
 } from "@ant-design/icons";
 import Link from "next/link";
 
@@ -32,7 +34,7 @@ export const azureLandingGroups: readonly LandingGroup[] = [
     id: "plan",
     title: "Plan",
     summary:
-      "See the current sprint, browse iterations, and order work on a timeline that stays in Backstage.",
+      "See the current sprint, track member progress, browse iterations, and order work on a timeline that stays in Backstage.",
     bar: "bg-blue-500",
     iconClass: "text-blue-600 dark:text-blue-300",
     tools: [
@@ -41,6 +43,20 @@ export const azureLandingGroups: readonly LandingGroup[] = [
         title: "Sprint board",
         description: "See the current Team Sprinter sprint, who is on each PBI, and the taskboard.",
         icon: AppstoreOutlined,
+      },
+      {
+        href: "/azure/teams",
+        title: "Teams",
+        description:
+          "Create local teams, pick the Azure DevOps team for sprints, and add members. Used by Team progress.",
+        icon: TeamOutlined,
+      },
+      {
+        href: "/azure/progress",
+        title: "Team progress",
+        description:
+          "Pick a local team to see sprint WIP, completed counts, and velocity. Members fill in automatically.",
+        icon: LineChartOutlined,
       },
       {
         href: "/azure/sprints",

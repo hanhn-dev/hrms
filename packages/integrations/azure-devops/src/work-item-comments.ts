@@ -1,4 +1,5 @@
 import {
+  CommentExpandOptions,
   CommentFormat,
   CommentSortOrder,
 } from 'azure-devops-node-api/interfaces/WorkItemTrackingInterfaces.js';
@@ -24,8 +25,9 @@ function toIsoDate(value: unknown): string | null {
 }
 
 function mapCommentText(text: string | undefined, renderedText: string | undefined, format: CommentFormat | undefined): string {
-  if (format === CommentFormat.Markdown && typeof text === 'string' && text.trim().length > 0) {
-    return text.trim();
+  const markdownText = typeof text === 'string' ? text.trim() : '';
+  if (format === CommentFormat.Markdown && markdownText.length > 0) {
+    return markdownText;
   }
 
   const html = renderedText ?? text;
@@ -47,7 +49,7 @@ export async function getWorkItemComments(
       clampedTop,
       undefined,
       false,
-      undefined,
+      CommentExpandOptions.RenderedText,
       CommentSortOrder.Desc,
     );
 

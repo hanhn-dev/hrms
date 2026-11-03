@@ -4,12 +4,13 @@ import {
   withAzureDevOpsTimeout,
   type AzureDevOpsClient,
 } from './client.js';
+import { getOrganizationIdentity } from './organization.js';
 import type { AreaModule, ProjectTeam, TeamMember } from './types.js';
 
 const AREA_DEPTH = 10;
 
-/** How many team-member reads may run at once. One-at-a-time kept Git and Pull requests on a skeleton for the whole project. */
-const TEAM_MEMBER_CONCURRENCY = 5;
+/** Graph Users pages can be large; stop after this many pages to keep roster loads bounded. */
+const MAX_GRAPH_USER_PAGES = 20;
 
 /**
  * Converts a classification-node path (`\Project\Area\Team\Module`) into the
@@ -128,8 +129,52 @@ export async function listTeamMembers(
   return [...byId.values()].sort((left, right) => left.displayName.localeCompare(right.displayName));
 }
 
+type GraphDescriptorResponse = {
+  value?: string;
+};
+
+type GraphUsersResponse = {
+  value?: readonly {
+    originId?: string;
+    descriptor?: string;
+    displayName?: string;
+    principalName?: string;
+    mailAddress?: string;
+  }[];
+};
+
+type IdentitiesResponse = {
+  value?: readonly {
+    id?: string;
+    providerDisplayName?: string;
+    customDisplayName?: string;
+    displayName?: string;
+  }[];
+};
+
+function graphUserToMember(user: {
+  originId?: string;
+  descriptor?: string;
+  displayName?: string;
+  principalName?: string;
+  mailAddress?: string;
+}): TeamMember | null {
+  const displayName =
+    user.displayName?.trim() ||
+    user.principalName?.trim() ||
+    user.mailAddress?.trim() ||
+    '';
+  const id = user.originId?.trim() || user.descriptor?.trim() || '';
+  if (displayName.length === 0 || id.length === 0) {
+    return null;
+  }
+  return { id, displayName };
+}
+
 /**
- * Lists unique members across every team in the configured Azure DevOps project.
+ * Lists users with access to the configured Azure DevOps project via the Graph
+ * Users API (project scope). This includes people who are not on any board team
+ * but still have project membership — unlike unioning `getTeamMembers`.
  */
 export async function listProjectMembers(client: AzureDevOpsClient): Promise<TeamMember[]> {
   const project = client.config.project;
@@ -137,55 +182,110 @@ export async function listProjectMembers(client: AzureDevOpsClient): Promise<Tea
     throw new Error('Azure DevOps config is missing a project');
   }
 
-  const teams = await listProjectTeams(client);
   const coreApi = await client.getCoreApi();
-  const byId = new Map<string, TeamMember>();
-  const memberLists = await mapWithConcurrency(teams, TEAM_MEMBER_CONCURRENCY, async (team) => {
-    try {
-      return await withAzureDevOpsTimeout(
-        coreApi.getTeamMembersWithExtendedProperties(project, team.name),
-      );
-    } catch (error) {
-      throw new Error(`Azure DevOps core API error: ${getAzureDevOpsErrorMessage(error)}`);
-    }
-  });
+  let projectId: string | undefined;
+  try {
+    const projectInfo = await withAzureDevOpsTimeout(coreApi.getProject(project));
+    projectId = projectInfo.id?.trim();
+  } catch (error) {
+    throw new Error(`Azure DevOps core API error: ${getAzureDevOpsErrorMessage(error)}`);
+  }
+  if (projectId == null || projectId.length === 0) {
+    throw new Error(`Azure DevOps project id was not returned for "${project}"`);
+  }
 
-  for (const members of memberLists) {
-    mapTeamMembers(members, byId);
+  const organization = getOrganizationIdentity(client.config.orgUrl);
+  let scopeDescriptor: string;
+  try {
+    const descriptorUrl = `https://vssps.dev.azure.com/${encodeURIComponent(organization)}/_apis/graph/descriptors/${encodeURIComponent(projectId)}?api-version=7.1-preview.1`;
+    const descriptorResult = await withAzureDevOpsTimeout(client.getJson(descriptorUrl));
+    const parsed = descriptorResult.data as GraphDescriptorResponse;
+    scopeDescriptor = parsed.value?.trim() ?? '';
+  } catch (error) {
+    throw new Error(`Azure DevOps graph API error: ${getAzureDevOpsErrorMessage(error)}`);
+  }
+  if (scopeDescriptor.length === 0) {
+    throw new Error(`Azure DevOps graph descriptor was not returned for project "${project}"`);
+  }
+
+  const byId = new Map<string, TeamMember>();
+  let continuationToken: string | null = null;
+  for (let page = 0; page < MAX_GRAPH_USER_PAGES; page += 1) {
+    const params = new URLSearchParams({
+      scopeDescriptor,
+      subjectTypes: 'aad,msa,imp',
+      'api-version': '7.1-preview.1',
+    });
+    if (continuationToken != null && continuationToken.length > 0) {
+      params.set('continuationToken', continuationToken);
+    }
+    const usersUrl = `https://vssps.dev.azure.com/${encodeURIComponent(organization)}/_apis/graph/users?${params.toString()}`;
+    let pageResult: { data: unknown; headers: Headers };
+    try {
+      pageResult = await withAzureDevOpsTimeout(client.getJson(usersUrl));
+    } catch (error) {
+      throw new Error(`Azure DevOps graph API error: ${getAzureDevOpsErrorMessage(error)}`);
+    }
+    const users = (pageResult.data as GraphUsersResponse).value ?? [];
+    for (const user of users) {
+      const member = graphUserToMember(user);
+      if (member != null) {
+        byId.set(member.id, member);
+      }
+    }
+    continuationToken = pageResult.headers.get('x-ms-continuationtoken');
+    if (continuationToken == null || continuationToken.length === 0) {
+      break;
+    }
   }
 
   return [...byId.values()].sort((left, right) => left.displayName.localeCompare(right.displayName));
 }
 
-async function mapWithConcurrency<T, R>(
-  items: readonly T[],
-  limit: number,
-  mapper: (item: T) => Promise<R>,
-): Promise<R[]> {
-  if (items.length === 0) {
+/**
+ * Searches Azure DevOps identities by display name / email (Identity Management
+ * Service). Use when a person is not yet in the cached project Graph roster.
+ */
+export async function searchIdentities(
+  client: AzureDevOpsClient,
+  query: string,
+): Promise<TeamMember[]> {
+  const trimmed = query.trim();
+  if (trimmed.length < 2) {
     return [];
   }
-  const results = new Array<R>(items.length);
-  let nextIndex = 0;
 
-  async function worker(): Promise<void> {
-    while (nextIndex < items.length) {
-      const index = nextIndex;
-      nextIndex += 1;
-      const item = items[index];
-      if (item === undefined) {
-        return;
-      }
-      results[index] = await mapper(item);
-    }
+  const organization = getOrganizationIdentity(client.config.orgUrl);
+  const params = new URLSearchParams({
+    searchFilter: 'General',
+    filterValue: trimmed,
+    queryMembership: 'None',
+    'api-version': '7.1',
+  });
+  const url = `https://vssps.dev.azure.com/${encodeURIComponent(organization)}/_apis/identities?${params.toString()}`;
+
+  let data: unknown;
+  try {
+    const result = await withAzureDevOpsTimeout(client.getJson(url));
+    data = result.data;
+  } catch (error) {
+    throw new Error(`Azure DevOps identity API error: ${getAzureDevOpsErrorMessage(error)}`);
   }
 
-  const workers = Array.from(
-    { length: Math.min(limit, items.length) },
-    () => worker(),
-  );
-  await Promise.all(workers);
-  return results;
+  const byId = new Map<string, TeamMember>();
+  for (const identity of (data as IdentitiesResponse).value ?? []) {
+    const id = identity.id?.trim() ?? '';
+    const displayName =
+      identity.customDisplayName?.trim() ||
+      identity.providerDisplayName?.trim() ||
+      identity.displayName?.trim() ||
+      '';
+    if (id.length === 0 || displayName.length === 0) {
+      continue;
+    }
+    byId.set(id, { id, displayName });
+  }
+  return [...byId.values()].sort((left, right) => left.displayName.localeCompare(right.displayName));
 }
 
 export async function listAreaModules(client: AzureDevOpsClient): Promise<AreaModule[]> {

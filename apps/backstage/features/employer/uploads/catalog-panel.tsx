@@ -78,7 +78,7 @@ export function CatalogPanel({
       <Card
         title={
           selected
-            ? `Fields in ${selected.section} (${catalog.fieldTotalCount})`
+            ? `Fields in ${selected.section}`
             : "Select a section to see its fields"
         }
       >

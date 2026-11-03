@@ -4,7 +4,7 @@ import { useEffect, useEffectEvent, useRef, useState, useTransition } from "reac
 
 import { CopyOutlined, ReloadOutlined, SearchOutlined } from "@ant-design/icons";
 import { LIST_PAGE_SIZE } from "@hrms/db/page";
-import { App, Button, Input, Pagination, Select, Table, Tooltip, type InputRef } from "antd";
+import { App, Button, Input, Pagination, Select, Table, theme, Tooltip, type InputRef } from "antd";
 import type { TableProps } from "antd";
 import type { ColumnGroupType, ColumnsType, ColumnType } from "antd/es/table";
 import type { TablePaginationConfig } from "antd/es/table/interface";
@@ -23,6 +23,7 @@ import { runTableRefresh } from "@/shared/ui/data-table-refresh";
 import { TableCompareButton } from "@/shared/ui/data-table-compare-button";
 import { TableSqlButton } from "@/shared/ui/data-table-sql-button";
 import { pageRowCountLabel, pageSizeChoices, showPageSize } from "@/shared/ui/data-table-page";
+import { tableScroll } from "@/shared/ui/data-table-scroll";
 import { searchInputValue, serverSearchChanged } from "@/shared/ui/data-table-search";
 import { HighlightMatch, SearchQueryProvider } from "@/shared/ui/highlight-match";
 
@@ -355,10 +356,14 @@ export function DataTable<RecordType extends object>({
   dataSource,
   locale,
   onChange,
+  className,
   pagination,
+  size,
   styles,
   ...tableProps
 }: DataTableProps<RecordType>): React.JSX.Element {
+  const { token } = theme.useToken();
+  const tablePadding = token.padding;
   const router = useRouter();
   const [pagePending, startTransition] = useTransition();
   const [, startSearchTransition] = useTransition();
@@ -495,6 +500,10 @@ export function DataTable<RecordType extends object>({
     callerStyles?.title != null && typeof callerStyles.title === "object"
       ? callerStyles.title
       : undefined;
+  const callerSectionStyles =
+    callerStyles?.section != null && typeof callerStyles.section === "object"
+      ? callerStyles.section
+      : undefined;
 
   function changePage(nextPage: number, nextSize: number): void {
     const pageToUse = nextSize !== shownSize ? 1 : nextPage;
@@ -511,54 +520,73 @@ export function DataTable<RecordType extends object>({
 
   return (
     <SearchQueryProvider query={highlightQuery}>
-      <div className="flex items-center gap-2">
-        <TableSearchInput
-          appliedQuery={serverSearch ? appliedSearch : ""}
-          onFilterQueryChange={onFilterQueryChange}
-        />
-        {typeof title === "function" ? (
-          <div className="min-w-0 shrink-0">{title(visibleRows)}</div>
-        ) : null}
-        <div className="flex shrink-0 items-center gap-1">
-          <TableSqlButton script={queryScript} />
-          <TableCompareButton script={queryScript} />
-          <Tooltip title={reloadLabel}>
-            {skipRefresh ? <span>{reloadButton}</span> : reloadButton}
-          </Tooltip>
+      <div
+        style={{
+          background: token.colorBgContainer,
+          borderStartEndRadius: token.borderRadiusLG,
+          borderStartStartRadius: token.borderRadiusLG,
+        }}
+      >
+        <div
+          className="flex items-center gap-2"
+          style={{ paddingBlock: tablePadding, paddingInline: tablePadding }}
+        >
+          <TableSearchInput
+            appliedQuery={serverSearch ? appliedSearch : ""}
+            onFilterQueryChange={onFilterQueryChange}
+          />
+          {typeof title === "function" ? (
+            <div className="min-w-0 shrink-0">{title(visibleRows)}</div>
+          ) : null}
+          <div className="flex shrink-0 items-center gap-1">
+            <TableSqlButton script={queryScript} />
+            <TableCompareButton script={queryScript} />
+            <Tooltip title={reloadLabel}>
+              {skipRefresh ? <span>{reloadButton}</span> : reloadButton}
+            </Tooltip>
+          </div>
         </div>
-      </div>
-      <Table<RecordType>
-        {...tableProps}
-        columns={highlightedColumns}
-        dataSource={visibleRows}
-        loading={refreshing ? true : loading}
-        locale={visibleLocale}
-        pagination={resolvedPagination}
-        styles={{
-          ...callerStyles,
-          title: {
-            ...callerTitleStyles,
-            paddingInline: 0,
-          },
-        }}
-        title={
-          resolvedPagination === false
-            ? undefined
-            : (currentPageData) => (
-                <PageBar
-                  count={currentPageData.length}
-                  pagination={resolvedPagination}
-                  onChange={changePage}
-                />
-              )
-        }
-        onChange={(nextPagination, filters, sorter, extra) => {
-          if (!serverPaged && extra.action === "filter") {
-            setFilteredTotal(extra.currentDataSource.length);
+        <Table<RecordType>
+          {...tableProps}
+          scroll={tableScroll(tableProps.scroll)}
+          className={className ? `${className} hrms-data-table` : "hrms-data-table"}
+          columns={highlightedColumns}
+          dataSource={visibleRows}
+          loading={refreshing ? true : loading}
+          locale={visibleLocale}
+          pagination={resolvedPagination}
+          size={size}
+          styles={{
+            ...callerStyles,
+            section: {
+              ...callerSectionStyles,
+              paddingBottom: tablePadding,
+              paddingInline: tablePadding,
+            },
+            title: {
+              ...callerTitleStyles,
+              paddingInline: tablePadding,
+            },
+          }}
+          title={
+            resolvedPagination === false
+              ? undefined
+              : (currentPageData) => (
+                  <PageBar
+                    count={currentPageData.length}
+                    pagination={resolvedPagination}
+                    onChange={changePage}
+                  />
+                )
           }
-          onChange?.(nextPagination, filters, sorter, extra);
-        }}
-      />
+          onChange={(nextPagination, filters, sorter, extra) => {
+            if (!serverPaged && extra.action === "filter") {
+              setFilteredTotal(extra.currentDataSource.length);
+            }
+            onChange?.(nextPagination, filters, sorter, extra);
+          }}
+        />
+      </div>
     </SearchQueryProvider>
   );
 }

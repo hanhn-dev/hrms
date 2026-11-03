@@ -165,8 +165,6 @@ export function WorkflowsPanel({
   return (
     <>
       {tab === "workflows" ? (
-        <>
-          <p className="mb-3 text-slate-600">{workflowTotal} workflows</p>
           <DataTable
                 queryScript={workflowsScript}
                 rowKey="workflowId"
@@ -244,11 +242,9 @@ export function WorkflowsPanel({
                   { title: "Business units", dataIndex: "businessUnitNames" },
                 ]}
           />
-        </>
       ) : null}
       {tab === "pages" ? (
         <>
-          <p className="mb-3 text-slate-600">{pageTotal} pages</p>
           <FocusNote
                   clearLabel="All pages"
                   missing={pageMissing}
@@ -346,7 +342,6 @@ export function WorkflowsPanel({
       ) : null}
       {tab === "groups" ? (
         <>
-          <p className="mb-3 text-slate-600">{groupTotal} groups</p>
           <FocusNote
                   clearLabel="All groups"
                   missing={groupMissing}

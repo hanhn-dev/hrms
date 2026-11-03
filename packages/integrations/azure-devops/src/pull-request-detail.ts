@@ -17,6 +17,10 @@ import {
   getAzureDevOpsErrorMessage,
   type AzureDevOpsClient,
 } from './client.js';
+import {
+  getOrganizationIdentity,
+  normalizeOrganizationIdentity,
+} from './organization.js';
 import type {
   PullRequestChangeType,
   PullRequestChangedFile,
@@ -29,6 +33,8 @@ import type {
   PullRequestReviewer,
   PullRequestReviewerVote,
 } from './types.js';
+
+export { getOrganizationIdentity } from './organization.js';
 
 const DEFAULT_TOP = 50;
 const MAX_TOP = 100;
@@ -55,40 +61,6 @@ function parsePositiveId(value: string): number | null {
 
   const parsedValue = Number.parseInt(value, 10);
   return Number.isSafeInteger(parsedValue) ? parsedValue : null;
-}
-
-function normalizeOrganizationIdentity(value: string): string {
-  return value.trim().replace(/\/+$/, '').toLowerCase();
-}
-
-export function getOrganizationIdentity(orgUrl: string): string {
-  try {
-    const parsedUrl = new URL(orgUrl);
-    const host = parsedUrl.hostname.toLowerCase();
-
-    if (host === 'dev.azure.com' || host.endsWith('.dev.azure.com')) {
-      const [organization] = parsedUrl.pathname.split('/').filter(Boolean);
-      if (!organization) {
-        throw new Error(`Unable to determine organization from org URL: ${orgUrl}`);
-      }
-      return normalizeOrganizationIdentity(decodeURIComponent(organization));
-    }
-
-    const visualStudioMatch = host.match(/^([^.]+)\.visualstudio\.com$/i);
-    if (visualStudioMatch?.[1]) {
-      return normalizeOrganizationIdentity(visualStudioMatch[1]);
-    }
-
-    throw new Error(`Unsupported Azure DevOps organization URL: ${orgUrl}`);
-  } catch (error) {
-    if (error instanceof Error && error.message.startsWith('Unsupported')) {
-      throw error;
-    }
-    if (error instanceof Error && error.message.startsWith('Unable to determine')) {
-      throw error;
-    }
-    throw new Error(`Invalid Azure DevOps organization URL: ${orgUrl}`);
-  }
 }
 
 export function parsePullRequestReference(pullRequest: string | number): ParsedPullRequestReference {

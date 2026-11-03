@@ -8,6 +8,7 @@ import { BoardColumns } from "@/features/azure/board/board-columns";
 import { DEFAULT_BOARD_TEAM } from "@/features/azure/board/defaults";
 import type { BoardModel, MemberPbiAnswer, PersonPbi, SprintSummary } from "@/features/azure/board/group-board";
 import { MemberList } from "@/features/azure/board/member-list";
+import { useWorkItemView } from "@/features/azure/work-item";
 import { formatDate } from "@/shared/format-date";
 import { HighlightMatch, SearchSelect } from "@/shared/ui";
 
@@ -26,10 +27,12 @@ function MemberAnswer({
   name,
   pbis,
   query,
+  onOpenWorkItem,
 }: {
   name: string;
   pbis: PersonPbi[];
   query?: string;
+  onOpenWorkItem: (id: number) => void;
 }): React.JSX.Element {
   if (pbis.length === 0) {
     return <p className="mb-3">{name} is not on a PBI in this sprint.</p>;
@@ -41,9 +44,15 @@ function MemberAnswer({
       {pbis.map((pbi, index) => (
         <span key={pbi.id}>
           {index > 0 ? ", " : null}
-          <a href={pbi.url} rel="noopener noreferrer" target="_blank">
+          <button
+            className="cursor-pointer border-0 bg-transparent p-0 text-blue-600 hover:underline"
+            type="button"
+            onClick={() => {
+              onOpenWorkItem(pbi.id);
+            }}
+          >
             #{pbi.id} <HighlightMatch query={query} text={pbi.title} />
-          </a>
+          </button>
         </span>
       ))}
       .
@@ -119,6 +128,11 @@ export function BoardPanel({
   const router = useRouter();
   const pathname = usePathname();
   const [pending, startTransition] = useTransition();
+  const { openView, modal: workItemModal } = useWorkItemView();
+
+  function onOpenWorkItem(id: number): void {
+    void openView(id);
+  }
 
   const memberOptions = members.map((person) => ({
     label: person.displayName,
@@ -156,6 +170,7 @@ export function BoardPanel({
 
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-col">
+      {workItemModal}
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <SearchSelect
           allowClear={team !== DEFAULT_BOARD_TEAM}
@@ -316,7 +331,13 @@ export function BoardPanel({
           {model.memberAnswers.length > 0 ? (
             <div className="shrink-0 px-6 pt-3">
               {model.memberAnswers.map((answer: MemberPbiAnswer) => (
-                <MemberAnswer key={answer.displayName} name={answer.displayName} pbis={answer.pbis} query={query} />
+                <MemberAnswer
+                  key={answer.displayName}
+                  name={answer.displayName}
+                  pbis={answer.pbis}
+                  query={query}
+                  onOpenWorkItem={onOpenWorkItem}
+                />
               ))}
             </div>
           ) : null}
@@ -328,12 +349,16 @@ export function BoardPanel({
             </p>
           ) : view === "people" ? (
             <div className="min-h-0 flex-1 overflow-auto px-6 py-4">
-              <MemberList people={model.people} query={query} />
+              <MemberList people={model.people} query={query} onOpenWorkItem={onOpenWorkItem} />
             </div>
           ) : (
             <div className="flex min-h-0 flex-1 flex-col px-6 pt-4 pb-4">
               <div className="min-h-0 flex-1 overflow-auto">
-                <BoardColumns columns={model.columns} query={query} />
+                <BoardColumns
+                  columns={model.columns}
+                  query={query}
+                  onOpenWorkItem={onOpenWorkItem}
+                />
               </div>
             </div>
           )}

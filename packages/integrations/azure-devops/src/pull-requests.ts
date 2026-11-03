@@ -545,10 +545,13 @@ function hasRefinementInputs(request: WorkItemPullRequestLookupRequest): boolean
   );
 }
 
-export async function getWorkItemPullRequests(
+async function collectLinkedPullRequestAccumulators(
   client: AzureDevOpsClient,
   request: WorkItemPullRequestLookupRequest,
-): Promise<PullRequestLookupResponse> {
+): Promise<{
+  requestedLookup: Awaited<ReturnType<typeof resolveRawWorkItemsByIds>>;
+  candidateAccumulators: ReturnType<typeof accumulateCandidateReferences>;
+}> {
   const requestedLookup = await resolveRawWorkItemsByIds(client, request.ids);
   const requestedWorkItems = [...requestedLookup.workItemsById.values()];
   const descendantWorkItemsById =
@@ -561,15 +564,41 @@ export async function getWorkItemPullRequests(
     collectArtifactReferences(workItem, workItem.id!, 'requested'),
   );
   const childReferences = [...descendantWorkItemsById.values()].flatMap((childWorkItem) => {
-      const ancestors = descendantAncestorMap.get(childWorkItem.id!);
-      if (ancestors === undefined) {
-        return [];
-      }
+    const ancestors = descendantAncestorMap.get(childWorkItem.id!);
+    if (ancestors === undefined) {
+      return [];
+    }
 
-      return [...ancestors].flatMap((ancestorId) => collectArtifactReferences(childWorkItem, ancestorId, 'child'));
-    });
+    return [...ancestors].flatMap((ancestorId) => collectArtifactReferences(childWorkItem, ancestorId, 'child'));
+  });
 
-  const candidateAccumulators = accumulateCandidateReferences([...requestedReferences, ...childReferences]);
+  return {
+    requestedLookup,
+    candidateAccumulators: accumulateCandidateReferences([...requestedReferences, ...childReferences]),
+  };
+}
+
+/** Unique linked PR count (including child Task/Issue links) without hydrating PR details. */
+export async function countWorkItemLinkedPullRequests(
+  client: AzureDevOpsClient,
+  request: Pick<WorkItemPullRequestLookupRequest, 'ids' | 'includeChildLinks'>,
+): Promise<number> {
+  const { candidateAccumulators } = await collectLinkedPullRequestAccumulators(client, {
+    ids: request.ids,
+    includeChildLinks: request.includeChildLinks,
+    confirmUnfiltered: true,
+  });
+  return candidateAccumulators.length;
+}
+
+export async function getWorkItemPullRequests(
+  client: AzureDevOpsClient,
+  request: WorkItemPullRequestLookupRequest,
+): Promise<PullRequestLookupResponse> {
+  const { requestedLookup, candidateAccumulators } = await collectLinkedPullRequestAccumulators(
+    client,
+    request,
+  );
   const hydratedCandidates = await hydrateCandidates(client, candidateAccumulators);
   const filteredCandidates = filterCandidates(hydratedCandidates, request);
   const sortedCandidates = sortCandidates(

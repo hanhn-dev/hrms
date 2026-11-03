@@ -2,36 +2,16 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  Alert,
-  Button,
-  Card,
-  Input,
-  InputNumber,
-  Select,
-  Space,
-  Switch,
-  Tag,
-  Typography,
-} from "antd";
-import {
-  BUILTIN_WORKFLOW_ROLES,
-  actorFromName,
-  emptyWorkflowTree,
-  type WorkflowTree,
-} from "@hrms/db/workflow-tree";
+import { Button, Card, Input, InputNumber, Switch, Tag } from "antd";
 import {
   commitCreateWorkflowHeader,
   commitUpdateWorkflowHeader,
-  commitUpdateWorkflowTree,
   previewCreateWorkflowHeader,
   previewUpdateWorkflowHeader,
-  previewUpdateWorkflowTree,
 } from "@/features/employer/workflows/mutations";
 import {
   type LicensedModule,
   type WorkflowDefinition,
-  type WorkflowGroupRow,
   type WorkflowScopeOption,
 } from "@/features/employer/workflows/queries";
 import {
@@ -57,12 +37,6 @@ type HeaderDraft = {
   isAllLocationSelected: boolean;
   locationIds: number[];
   businessUnitIds: number[];
-};
-
-type ActorOption = {
-  value: string;
-  label: string;
-  empty?: boolean;
 };
 
 export function WorkflowHeading({
@@ -93,11 +67,10 @@ export function WorkflowHeading({
   );
 }
 
-export function WorkflowPanel({
+export function WorkflowDetailsPanel({
   employerId,
   workflow,
   pages,
-  groups,
   locations,
   businessUnits,
   modules,
@@ -112,7 +85,6 @@ export function WorkflowPanel({
     moduleName: string;
     isNotificationOnly: boolean;
   }>;
-  groups: WorkflowGroupRow[];
   locations: WorkflowScopeOption[];
   businessUnits: WorkflowScopeOption[];
   modules: LicensedModule[];
@@ -121,12 +93,7 @@ export function WorkflowPanel({
   const router = useRouter();
   const isCreate = workflow == null;
   const [header, setHeader] = useState<HeaderDraft>(() => initialHeader(workflow, modules));
-  const [tree, setTree] = useState<WorkflowTree>(() =>
-    workflow?.tree ??
-    emptyWorkflowTree(workflow?.workflowName ?? "Workflow", header.routingLevels),
-  );
   const [headerConfirmOpen, setHeaderConfirmOpen] = useState(false);
-  const [treeConfirmOpen, setTreeConfirmOpen] = useState(false);
   const createdIdRef = useRef<number | null>(null);
 
   const pageOptions = (() => {
@@ -145,31 +112,6 @@ export function WorkflowPanel({
     return [...options.values()];
   })();
 
-  const actorOptions = (() => {
-    const options = new Map<string, ActorOption>();
-    for (const role of BUILTIN_WORKFLOW_ROLES) {
-      options.set(role.name, { value: role.name, label: role.name });
-    }
-    for (const group of groups) {
-      const label = formatGroupActorLabel(group);
-      const empty = group.members.length === 0;
-      if (options.has(group.roleName)) {
-        const current = options.get(group.roleName);
-        if (current) {
-          current.empty = current.empty || empty;
-          current.label = label;
-        }
-        continue;
-      }
-      options.set(group.roleName, {
-        value: group.roleName,
-        label,
-        empty,
-      });
-    }
-    return [...options.values()];
-  })();
-
   const moduleOptions = (() => {
     const options = new Map<number, { value: number; label: string }>();
     for (const workflowModule of modules) {
@@ -183,28 +125,13 @@ export function WorkflowPanel({
     return [...options.values()];
   })();
 
-  const selectedPages = pages.filter((page) => header.mappedPageIds.includes(page.modulePageId));
-  const notificationOnly = selectedPages.some((page) => page.isNotificationOnly);
-  const emptyUsedGroups = groups.filter((group) => group.isEmptyReferenced);
   const headerReady =
     header.workflowName.trim().length > 0 &&
     header.moduleId != null &&
     header.mappedPageIds.length > 0;
 
   function patchHeader(partial: Partial<HeaderDraft>): void {
-    setHeader((current) => {
-      const next = { ...current, ...partial };
-      if (partial.routingLevels != null && partial.routingLevels !== current.routingLevels) {
-        setTree((currentTree) => syncTreeLevels(currentTree, partial.routingLevels ?? next.routingLevels));
-      }
-      if (partial.workflowName != null) {
-        setTree((currentTree) => ({
-          ...currentTree,
-          rootText: partial.workflowName?.trim() || currentTree.rootText,
-        }));
-      }
-      return next;
-    });
+    setHeader((current) => ({ ...current, ...partial }));
   }
 
   const headerInput = {
@@ -227,18 +154,9 @@ export function WorkflowPanel({
   };
 
   return (
-    <Space className="w-full" orientation="vertical" size="large">
-      {emptyUsedGroups.length > 0 ? (
-        <Alert
-          showIcon
-          type="warning"
-          title="Empty workflow groups are referenced"
-          description={emptyUsedGroups.map((group) => group.roleName).join(", ")}
-        />
-      ) : null}
-
+    <>
       <Card
-        title={isCreate ? "Create workflow" : `Header · ${workflow.workflowName}`}
+        title={isCreate ? "Create workflow" : workflow.workflowName}
         extra={
           <Button
             disabled={!writesEnabled || !headerReady}
@@ -290,9 +208,8 @@ export function WorkflowPanel({
           </label>
           <label className="flex flex-col gap-1 md:col-span-2">
             <span>Mapped pages</span>
-            <Select
+            <SearchSelect
               mode="multiple"
-              optionFilterProp="label"
               options={pageOptions}
               value={header.mappedPageIds}
               onChange={(mappedPageIds: number[]) => {
@@ -389,109 +306,6 @@ export function WorkflowPanel({
         </div>
       </Card>
 
-      <Card
-        title="Approval tree"
-        extra={
-          <Button
-            disabled={!writesEnabled || isCreate}
-            type="primary"
-            onClick={() => {
-              setTreeConfirmOpen(true);
-            }}
-          >
-            Preview tree save
-          </Button>
-        }
-      >
-        {isCreate ? (
-          <Alert
-            showIcon
-            type="info"
-            title="Create the header first"
-            description="The tree is saved after the workflow exists. Create the header, then assign approvers."
-          />
-        ) : (
-          <Space className="w-full" orientation="vertical" size="middle">
-            {notificationOnly ? (
-              <Typography.Text type="secondary">
-                Notification-only page: approvers are optional.
-              </Typography.Text>
-            ) : null}
-            {tree.levels.map((level, index) => (
-              <Card key={level.level} size="small" title={`Level ${level.level}`}>
-                <div className="grid gap-3 md:grid-cols-2">
-                  <ActorSelect
-                    label="Approvers"
-                    options={actorOptions}
-                    value={level.approvers.map((actor) => actor.name)}
-                    onChange={(names) => {
-                      setTree((current) => ({
-                        ...current,
-                        levels: current.levels.map((item, itemIndex) =>
-                          itemIndex === index
-                            ? { ...item, approvers: names.map(actorFromName) }
-                            : item,
-                        ),
-                      }));
-                    }}
-                  />
-                  <ActorSelect
-                    label="Notifications"
-                    options={actorOptions}
-                    value={level.notifications.map((actor) => actor.name)}
-                    onChange={(names) => {
-                      setTree((current) => ({
-                        ...current,
-                        levels: current.levels.map((item, itemIndex) =>
-                          itemIndex === index
-                            ? { ...item, notifications: names.map(actorFromName) }
-                            : item,
-                        ),
-                      }));
-                    }}
-                  />
-                </div>
-              </Card>
-            ))}
-            <div className="grid gap-3 md:grid-cols-3">
-              <ActorSelect
-                label="Notify approval"
-                options={actorOptions}
-                value={tree.notifyApproval.map((actor) => actor.name)}
-                onChange={(names) => {
-                  setTree((current) => ({
-                    ...current,
-                    notifyApproval: names.map(actorFromName),
-                  }));
-                }}
-              />
-              <ActorSelect
-                label="Notify rejection"
-                options={actorOptions}
-                value={tree.notifyRejection.map((actor) => actor.name)}
-                onChange={(names) => {
-                  setTree((current) => ({
-                    ...current,
-                    notifyRejection: names.map(actorFromName),
-                  }));
-                }}
-              />
-              <ActorSelect
-                label="Notify pullback"
-                options={actorOptions}
-                value={tree.notifyPullback.map((actor) => actor.name)}
-                onChange={(names) => {
-                  setTree((current) => ({
-                    ...current,
-                    notifyPullback: names.map(actorFromName),
-                  }));
-                }}
-              />
-            </div>
-          </Space>
-        )}
-      </Card>
-
       <ConfirmWriteModal
         hideTrigger
         buttonLabel="Preview header"
@@ -524,76 +338,8 @@ export function WorkflowPanel({
         }}
         onOpenChange={setHeaderConfirmOpen}
       />
-      {workflow ? (
-        <ConfirmWriteModal
-          hideTrigger
-          buttonLabel="Preview tree"
-          open={treeConfirmOpen}
-          previewAction={() =>
-            previewUpdateWorkflowTree({
-              employerId,
-              workflowId: workflow.workflowId,
-              tree,
-            })
-          }
-          commitAction={commitUpdateWorkflowTree}
-          successMessage="Workflow tree updated."
-          title="Update workflow tree"
-          onDone={() => {
-            router.refresh();
-          }}
-          onOpenChange={setTreeConfirmOpen}
-        />
-      ) : null}
-    </Space>
+    </>
   );
-}
-
-function ActorSelect({
-  label,
-  options,
-  value,
-  onChange,
-}: {
-  label: string;
-  options: ActorOption[];
-  value: string[];
-  onChange: (value: string[]) => void;
-}): React.JSX.Element {
-  const emptySelected = options.filter((option) => option.empty && value.includes(option.value));
-  return (
-    <label className="flex flex-col gap-1">
-      <span>{label}</span>
-      <Select
-        mode="multiple"
-        optionFilterProp="label"
-        options={options}
-        value={value}
-        onChange={onChange}
-      />
-      {emptySelected.length > 0 ? (
-        <Typography.Text type="danger">
-          Empty group: {emptySelected.map((option) => option.value).join(", ")}
-        </Typography.Text>
-      ) : null}
-    </label>
-  );
-}
-
-function formatGroupActorLabel(group: WorkflowGroupRow): string {
-  if (group.members.length === 0) {
-    return `${group.roleName} (no members)`;
-  }
-  const names = group.members.map(formatGroupMemberLabel).join(", ");
-  return `${group.roleName} — ${names}`;
-}
-
-function formatGroupMemberLabel(member: {
-  name: string;
-  employmentNumber: string | null;
-}): string {
-  const employmentNumber = member.employmentNumber?.trim();
-  return employmentNumber ? `${member.name} (${employmentNumber})` : member.name;
 }
 
 function SwitchRow({
@@ -634,19 +380,6 @@ function initialHeader(
     locationIds: workflow?.locationIds ?? [],
     businessUnitIds: workflow?.businessUnitIds ?? [],
   };
-}
-
-function syncTreeLevels(tree: WorkflowTree, routingLevels: number): WorkflowTree {
-  const levels = Array.from({ length: Math.max(routingLevels, 1) }, (_, index) => {
-    return (
-      tree.levels.find((level) => level.level === index + 1) ?? {
-        level: index + 1,
-        approvers: [],
-        notifications: [],
-      }
-    );
-  });
-  return { ...tree, levels };
 }
 
 function WorkflowScopeSelect({
@@ -691,8 +424,7 @@ function WorkflowScopeSelect({
       clearTimeout(timer);
     };
   }, [employerId, kind, query, value]);
-  const options =
-    query.trim().length < 2 ? mergeScopeOptions(initial, loaded, value) : loaded;
+  const options = query.trim().length < 2 ? mergeScopeOptions(initial, loaded, value) : loaded;
   return (
     <SearchSelect
       allowClear

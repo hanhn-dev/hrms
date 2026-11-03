@@ -6,7 +6,15 @@ const ACTIVE_LINK_CLASS = "text-sm font-semibold text-slate-900 dark:text-white"
 export function AzureNav({
   active,
 }: {
-  active?: "board" | "sprints" | "roadmap" | "pull-requests" | "git" | "work-item-drafts";
+  active?:
+    | "board"
+    | "sprints"
+    | "progress"
+    | "teams"
+    | "roadmap"
+    | "pull-requests"
+    | "git"
+    | "work-item-drafts";
 }): React.JSX.Element {
   return (
     <nav className="flex flex-wrap items-center gap-4">
@@ -21,6 +29,18 @@ export function AzureNav({
         href="/azure/sprints"
       >
         Sprints
+      </Link>
+      <Link
+        className={active === "teams" ? ACTIVE_LINK_CLASS : LINK_CLASS}
+        href="/azure/teams"
+      >
+        Teams
+      </Link>
+      <Link
+        className={active === "progress" ? ACTIVE_LINK_CLASS : LINK_CLASS}
+        href="/azure/progress"
+      >
+        Progress
       </Link>
       <Link
         className={active === "roadmap" ? ACTIVE_LINK_CLASS : LINK_CLASS}

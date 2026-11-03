@@ -24,7 +24,7 @@ import {
   updateRoadmapWindow,
 } from "@/features/azure/roadmap/queries";
 import { roadmapTeamsQuery, type RoadmapSprintLane } from "@/features/azure/roadmap/sprints";
-import { useWorkItemView } from "@/features/azure/pull-requests/work-item-view";
+import { useWorkItemView } from "@/features/azure/work-item";
 import { DEFAULT_DATE_FORMAT } from "@/shared/format-date";
 import { SearchSelect } from "@/shared/ui";
 

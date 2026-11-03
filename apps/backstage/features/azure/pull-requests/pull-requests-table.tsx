@@ -12,7 +12,7 @@ import {
   type CherryPickSort,
   type CherryPickSortKey,
 } from "@/features/azure/pull-requests/build-cherry-pick-command";
-import { useWorkItemView } from "@/features/azure/pull-requests/work-item-view";
+import { useWorkItemView } from "@/features/azure/work-item";
 import { formatDate } from "@/shared/format-date";
 
 const STATUS_COLORS: Record<string, string> = {

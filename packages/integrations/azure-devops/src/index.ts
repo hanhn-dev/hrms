@@ -103,7 +103,11 @@ export {
 	resolvePullRequest,
 } from './pull-request-detail.js';
 export type { ParsedPullRequestReference } from './pull-request-detail.js';
-export { getWorkItemPullRequests, mapGitPullRequestToCandidate } from './pull-requests.js';
+export {
+  countWorkItemLinkedPullRequests,
+  getWorkItemPullRequests,
+  mapGitPullRequestToCandidate,
+} from './pull-requests.js';
 export {
 	emptyPullRequestSearchCriteria,
 	filterPullRequestCandidates,
@@ -117,6 +121,7 @@ export {
 	listProjectMembers,
 	listProjectTeams,
 	listTeamMembers,
+	searchIdentities,
 	toWorkItemAreaPath,
 } from './catalog.js';
 export {

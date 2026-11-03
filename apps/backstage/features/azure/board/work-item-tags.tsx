@@ -16,16 +16,32 @@ export function WorkItemStateTag({ state }: { state: string }): React.JSX.Elemen
 export function ParentLink({
   parent,
   query,
+  onOpenWorkItem,
 }: {
   parent: BoardRelation;
   query?: string;
+  onOpenWorkItem?: (id: number) => void;
 }): React.JSX.Element {
+  const openParent = () => {
+    onOpenWorkItem?.(parent.id);
+  };
+
   return (
     <div className="text-sm">
       <span className="text-slate-500">Parent </span>
-      <a href={parent.url} rel="noopener noreferrer" target="_blank">
-        #{parent.id}
-      </a>
+      {onOpenWorkItem ? (
+        <button
+          className="cursor-pointer border-0 bg-transparent p-0 text-blue-600 hover:underline"
+          type="button"
+          onClick={openParent}
+        >
+          #{parent.id}
+        </button>
+      ) : (
+        <a href={parent.url} rel="noopener noreferrer" target="_blank">
+          #{parent.id}
+        </a>
+      )}
       {parent.type ? (
         <span className="ml-1">
           <WorkItemTypeTag type={parent.type} />
@@ -33,7 +49,17 @@ export function ParentLink({
       ) : null}
       {parent.title ? (
         <div>
-          <HighlightMatch query={query} text={parent.title} />
+          {onOpenWorkItem ? (
+            <button
+              className="cursor-pointer border-0 bg-transparent p-0 text-left hover:underline"
+              type="button"
+              onClick={openParent}
+            >
+              <HighlightMatch query={query} text={parent.title} />
+            </button>
+          ) : (
+            <HighlightMatch query={query} text={parent.title} />
+          )}
         </div>
       ) : (
         <span className="text-slate-500"> not in this sprint</span>
@@ -45,9 +71,11 @@ export function ParentLink({
 export function ChildList({
   children,
   query,
+  onOpenWorkItem,
 }: {
   children: BoardChild[];
   query?: string;
+  onOpenWorkItem?: (id: number) => void;
 }): React.JSX.Element | null {
   if (children.length === 0) {
     return null;
@@ -58,11 +86,35 @@ export function ChildList({
       <ul className="m-0 flex list-none flex-col gap-1 p-0">
         {children.map((child) => (
           <li className="text-sm" key={child.id}>
-            <a href={child.url} rel="noopener noreferrer" target="_blank">
-              #{child.id}
-            </a>{" "}
+            {onOpenWorkItem ? (
+              <button
+                className="cursor-pointer border-0 bg-transparent p-0 text-blue-600 hover:underline"
+                type="button"
+                onClick={() => {
+                  onOpenWorkItem(child.id);
+                }}
+              >
+                #{child.id}
+              </button>
+            ) : (
+              <a href={child.url} rel="noopener noreferrer" target="_blank">
+                #{child.id}
+              </a>
+            )}{" "}
             <WorkItemTypeTag type={child.type} />{" "}
-            <HighlightMatch query={query} text={child.title} />{" "}
+            {onOpenWorkItem ? (
+              <button
+                className="cursor-pointer border-0 bg-transparent p-0 text-left hover:underline"
+                type="button"
+                onClick={() => {
+                  onOpenWorkItem(child.id);
+                }}
+              >
+                <HighlightMatch query={query} text={child.title} />
+              </button>
+            ) : (
+              <HighlightMatch query={query} text={child.title} />
+            )}{" "}
             <WorkItemStateTag state={child.state} />
           </li>
         ))}

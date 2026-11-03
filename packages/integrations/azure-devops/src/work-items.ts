@@ -57,6 +57,21 @@ function escapeWiqlString(value: string): string {
   return value.replace(/'/g, "''");
 }
 
+/** First HTML/text field that has content (used for process-template description variants). */
+function firstHtmlField(
+  fields: Record<string, unknown>,
+  keys: readonly string[],
+): string | null | undefined {
+  for (const key of keys) {
+    const value = fields[key];
+    if (typeof value === 'string' && value.trim().length > 0) {
+      return value;
+    }
+  }
+  const first = fields[keys[0]!];
+  return typeof first === 'string' ? first : null;
+}
+
 function parsePositiveInteger(value: string): number | null {
   if (!POSITIVE_INTEGER_PATTERN.test(value)) {
     return null;
@@ -214,7 +229,13 @@ async function mapWorkItem(client: AzureDevOpsClient, raw: AzureWorkItem, orgUrl
   const f = raw.fields ?? {};
   const tagsRaw = (f['System.Tags'] as string | undefined) ?? '';
   const attachments = await mapAttachments(client, raw);
-  const descriptionHtml = f['System.Description'] as string | null | undefined;
+  // Some process templates (including TDG Bug) store the body in Item Description
+  // instead of System.Description / Repro Steps.
+  const descriptionHtml = firstHtmlField(f, [
+    'System.Description',
+    'Microsoft.VSTS.TCM.ItemDescription',
+  ]);
+  const reproStepsHtml = f['Microsoft.VSTS.TCM.ReproSteps'] as string | null | undefined;
   const acceptanceCriteriaHtml = f['Microsoft.VSTS.Common.AcceptanceCriteria'] as string | null | undefined;
   const description = htmlToMarkdown(descriptionHtml);
   const acceptanceCriteria = htmlToMarkdown(acceptanceCriteriaHtml);
@@ -225,10 +246,14 @@ async function mapWorkItem(client: AzureDevOpsClient, raw: AzureWorkItem, orgUrl
     type: (f['System.WorkItemType'] as string | undefined) ?? '',
     state: (f['System.State'] as string | undefined) ?? '',
     description,
-    reproSteps: htmlToMarkdown(f['Microsoft.VSTS.TCM.ReproSteps'] as string | null | undefined),
+    reproSteps: htmlToMarkdown(reproStepsHtml),
     acceptanceCriteria,
     acceptanceCriteriaItems,
-    inlineImages: [...extractInlineImages(descriptionHtml), ...extractInlineImages(acceptanceCriteriaHtml)],
+    inlineImages: [
+      ...extractInlineImages(descriptionHtml),
+      ...extractInlineImages(reproStepsHtml),
+      ...extractInlineImages(acceptanceCriteriaHtml),
+    ],
     attachments,
     tags: tagsRaw ? tagsRaw.split(';').map((t) => t.trim()).filter(Boolean) : [],
     assignedTo: getIdentityDisplayName(f['System.AssignedTo']),
@@ -387,7 +412,9 @@ function mapSummary(raw: AzureWorkItem, orgUrl: string): WorkItemSummary {
     changedDate: toIsoDate(f['System.ChangedDate']),
     iterationPath: (f['System.IterationPath'] as string | undefined) ?? '',
     parentId: (f['System.Parent'] as number | null | undefined) ?? null,
-    hasDescription: htmlFieldHasContent(f['System.Description'] as string | null | undefined),
+    hasDescription:
+      htmlFieldHasContent(f['System.Description'] as string | null | undefined) ||
+      htmlFieldHasContent(f['Microsoft.VSTS.TCM.ItemDescription'] as string | null | undefined),
     hasAcceptanceCriteria: htmlFieldHasContent(
       f['Microsoft.VSTS.Common.AcceptanceCriteria'] as string | null | undefined,
     ),
