@@ -45,6 +45,7 @@ export function useGitFileIndex(
   branches: readonly GitBranchSummary[],
   fallbackBranch: string,
   query: string,
+  preferDev = true,
 ): {
   paths: readonly string[];
   branchName: string;
@@ -52,7 +53,7 @@ export function useGitFileIndex(
   ready: boolean;
   error: string | null;
 } {
-  const catalog = resolveCatalogBranch(branches, fallbackBranch);
+  const catalog = resolveCatalogBranch(branches, fallbackBranch, preferDev);
   const catalogName = catalog?.name ?? "";
   const catalogCommitId = catalog?.commitId ?? "";
   const [paths, setPaths] = useState<readonly string[]>([]);

@@ -163,7 +163,7 @@ export function TeamEditor({
           label="Members"
           extra="Project users plus Azure DevOps identity search (type at least 2 characters)."
         >
-          <Space direction="vertical" className="w-full">
+          <Space orientation="vertical" className="w-full">
             <SearchSelect
               allowClear
               className="w-full"

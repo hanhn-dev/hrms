@@ -60,6 +60,7 @@ export function GitPathSearch({
   branches,
   branchesLoading,
   fallbackBranch,
+  preferDev = true,
   value,
   onChange,
   onSelectRecent,
@@ -69,6 +70,7 @@ export function GitPathSearch({
   branches: readonly GitBranchSummary[];
   branchesLoading: boolean;
   fallbackBranch: string;
+  preferDev?: boolean;
   value: string;
   onChange: (value: string) => void;
   onSelectRecent?: (recent: RecentGitPath) => void;
@@ -81,7 +83,7 @@ export function GitPathSearch({
     () => EMPTY_RECENT_GIT_PATHS,
   );
   const [debouncedValue, setDebouncedValue] = useState(value);
-  const index = useGitFileIndex(repositoryId, branches, fallbackBranch, debouncedValue);
+  const index = useGitFileIndex(repositoryId, branches, fallbackBranch, debouncedValue, preferDev);
   const valueRef = useRef(value);
 
   useEffect(() => {

@@ -372,6 +372,7 @@ export function CompareFilePanel({
             branches={branches}
             branchesLoading={branchesLoading}
             fallbackBranch={leftBranch}
+            preferDev={false}
             repositoryId={repositoryId}
             value={path}
             onChange={setPath}

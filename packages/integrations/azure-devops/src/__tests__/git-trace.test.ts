@@ -206,12 +206,35 @@ describe('git trace', () => {
     );
   });
 
-  it('throws when code search reports no paths for a failing info code', async () => {
-    mockGitApi.getRepository.mockResolvedValue({ id: 'repo-a', name: 'TDG HRMS' });
-    mockClient.postJson = vi.fn().mockResolvedValue({ infoCode: 1, results: [] });
+  it('falls back to listing branch files when code search returns a failing info code', async () => {
+    const target =
+      '/HRMS-DATABASE/HRMS/STOREPROCEDURE/SP_AdminEMP_DisBDayAnnivrNotification.sql';
+    mockGitApi.getRepository.mockResolvedValue({ id: 'repo-a', name: 'TDG HRMS DB' });
+    mockClient.postJson = vi.fn().mockResolvedValue({ infoCode: 16, results: [] });
+    mockGitApi.getItems.mockResolvedValue([
+      { path: target, isFolder: false },
+      { path: '/HRMS-DATABASE/HRMS/STOREPROCEDURE/SP_CM_GetTitle.sql', isFolder: false },
+      { path: '/README.md', isFolder: false },
+    ]);
 
-    await expect(searchGitPaths(mockClient, 'repo-a', 'Dev', 'ValidationHelper.js')).rejects.toThrow(
-      'Code search could not list files on Dev.',
+    const paths = await searchGitPaths(
+      mockClient,
+      'repo-a',
+      'QA',
+      'SP_AdminEMP_DisBDayAnnivrNotification',
+    );
+
+    expect(paths).toEqual([target]);
+    expect(mockGitApi.getItems).toHaveBeenCalledWith(
+      'repo-a',
+      'Sample Project',
+      '/',
+      VersionControlRecursionType.Full,
+      false,
+      false,
+      false,
+      false,
+      { version: 'QA', versionType: GitVersionType.Branch },
     );
   });
 

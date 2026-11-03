@@ -273,9 +273,55 @@ const CodeSearchResponseSchema = z.object({
     .optional(),
 });
 
+const listedFilesByBranch = new Map<string, Promise<readonly string[]>>();
+
+function listedFilesCacheKey(repositoryId: string, branch: string): string {
+  return `${repositoryId}\n${branch}`;
+}
+
+async function listGitFilesCached(
+  client: AzureDevOpsClient,
+  repositoryId: string,
+  branch: string,
+): Promise<readonly string[]> {
+  const key = listedFilesCacheKey(repositoryId, branch);
+  const pending = listedFilesByBranch.get(key);
+  if (pending) {
+    return pending;
+  }
+  const request = listGitFiles(client, repositoryId, branch).then(
+    (paths) => {
+      listedFilesByBranch.set(key, Promise.resolve(paths));
+      return paths;
+    },
+    (error: unknown) => {
+      listedFilesByBranch.delete(key);
+      throw error;
+    },
+  );
+  listedFilesByBranch.set(key, request);
+  return request;
+}
+
+function filterListedGitPaths(paths: readonly string[], terms: GitPathSearchTerms): string[] {
+  const matches: string[] = [];
+  for (const path of paths) {
+    if (!pathContainsTerms(path, terms)) {
+      continue;
+    }
+    matches.push(path);
+    if (matches.length >= GIT_PATH_SEARCH_CANDIDATE_LIMIT) {
+      break;
+    }
+  }
+  return matches;
+}
+
 /**
  * Asks Azure DevOps code search for file-name matches. A filename can sit
  * many directories down, so suggestions do not walk the tree from `/`.
+ * When code search is unavailable (non-zero infoCode, empty hits), falls back
+ * to a cached full-tree list for that branch.
  */
 export async function searchGitPaths(
   client: AzureDevOpsClient,
@@ -333,7 +379,8 @@ export async function searchGitPaths(
   }
 
   if ((parsed.data.infoCode ?? 0) !== 0 && paths.size === 0) {
-    throw new Error(`Code search could not list files on ${resolvedBranch}.`);
+    const listed = await listGitFilesCached(client, resolvedRepositoryId, resolvedBranch);
+    return filterListedGitPaths(listed, terms);
   }
 
   return [...paths];

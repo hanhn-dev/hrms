@@ -12,6 +12,13 @@ describe("resolveCatalogBranch", () => {
     });
   });
 
+  it("uses the fallback branch when preferDev is false", () => {
+    assert.deepEqual(
+      resolveCatalogBranch([qa, { name: "dev", commitId: "lower" }], "QA", false),
+      qa,
+    );
+  });
+
   it("uses the fallback branch when Dev is absent", () => {
     assert.deepEqual(resolveCatalogBranch([qa], "QA"), qa);
   });
