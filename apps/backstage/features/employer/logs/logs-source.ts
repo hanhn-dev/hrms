@@ -11,6 +11,25 @@ export const LOG_TABS = ["activity", "pages", "exceptions", "login", "mydetails"
 
 export type LogsTab = (typeof LOG_TABS)[number];
 
+export const LOG_RANGE_PRESETS = ["24h", "7d", "14d"] as const;
+
+export type LogRangePreset = (typeof LOG_RANGE_PRESETS)[number];
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+const PRESET_MATCH_TOLERANCE_MS = 60_000;
+
+export const LOG_RANGE_PRESET_MS: Record<LogRangePreset, number> = {
+  "24h": LOG_DEFAULT_WINDOW_MS,
+  "7d": 7 * DAY_MS,
+  "14d": 14 * DAY_MS,
+};
+
+export const LOG_RANGE_PRESET_OPTIONS: { label: string; value: LogRangePreset }[] = [
+  { label: "Last 24 hours", value: "24h" },
+  { label: "Last 7 days", value: "7d" },
+  { label: "Last 14 days", value: "14d" },
+];
+
 export type LogsQuery = {
   tab: LogsTab;
   employee: string | null;
@@ -132,6 +151,47 @@ export function resolveLogWindow(
     serverTo: serverLocalBound(to, offsetMinutes),
     usingDefaultWindow,
     windowLimited,
+  };
+}
+
+export function matchLogRangePreset(
+  from: Date,
+  to: Date,
+  usingDefaultWindow: boolean,
+): LogRangePreset | undefined {
+  if (usingDefaultWindow) {
+    return "24h";
+  }
+  const spanMs = to.getTime() - from.getTime();
+  for (const preset of ["7d", "14d", "24h"] as const) {
+    if (Math.abs(spanMs - LOG_RANGE_PRESET_MS[preset]) <= PRESET_MATCH_TOLERANCE_MS) {
+      return preset;
+    }
+  }
+  return undefined;
+}
+
+export function logRangePresetLabel(preset: LogRangePreset): string {
+  switch (preset) {
+    case "24h":
+      return "Showing the last 24 hours.";
+    case "7d":
+      return "Showing the last 7 days.";
+    case "14d":
+      return "Showing the last 14 days.";
+  }
+}
+
+export function applyLogRangePreset(
+  preset: LogRangePreset,
+  now = new Date(),
+): { from: string | null; to: string | null } {
+  if (preset === "24h") {
+    return { from: null, to: null };
+  }
+  return {
+    from: new Date(now.getTime() - LOG_RANGE_PRESET_MS[preset]).toISOString(),
+    to: now.toISOString(),
   };
 }
 

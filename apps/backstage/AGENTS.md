@@ -106,7 +106,7 @@ Ops screens: antd only (no `@hrms/ui`). Docs chrome stays Tailwind. Mount antd p
 | `/azure`, `/azure/sprints`, `/azure/pull-requests` | Azure DevOps operator tools (sprints, PR lookup) | `features/azure/*` |
 | `/azure/board` | Sprint taskboard. Opens on Team Sprinter and the current sprint. | `features/azure/board` |
 | `/azure/teams` | Create and manage local progress teams (Azure team context + members). | `features/azure/teams` ← `content/azure/_progress-teams/teams.json` |
-| `/azure/progress` | Team member sprint progress, completed counts, and velocity. Pick a local team to auto-fill members. | `features/azure/progress` |
+| `/azure/progress` | Team member sprint progress, completed counts, velocity, and PRs opened per member (sprint or custom dates). Pick a local team to auto-fill members. | `features/azure/progress` |
 | `/azure/git` | Trace commits, compare two commits, and diff one file across branches. | `features/azure/git` |
 | `/azure/work-item-drafts` | Review SQL performance draft PBIs; Publish creates the ADO work item | `features/azure/work-item-drafts` ← `content/azure/_work-item-drafts/` |
 | `/azure/roadmap` | Timeline of named date windows and the active sprint. Sprint rank and dates are saved in Backstage and are not written to Azure DevOps. | `features/azure/roadmap` ← `content/azure/_roadmap/roadmap.json` |

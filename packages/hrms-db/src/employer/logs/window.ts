@@ -1,7 +1,7 @@
 import { LIST_PAGE_SIZE } from "../../shared/page.ts";
 
 export const LOG_PAGE_SIZE = LIST_PAGE_SIZE;
-export const LOG_MAX_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+export const LOG_MAX_WINDOW_MS = 14 * 24 * 60 * 60 * 1000;
 export const LOG_SQL_ERROR_MAX_WINDOW_MS = 45 * 24 * 60 * 60 * 1000;
 export const LOG_DEFAULT_WINDOW_MS = 24 * 60 * 60 * 1000;
 

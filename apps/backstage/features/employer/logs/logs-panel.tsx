@@ -1,6 +1,6 @@
 "use client";
 
-import { Alert, Button, DatePicker, Input, Tabs } from "antd";
+import { Alert, Button, DatePicker, Input, Segmented, Tabs } from "antd";
 import type { TablePaginationConfig } from "antd";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
@@ -8,7 +8,12 @@ import { useRouter } from "next/navigation";
 import { useSyncExternalStore } from "react";
 import { ElmahStack } from "@/features/employer/logs/elmah-stack";
 import {
+  applyLogRangePreset,
+  LOG_RANGE_PRESET_OPTIONS,
+  logRangePresetLabel,
   logsHref,
+  matchLogRangePreset,
+  type LogRangePreset,
   type LogsQuery,
   type LogsTab,
 } from "@/features/employer/logs/logs-source";
@@ -180,6 +185,11 @@ export function LogsPanel({
 }): React.JSX.Element {
   const router = useRouter();
   const marked = highlightQuery(query);
+  const activePreset = matchLogRangePreset(
+    new Date(appliedFrom),
+    new Date(appliedTo),
+    usingDefaultWindow,
+  );
 
   const push = (patch: Partial<LogsQuery>): void => {
     router.push(
@@ -190,6 +200,11 @@ export function LogsPanel({
       }),
     );
   };
+
+  function applyPreset(preset: LogRangePreset): void {
+    const range = applyLogRangePreset(preset);
+    push({ from: range.from, to: range.to, sessionId: null });
+  }
 
   const activityColumns = [
     {
@@ -270,6 +285,13 @@ export function LogsPanel({
             push({ text: value.trim() || null, sessionId: null });
           }}
         />
+        <Segmented
+          options={LOG_RANGE_PRESET_OPTIONS}
+          value={activePreset}
+          onChange={(value) => {
+            applyPreset(value as LogRangePreset);
+          }}
+        />
         <InstantPicker
           placeholder="From (UTC)"
           value={appliedFrom}
@@ -285,8 +307,8 @@ export function LogsPanel({
           }}
         />
       </div>
-      {usingDefaultWindow ? (
-        <p className="mb-3 text-sm text-slate-500">Showing the last 24 hours.</p>
+      {activePreset ? (
+        <p className="mb-3 text-sm text-slate-500">{logRangePresetLabel(activePreset)}</p>
       ) : null}
       {windowLimited ? (
         <Alert
@@ -296,7 +318,7 @@ export function LogsPanel({
           title={
             query.tab === "sqlerrors"
               ? "The time window is limited to 45 days."
-              : "The time window is limited to 7 days."
+              : "The time window is limited to 14 days."
           }
         />
       ) : null}

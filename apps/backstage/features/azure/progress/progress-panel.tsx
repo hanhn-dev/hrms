@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useState, useTransition, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Alert, Card, Collapse } from "antd";
@@ -14,7 +14,15 @@ import {
   type PersonProgress,
   type VelocitySeries,
 } from "@/features/azure/progress/aggregate-progress";
+import { toDateOnly } from "@/features/azure/progress/aggregate-pull-requests";
 import { ProgressBoard } from "@/features/azure/progress/progress-board";
+import { ProgressMemberFilterContext } from "@/features/azure/progress/progress-pr-filter-context";
+import { ProgressPrPeriodControls } from "@/features/azure/progress/progress-pr-period";
+import {
+  DEFAULT_PROGRESS_PR_PRESET,
+  type ProgressPrMode,
+  type ProgressPrPreset,
+} from "@/features/azure/progress/progress-pr-range";
 import { ProgressSummary } from "@/features/azure/progress/progress-summary";
 import { VelocityPanel } from "@/features/azure/progress/velocity-panel";
 import { StaleAttentionPanel, useStaleAttention } from "@/features/azure/stale";
@@ -85,6 +93,11 @@ export function ProgressPanel({
   truncated,
   velocity,
   velocityTruncatedPaths,
+  prMode,
+  prPreset,
+  prFrom,
+  prTo,
+  pullRequests,
 }: {
   localTeams: LocalTeamEntry[];
   selectedTeam: LocalTeamEntry | null;
@@ -98,6 +111,11 @@ export function ProgressPanel({
   truncated: boolean;
   velocity: VelocitySeries;
   velocityTruncatedPaths: string[];
+  prMode: ProgressPrMode;
+  prPreset: ProgressPrPreset;
+  prFrom: string | null;
+  prTo: string | null;
+  pullRequests: ReactNode;
 }): React.JSX.Element {
   const router = useRouter();
   const pathname = usePathname();
@@ -110,12 +128,30 @@ export function ProgressPanel({
     setMemberFilter([]);
   }, [selectedTeam?.id]);
 
+  function serializePrMode(mode: ProgressPrMode): string | null {
+    if (mode === "preset") {
+      return null;
+    }
+    return mode;
+  }
+
+  function serializePrPreset(mode: ProgressPrMode, preset: ProgressPrPreset): string | null {
+    if (mode !== "preset" || preset === DEFAULT_PROGRESS_PR_PRESET) {
+      return null;
+    }
+    return preset;
+  }
+
   function updateQuery(patch: Record<string, QueryValue>): void {
     const current: Record<string, QueryValue> = {
       teamId: selectedTeam?.id ?? null,
       sprint:
         selected != null && selected.path !== currentIterationPath ? selected.path : null,
       staleDays: searchParams.get("staleDays"),
+      prMode: serializePrMode(prMode),
+      prPreset: serializePrPreset(prMode, prPreset),
+      prFrom: prMode === "custom" ? prFrom : null,
+      prTo: prMode === "custom" ? prTo : null,
     };
     const search = writeSearch({ ...current, ...patch });
     startTransition(() => {
@@ -154,150 +190,198 @@ export function ProgressPanel({
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      {workItemModal}
-      <div className="flex flex-wrap items-center gap-2">
-        <SearchSelect
-          allowClear
-          className="min-w-56"
-          disabled={pending}
-          options={localTeams.map((team) => ({
-            label: team.name,
-            value: team.id,
-          }))}
-          placeholder="Local team"
-          value={selectedTeam?.id}
-          onChange={(value: string | null) => {
-            setMemberFilter([]);
-            updateQuery({
-              teamId: value,
-              sprint: null,
-            });
-          }}
-        />
-        <SearchSelect
-          allowClear={selected != null && selected.path !== currentIterationPath}
-          className="min-w-64"
-          disabled={pending || selectedTeam == null}
-          options={iterations.map((iteration) => ({
-            label: sprintLabel(iteration),
-            value: iteration.path,
-          }))}
-          placeholder="Sprint"
-          value={selected?.path}
-          onChange={(value: string | null) => {
-            updateQuery({
-              sprint: value && value !== currentIterationPath ? value : null,
-            });
-          }}
-        />
-        <PageHelpTrigger
-          ariaLabel="Sprint data warnings"
-          className="!h-auto !w-auto !p-0 text-amber-500"
-          icon={<WarningOutlined />}
-          notes={capWarnings}
-          title="Sprint data warnings"
-        />
-        <Link className="text-sm underline" href="/azure/teams">
-          Manage teams
-        </Link>
-      </div>
-
-      {missingTeam ? (
-        <Alert showIcon title="That local team was not found." type="warning" />
-      ) : null}
-
-      {selectedTeam == null ? (
-        <p className="m-0 text-sm text-slate-500">Select a local team to load members and progress.</p>
-      ) : selectedTeam.members.length === 0 ? (
-        <p className="m-0 text-sm text-slate-500">
-          This team has no members.{" "}
-          <Link className="underline" href="/azure/teams">
-            Edit team
+    <ProgressMemberFilterContext.Provider value={memberFilter}>
+      <div className="flex flex-col gap-4">
+        {workItemModal}
+        <div className="flex flex-wrap items-center gap-2">
+          <SearchSelect
+            allowClear
+            className="min-w-56"
+            disabled={pending}
+            options={localTeams.map((team) => ({
+              label: team.name,
+              value: team.id,
+            }))}
+            placeholder="Local team"
+            value={selectedTeam?.id}
+            onChange={(value: string | null) => {
+              setMemberFilter([]);
+              updateQuery({
+                teamId: value,
+                sprint: null,
+                prMode: null,
+                prPreset: null,
+                prFrom: null,
+                prTo: null,
+              });
+            }}
+          />
+          <SearchSelect
+            allowClear={selected != null && selected.path !== currentIterationPath}
+            className="min-w-64"
+            disabled={pending || selectedTeam == null}
+            options={iterations.map((iteration) => ({
+              label: sprintLabel(iteration),
+              value: iteration.path,
+            }))}
+            placeholder="Sprint"
+            value={selected?.path}
+            onChange={(value: string | null) => {
+              updateQuery({
+                sprint: value && value !== currentIterationPath ? value : null,
+              });
+            }}
+          />
+          <PageHelpTrigger
+            ariaLabel="Sprint data warnings"
+            className="!h-auto !w-auto !p-0 text-amber-500"
+            icon={<WarningOutlined />}
+            notes={capWarnings}
+            title="Sprint data warnings"
+          />
+          <Link className="text-sm underline" href="/azure/teams">
+            Manage teams
           </Link>
-        </p>
-      ) : (
-        <SearchSelect
-          allowClear
-          className="min-w-56 max-w-xl"
-          disabled={pending}
-          maxTagCount="responsive"
-          mode="multiple"
-          options={selectedTeam.members.map((member) => ({
-            label: member,
-            value: member,
-          }))}
-          placeholder="Team members"
-          value={memberFilter}
-          onChange={(value: string[]) => {
-            setMemberFilter(value ?? []);
-          }}
-        />
-      )}
+        </div>
 
-      {missingIteration ? (
-        <Alert showIcon title="That sprint was not found for this team." type="warning" />
-      ) : null}
+        {missingTeam ? (
+          <Alert showIcon title="That local team was not found." type="warning" />
+        ) : null}
 
-      {selectedTeam != null && selected != null ? (
-        <StaleAttentionPanel
-          error={stale.error}
-          loading={stale.loading}
-          staleDays={stale.staleDays}
-          staleItems={stale.staleItems}
-          onOpenWorkItem={(id) => {
-            void openView(id);
-          }}
-          onStaleDaysChange={(days) => {
-            stale.setStaleDays(days);
-            if (stale.urlHasStaleDays) {
-              updateQuery({ staleDays: String(days) });
-            }
-          }}
-        />
-      ) : null}
-
-      {selectedTeam == null ? (
-        <Card size="small" title="People board">
-          <p className="m-0 text-slate-500">Pick a local team first.</p>
-        </Card>
-      ) : selected == null ? (
-        <Card size="small" title="People board">
-          <p className="m-0 text-slate-500">Pick a sprint to see member progress.</p>
-        </Card>
-      ) : (
-        <ProgressBoard
-          allWorkItems={allWorkItems}
-          columnRows={rows}
-          rows={visibleRows}
-          staleDaysById={stale.daysById}
-          title={`People board — ${selected.name}${dateRange ? ` (${dateRange})` : ""}`}
-        />
-      )}
-
-      {selectedTeam != null && selected != null ? (
-        <Collapse
-          items={[
-            {
-              key: "summary",
-              label: "Compare counts (Active / Done / Progress)",
-              children: <ProgressSummary rows={visibleRows} />,
-            },
-            {
-              key: "velocity",
-              label: "Velocity across recent sprints",
-              children: <VelocityPanel series={visibleVelocity} />,
-            },
-          ]}
-        />
-      ) : (
-        <Card size="small" title="Velocity (recent sprints)">
-          <p className="m-0 text-slate-500">
-            Pick a local team and sprint to see comparison and velocity.
+        {selectedTeam == null ? (
+          <p className="m-0 text-sm text-slate-500">Select a local team to load members and progress.</p>
+        ) : selectedTeam.members.length === 0 ? (
+          <p className="m-0 text-sm text-slate-500">
+            This team has no members.{" "}
+            <Link className="underline" href="/azure/teams">
+              Edit team
+            </Link>
           </p>
-        </Card>
-      )}
-    </div>
+        ) : (
+          <SearchSelect
+            allowClear
+            className="min-w-56 max-w-xl"
+            disabled={pending}
+            maxTagCount="responsive"
+            mode="multiple"
+            options={selectedTeam.members.map((member) => ({
+              label: member,
+              value: member,
+            }))}
+            placeholder="Team members"
+            value={memberFilter}
+            onChange={(value: string[]) => {
+              setMemberFilter(value ?? []);
+            }}
+          />
+        )}
+
+        {missingIteration ? (
+          <Alert showIcon title="That sprint was not found for this team." type="warning" />
+        ) : null}
+
+        {selectedTeam != null && selected != null ? (
+          <StaleAttentionPanel
+            error={stale.error}
+            loading={stale.loading}
+            staleDays={stale.staleDays}
+            staleItems={stale.staleItems}
+            onOpenWorkItem={(id) => {
+              void openView(id);
+            }}
+            onStaleDaysChange={(days) => {
+              stale.setStaleDays(days);
+              if (stale.urlHasStaleDays) {
+                updateQuery({ staleDays: String(days) });
+              }
+            }}
+          />
+        ) : null}
+
+        {selectedTeam == null ? (
+          <Card size="small" title="People board">
+            <p className="m-0 text-slate-500">Pick a local team first.</p>
+          </Card>
+        ) : selected == null ? (
+          <Card size="small" title="People board">
+            <p className="m-0 text-slate-500">Pick a sprint to see member progress.</p>
+          </Card>
+        ) : (
+          <ProgressBoard
+            allWorkItems={allWorkItems}
+            columnRows={rows}
+            rows={visibleRows}
+            staleDaysById={stale.daysById}
+            title={`People board — ${selected.name}${dateRange ? ` (${dateRange})` : ""}`}
+          />
+        )}
+
+        {selectedTeam != null && selected != null ? (
+          <Collapse
+            items={[
+              {
+                key: "summary",
+                label: "Compare counts (Active / Done / Progress)",
+                children: <ProgressSummary rows={visibleRows} />,
+              },
+              {
+                key: "velocity",
+                label: "Velocity across recent sprints",
+                children: <VelocityPanel series={visibleVelocity} />,
+              },
+              {
+                key: "pull-requests",
+                label: "Pull requests created",
+                children: (
+                  <div>
+                    <ProgressPrPeriodControls
+                      customFrom={prFrom}
+                      customTo={prTo}
+                      disabled={pending}
+                      mode={prMode}
+                      preset={prPreset}
+                      sprintFinish={toDateOnly(selected.finishDate)}
+                      sprintStart={toDateOnly(selected.startDate)}
+                      onCustomRangeChange={(from, to) => {
+                        updateQuery({
+                          prMode: "custom",
+                          prPreset: null,
+                          prFrom: from,
+                          prTo: to,
+                        });
+                      }}
+                      onModeChange={(mode) => {
+                        updateQuery({
+                          prMode: serializePrMode(mode),
+                          prPreset: serializePrPreset(mode, prPreset),
+                          prFrom: mode === "custom" ? prFrom : null,
+                          prTo: mode === "custom" ? prTo : null,
+                        });
+                      }}
+                      onPresetChange={(nextPreset) => {
+                        updateQuery({
+                          prMode: null,
+                          prPreset: serializePrPreset("preset", nextPreset),
+                          prFrom: null,
+                          prTo: null,
+                        });
+                      }}
+                    />
+                    {pullRequests}
+                  </div>
+                ),
+              },
+            ]}
+          />
+        ) : (
+          <Card size="small" title="Velocity (recent sprints)">
+            <p className="m-0 text-slate-500">
+              Pick a local team and sprint to see comparison, velocity, and pull requests.
+            </p>
+          </Card>
+        )}
+      </div>
+    </ProgressMemberFilterContext.Provider>
   );
 }
 
