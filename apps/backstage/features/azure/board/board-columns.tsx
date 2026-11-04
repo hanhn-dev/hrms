@@ -4,6 +4,7 @@ import { Card, Tag } from "antd";
 import type { BoardCard, BoardColumnView, BoardRelation } from "@/features/azure/board/group-board";
 import { workItemTypeBorderColor } from "@/features/azure/board/work-item-appearance";
 import { WorkItemStateTag, WorkItemTypeTag } from "@/features/azure/board/work-item-tags";
+import { StaleStatusBadge } from "@/features/azure/stale";
 import { HighlightMatch } from "@/shared/ui";
 
 type Swimlane = {
@@ -133,10 +134,12 @@ function WorkItemIdButton({
 function ParentRowCard({
   lane,
   query,
+  staleDaysById,
   onOpenWorkItem,
 }: {
   lane: Swimlane;
   query?: string;
+  staleDaysById: ReadonlyMap<number, number | null>;
   onOpenWorkItem: (id: number) => void;
 }): React.JSX.Element {
   if (lane.key === "none") {
@@ -185,6 +188,7 @@ function ParentRowCard({
           {item?.state ?? lane.parent?.state ? (
             <WorkItemStateTag state={item?.state ?? lane.parent?.state ?? ""} />
           ) : null}
+          {id != null ? <StaleStatusBadge daysInState={staleDaysById.get(id)} /> : null}
           {item != null || lane.parent?.title != null ? (
             <div className="mt-1 text-sm text-slate-500">
               <HighlightMatch
@@ -203,10 +207,12 @@ function ParentRowCard({
 function TaskCard({
   card,
   query,
+  daysInState,
   onOpenWorkItem,
 }: {
   card: BoardCard;
   query?: string;
+  daysInState?: number | null;
   onOpenWorkItem: (id: number) => void;
 }): React.JSX.Element {
   return (
@@ -214,6 +220,7 @@ function TaskCard({
       <div className="mb-1 flex flex-wrap items-center gap-1">
         <WorkItemIdButton id={card.item.id} query={query} onOpenWorkItem={onOpenWorkItem} />
         <WorkItemTypeTag type={card.item.type} />
+        <StaleStatusBadge daysInState={daysInState} />
       </div>
       <button
         className="cursor-pointer border-0 bg-transparent p-0 text-left hover:underline"
@@ -234,10 +241,12 @@ function TaskCard({
 export function BoardColumns({
   columns,
   query,
+  staleDaysById = new Map(),
   onOpenWorkItem,
 }: {
   columns: BoardColumnView[];
   query?: string;
+  staleDaysById?: ReadonlyMap<number, number | null>;
   onOpenWorkItem: (id: number) => void;
 }): React.JSX.Element {
   if (columns.length === 0) {
@@ -271,13 +280,19 @@ export function BoardColumns({
       {lanes.map((lane) => (
         <div className="flex items-stretch border-b border-slate-300 bg-slate-50 py-3" key={lane.key}>
           <div className="sticky left-0 z-10 w-72 shrink-0 self-stretch border-r border-slate-200 bg-slate-50 px-2">
-            <ParentRowCard lane={lane} query={query} onOpenWorkItem={onOpenWorkItem} />
+            <ParentRowCard
+              lane={lane}
+              query={query}
+              staleDaysById={staleDaysById}
+              onOpenWorkItem={onOpenWorkItem}
+            />
           </div>
           {columns.map((column) => (
             <div className="flex w-60 shrink-0 flex-col gap-3 border-r border-slate-200 px-2" key={column.id}>
               {(lane.tasksByColumn.get(column.id) ?? []).map((card) => (
                 <TaskCard
                   card={card}
+                  daysInState={staleDaysById.get(card.item.id)}
                   key={card.item.id}
                   query={query}
                   onOpenWorkItem={onOpenWorkItem}

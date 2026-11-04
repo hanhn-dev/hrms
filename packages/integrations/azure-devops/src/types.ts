@@ -131,6 +131,14 @@ export interface WorkItemFieldRevisionsResponse {
   readonly revisions: readonly WorkItemFieldRevision[];
 }
 
+export interface WorkItemStateAge {
+  readonly workItemId: number;
+  /** ISO timestamp when the item entered its current System.State (best effort). */
+  readonly stateEnteredAt: string | null;
+  /** Whole calendar days since stateEnteredAt; null when the entered-at time is unknown. */
+  readonly daysInState: number | null;
+}
+
 export interface WorkItemComment {
   readonly id: number;
   readonly author: string | null;

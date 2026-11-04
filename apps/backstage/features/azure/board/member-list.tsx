@@ -3,15 +3,18 @@
 import { Card } from "antd";
 import type { PersonWork } from "@/features/azure/board/group-board";
 import { ChildList, ParentLink, WorkItemStateTag, WorkItemTypeTag } from "@/features/azure/board/work-item-tags";
+import { StaleStatusBadge } from "@/features/azure/stale";
 import { HighlightMatch } from "@/shared/ui";
 
 export function MemberList({
   people,
   query,
+  staleDaysById = new Map(),
   onOpenWorkItem,
 }: {
   people: PersonWork[];
   query?: string;
+  staleDaysById?: ReadonlyMap<number, number | null>;
   onOpenWorkItem: (id: number) => void;
 }): React.JSX.Element {
   if (people.length === 0) {
@@ -60,6 +63,7 @@ export function MemberList({
                   </button>
                   <WorkItemTypeTag type={card.item.type} />
                   <WorkItemStateTag state={card.item.state} />
+                  <StaleStatusBadge daysInState={staleDaysById.get(card.item.id)} />
                   <button
                     className="cursor-pointer border-0 bg-transparent p-0 text-left hover:underline"
                     type="button"

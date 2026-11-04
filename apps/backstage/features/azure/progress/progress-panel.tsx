@@ -2,12 +2,13 @@
 
 import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Alert, Card, Collapse } from "antd";
 import { WarningOutlined } from "@ant-design/icons";
 import type { TeamIteration, WorkItemSummary } from "@hrms/azure-devops";
 import { SPRINT_WORK_ITEM_CAP } from "@/features/azure/board/defaults";
 import {
+  allPersonItems,
   filterMembers,
   filterVelocitySeries,
   type PersonProgress,
@@ -16,7 +17,9 @@ import {
 import { ProgressBoard } from "@/features/azure/progress/progress-board";
 import { ProgressSummary } from "@/features/azure/progress/progress-summary";
 import { VelocityPanel } from "@/features/azure/progress/velocity-panel";
+import { StaleAttentionPanel, useStaleAttention } from "@/features/azure/stale";
 import type { LocalTeamEntry } from "@/features/azure/teams/local-teams";
+import { useWorkItemView } from "@/features/azure/work-item";
 import { formatDate } from "@/shared/format-date";
 import { PageHelpTrigger, SearchSelect, type PageHelpNote } from "@/shared/ui";
 
@@ -98,8 +101,10 @@ export function ProgressPanel({
 }): React.JSX.Element {
   const router = useRouter();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [pending, startTransition] = useTransition();
   const [memberFilter, setMemberFilter] = useState<string[]>([]);
+  const { openView, modal: workItemModal } = useWorkItemView();
 
   useEffect(() => {
     setMemberFilter([]);
@@ -110,6 +115,7 @@ export function ProgressPanel({
       teamId: selectedTeam?.id ?? null,
       sprint:
         selected != null && selected.path !== currentIterationPath ? selected.path : null,
+      staleDays: searchParams.get("staleDays"),
     };
     const search = writeSearch({ ...current, ...patch });
     startTransition(() => {
@@ -125,6 +131,8 @@ export function ProgressPanel({
   const visibleRows = filterMembers(rows, memberFilter);
   const visibleVelocity = filterVelocitySeries(velocity, memberFilter);
   const capWarnings = buildCapWarningNotes(truncated, velocityTruncatedPaths);
+  const scopedWorkItems = uniqueWorkItems(visibleRows.flatMap(allPersonItems));
+  const stale = useStaleAttention(selectedTeam != null && selected != null ? scopedWorkItems : []);
 
   if (localTeams.length === 0) {
     return (
@@ -147,6 +155,7 @@ export function ProgressPanel({
 
   return (
     <div className="flex flex-col gap-4">
+      {workItemModal}
       <div className="flex flex-wrap items-center gap-2">
         <SearchSelect
           allowClear
@@ -230,6 +239,24 @@ export function ProgressPanel({
         <Alert showIcon title="That sprint was not found for this team." type="warning" />
       ) : null}
 
+      {selectedTeam != null && selected != null ? (
+        <StaleAttentionPanel
+          error={stale.error}
+          loading={stale.loading}
+          staleDays={stale.staleDays}
+          staleItems={stale.staleItems}
+          onOpenWorkItem={(id) => {
+            void openView(id);
+          }}
+          onStaleDaysChange={(days) => {
+            stale.setStaleDays(days);
+            if (stale.urlHasStaleDays) {
+              updateQuery({ staleDays: String(days) });
+            }
+          }}
+        />
+      ) : null}
+
       {selectedTeam == null ? (
         <Card size="small" title="People board">
           <p className="m-0 text-slate-500">Pick a local team first.</p>
@@ -243,6 +270,7 @@ export function ProgressPanel({
           allWorkItems={allWorkItems}
           columnRows={rows}
           rows={visibleRows}
+          staleDaysById={stale.daysById}
           title={`People board — ${selected.name}${dateRange ? ` (${dateRange})` : ""}`}
         />
       )}
@@ -271,4 +299,12 @@ export function ProgressPanel({
       )}
     </div>
   );
+}
+
+function uniqueWorkItems(items: readonly WorkItemSummary[]): WorkItemSummary[] {
+  const byId = new Map<number, WorkItemSummary>();
+  for (const item of items) {
+    byId.set(item.id, item);
+  }
+  return [...byId.values()];
 }

@@ -17,6 +17,7 @@ import {
   WorkItemStateTag,
   WorkItemTypeTag,
 } from "@/features/azure/board/work-item-tags";
+import { StaleStatusBadge } from "@/features/azure/stale";
 import { useWorkItemView } from "@/features/azure/work-item";
 
 function cardStyle(type: string): React.CSSProperties {
@@ -52,9 +53,11 @@ function WorkItemIdButton({
 
 function ChildTask({
   item,
+  daysInState,
   onOpenWorkItem,
 }: {
   item: WorkItemSummary;
+  daysInState?: number | null;
   onOpenWorkItem: (id: number) => void;
 }): React.JSX.Element {
   return (
@@ -63,6 +66,7 @@ function ChildTask({
         <WorkItemIdButton id={item.id} onOpenWorkItem={onOpenWorkItem} />
         <WorkItemTypeTag type={item.type} />
         <WorkItemStateTag state={item.state} />
+        <StaleStatusBadge daysInState={daysInState} />
       </div>
       <button
         className="mt-0.5 cursor-pointer border-0 bg-transparent p-0 text-left text-xs leading-snug text-slate-700 hover:underline dark:text-slate-200"
@@ -79,9 +83,11 @@ function ChildTask({
 
 function WorkTreeCard({
   tree,
+  staleDaysById,
   onOpenWorkItem,
 }: {
   tree: WorkItemTree;
+  staleDaysById: ReadonlyMap<number, number | null>;
   onOpenWorkItem: (id: number) => void;
 }): React.JSX.Element {
   return (
@@ -93,6 +99,7 @@ function WorkTreeCard({
         <WorkItemIdButton id={tree.item.id} onOpenWorkItem={onOpenWorkItem} />
         <WorkItemTypeTag type={tree.item.type} />
         <WorkItemStateTag state={tree.item.state} />
+        <StaleStatusBadge daysInState={staleDaysById.get(tree.item.id)} />
       </div>
       <button
         className="mt-1 cursor-pointer border-0 bg-transparent p-0 text-left text-sm leading-snug hover:underline"
@@ -133,7 +140,12 @@ function WorkTreeCard({
           </div>
           <ul className="m-0 flex list-none flex-col gap-1.5 p-0">
             {tree.children.map((child) => (
-              <ChildTask item={child} key={child.id} onOpenWorkItem={onOpenWorkItem} />
+              <ChildTask
+                daysInState={staleDaysById.get(child.id)}
+                item={child}
+                key={child.id}
+                onOpenWorkItem={onOpenWorkItem}
+              />
             ))}
           </ul>
         </div>
@@ -192,11 +204,13 @@ function MemberDetailBoard({
   person,
   states,
   allWorkItems,
+  staleDaysById,
   onOpenWorkItem,
 }: {
   person: PersonProgress;
   states: readonly string[];
   allWorkItems: readonly WorkItemSummary[];
+  staleDaysById: ReadonlyMap<number, number | null>;
   onOpenWorkItem: (id: number) => void;
 }): React.JSX.Element {
   const trees = buildPersonWorkTrees(allPersonItems(person), allWorkItems);
@@ -244,7 +258,11 @@ function MemberDetailBoard({
                   <ul className="m-0 flex list-none flex-col gap-2 p-0">
                     {cellTrees.map((tree) => (
                       <li key={tree.item.id}>
-                        <WorkTreeCard tree={tree} onOpenWorkItem={onOpenWorkItem} />
+                        <WorkTreeCard
+                          staleDaysById={staleDaysById}
+                          tree={tree}
+                          onOpenWorkItem={onOpenWorkItem}
+                        />
                       </li>
                     ))}
                   </ul>
@@ -263,12 +281,14 @@ export function ProgressBoard({
   rows,
   columnRows,
   allWorkItems,
+  staleDaysById = new Map(),
 }: {
   title: string;
   rows: readonly PersonProgress[];
   /** Full team rows used so every person shares the same status columns. */
   columnRows: readonly PersonProgress[];
   allWorkItems: readonly WorkItemSummary[];
+  staleDaysById?: ReadonlyMap<number, number | null>;
 }): React.JSX.Element {
   const [expandedNames, setExpandedNames] = useState<ReadonlySet<string>>(
     () => new Set(),
@@ -344,6 +364,7 @@ export function ProgressBoard({
                   <MemberDetailBoard
                     allWorkItems={allWorkItems}
                     person={person}
+                    staleDaysById={staleDaysById}
                     states={states}
                     onOpenWorkItem={onOpenWorkItem}
                   />

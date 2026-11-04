@@ -1,13 +1,14 @@
 "use client";
 
 import { useTransition } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Alert, Button, Card, Input, Segmented, Tag } from "antd";
-import type { ProjectTeam, TeamIteration, TeamMember } from "@hrms/azure-devops";
+import type { ProjectTeam, TeamIteration, TeamMember, WorkItemSummary } from "@hrms/azure-devops";
 import { BoardColumns } from "@/features/azure/board/board-columns";
 import { DEFAULT_BOARD_TEAM } from "@/features/azure/board/defaults";
 import type { BoardModel, MemberPbiAnswer, PersonPbi, SprintSummary } from "@/features/azure/board/group-board";
 import { MemberList } from "@/features/azure/board/member-list";
+import { StaleAttentionPanel, useStaleAttention } from "@/features/azure/stale";
 import { useWorkItemView } from "@/features/azure/work-item";
 import { formatDate } from "@/shared/format-date";
 import { HighlightMatch, SearchSelect } from "@/shared/ui";
@@ -127,12 +128,18 @@ export function BoardPanel({
 }): React.JSX.Element {
   const router = useRouter();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [pending, startTransition] = useTransition();
   const { openView, modal: workItemModal } = useWorkItemView();
 
   function onOpenWorkItem(id: number): void {
     void openView(id);
   }
+
+  const boardWorkItems = uniqueWorkItems(
+    model.columns.flatMap((column) => column.cards.map((card) => card.item)),
+  );
+  const stale = useStaleAttention(selected != null ? boardWorkItems : []);
 
   const memberOptions = members.map((person) => ({
     label: person.displayName,
@@ -158,6 +165,7 @@ export function BoardPanel({
       q: query ?? null,
       view: view === "people" ? "people" : null,
       summary: showSummary ? null : "hide",
+      staleDays: searchParams.get("staleDays"),
     };
     const search = writeSearch({ ...current, ...patch });
     startTransition(() => {
@@ -273,6 +281,23 @@ export function BoardPanel({
         />
       ) : null}
       {sprintReady ? (
+        <div className="mb-4 shrink-0">
+          <StaleAttentionPanel
+            error={stale.error}
+            loading={stale.loading}
+            staleDays={stale.staleDays}
+            staleItems={stale.staleItems}
+            onOpenWorkItem={onOpenWorkItem}
+            onStaleDaysChange={(days) => {
+              stale.setStaleDays(days);
+              if (stale.urlHasStaleDays) {
+                updateQuery({ staleDays: String(days) });
+              }
+            }}
+          />
+        </div>
+      ) : null}
+      {sprintReady ? (
         <Card
           className="min-h-0 min-w-0 flex-1"
           styles={{
@@ -349,7 +374,12 @@ export function BoardPanel({
             </p>
           ) : view === "people" ? (
             <div className="min-h-0 flex-1 overflow-auto px-6 py-4">
-              <MemberList people={model.people} query={query} onOpenWorkItem={onOpenWorkItem} />
+              <MemberList
+                people={model.people}
+                query={query}
+                staleDaysById={stale.daysById}
+                onOpenWorkItem={onOpenWorkItem}
+              />
             </div>
           ) : (
             <div className="flex min-h-0 flex-1 flex-col px-6 pt-4 pb-4">
@@ -357,6 +387,7 @@ export function BoardPanel({
                 <BoardColumns
                   columns={model.columns}
                   query={query}
+                  staleDaysById={stale.daysById}
                   onOpenWorkItem={onOpenWorkItem}
                 />
               </div>
@@ -366,4 +397,12 @@ export function BoardPanel({
       ) : null}
     </div>
   );
+}
+
+function uniqueWorkItems(items: readonly WorkItemSummary[]): WorkItemSummary[] {
+  const byId = new Map<number, WorkItemSummary>();
+  for (const item of items) {
+    byId.set(item.id, item);
+  }
+  return [...byId.values()];
 }

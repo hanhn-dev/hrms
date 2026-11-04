@@ -26,6 +26,13 @@ const HELP = [
     description:
       "Done, Closed, and Resolved count as completed. Each sprint loads at most 200 work items; a warning icon appears next to the sprint selector if that cap is hit — click it for details. People-board columns stay team-wide, and a PBI with an active child task is placed under that child state.",
   },
+  {
+    id: "stale",
+    type: "info" as const,
+    title: "Needs attention",
+    description:
+      "Items stuck in the same Azure DevOps status past your threshold (or Blocked) appear in Needs attention. Age is days since the last state change, not the last edit. The threshold is saved in this browser and is shared with the Sprint board; optional ?staleDays= overrides it for a link. Copy reminder builds a message you can paste to the assignee.",
+  },
 ];
 
 export function ProgressScreen({

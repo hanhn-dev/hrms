@@ -167,51 +167,55 @@ EXEC [dbo].[Sp_ApproveRejectMyDetailsReview] @EmployeeId = 1431,   -- int
                                               @Comments = 'TEST'     -- varchar(2000)    
 
 
+SELECT * FROM THrmsModules
+SELECT * FROM TModulePages
+
+SELECT mp.ModulePageId, mp.ModulePageName, mp.PageDescription, mp.MappedAppPage, m.ModuleName
+FROM dbo.TModulePages mp
+JOIN dbo.THrmsModules m ON m.ModuleId = mp.PageModuleId
+WHERE mp.ModulePageName = 'MyDetails'
+   OR m.ModuleName = 'My Details';
+
+DECLARE @FieldIDs VARCHAR(MAX);
+SELECT @FieldIDs = STRING_AGG(FieldID, ',') FROM TEmployeeDetail_Fields AS edf
+INNER JOIN TEmployeeDetail_Section AS eds ON edf.SectionID = eds.SectionID
+WHERE edf.EmployerID = 20 AND eds.Section LIKE '%Education Details%'AND edf.IsActive = 1 AND edf.CountryID IN (0, 99)
+
+SELECT @FieldIDs
+
+SELECT TOP 100 * FROM TEmployeeDetail_Fields WHERE EmployerId = 20 AND SectionID = 7 AND CountryID IN (0, 99)
+
+EXEC SP_MyDetails_GetEmployeeDetailsForGivenFields '36116', @FieldIDs
 
 
-IF @ManagerId IS NULL OR @SubjectId IS NULL OR @ManagerId = @SubjectId
-BEGIN
-  SELECT CAST(CASE WHEN @ManagerId = @SubjectId THEN 1 ELSE 0 END AS BIT) AS IsReportee;
-  RETURN;
-END;
+DECLARE @Universities TABLE (     UniversityId INT,     UniversityName NVARCHAR(100) )  INSERT INTO @Universities EXEC SP_CM_GetUniversityDet 20  SELECT UniversityId AS ID, UniversityName AS Value FROM @Universities
 
-;WITH Climb AS (
-  SELECT CAST(@SubjectId AS INT) AS CurrentId, 0 AS Depth
+sp_help TUniversity
+sp_helptext SP_AdminEMP_DisBDayAnnivrNotification
 
-  UNION ALL
+SELECT UnitID as ID,UnitName Value FROM dbo.TOrgHierarchyDetails  WITH(NOLOCK)  
+  WHERE Employerid in (Select value from string_split('25',',')) and IsActive='Y'
+  UNION
+  SELECT UnitID as ID,UnitName Value FROM dbo.TOrgHierarchyDetails  WITH(NOLOCK)  
+  WHERE UnitID=(Select BusinessUnitID from TemployeeInfo where EmployeeId=2667) and IsActive='Y'
 
-  SELECT CAST(p.ParentId AS INT), c.Depth + 1
-  FROM Climb c
-  OUTER APPLY (
-    SELECT o.ReportsTo AS ReportsTo
-    FROM TORGChart o WITH (NOLOCK)
-    WHERE o.EmployeeId = c.CurrentId
-      AND o.ReportsTo IS NOT NULL
-      AND o.ReportsTo <> o.EmployeeId
-  ) org
-  OUTER APPLY (
-    SELECT ei.FunctionalManager AS FunctionalManager
-    FROM TEmployeeInfo ei WITH (NOLOCK)
-    WHERE ei.EmployeeId = c.CurrentId
-      AND ei.FunctionalManager IS NOT NULL
-      AND ei.FunctionalManager <> ei.EmployeeId
-  ) func
-  CROSS APPLY (VALUES (org.ReportsTo), (func.FunctionalManager)) AS p(ParentId)
-  INNER JOIN TEmployee te WITH (NOLOCK)
-    ON te.EmployeeId = p.ParentId
-   AND te.IsActive = 'Y'
-  WHERE c.Depth < 50
-    AND c.CurrentId <> @ManagerId
-    AND p.ParentId IS NOT NULL
-)
-SELECT CAST(
-  CASE
-    WHEN EXISTS (
-      SELECT 1
-      FROM Climb
-      WHERE CurrentId = @ManagerId
-        AND Depth >= 1
-    ) THEN 1
-    ELSE 0
-  END AS BIT
-) AS IsReportee;
+SELECT TOP 100 * FROM TUsers 
+
+EXEC Sp_Mydetails_Enhanced_Advancedfilerdropdown '25', 2667, 'Business Unit'
+
+SELECT TOP 1 
+		LocationIds,
+		BusinessUnitIds
+	FROM dbo.TUSerPagesMapping UPM WITH (NOLOCK)
+	WHERE UserID = 2630 
+	AND EmployerId = 25
+
+	SELECT TOP 1 
+		RM.LocationIds,
+		RM.BusinessUnitIds
+	FROM dbo.TRolePagesMapping RM WITH (NOLOCK) 
+	WHERE 1=1
+		AND RoleId = 2
+		AND EmployerId = 25
+
+              Select BusinessUnitID from TemployeeInfo where EmployeeId=2667

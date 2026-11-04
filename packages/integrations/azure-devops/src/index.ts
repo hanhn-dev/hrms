@@ -50,6 +50,7 @@ export type {
 	WorkItemLinkKind,
 	WorkItemFieldRevision,
 	WorkItemFieldRevisionsResponse,
+	WorkItemStateAge,
 	WorkItemSpecAttachmentInventory,
 	WorkItemSpecContext,
 	WorkItemSpecContextChild,
@@ -146,6 +147,7 @@ export type { WorkItemScheduleDates } from './work-items.js';
 export { getWorkItemComments } from './work-item-comments.js';
 export { getWorkItemSpecContext } from './work-item-spec-context.js';
 export { getWorkItemFieldRevisions } from './work-item-revisions.js';
+export { getWorkItemStateAges, getWorkItemStateEnteredAt } from './work-item-state-age.js';
 export { listPullRequestThreads } from './pull-request-threads.js';
 export { getIterationWorkItems, listTeamIterations } from './iterations.js';
 export { listTaskboardColumns, listTaskboardWorkItemColumns } from './taskboard.js';
