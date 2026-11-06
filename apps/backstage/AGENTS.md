@@ -94,6 +94,7 @@ Ops screens: antd only (no `@hrms/ui`). Docs chrome stays Tailwind. Mount antd p
 | Path | Content | Loader |
 |---|---|---|
 | `/` | Landing | `app/page.tsx` |
+| `/charts` | Chart gallery. Any signed-in user. Ant Design token SVG charts. | `features/charts/gallery` |
 | `/docs`, `/docs/[slug]` | Hand-authored guides, DB changelog, baseline dumps | `lib/docs.ts` ← `content/wiki/*.md` |
 | `/docs/database`, `/docs/database/[...slug]` | Stored procedure and function explanations (latest + dated archives) | `lib/database-docs.ts` ← `content/database/<database>/<object>.md` |
 | `/docs/flows`, `/docs/flows/[...slug]` | Feature request traces: React component → API controller/service → stored procedures (latest + dated archives) | `lib/flow-docs.ts` ← `content/flows/<slug>.md` |

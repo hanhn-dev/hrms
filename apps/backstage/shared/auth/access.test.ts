@@ -83,6 +83,7 @@ describe("featureForPath", () => {
     );
     assert.equal(featureForPath("/api/guides/proposals/abc/withdraw", "POST"), null);
     assert.equal(featureForPath("/api/search"), null);
+    assert.equal(featureForPath("/charts"), null);
   });
 });
 

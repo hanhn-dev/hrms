@@ -132,8 +132,9 @@ export const SECTION_RECORD_SPECS: readonly SectionRecordSpec[] = [
         employeeIdColumn: "EmployeeID",
         softDelete: { kind: "bit-null-or-zero", column: "IsDelete" },
         audit: {
-          updatedBy: "ModifiedBy",
-          updatedAtUtc: "ModifiedDateUtc",
+          updatedBy: "LastModifyBy",
+          updatedAt: "LastModifyOn",
+          updatedAtUtc: "UpdatedDateUtc",
         },
       },
     ],
@@ -302,4 +303,17 @@ export function tableSpecFor(
   if (!spec) return undefined;
   const normalized = liveTable.trim().toLowerCase();
   return spec.tables.find((t) => t.liveTable.toLowerCase() === normalized);
+}
+
+export function tableSpecByLiveTable(
+  liveTable: string,
+): SectionTableSpec | undefined {
+  const normalized = liveTable.trim().toLowerCase();
+  for (const spec of SECTION_RECORD_SPECS) {
+    const table = spec.tables.find(
+      (item) => item.liveTable.toLowerCase() === normalized,
+    );
+    if (table) return table;
+  }
+  return undefined;
 }

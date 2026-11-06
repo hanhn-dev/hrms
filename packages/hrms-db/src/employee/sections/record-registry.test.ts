@@ -46,6 +46,14 @@ describe("SECTION_RECORD_SPECS", () => {
     );
   });
 
+  it("stamps past employment with the live audit columns", () => {
+    const past = sectionRecordSpecForId(6)!;
+    assert.equal(past.tables[0]?.liveTable, "TPastEmploymentDetails");
+    assert.equal(past.tables[0]?.audit?.updatedBy, "LastModifyBy");
+    assert.equal(past.tables[0]?.audit?.updatedAt, "LastModifyOn");
+    assert.equal(past.tables[0]?.audit?.updatedAtUtc, "UpdatedDateUtc");
+  });
+
   it("uses the nominee table primary key", () => {
     const nominee = sectionRecordSpecForId(17)!;
     assert.equal(nominee.tables[0]?.entityKeyColumn, "EmployeeNomineeId");

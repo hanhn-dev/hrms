@@ -1,3 +1,4 @@
+import { serializeSqlValue } from "../../dbs/serialize-row";
 import { Prisma } from "../../generated/prisma/client";
 import type { HrmsDb } from "../../shared/client";
 import { parseEmployerId, userIdSchema } from "../../shared/ids";
@@ -6,6 +7,7 @@ import { asNumber, sqlIdent, sqlTable } from "../history/sql";
 import { listSectionFormFields, type SectionFormField } from "./form-fields";
 import {
   isCrudSectionId,
+  tableSpecByLiveTable,
   tableSpecFor,
   type SectionTableSpec,
 } from "./record-registry";
@@ -35,17 +37,26 @@ export type SectionDeleteInput = {
   updatedBy: number;
 };
 
+function blockedWriteColumns(table: SectionTableSpec): Set<string> {
+  return new Set(
+    [table.employeeIdColumn, table.entityKeyColumn].map((name) =>
+      name.toLowerCase(),
+    ),
+  );
+}
+
 function writableFieldsForTable(
   fields: SectionFormField[],
-  liveTable: string,
+  table: SectionTableSpec,
 ): SectionFormField[] {
+  const blocked = blockedWriteColumns(table);
   return fields.filter(
     (f) =>
       f.dbTable != null &&
-      f.dbTable.toLowerCase() === liveTable.toLowerCase() &&
+      f.dbTable.toLowerCase() === table.liveTable.toLowerCase() &&
       f.dbColumn != null &&
       f.dbColumn.trim() !== "" &&
-      f.dbColumn.toLowerCase() !== "employeeid",
+      !blocked.has(f.dbColumn.toLowerCase()),
   );
 }
 
@@ -54,6 +65,35 @@ function coerceSqlValue(
 ): string | number | boolean | null {
   if (value === undefined || value === "") return null;
   return value as string | number | boolean | null;
+}
+
+/** SQL Decimal/Date/bigint values must be plain before a Server Action returns them. */
+function plainFieldValue(raw: unknown): string | number | boolean | null {
+  if (typeof raw === "bigint") return Number(raw);
+  const value = serializeSqlValue(raw);
+  if (
+    value == null ||
+    typeof value === "string" ||
+    typeof value === "number" ||
+    typeof value === "boolean"
+  ) {
+    return value ?? null;
+  }
+  return String(value);
+}
+
+function sameFieldValue(
+  current: string | number | boolean | null,
+  proposed: string | number | boolean | null,
+): boolean {
+  if (typeof current === "boolean" || typeof proposed === "boolean") {
+    return current === proposed;
+  }
+  if (String(current ?? "") === String(proposed ?? "")) return true;
+  if (typeof current !== "number" && typeof proposed !== "number") return false;
+  const left = typeof current === "number" ? current : Number(current);
+  const right = typeof proposed === "number" ? proposed : Number(proposed);
+  return Number.isFinite(left) && Number.isFinite(right) && left === right;
 }
 
 function pushAuditColumns(
@@ -106,7 +146,11 @@ export function previewSectionUpsertDiff(input: {
   after: SectionRecordValues;
   fields: SectionFormField[];
 }): Array<Record<string, unknown>> {
-  const writable = writableFieldsForTable(input.fields, input.liveTable);
+  const table = tableSpecByLiveTable(input.liveTable);
+  if (!table) {
+    throw new Error(`Unknown table ${input.liveTable}.`);
+  }
+  const writable = writableFieldsForTable(input.fields, table);
   const rows: Array<Record<string, unknown>> = [
     {
       Property: "Action",
@@ -125,9 +169,9 @@ export function previewSectionUpsertDiff(input: {
     },
   ];
   for (const field of writable) {
-    const current = input.before?.[field.displayText] ?? null;
-    const proposed = input.after[field.displayText] ?? null;
-    if (String(current ?? "") === String(proposed ?? "")) continue;
+    const current = plainFieldValue(input.before?.[field.displayText] ?? null);
+    const proposed = plainFieldValue(input.after[field.displayText] ?? null);
+    if (sameFieldValue(current, proposed)) continue;
     rows.push({
       Property: field.displayText,
       Current: current ?? "—",
@@ -167,7 +211,7 @@ export async function loadSectionRecordValues(
     employmentNumber: input.employmentNumber,
     sectionId: input.sectionId,
   });
-  const writable = writableFieldsForTable(fields, table.liveTable);
+  const writable = writableFieldsForTable(fields, table);
   const selectParts: Prisma.Sql[] = [
     Prisma.sql`${sqlIdent(table.entityKeyColumn)} AS [__EntityKey]`,
   ];
@@ -196,14 +240,7 @@ export async function loadSectionRecordValues(
       Object.entries(row).find(
         ([k]) => k.toLowerCase() === alias.toLowerCase(),
       )?.[1];
-    if (raw instanceof Date) {
-      values[field.displayText] = raw.toISOString();
-    } else if (typeof raw === "bigint") {
-      values[field.displayText] = Number(raw);
-    } else {
-      values[field.displayText] =
-        (raw as string | number | boolean | null) ?? null;
-    }
+    values[field.displayText] = plainFieldValue(raw);
   }
   return values;
 }
@@ -233,7 +270,7 @@ export async function commitUpsertSectionRecord(
     employmentNumber: input.employmentNumber,
     sectionId: input.sectionId,
   });
-  const writable = writableFieldsForTable(fields, table.liveTable);
+  const writable = writableFieldsForTable(fields, table);
   if (writable.length === 0) {
     throw new Error("No writable columns mapped for this section table.");
   }
