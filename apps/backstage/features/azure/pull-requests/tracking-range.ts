@@ -1,17 +1,17 @@
-export type ProgressPrMode = "preset" | "sprint" | "custom";
+export type TrackingPrMode = "preset" | "sprint" | "custom";
 
-export type ProgressPrPreset = "1w" | "2w" | "3w" | "1m" | "3m";
+export type TrackingPrPreset = "1w" | "2w" | "3w" | "1m" | "3m";
 
-export const DEFAULT_PROGRESS_PR_MODE: ProgressPrMode = "preset";
-export const DEFAULT_PROGRESS_PR_PRESET: ProgressPrPreset = "1w";
+export const DEFAULT_TRACKING_PR_MODE: TrackingPrMode = "preset";
+export const DEFAULT_TRACKING_PR_PRESET: TrackingPrPreset = "1w";
 
-export const PROGRESS_PR_PRESET_OPTIONS = [
+export const TRACKING_PR_PRESET_OPTIONS = [
   { value: "1w", label: "Last week" },
   { value: "2w", label: "Last 2 weeks" },
   { value: "3w", label: "Last 3 weeks" },
   { value: "1m", label: "Last month" },
   { value: "3m", label: "Last 3 months" },
-] as const satisfies readonly { value: ProgressPrPreset; label: string }[];
+] as const satisfies readonly { value: TrackingPrPreset; label: string }[];
 
 function formatYmd(date: Date): string {
   const year = date.getFullYear();
@@ -26,7 +26,7 @@ function startOfLocalDay(date: Date): Date {
 
 /** Inclusive rolling windows ending today (local calendar). */
 export function resolvePresetRange(
-  preset: ProgressPrPreset,
+  preset: TrackingPrPreset,
   now: Date = new Date(),
 ): { from: string; to: string } {
   const to = startOfLocalDay(now);
@@ -51,7 +51,7 @@ export function resolvePresetRange(
   return { from: formatYmd(from), to: formatYmd(to) };
 }
 
-export function parseProgressPrMode(value: string | undefined): ProgressPrMode {
+export function parseTrackingPrMode(value: string | undefined): TrackingPrMode {
   const normalized = value?.trim().toLowerCase() ?? "";
   if (normalized === "sprint") {
     return "sprint";
@@ -59,18 +59,18 @@ export function parseProgressPrMode(value: string | undefined): ProgressPrMode {
   if (normalized === "custom") {
     return "custom";
   }
-  return DEFAULT_PROGRESS_PR_MODE;
+  return DEFAULT_TRACKING_PR_MODE;
 }
 
-export function parseProgressPrPreset(value: string | undefined): ProgressPrPreset {
+export function parseTrackingPrPreset(value: string | undefined): TrackingPrPreset {
   const normalized = value?.trim().toLowerCase() ?? "";
-  const match = PROGRESS_PR_PRESET_OPTIONS.find((option) => option.value === normalized);
-  return match?.value ?? DEFAULT_PROGRESS_PR_PRESET;
+  const match = TRACKING_PR_PRESET_OPTIONS.find((option) => option.value === normalized);
+  return match?.value ?? DEFAULT_TRACKING_PR_PRESET;
 }
 
-export function progressPrPresetLabel(preset: ProgressPrPreset): string {
+export function trackingPrPresetLabel(preset: TrackingPrPreset): string {
   return (
-    PROGRESS_PR_PRESET_OPTIONS.find((option) => option.value === preset)?.label ??
+    TRACKING_PR_PRESET_OPTIONS.find((option) => option.value === preset)?.label ??
     "Last week"
   );
 }

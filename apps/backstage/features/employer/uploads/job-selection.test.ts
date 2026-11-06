@@ -68,4 +68,36 @@ describe("resolveUploadSelection", () => {
     assert.equal(resolved.section, null);
     assert.equal(resolved.errorClass, "validation");
   });
+
+  it("resolves combined creation sections via source upload section ids", () => {
+    const combined = [
+      {
+        uploadSectionId: 10,
+        sectionId: -2,
+        invalid: 0,
+        unprocessed: 0,
+        sourceUploadSectionIds: [10, 11],
+        sourceSectionIds: [1, 14],
+      },
+    ];
+    const bySourceUpload = resolveUploadSelection({
+      sections: combined,
+      uploadSectionId: 11,
+      sectionId: null,
+      errorClass: "validation",
+      invalid: 0,
+      unprocessed: 0,
+    });
+    assert.equal(bySourceUpload.section?.uploadSectionId, 10);
+
+    const bySourceSection = resolveUploadSelection({
+      sections: combined,
+      uploadSectionId: null,
+      sectionId: 14,
+      errorClass: "validation",
+      invalid: 0,
+      unprocessed: 0,
+    });
+    assert.equal(bySourceSection.section?.sectionId, -2);
+  });
 });

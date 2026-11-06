@@ -12,16 +12,19 @@ describe("normalizeEmailStatus", () => {
     assert.equal(normalizeEmailStatus("n"), "New");
     assert.equal(normalizeEmailStatus(" Pending "), "Pending");
     assert.equal(normalizeEmailStatus("P"), "Pending");
+    assert.equal(normalizeEmailStatus("Pending_old"), "Pending");
+    assert.equal(normalizeEmailStatus("Pending2"), "Pending");
     assert.equal(normalizeEmailStatus("Failed"), "Failed");
     assert.equal(normalizeEmailStatus("F"), "Failed");
     assert.equal(normalizeEmailStatus("Completed"), "Completed");
     assert.equal(normalizeEmailStatus("C"), "Completed");
+    assert.equal(normalizeEmailStatus("Review"), "Under Review");
+    assert.equal(normalizeEmailStatus("Under Review"), "Under Review");
   });
 
   it("leaves unmapped codes as Other", () => {
     assert.equal(normalizeEmailStatus(null), "Other");
     assert.equal(normalizeEmailStatus(""), "Other");
-    assert.equal(normalizeEmailStatus("Under Review"), "Other");
     assert.equal(normalizeEmailStatus("Y"), "Other");
   });
 });
@@ -31,6 +34,7 @@ describe("email filter parsers", () => {
     assert.equal(parseEmailModuleKey("travel"), "travel");
     assert.equal(parseEmailModuleKey("TIMEPORT"), null);
     assert.equal(parseEmailStatus("Failed"), "Failed");
+    assert.equal(parseEmailStatus("Under Review"), "Under Review");
     assert.equal(parseEmailStatus("F"), null);
   });
 });

@@ -21,9 +21,17 @@ export const UPLOAD_CATEGORY_ID = {
 export const IMAGE_SECTION_ID = -1;
 export const IMAGE_SECTION_NAME = "Bulk Image Update";
 
+export const CREATION_SECTION_ID = -2;
+export const CREATION_SECTION_NAME =
+  "Personal Details + Current Employment Details";
+
+export const CREATION_SECTION_NAMES = [
+  "Personal Details",
+  "Current Employment Details",
+] as const;
+
 export const MAX_CLASSIFIED_ROWS = 500;
 export const DYNAMIC_SQL_PREVIEW_LENGTH = 2000;
-export const BATCH_JSON_PREVIEW_LENGTH = 4000;
 
 export const PIPELINE_STEPS = [
   "Download template",
@@ -149,6 +157,8 @@ export type UploadSectionRollup = {
   invalid: number;
   processed: number;
   unprocessed: number;
+  sourceUploadSectionIds: number[];
+  sourceSectionIds: number[];
 };
 
 export type UploadSectionDataRow = {

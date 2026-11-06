@@ -4,6 +4,9 @@ import { parseEmployerId } from "../../shared/ids";
 import { parseUploadTypeKey, creationExcludedFieldNames, validationRuleNames } from "./classify";
 import { likeContains, pageQuery, searchText, totalCountOf } from "../../shared/page.ts";
 import {
+  CREATION_SECTION_ID,
+  CREATION_SECTION_NAME,
+  CREATION_SECTION_NAMES,
   IMAGE_SECTION_ID,
   IMAGE_SECTION_NAME,
   PIPELINE_STEPS,
@@ -45,8 +48,6 @@ type SectionQueryRow = {
   DB_DMLAllowed: string | null;
   DB_Table_History: string | null;
 };
-
-const CREATION_SECTIONS = ["Personal Details", "Current Employment Details"] as const;
 
 export async function listUploadCountries(
   db: HrmsDb,
@@ -183,12 +184,12 @@ async function creationCatalog(
         Section.DB_Table_History
     FROM dbo.TEmployeeDetail_Section AS Section
     WHERE Section.Section IN (
-        ${Prisma.join(CREATION_SECTIONS.map((name) => Prisma.sql`${name}`))}
+        ${Prisma.join(CREATION_SECTION_NAMES.map((name) => Prisma.sql`${name}`))}
     )
     ORDER BY Section.SectionID
   `;
   const fieldOptions = {
-    sectionNames: [...CREATION_SECTIONS] as string[],
+    sectionNames: [...CREATION_SECTION_NAMES] as string[],
     requireActiveVisible: true,
     excludedFieldNames: excluded,
     entities: ["system", "custom", "country"],
@@ -198,7 +199,7 @@ async function creationCatalog(
     db,
     tenantId,
     countryId,
-    catalogFieldQuery(fieldOptions, filters, sections),
+    creationCatalogFieldQuery(fieldOptions, filters, sections),
   );
   const notes = [
     "Template is Personal Details + Current Employment Details. Rows key off Work Email.",
@@ -210,6 +211,10 @@ async function creationCatalog(
   if (!settings.isShowShiftRoaster) {
     notes.push("ShiftGroup is excluded because IsShowShiftRoaster is off.");
   }
+  const combinedFieldCount = sections.reduce(
+    (sum, section) => sum + (counts.get(section.SectionID) ?? 0),
+    0,
+  );
   return {
     type: "creation",
     uploadType: UPLOAD_TYPE_DB.creation,
@@ -223,7 +228,19 @@ async function creationCatalog(
       "Finalize employment numbers",
     ],
     notes,
-    sections: toCatalogSections(sections, counts),
+    sections: [
+      {
+        sectionId: CREATION_SECTION_ID,
+        section: CREATION_SECTION_NAME,
+        dmlAllowed:
+          sections
+            .map((section) => section.DB_DMLAllowed)
+            .filter((value): value is string => Boolean(value))
+            .join("/") || null,
+        historyTable: null,
+        fieldCount: combinedFieldCount,
+      },
+    ],
     fields: fields.rows,
     fieldTotalCount: fields.totalCount,
     fieldPage: fields.page,
@@ -449,6 +466,37 @@ function catalogFieldQuery(
       ? null
       : (filters.sectionId ?? sections[0]?.SectionID ?? null),
   };
+}
+
+function creationCatalogFieldQuery(
+  fieldOptions: CatalogFieldOptions,
+  filters: UploadCatalogListFilters,
+  sections: SectionQueryRow[],
+): CatalogFieldOptions {
+  const realSectionIds = sections.map((section) => section.SectionID);
+  const requested = (filters.sectionIds ?? []).filter((id) => Number.isInteger(id));
+  const selectedId =
+    filters.sectionId != null && Number.isInteger(filters.sectionId)
+      ? filters.sectionId
+      : null;
+  const wantsCombined =
+    selectedId == null ||
+    selectedId === CREATION_SECTION_ID ||
+    (requested.length === 1 && requested[0] === CREATION_SECTION_ID);
+  if (wantsCombined || requested.length === 0) {
+    const sectionIds =
+      requested.length > 0 && !requested.includes(CREATION_SECTION_ID)
+        ? requested
+        : realSectionIds;
+    return {
+      ...fieldOptions,
+      ...filters,
+      sectionIds,
+      sectionId: null,
+      unpaged: sectionIds.length > 0 && requested.length > 0,
+    };
+  }
+  return catalogFieldQuery(fieldOptions, filters, sections);
 }
 
 function catalogFieldFilters(

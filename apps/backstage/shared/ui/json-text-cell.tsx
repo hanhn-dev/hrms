@@ -19,7 +19,7 @@ export function JsonTextCell({
   }
 
   return (
-    <Tooltip title={value?.trim() ? value : "Open JSON"}>
+    <Tooltip title={value?.trim() ? "Open JSON" : "No JSON"}>
       <Button
         className="h-auto max-w-52 p-0 align-bottom"
         type="link"

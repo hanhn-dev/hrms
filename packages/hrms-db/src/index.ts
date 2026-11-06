@@ -398,6 +398,9 @@ export {
 } from "./employer/menu";
 
 export {
+  CREATION_SECTION_ID,
+  CREATION_SECTION_NAME,
+  CREATION_SECTION_NAMES,
   EXPIRED_AFTER_DAYS,
   IMAGE_SECTION_ID,
   IMAGE_SECTION_NAME,
@@ -408,10 +411,13 @@ export {
   UPLOAD_TYPE_DB,
   UPLOAD_TYPE_KEYS,
   UPLOAD_TYPE_LABELS,
+  combineCreationUploadSections,
   compareUploadHeaders,
+  composeEmployeeName,
   creationExcludedFieldNames,
   isMissingObjectError,
   missingObjectName,
+  unionFieldsCsv,
   getCreationFinalize,
   getCreationStagingRow,
   getUpload,
@@ -518,6 +524,19 @@ export {
   type PendingInboxRow,
   type PendingInboxTypeCount,
 } from "./employer/notifications";
+
+export {
+  DELIVERY_STATUSES,
+  getEmailTriggerSummary,
+  normalizeDeliveryStatus,
+  parseDeliveryStatus,
+  type DeliveryStatus,
+  type EmailDeliveryStatusCount,
+  type EmailTriggerModuleCount,
+  type EmailTriggerStatusCount,
+  type EmailTriggerSummary,
+  type EmailTriggerSummaryFilters,
+} from "./employer/email-triggers";
 
 export {
   BUILTIN_WORKFLOW_ROLES,

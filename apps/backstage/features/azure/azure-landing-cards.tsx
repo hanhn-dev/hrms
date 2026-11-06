@@ -84,7 +84,7 @@ export const azureLandingGroups: readonly LandingGroup[] = [
         href: "/azure/pull-requests",
         title: "Pull requests",
         description:
-          "Look up every pull request linked to a set of work items and build a cherry-pick command.",
+          "Search PRs by work item or author, track opens per local-team member, and build a cherry-pick command.",
         icon: PullRequestOutlined,
       },
       {

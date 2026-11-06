@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import { describe, it } from "vitest";
 import {
+  combineCreationUploadSections,
   compareUploadHeaders,
+  composeEmployeeName,
   creationExcludedFieldNames,
   isExpiredUpload,
   isMissingObjectError,
@@ -10,6 +12,7 @@ import {
   parseSectionDataRows,
   parseSectionRows,
   parseUploadTypeKey,
+  unionFieldsCsv,
   validationRuleNames,
 } from "./classify.ts";
 
@@ -135,6 +138,124 @@ describe("parseSectionRows", () => {
   });
 });
 
+describe("composeEmployeeName", () => {
+  it("prefers Employee Name when present", () => {
+    assert.equal(
+      composeEmployeeName({
+        "Employee Name": "Pat Lee",
+        "First Name": "Ignored",
+        "Last Name": "Ignored",
+      }),
+      "Pat Lee",
+    );
+  });
+
+  it("joins First Middle Last Name when Employee Name is absent", () => {
+    assert.equal(
+      composeEmployeeName({
+        "First Name": "Ann",
+        "Middle Name": "Q",
+        "Last Name": "Lee",
+      }),
+      "Ann Q Lee",
+    );
+  });
+
+  it("returns null when no name fields exist", () => {
+    assert.equal(composeEmployeeName({ "Work Email": "a@b.com" }), null);
+  });
+});
+
+describe("unionFieldsCsv", () => {
+  it("keeps first-seen order and dedupes case-insensitively", () => {
+    assert.deepEqual(
+      unionFieldsCsv("Work Email,First Name", "work email,Date of Joining"),
+      ["Work Email", "First Name", "Date of Joining"],
+    );
+  });
+});
+
+describe("combineCreationUploadSections", () => {
+  it("merges Personal Details and Current Employment Details into one section", () => {
+    const combined = combineCreationUploadSections(
+      [
+        {
+          uploadSectionId: 10,
+          sectionId: 1,
+          section: "Personal Details",
+          fieldsCsv: "Work Email,First Name",
+          selectedFields: ["Work Email", "First Name"],
+          fieldCount: 2,
+          total: 17,
+          valid: 17,
+          invalid: 0,
+          processed: 17,
+          unprocessed: 0,
+        },
+        {
+          uploadSectionId: 11,
+          sectionId: 14,
+          section: "Current Employment Details",
+          fieldsCsv: "Work Email,Date of Joining",
+          selectedFields: ["Work Email", "Date of Joining"],
+          fieldCount: 2,
+          total: 17,
+          valid: 16,
+          invalid: 1,
+          processed: 15,
+          unprocessed: 2,
+        },
+      ],
+      { sectionId: -2, sectionName: "Personal Details + Current Employment Details" },
+    );
+    assert.equal(combined.length, 1);
+    assert.equal(combined[0]?.sectionId, -2);
+    assert.equal(
+      combined[0]?.section,
+      "Personal Details + Current Employment Details",
+    );
+    assert.deepEqual(combined[0]?.selectedFields, [
+      "Work Email",
+      "First Name",
+      "Date of Joining",
+    ]);
+    assert.equal(combined[0]?.fieldCount, 3);
+    assert.equal(combined[0]?.total, 17);
+    assert.equal(combined[0]?.valid, 16);
+    assert.equal(combined[0]?.invalid, 1);
+    assert.equal(combined[0]?.processed, 15);
+    assert.equal(combined[0]?.unprocessed, 2);
+    assert.deepEqual(combined[0]?.sourceUploadSectionIds, [10, 11]);
+    assert.deepEqual(combined[0]?.sourceSectionIds, [1, 14]);
+  });
+
+  it("leaves sections unchanged when one creation half is missing", () => {
+    const sections = [
+      {
+        uploadSectionId: 10,
+        sectionId: 1,
+        section: "Personal Details",
+        fieldsCsv: "Work Email",
+        selectedFields: ["Work Email"],
+        fieldCount: 1,
+        total: 5,
+        valid: 5,
+        invalid: 0,
+        processed: 5,
+        unprocessed: 0,
+      },
+    ];
+    const result = combineCreationUploadSections(sections, {
+      sectionId: -2,
+      sectionName: "Personal Details + Current Employment Details",
+    });
+    assert.equal(result.length, 1);
+    assert.equal(result[0]?.section, "Personal Details");
+    assert.deepEqual(result[0]?.sourceUploadSectionIds, [10]);
+    assert.deepEqual(result[0]?.sourceSectionIds, [1]);
+  });
+});
+
 describe("parseSectionDataRows", () => {
   it("returns selected field values from Section_JSON", () => {
     const parsed = parseSectionDataRows(
@@ -143,6 +264,7 @@ describe("parseSectionDataRows", () => {
           ID: 12,
           "Work Email": "a@b.com",
           "First Name": "Ann",
+          "Last Name": "Lee",
           isValid: true,
         },
       ]),
@@ -153,6 +275,7 @@ describe("parseSectionDataRows", () => {
     assert.equal(parsed.rows[0]?.values["First Name"], "Ann");
     assert.equal(parsed.rows[0]?.employeeId, 12);
     assert.equal(parsed.rows[0]?.workEmail, "a@b.com");
+    assert.equal(parsed.rows[0]?.employeeName, "Ann Lee");
     assert.equal(parsed.rows[0]?.isValid, true);
     assert.deepEqual(parsed.rows[0]?.errors, []);
   });

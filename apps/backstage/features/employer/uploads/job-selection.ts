@@ -5,6 +5,8 @@ export type UploadSectionPick = {
   sectionId: number | null;
   invalid: number;
   unprocessed: number;
+  sourceUploadSectionIds?: number[];
+  sourceSectionIds?: number[];
 };
 
 export function resolveUploadSelection<T extends UploadSectionPick>(input: {
@@ -17,7 +19,13 @@ export function resolveUploadSelection<T extends UploadSectionPick>(input: {
 }): { section: T | null; errorClass: UploadErrorClass } {
   const section =
     input.sections.find((item) => item.uploadSectionId === input.uploadSectionId) ??
+    input.sections.find((item) =>
+      (item.sourceUploadSectionIds ?? []).includes(input.uploadSectionId ?? -1),
+    ) ??
     input.sections.find((item) => item.sectionId === input.sectionId) ??
+    input.sections.find((item) =>
+      (item.sourceSectionIds ?? []).includes(input.sectionId ?? -1),
+    ) ??
     input.sections.find((item) => item.invalid > 0 || item.unprocessed > 0) ??
     input.sections[0] ??
     null;

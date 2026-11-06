@@ -28,6 +28,7 @@ export const EMAIL_STATUSES = [
   "Pending",
   "Failed",
   "Completed",
+  "Under Review",
   "Other",
 ] as const;
 
@@ -64,6 +65,8 @@ export function normalizeEmailStatus(
       return "New";
     case "P":
     case "PENDING":
+    case "PENDING_OLD":
+    case "PENDING2":
       return "Pending";
     case "F":
     case "FAILED":
@@ -71,6 +74,9 @@ export function normalizeEmailStatus(
     case "C":
     case "COMPLETED":
       return "Completed";
+    case "REVIEW":
+    case "UNDER REVIEW":
+      return "Under Review";
     default:
       return "Other";
   }

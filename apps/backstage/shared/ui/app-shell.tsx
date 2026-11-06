@@ -6,6 +6,7 @@ import {
   CloudUploadOutlined,
   DatabaseOutlined,
   ToolOutlined,
+  MailOutlined,
   NotificationOutlined,
   FileSearchOutlined,
   FileTextOutlined,
@@ -73,6 +74,9 @@ function moduleTitle(
   }
   if (pathname.startsWith(`${base}/workflows`)) {
     return "Workflows";
+  }
+  if (pathname.startsWith(`${base}/email-triggers`)) {
+    return "Email Triggers";
   }
   if (pathname.startsWith(`${base}/notifications`)) {
     return "Notifications";
@@ -171,13 +175,15 @@ export function AppShell({
             ? "data-fix"
             : pathname.startsWith(`${base}/workflows`)
               ? "workflows"
-              : pathname.startsWith(`${base}/notifications`)
-                ? "notifications"
-                : pathname.startsWith(`${base}/uploads`)
-                  ? "uploads"
-                  : pathname.startsWith(`${base}/employees`)
-                    ? "employees"
-                    : "overview";
+              : pathname.startsWith(`${base}/email-triggers`)
+                ? "email-triggers"
+                : pathname.startsWith(`${base}/notifications`)
+                  ? "notifications"
+                  : pathname.startsWith(`${base}/uploads`)
+                    ? "uploads"
+                    : pathname.startsWith(`${base}/employees`)
+                      ? "employees"
+                      : "overview";
   const title = moduleTitle(pathname, base, employers, employerId);
   const [switcherQuery, setSwitcherQuery] = useState("");
   const [switcherOptions, setSwitcherOptions] = useState(employers);
@@ -302,6 +308,14 @@ export function AppShell({
                 icon: <ApartmentOutlined />,
                 title: "Workflows",
                 label: <Link href={`${base}/workflows`}>Workflows</Link>,
+              },
+              {
+                key: "email-triggers",
+                icon: <MailOutlined />,
+                title: "Email Triggers",
+                label: (
+                  <Link href={`${base}/email-triggers`}>Email Triggers</Link>
+                ),
               },
               {
                 key: "notifications",

@@ -80,6 +80,7 @@ export async function listUploadSectionData(
   employerId: number,
   uploadId: number,
   uploadSectionId: number | null,
+  sourceUploadSectionIds: number[] | null = null,
 ) {
   await requireFeature("employers");
   return listUploadSectionDataFromDb(
@@ -87,6 +88,7 @@ export async function listUploadSectionData(
     employerId,
     uploadId,
     uploadSectionId,
+    sourceUploadSectionIds,
   );
 }
 
@@ -96,6 +98,7 @@ export async function listUploadRowErrors(
   sectionId: number | null,
   errorClass: Exclude<UploadErrorClass, "system">,
   catalogFields: UploadCatalogField[],
+  sourceSectionIds: number[] | null = null,
 ) {
   await requireFeature("employers");
   return listUploadRowErrorsFromDb(
@@ -105,6 +108,7 @@ export async function listUploadRowErrors(
     sectionId,
     errorClass,
     catalogFields,
+    sourceSectionIds,
   );
 }
 

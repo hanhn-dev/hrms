@@ -1,15 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { Alert, Drawer, Table, Tag } from "antd";
 import type { PullRequestCandidate } from "@hrms/azure-devops";
 import {
   filterPullRequestMembers,
   type MemberPullRequestProgress,
-} from "@/features/azure/progress/aggregate-pull-requests";
-import { useProgressMemberFilter } from "@/features/azure/progress/progress-pr-filter-context";
-import type { TeamMemberPullRequestsData } from "@/features/azure/progress/queries";
+} from "@/features/azure/pull-requests/aggregate-pull-requests";
+import { useTrackingMemberFilter } from "@/features/azure/pull-requests/tracking-member-filter-context";
+import type { TeamMemberPullRequestsData } from "@/features/azure/pull-requests/queries";
 import { formatDate } from "@/shared/format-date";
 import { Text } from "@/shared/ui";
 
@@ -64,13 +63,13 @@ function PullRequestList({
   );
 }
 
-/** Server-loaded PR counts and list for the Team progress Collapse panel. */
-export function ProgressPullRequestsPanel({
+/** Per-member PR counts and drawer list for the Tracking tab. */
+export function PullRequestsTrackingResults({
   data,
 }: {
   data: TeamMemberPullRequestsData;
 }): React.JSX.Element {
-  const memberFilter = useProgressMemberFilter();
+  const memberFilter = useTrackingMemberFilter();
   const [selected, setSelected] = useState<MemberPullRequestProgress | null>(null);
   const rows = filterPullRequestMembers(data.rows, memberFilter);
   const summary = {
@@ -187,10 +186,6 @@ export function ProgressPullRequestsPanel({
           })}
         />
       )}
-
-      <Link className="text-sm underline" href="/azure/pull-requests">
-        Open in Pull requests
-      </Link>
 
       <Drawer
         destroyOnHidden

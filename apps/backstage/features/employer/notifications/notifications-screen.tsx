@@ -28,7 +28,7 @@ export function NotificationsScreen({
             type: "info",
             title: "Email rows follow the notification tables",
             description:
-              "Core reads dbo.TEmailNotification. Training, Survey, Resource Allocation, and Travel and Expense read the TEMAIL_NOTIFICATION synonyms. Status words match New, Pending, Failed, and Completed. Any other stored value is shown as Other, with the raw value on the status tag.",
+              "Core reads dbo.TEmailNotification. Training, Survey, Resource Allocation, and Travel and Expense read the TEMAIL_NOTIFICATION synonyms. Status words match New, Pending, Failed, Completed, and Under Review. Any other stored value is shown as Other, with the raw value on the status tag.",
           },
           {
             id: "inbox-scope",

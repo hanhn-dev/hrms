@@ -29,6 +29,7 @@ const STATUS_COLOR: Record<EmailStatus, string> = {
   Pending: "orange",
   Failed: "red",
   Completed: "green",
+  "Under Review": "gold",
   Other: "default",
 };
 

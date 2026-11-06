@@ -48,10 +48,18 @@ const loadCatalog = cache(
 );
 
 function catalogSectionKey(upload: UploadDetail): string {
-  return upload.sections
-    .map((section) => section.sectionId)
-    .filter((id): id is number => id != null)
-    .join(",");
+  const ids = upload.sections.flatMap((section) =>
+    section.sourceSectionIds.length > 0
+      ? section.sourceSectionIds
+      : section.sectionId != null && section.sectionId > 0
+        ? [section.sectionId]
+        : [],
+  );
+  return [...new Set(ids)].join(",");
+}
+
+function usesFullCatalogFields(upload: UploadDetail): boolean {
+  return upload.type === "image" || upload.type === "creation";
 }
 
 const loadUploadCapture = cache((employerId: number, uploadId: number) =>
@@ -230,7 +238,7 @@ export async function UploadSectionsSlot({
       : null;
   const mismatches = upload.sections.map((section) => {
     const catalogFields =
-      upload.type === "image" || section.sectionId == null
+      usesFullCatalogFields(upload) || section.sectionId == null || section.sectionId < 0
         ? (catalog?.fields ?? [])
         : (catalog?.fields.filter((field) => field.sectionId === section.sectionId) ?? []);
     return {
@@ -266,7 +274,12 @@ export async function UploadSectionDataSlot({
   selectedSection: UploadSectionRollup | null;
 }): Promise<React.JSX.Element> {
   const sectionData = await captureQueryScript(() =>
-    listUploadSectionData(employerId, upload.uploadId, selectedSection?.uploadSectionId ?? null),
+    listUploadSectionData(
+      employerId,
+      upload.uploadId,
+      selectedSection?.uploadSectionId ?? null,
+      selectedSection?.sourceUploadSectionIds ?? null,
+    ),
   );
   return (
     <JobSectionDataCard
@@ -315,10 +328,9 @@ export async function UploadRowErrorsSlot({
         catalogSectionKey(upload),
       )
       : null;
-  const catalogFields =
-    upload.type === "image"
-      ? (catalog?.fields ?? [])
-      : (catalog?.fields.filter((field) => field.sectionId === selectedSection?.sectionId) ?? []);
+  const catalogFields = usesFullCatalogFields(upload)
+    ? (catalog?.fields ?? [])
+    : (catalog?.fields.filter((field) => field.sectionId === selectedSection?.sectionId) ?? []);
   const [rowErrors, executionErrors] = await Promise.all([
     loadRowErrors(
       errorClass,
@@ -326,6 +338,7 @@ export async function UploadRowErrorsSlot({
       upload.uploadId,
       selectedSection?.sectionId ?? null,
       catalogFields,
+      selectedSection?.sourceSectionIds ?? null,
     ),
     executionErrorsPromise,
   ]);
@@ -490,12 +503,20 @@ async function loadRowErrors(
   uploadId: number,
   sectionId: number | null,
   catalogFields: UploadCatalogField[],
+  sourceSectionIds: number[] | null,
 ) {
   if (errorClass === "system") {
     return null;
   }
   return captureQueryScript(() =>
-    listUploadRowErrors(employerId, uploadId, sectionId, errorClass, catalogFields),
+    listUploadRowErrors(
+      employerId,
+      uploadId,
+      sectionId,
+      errorClass,
+      catalogFields,
+      sourceSectionIds,
+    ),
   );
 }
 

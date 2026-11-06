@@ -5,12 +5,15 @@ import { parseEmployerId, uploadIdSchema } from "../../shared/ids";
 import { asIso } from "../../shared/iso";
 import {
   ageHours,
+  combineCreationUploadSections,
   isExpiredUpload,
   isStuckStatus,
   parseUploadTypeKey,
   splitFieldsCsv,
 } from "./classify";
 import {
+  CREATION_SECTION_ID,
+  CREATION_SECTION_NAME,
   UPLOAD_TYPE_DB,
   type UploadDetail,
   type UploadListFilters,
@@ -275,6 +278,17 @@ export async function getUpload(
     ORDER BY Section.SectionID, Section.UploadSectionID
   `;
   const listItem = mapListItem(header);
+  const mappedSections = sections.map(mapSection);
+  const type = parseUploadTypeKey(header.UploadType);
+  const detailSections =
+    type === "creation"
+      ? combineCreationUploadSections(mappedSections, {
+          sectionId: CREATION_SECTION_ID,
+          sectionName: CREATION_SECTION_NAME,
+        })
+      : mappedSections;
+  const combined = detailSections[0];
+  const useCombinedTotals = type === "creation" && detailSections.length === 1 && combined != null;
   return {
     ...listItem,
     employerId: header.EmployerID ?? tenantId,
@@ -283,7 +297,17 @@ export async function getUpload(
     batchNo: header.batchno,
     validatedBy: header.ValidatedBy,
     processedBy: header.ProcessedBy,
-    sections: sections.map(mapSection),
+    ...(useCombinedTotals
+      ? {
+          total: combined.total,
+          valid: combined.valid,
+          invalid: combined.invalid,
+          processed: combined.processed,
+          unprocessed: combined.unprocessed,
+          sectionCount: detailSections.length,
+        }
+      : { sectionCount: detailSections.length }),
+    sections: detailSections,
   };
 }
 
@@ -350,6 +374,8 @@ function mapSection(row: {
     invalid: Number(row.InValid ?? 0),
     processed: Number(row.Processed ?? 0),
     unprocessed: Number(row.UnProcessed ?? 0),
+    sourceUploadSectionIds: [row.UploadSectionID],
+    sourceSectionIds: row.SectionID != null ? [row.SectionID] : [],
   };
 }
 

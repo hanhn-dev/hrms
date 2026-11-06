@@ -10,9 +10,11 @@ import {
   parseUploadTypeKey,
   splitFieldsCsv,
   truncateText,
+  unionFieldsCsv,
 } from "./classify";
 import {
-  BATCH_JSON_PREVIEW_LENGTH,
+  CREATION_SECTION_ID,
+  CREATION_SECTION_NAME,
   DYNAMIC_SQL_PREVIEW_LENGTH,
   MAX_CLASSIFIED_ROWS,
   type CreationFinalize,
@@ -28,6 +30,7 @@ import {
   type UploadRowError,
   type UploadRowErrorResult,
   type UploadSectionData,
+  type UploadSectionDataRow,
 } from "./types";
 
 export async function listUploadRowErrors(
@@ -37,13 +40,21 @@ export async function listUploadRowErrors(
   sectionId: number | null,
   errorClass: Exclude<UploadErrorClass, "system">,
   catalogFields: UploadCatalogField[] = [],
+  sourceSectionIds: number[] | null = null,
 ): Promise<UploadRowErrorResult> {
   const tenantId = parseEmployerId(employerId);
   const parsedUploadId = uploadIdSchema.parse(uploadId);
+  const realSectionIds = (sourceSectionIds ?? []).filter(
+    (id) => Number.isInteger(id) && id > 0,
+  );
   const sectionFilter =
-    sectionId != null && Number.isInteger(sectionId)
-      ? Prisma.sql`AND Section.SectionID = ${sectionId}`
-      : Prisma.empty;
+    realSectionIds.length > 0
+      ? Prisma.sql`AND Section.SectionID IN (${Prisma.join(realSectionIds)})`
+      : sectionId != null &&
+          Number.isInteger(sectionId) &&
+          sectionId !== CREATION_SECTION_ID
+        ? Prisma.sql`AND Section.SectionID = ${sectionId}`
+        : Prisma.empty;
   const rows = await db.$queryRaw<
     Array<{
       UploadSectionID: number;
@@ -143,12 +154,23 @@ export async function listUploadSectionData(
   employerId: number,
   uploadId: number,
   uploadSectionId: number | null,
+  sourceUploadSectionIds: number[] | null = null,
 ): Promise<UploadSectionData | null> {
   const tenantId = parseEmployerId(employerId);
   const parsedUploadId = uploadIdSchema.parse(uploadId);
+  const sourceIds = (sourceUploadSectionIds ?? [])
+    .filter((id) => Number.isInteger(id) && id > 0);
+  const sectionIds =
+    sourceIds.length > 0
+      ? sourceIds
+      : uploadSectionId != null &&
+          Number.isInteger(uploadSectionId) &&
+          uploadSectionId > 0
+        ? [uploadSectionId]
+        : [];
   const sectionFilter =
-    uploadSectionId != null && Number.isInteger(uploadSectionId) && uploadSectionId > 0
-      ? Prisma.sql`AND Section.UploadSectionID = ${uploadSectionId}`
+    sectionIds.length > 0
+      ? Prisma.sql`AND Section.UploadSectionID IN (${Prisma.join(sectionIds)})`
       : Prisma.empty;
   const rows = await db.$queryRaw<
     Array<{
@@ -159,7 +181,7 @@ export async function listUploadSectionData(
       Section_JSON: string | null;
     }>
   >`
-    SELECT TOP (1)
+    SELECT
         Section.UploadSectionID,
         Section.SectionID,
         Master.Section,
@@ -175,13 +197,64 @@ export async function listUploadSectionData(
         ${sectionFilter}
     ORDER BY Section.SectionID, Section.UploadSectionID
   `;
-  const row = rows[0];
-  if (!row) {
+  if (rows.length === 0) {
     return null;
   }
-  const fields = splitFieldsCsv(row.Fields);
-  const parsed = parseSectionDataRows(row.Section_JSON, fields);
-  const limited = parsed.rows.slice(0, MAX_CLASSIFIED_ROWS);
+  const fields = unionFieldsCsv(...rows.map((row) => row.Fields));
+  const mergedRows: Array<{
+    rowIndex: number;
+    values: Record<string, string | null>;
+    employeeId: number | null;
+    workEmail: string | null;
+    employeeName: string | null;
+    isValid: boolean | null;
+    isProcessed: boolean | null;
+    errors: string[];
+    errorSummary: string | null;
+  }> = [];
+  const byKey = new Map<string, (typeof mergedRows)[number]>();
+  let parseError: string | null = null;
+
+  for (const row of rows) {
+    const parsed = parseSectionDataRows(row.Section_JSON, fields);
+    if (parsed.parseError) {
+      parseError = parsed.parseError;
+    }
+    for (const item of parsed.rows) {
+      const key =
+        item.workEmail?.trim().toLowerCase() ||
+        (item.employeeId != null ? `id:${item.employeeId}` : null) ||
+        `index:${item.rowIndex}`;
+      const existing = byKey.get(key);
+      if (!existing) {
+        const next = { ...item, values: { ...item.values } };
+        byKey.set(key, next);
+        mergedRows.push(next);
+        continue;
+      }
+      for (const [field, value] of Object.entries(item.values)) {
+        if (existing.values[field] == null && value != null) {
+          existing.values[field] = value;
+        }
+      }
+      existing.employeeId = existing.employeeId ?? item.employeeId;
+      existing.workEmail = existing.workEmail ?? item.workEmail;
+      existing.employeeName = existing.employeeName ?? item.employeeName;
+      existing.isValid =
+        existing.isValid === false || item.isValid === false
+          ? false
+          : (existing.isValid ?? item.isValid);
+      existing.isProcessed =
+        existing.isProcessed === false || item.isProcessed === false
+          ? false
+          : (existing.isProcessed ?? item.isProcessed);
+      const errors = [...new Set([...existing.errors, ...item.errors])];
+      existing.errors = errors;
+      existing.errorSummary = errors.join(" · ") || null;
+    }
+  }
+
+  const limited = mergedRows.slice(0, MAX_CLASSIFIED_ROWS);
   const liveByKey = await listUploadLiveEmployees(
     db,
     tenantId,
@@ -190,22 +263,35 @@ export async function listUploadSectionData(
       workEmail: item.workEmail,
     })),
   );
+  const stagingByEmail = await listCreationStagingNames(
+    db,
+    tenantId,
+    parsedUploadId,
+    limited.map((item) => item.workEmail),
+  );
+  const primary = rows[0]!;
   return {
-    uploadSectionId: row.UploadSectionID,
-    sectionId: row.SectionID,
-    section: row.Section,
+    uploadSectionId: primary.UploadSectionID,
+    sectionId: rows.length > 1 ? CREATION_SECTION_ID : primary.SectionID,
+    section: rows.length > 1 ? CREATION_SECTION_NAME : primary.Section,
     fields,
-    parseError: parsed.parseError,
-    totalMatched: parsed.rows.length,
-    rows: limited.map((item) => {
+    parseError,
+    totalMatched: mergedRows.length,
+    rows: limited.map((item): UploadSectionDataRow => {
       const live =
         (item.employeeId ? liveByKey.get(`id:${item.employeeId}`) : undefined) ??
-        (item.workEmail ? liveByKey.get(`email:${item.workEmail.toLowerCase()}`) : undefined);
+        (item.workEmail
+          ? liveByKey.get(`email:${item.workEmail.toLowerCase()}`)
+          : undefined);
+      const stagingName = item.workEmail
+        ? stagingByEmail.get(item.workEmail.toLowerCase())
+        : undefined;
       return {
         ...item,
         employeeId: live?.employeeId ?? item.employeeId,
         workEmail: live?.workEmail ?? item.workEmail,
-        employeeName: live?.fullName ?? null,
+        employeeName:
+          live?.fullName ?? item.employeeName ?? stagingName ?? null,
         employmentNumber: live?.employmentNumber ?? null,
       };
     }),
@@ -304,8 +390,9 @@ export async function getUploadBatch(
     batchNumber: row.BatchNumber,
     status: row.Status,
     createdDate: asIso(row.CreadtedDate),
-    employeeDataPreview: truncateText(row.EmployeeData, BATCH_JSON_PREVIEW_LENGTH),
-    resultPreview: truncateText(row.Result, BATCH_JSON_PREVIEW_LENGTH),
+    // Full payloads — truncation mid-string breaks the JSON viewer modal.
+    employeeDataPreview: row.EmployeeData,
+    resultPreview: row.Result,
   };
   }, null);
 }
@@ -464,13 +551,49 @@ export async function getCreationFinalize(
   return {
     uploadId: row.UploadID,
     status: row.Status,
-    employmentNumbersPreview: truncateText(
-      row.EmploymentNumbersData,
-      BATCH_JSON_PREVIEW_LENGTH,
-    ),
-    finalizedResultPreview: truncateText(row.FinalizedResult, BATCH_JSON_PREVIEW_LENGTH),
+    // Full payloads — truncation mid-string breaks the JSON viewer modal.
+    employmentNumbersPreview: row.EmploymentNumbersData,
+    finalizedResultPreview: row.FinalizedResult,
   };
   }, null);
+}
+
+async function listCreationStagingNames(
+  db: HrmsDb,
+  tenantId: number,
+  uploadId: number,
+  workEmails: Array<string | null | undefined>,
+): Promise<Map<string, string | null>> {
+  const emails = uniqueStrings(workEmails);
+  const names = new Map<string, string | null>();
+  if (emails.length === 0) {
+    return names;
+  }
+  const rows = await optionalQuery(
+    () =>
+      db.$queryRaw<
+        Array<{ EmailID: string | null; fName: string | null; lName: string | null }>
+      >`
+        SELECT Staging.EmailID, Staging.fName, Staging.lName
+        FROM dbo.Temployeedetail_Staging_Employee_creation AS Staging
+        WHERE Staging.UploadId = ${uploadId}
+            AND Staging.employerId = ${tenantId}
+            AND Staging.EmailID IN (${Prisma.join(emails)})
+      `,
+    [],
+  );
+  for (const row of rows) {
+    const email = row.EmailID?.trim().toLowerCase();
+    if (!email) {
+      continue;
+    }
+    const composed = [row.fName, row.lName]
+      .map((part) => emptyToNull(part))
+      .filter((part): part is string => part != null)
+      .join(" ");
+    names.set(email, composed || null);
+  }
+  return names;
 }
 
 async function listUploadLiveEmployees(
@@ -839,39 +962,26 @@ async function resolveRowIdentities(
     }
   }
 
-  const stagingEmails = new Set<string>();
-  if (emails.length > 0) {
-    const stagingRows = await optionalQuery(
-      () =>
-        db.$queryRaw<Array<{ EmailID: string | null }>>`
-          SELECT Staging.EmailID
-          FROM dbo.Temployeedetail_Staging_Employee_creation AS Staging
-          WHERE Staging.UploadId = ${uploadId}
-              AND Staging.employerId = ${tenantId}
-              AND Staging.EmailID IN (${Prisma.join(emails)})
-        `,
-      [],
-    );
-    for (const row of stagingRows) {
-      if (row.EmailID) {
-        stagingEmails.add(row.EmailID.toLowerCase());
-      }
-    }
-  }
+  const stagingByEmail = await listCreationStagingNames(
+    db,
+    tenantId,
+    uploadId,
+    emails,
+  );
 
   return rows.map((row) => {
     const live =
       (row.employeeId ? liveById.get(row.employeeId) : undefined) ??
       (row.workEmail ? liveByEmail.get(row.workEmail.toLowerCase()) : undefined);
-    const stagingPresent = row.workEmail
-      ? stagingEmails.has(row.workEmail.toLowerCase())
-      : false;
+    const emailKey = row.workEmail?.toLowerCase() ?? "";
+    const stagingPresent = emailKey !== "" && stagingByEmail.has(emailKey);
+    const stagingName = stagingPresent ? stagingByEmail.get(emailKey) : undefined;
     return {
       ...row,
       employeeId: row.employeeId ?? live?.employeeId ?? null,
       workEmail: row.workEmail ?? live?.workEmail ?? null,
       employmentNumber: row.employmentNumber ?? live?.employmentNumber ?? null,
-      employeeName: row.employeeName ?? live?.fullName ?? null,
+      employeeName: row.employeeName ?? live?.fullName ?? stagingName ?? null,
       stagingPresent,
       isOrphan: stagingPresent && live == null,
     };

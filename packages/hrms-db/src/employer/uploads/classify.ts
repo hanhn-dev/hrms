@@ -83,6 +83,40 @@ export function splitFieldsCsv(value: string | null | undefined): string[] {
     .filter((part) => part !== "");
 }
 
+export function unionFieldsCsv(
+  ...values: Array<string | null | undefined>
+): string[] {
+  const seen = new Set<string>();
+  const fields: string[] = [];
+  for (const value of values) {
+    for (const field of splitFieldsCsv(value)) {
+      const key = field.toLowerCase();
+      if (seen.has(key)) {
+        continue;
+      }
+      seen.add(key);
+      fields.push(field);
+    }
+  }
+  return fields;
+}
+
+export function composeEmployeeName(row: Record<string, unknown>): string | null {
+  const lookup = new Map(
+    Object.entries(row).map(([key, value]) => [key.trim().toLowerCase(), value]),
+  );
+  const employeeName = asString(
+    lookup.get("employee name") ?? lookup.get("employeename"),
+  );
+  if (employeeName) {
+    return employeeName;
+  }
+  const parts = ["first name", "middle name", "last name"]
+    .map((key) => asString(lookup.get(key)))
+    .filter((part): part is string => part != null);
+  return parts.length > 0 ? parts.join(" ") : null;
+}
+
 export function compareUploadHeaders(
   uploadedCsv: string | null | undefined,
   catalogDisplayTexts: Array<string | null | undefined>,
@@ -265,7 +299,7 @@ function parseSectionRow(value: unknown): ParsedUploadRow | null {
     employmentNumber: asString(
       row["Employment Number"] ?? row.EmploymentNumber,
     ),
-    employeeName: asString(row["Employee Name"] ?? row.EmployeeName),
+    employeeName: composeEmployeeName(row),
     isValid: typeof row.isValid === "boolean" ? row.isValid : null,
     isProcessed: typeof row.isProcessed === "boolean" ? row.isProcessed : null,
     errorFields,
@@ -278,6 +312,7 @@ export type ParsedSectionDataRow = {
   values: Record<string, string | null>;
   employeeId: number | null;
   workEmail: string | null;
+  employeeName: string | null;
   isValid: boolean | null;
   isProcessed: boolean | null;
   errors: string[];
@@ -326,6 +361,7 @@ export function parseSectionDataRows(
             values,
             employeeId: parsedRow?.employeeId ?? null,
             workEmail: parsedRow?.workEmail ?? null,
+            employeeName: parsedRow?.employeeName ?? null,
             isValid: parsedRow?.isValid ?? null,
             isProcessed: parsedRow?.isProcessed ?? null,
             errors,
@@ -338,6 +374,81 @@ export function parseSectionDataRows(
   } catch {
     return { rows: [], parseError: "Section_JSON is not valid JSON." };
   }
+}
+
+export type CreationSectionCombineInput = {
+  uploadSectionId: number;
+  sectionId: number | null;
+  section: string | null;
+  fieldsCsv: string | null;
+  selectedFields: string[];
+  fieldCount: number;
+  total: number;
+  valid: number;
+  invalid: number;
+  processed: number;
+  unprocessed: number;
+  sourceUploadSectionIds?: number[];
+  sourceSectionIds?: number[];
+};
+
+export function combineCreationUploadSections<T extends CreationSectionCombineInput>(
+  sections: T[],
+  options: { sectionId: number; sectionName: string },
+): T[] {
+  const personal = sections.find(
+    (section) => section.section?.trim().toLowerCase() === "personal details",
+  );
+  const employment = sections.find(
+    (section) =>
+      section.section?.trim().toLowerCase() === "current employment details",
+  );
+  if (!personal || !employment) {
+    return sections.map((section) => withSourceIds(section));
+  }
+
+  const selectedFields = unionFieldsCsv(personal.fieldsCsv, employment.fieldsCsv);
+  const sourceUploadSectionIds = [
+    personal.uploadSectionId,
+    employment.uploadSectionId,
+  ];
+  const sourceSectionIds = [personal.sectionId, employment.sectionId].filter(
+    (id): id is number => id != null,
+  );
+  const others = sections.filter(
+    (section) =>
+      section.uploadSectionId !== personal.uploadSectionId &&
+      section.uploadSectionId !== employment.uploadSectionId,
+  );
+  const combined = {
+    ...personal,
+    uploadSectionId: personal.uploadSectionId,
+    sectionId: options.sectionId,
+    section: options.sectionName,
+    fieldsCsv: selectedFields.join(","),
+    selectedFields,
+    fieldCount: selectedFields.length,
+    total: Math.max(personal.total, employment.total),
+    valid: Math.min(personal.valid, employment.valid),
+    invalid: Math.max(personal.invalid, employment.invalid),
+    processed: Math.min(personal.processed, employment.processed),
+    unprocessed: Math.max(personal.unprocessed, employment.unprocessed),
+    sourceUploadSectionIds,
+    sourceSectionIds,
+  } as T;
+
+  return [combined, ...others.map((section) => withSourceIds(section))];
+}
+
+function withSourceIds<T extends CreationSectionCombineInput>(section: T): T {
+  return {
+    ...section,
+    sourceUploadSectionIds:
+      section.sourceUploadSectionIds ?? [section.uploadSectionId],
+    sourceSectionIds:
+      section.sourceSectionIds ??
+      (section.sectionId != null ? [section.sectionId] : []),
+  };
 }
 
 export function creationExcludedFieldNames(settings: {

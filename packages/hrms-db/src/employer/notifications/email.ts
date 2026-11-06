@@ -95,9 +95,10 @@ const SATELLITE_STATUS_COLUMN: Record<Exclude<EmailModuleKey, "core">, string> =
 function statusCase(column: Prisma.Sql): Prisma.Sql {
   return Prisma.sql`CASE
         WHEN UPPER(LTRIM(RTRIM(CAST(${column} AS varchar(100))))) IN (N'N', N'NEW') THEN N'New'
-        WHEN UPPER(LTRIM(RTRIM(CAST(${column} AS varchar(100))))) IN (N'P', N'PENDING') THEN N'Pending'
+        WHEN UPPER(LTRIM(RTRIM(CAST(${column} AS varchar(100))))) IN (N'P', N'PENDING', N'PENDING_OLD', N'PENDING2') THEN N'Pending'
         WHEN UPPER(LTRIM(RTRIM(CAST(${column} AS varchar(100))))) IN (N'F', N'FAILED') THEN N'Failed'
         WHEN UPPER(LTRIM(RTRIM(CAST(${column} AS varchar(100))))) IN (N'C', N'COMPLETED') THEN N'Completed'
+        WHEN UPPER(LTRIM(RTRIM(CAST(${column} AS varchar(100))))) IN (N'REVIEW', N'UNDER REVIEW') THEN N'Under Review'
         ELSE N'Other'
     END`;
 }
@@ -300,6 +301,7 @@ function foldCounts(rows: StatusCountRow[]): EmailStatusCount[] {
     Pending: 0,
     Failed: 0,
     Completed: 0,
+    "Under Review": 0,
     Other: 0,
   };
   for (const row of rows) {

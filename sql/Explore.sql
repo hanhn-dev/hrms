@@ -203,19 +203,29 @@ SELECT TOP 100 * FROM TUsers
 
 EXEC Sp_Mydetails_Enhanced_Advancedfilerdropdown '25', 2667, 'Business Unit'
 
-SELECT TOP 1 
-		LocationIds,
-		BusinessUnitIds
-	FROM dbo.TUSerPagesMapping UPM WITH (NOLOCK)
-	WHERE UserID = 2630 
-	AND EmployerId = 25
 
-	SELECT TOP 1 
-		RM.LocationIds,
-		RM.BusinessUnitIds
-	FROM dbo.TRolePagesMapping RM WITH (NOLOCK) 
-	WHERE 1=1
-		AND RoleId = 2
-		AND EmployerId = 25
+SELECT TOP 100 * FROM 
 
-              Select BusinessUnitID from TemployeeInfo where EmployeeId=2667
+SELECT TOP 100 * FROM TProcessedBatchResult WHERE UploadID = 1947
+
+SELECT TOP 100 * FROM TEmployeeDetail_Upload_Creation_Finalizing WHERE UploadID =1947
+
+select EmployeeId, EmailID from TEmployee WHERE EmployeeId = 43302 OR EmailID like 'zh.202608843@gmail.com'
+SELECT TOP 100 * FROM TEmployee WHERE EmployeeID = 43302
+SELECT TOP 100 * FROM TemployeeInfo WHERE EmployeeID = 43302
+
+SELECT EmployeeId, EmailId, IsActive, EmployerId
+FROM dbo.TEmployee
+WHERE EmployeeId = 43302;
+
+SELECT EmployeeId, EmailId, IsActive, EmployerId
+FROM dbo.TEmployee
+WHERE EmailId LIKE '%202608843%';
+
+DECLARE @FieldIDs VARCHAR(MAX);
+SELECT @FieldIDs = STRING_AGG(FieldID, ',') FROM TEmployeeDetail_Fields AS edf
+INNER JOIN TEmployeeDetail_Section AS eds ON edf.SectionID = eds.SectionID
+WHERE edf.EmployerID =  AND eds.Section LIKE '%%'AND edf.IsActive = 1
+EXEC SP_MyDetails_GetEmployeeDetailsForGivenFields '43302', '99947,99898,99899,99900,99901,99902,99903,99904,99905,99906,99908,99909,99910,99907,99911,99917,99920,99922,99924,99926,99928,99930,99932,99934,99936,99938,99940,99942,99949,99951,99919,99921,99923,99925,99927,99929,99931,99933,99935,99937,99939,99941,99948,99950,99912,99918,99943,99944,99945,99946,99913,99915,99914,99916'
+
+SELECT TOP 100 * FROM TEmployeeDetail_Upload_Section WHERE UploadID = 1947

@@ -52,6 +52,10 @@
       "types": "./src/employer/notifications/status.ts",
       "default": "./src/employer/notifications/status.ts"
     },
+    "./email-triggers": {
+      "types": "./src/employer/email-triggers/status.ts",
+      "default": "./src/employer/email-triggers/status.ts"
+    },
     "./logs": {
       "types": "./src/employer/logs/pure.ts",
       "default": "./src/employer/logs/pure.ts"
