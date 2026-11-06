@@ -95,6 +95,24 @@ function symbolClass(kind: Piece["kind"], clickable: boolean, flash: boolean): s
   return [color, action, flashClass].filter(Boolean).join(" ");
 }
 
+export function ScriptLineNumber({
+  line,
+  digits,
+}: {
+  line: number | null;
+  digits: number;
+}): React.JSX.Element {
+  return (
+    <span
+      aria-hidden="true"
+      className="box-content shrink-0 select-none pr-2 text-right text-slate-400 tabular-nums"
+      style={{ width: `${digits}ch` }}
+    >
+      {line ?? ""}
+    </span>
+  );
+}
+
 export function RelatedScriptButtons({
   onLoadCallers,
   onLoadNested,
@@ -146,6 +164,8 @@ export function SqlScript({
   mode,
   jumpToken,
   kinds,
+  lineNumbers,
+  lineNumberDigits,
   onMode,
   onOpenObject,
   onCompare,
@@ -159,6 +179,8 @@ export function SqlScript({
   mode: ScriptMode;
   jumpToken: { index: number; nonce: number } | null;
   kinds: Readonly<Record<string, ScriptObjectKind>>;
+  lineNumbers: readonly (number | null)[];
+  lineNumberDigits: number;
   onMode: (mode: ScriptMode) => void;
   onOpenObject: (object: { schema: string; name: string }) => void;
   onCompare: () => void;
@@ -341,6 +363,7 @@ export function SqlScript({
           const folded = fold ? collapsed.has(fold.id) : false;
           return (
             <div className="flex min-h-5" key={line}>
+              <ScriptLineNumber digits={lineNumberDigits} line={lineNumbers[line] ?? null} />
               {fold ? (
                 <button
                   aria-expanded={!folded}

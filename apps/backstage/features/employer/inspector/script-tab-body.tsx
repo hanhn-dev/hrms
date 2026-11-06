@@ -6,6 +6,10 @@ import { Alert, Button, Splitter, Tooltip, Typography } from "antd";
 import { scriptObjectRefs, tokenizeSql } from "@/features/employer/inspector/script-sql";
 import { bindSql } from "@/features/employer/inspector/script-symbols";
 import { formatSql } from "@/features/employer/inspector/script-format";
+import {
+  originalLineCount,
+  originalLineForDisplayedLines,
+} from "@/features/employer/inspector/script-lines";
 import { ScriptCompare } from "@/features/employer/inspector/script-compare";
 import { ScriptExecuteModal } from "@/features/employer/inspector/script-execute-modal";
 import { RelatedScriptButtons, SqlScript } from "@/features/employer/inspector/script-view";
@@ -194,6 +198,8 @@ function ScriptBody({
   const [jumpToken, setJumpToken] = useState<{ index: number; nonce: number } | null>(null);
   const formatted = formatSql(sql);
   const displaySql = mode === "formatted" ? formatted.sql : sql;
+  const lineNumbers = originalLineForDisplayedLines(sql, displaySql);
+  const lineNumberDigits = String(originalLineCount(sql)).length;
   const model = bindSql(tokenizeSql(displaySql));
   const refs = scriptObjectRefs(sql);
   const [loadedSql, setLoadedSql] = useState<string | null>(null);
@@ -246,6 +252,8 @@ function ScriptBody({
           <SqlScript
             jumpToken={jumpToken}
             kinds={kinds}
+            lineNumberDigits={lineNumberDigits}
+            lineNumbers={lineNumbers}
             mode={mode}
             model={model}
             loadingCallers={loadingCallers}

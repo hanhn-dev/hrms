@@ -31,7 +31,7 @@ const HELP = [
     type: "info" as const,
     title: "Needs attention",
     description:
-      "Items stuck in the same Azure DevOps status past your threshold (or Blocked) appear in Needs attention. Age is days since the last state change, not the last edit. The threshold is saved in this browser and is shared with the Sprint board; optional ?staleDays= overrides it for a link. Copy reminder builds a message you can paste to the assignee.",
+      "Items stuck in the same Azure DevOps status past your threshold (or Blocked) are highlighted on the People board. A collapsed person with those items is highlighted too, with a count. Age is days since the last state change, not the last edit. Stuck after is saved in this browser and is shared with the Sprint board; optional ?staleDays= overrides it for a link. Copy reminder on that person builds a message you can paste to them.",
   },
 ];
 

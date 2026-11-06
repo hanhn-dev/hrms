@@ -5,19 +5,8 @@ import {
   loadSprintProgress,
   loadVelocityProgress,
 } from "@/features/azure/progress/queries";
+import { resolveSelectedProgressTeam } from "@/features/azure/progress/resolve-progress-team";
 import { listLocalTeams } from "@/features/azure/teams/queries";
-import type { LocalTeamEntry } from "@/features/azure/teams/local-teams";
-
-function resolveSelectedTeam(
-  localTeams: readonly LocalTeamEntry[],
-  teamId: string | null,
-): { selected: LocalTeamEntry | null; missingTeam: boolean } {
-  if (teamId == null) {
-    return { selected: null, missingTeam: false };
-  }
-  const selected = localTeams.find((team) => team.id === teamId) ?? null;
-  return { selected, missingTeam: selected == null };
-}
 
 export async function ProgressSlot({
   teamId,
@@ -27,7 +16,10 @@ export async function ProgressSlot({
   sprint?: string;
 }): Promise<React.JSX.Element> {
   const localTeams = await listLocalTeams();
-  const { selected: selectedTeam, missingTeam } = resolveSelectedTeam(localTeams, teamId);
+  const { selected: selectedTeam, missingTeam } = resolveSelectedProgressTeam(
+    localTeams,
+    teamId,
+  );
 
   const iterations =
     selectedTeam != null ? await listIterations(selectedTeam.azureTeam) : [];

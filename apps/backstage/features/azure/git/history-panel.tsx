@@ -119,9 +119,10 @@ export function HistoryPanel({
   const authorOptions = uniqueAuthorOptions(authors);
   let activeBranch = branch;
   if (branches.length > 0 && (branches !== appliedBranches || defaultBranch !== appliedDefaultBranch)) {
+    const defaultsChanged = appliedDefaultBranch !== undefined && defaultBranch !== appliedDefaultBranch;
     setAppliedBranches(branches);
     setAppliedDefaultBranch(defaultBranch);
-    activeBranch = preferredHistoryBranch(branch, branches, defaultBranch);
+    activeBranch = preferredHistoryBranch(defaultsChanged ? "" : branch, branches, defaultBranch);
     if (activeBranch !== branch) {
       setBranch(activeBranch);
     }

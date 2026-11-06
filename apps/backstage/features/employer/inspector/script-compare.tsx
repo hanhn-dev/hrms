@@ -11,6 +11,12 @@ import {
 } from "@/features/employer/inspector/script-diff";
 import { formatSql } from "@/features/employer/inspector/script-format";
 import {
+  originalLineAt,
+  originalLineCount,
+  originalLineForDisplayedLines,
+} from "@/features/employer/inspector/script-lines";
+import { ScriptLineNumber } from "@/features/employer/inspector/script-view";
+import {
   getObjectDefinitionForEnvironment,
   listInspectorEnvironments,
   type InspectorObjectKind,
@@ -48,6 +54,21 @@ function placeCaption(
   return `${sides} · ${place.lineCount} lines`;
 }
 
+function originalNumbersForRows(
+  rows: readonly DiffRow[],
+  side: "left" | "right",
+  lines: readonly (number | null)[],
+): (number | null)[] {
+  let displayed = 0;
+  return rows.map((row) => {
+    if (!row[side]) {
+      return null;
+    }
+    displayed += 1;
+    return originalLineAt(lines, displayed);
+  });
+}
+
 function cellClass(row: DiffRow, side: "left" | "right"): string {
   if (side === "left" && (row.kind === "removed" || row.kind === "changed")) {
     return "bg-red-50 dark:bg-red-950/40";
@@ -62,20 +83,27 @@ function DiffCell({
   spans,
   row,
   side,
+  lineNumber,
+  lineNumberDigits,
 }: {
   spans: DiffSpan[] | null;
   row: DiffRow;
   side: "left" | "right";
+  lineNumber: number | null;
+  lineNumberDigits: number;
 }): React.JSX.Element {
   return (
-    <div className={`min-h-5 px-2 whitespace-pre-wrap break-all ${cellClass(row, side)}`}>
-      {spans
-        ? spans.map((span, index) => (
-            <span className={spanClass(span.changed, side)} key={index}>
-              {span.text}
-            </span>
-          ))
-        : null}
+    <div className={`flex min-h-5 ${cellClass(row, side)}`}>
+      <ScriptLineNumber digits={lineNumberDigits} line={lineNumber} />
+      <span className="min-w-0 flex-1 whitespace-pre-wrap break-all pr-2">
+        {spans
+          ? spans.map((span, index) => (
+              <span className={spanClass(span.changed, side)} key={index}>
+                {span.text}
+              </span>
+            ))
+          : null}
+      </span>
     </div>
   );
 }
@@ -198,6 +226,14 @@ export function ScriptCompare({
 
   const diff = diffDefinitions(prepared.left, prepared.right);
   const places = diffPlaces(diff.rows);
+  const leftOriginal = left?.text ?? "";
+  const rightOriginal = right?.text ?? "";
+  const leftLineNumbers = originalLineForDisplayedLines(leftOriginal, prepared.left);
+  const rightLineNumbers = originalLineForDisplayedLines(rightOriginal, prepared.right);
+  const leftLineDigits = String(originalLineCount(leftOriginal)).length;
+  const rightLineDigits = String(originalLineCount(rightOriginal)).length;
+  const leftRowLines = originalNumbersForRows(diff.rows, "left", leftLineNumbers);
+  const rightRowLines = originalNumbersForRows(diff.rows, "right", rightLineNumbers);
   const [activeStart, setActiveStart] = useState<number | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const activePlace = places.find((place) => place.startRow === activeStart) ?? null;
@@ -345,9 +381,21 @@ export function ScriptCompare({
                       data-diff-row={index}
                       key={index}
                     >
-                      <DiffCell row={row} side="left" spans={row.left} />
+                      <DiffCell
+                        lineNumber={leftRowLines[index] ?? null}
+                        lineNumberDigits={leftLineDigits}
+                        row={row}
+                        side="left"
+                        spans={row.left}
+                      />
                       <div className="border-l border-slate-200 dark:border-slate-700">
-                        <DiffCell row={row} side="right" spans={row.right} />
+                        <DiffCell
+                          lineNumber={rightRowLines[index] ?? null}
+                          lineNumberDigits={rightLineDigits}
+                          row={row}
+                          side="right"
+                          spans={row.right}
+                        />
                       </div>
                     </div>
                   );
@@ -384,7 +432,16 @@ export function ScriptCompare({
                           }}
                         >
                           <span className="truncate text-left text-[11px] leading-4 opacity-80">
-                            {index + 1}. {placeCaption(place, leftEnv, rightEnv)}
+                            {index + 1}.{" "}
+                            {placeCaption(
+                              {
+                                ...place,
+                                leftLine: originalLineAt(leftLineNumbers, place.leftLine),
+                                rightLine: originalLineAt(rightLineNumbers, place.rightLine),
+                              },
+                              leftEnv,
+                              rightEnv,
+                            )}
                           </span>
                           <span className="truncate text-left font-mono text-xs leading-4">
                             {place.preview || "(blank line)"}

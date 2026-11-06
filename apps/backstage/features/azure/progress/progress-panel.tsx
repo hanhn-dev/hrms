@@ -17,9 +17,9 @@ import {
 import { ProgressBoard } from "@/features/azure/progress/progress-board";
 import { ProgressSummary } from "@/features/azure/progress/progress-summary";
 import { VelocityPanel } from "@/features/azure/progress/velocity-panel";
-import { StaleAttentionPanel, useStaleAttention } from "@/features/azure/stale";
+import { findDefaultProgressTeam } from "@/features/azure/progress/resolve-progress-team";
+import { useStaleAttention } from "@/features/azure/stale";
 import type { LocalTeamEntry } from "@/features/azure/teams/local-teams";
-import { useWorkItemView } from "@/features/azure/work-item";
 import { formatDate } from "@/shared/format-date";
 import { PageHelpTrigger, SearchSelect, type PageHelpNote } from "@/shared/ui";
 
@@ -104,15 +104,24 @@ export function ProgressPanel({
   const searchParams = useSearchParams();
   const [pending, startTransition] = useTransition();
   const [memberFilter, setMemberFilter] = useState<string[]>([]);
-  const { openView, modal: workItemModal } = useWorkItemView();
+  const defaultTeam = findDefaultProgressTeam(localTeams);
+  const selectedIsDefault =
+    selectedTeam != null && defaultTeam != null && selectedTeam.id === defaultTeam.id;
 
   useEffect(() => {
     setMemberFilter([]);
   }, [selectedTeam?.id]);
 
+  function teamQueryValue(teamId: string | null): string | null {
+    if (teamId == null || (defaultTeam != null && teamId === defaultTeam.id)) {
+      return null;
+    }
+    return teamId;
+  }
+
   function updateQuery(patch: Record<string, QueryValue>): void {
     const current: Record<string, QueryValue> = {
-      teamId: selectedTeam?.id ?? null,
+      teamId: teamQueryValue(selectedTeam?.id ?? null),
       sprint:
         selected != null && selected.path !== currentIterationPath ? selected.path : null,
       staleDays: searchParams.get("staleDays"),
@@ -155,10 +164,9 @@ export function ProgressPanel({
 
   return (
     <div className="flex flex-col gap-4">
-      {workItemModal}
       <div className="flex flex-wrap items-center gap-2">
         <SearchSelect
-          allowClear
+          allowClear={selectedTeam != null && !selectedIsDefault}
           className="min-w-56"
           disabled={pending}
           options={localTeams.map((team) => ({
@@ -170,7 +178,7 @@ export function ProgressPanel({
           onChange={(value: string | null) => {
             setMemberFilter([]);
             updateQuery({
-              teamId: value,
+              teamId: teamQueryValue(value),
               sprint: null,
             });
           }}
@@ -239,24 +247,6 @@ export function ProgressPanel({
         <Alert showIcon title="That sprint was not found for this team." type="warning" />
       ) : null}
 
-      {selectedTeam != null && selected != null ? (
-        <StaleAttentionPanel
-          error={stale.error}
-          loading={stale.loading}
-          staleDays={stale.staleDays}
-          staleItems={stale.staleItems}
-          onOpenWorkItem={(id) => {
-            void openView(id);
-          }}
-          onStaleDaysChange={(days) => {
-            stale.setStaleDays(days);
-            if (stale.urlHasStaleDays) {
-              updateQuery({ staleDays: String(days) });
-            }
-          }}
-        />
-      ) : null}
-
       {selectedTeam == null ? (
         <Card size="small" title="People board">
           <p className="m-0 text-slate-500">Pick a local team first.</p>
@@ -270,8 +260,18 @@ export function ProgressPanel({
           allWorkItems={allWorkItems}
           columnRows={rows}
           rows={visibleRows}
+          staleDays={stale.staleDays}
           staleDaysById={stale.daysById}
+          staleError={stale.error}
+          staleItems={stale.staleItems}
+          staleLoading={stale.loading}
           title={`People board — ${selected.name}${dateRange ? ` (${dateRange})` : ""}`}
+          onStaleDaysChange={(days) => {
+            stale.setStaleDays(days);
+            if (stale.urlHasStaleDays) {
+              updateQuery({ staleDays: String(days) });
+            }
+          }}
         />
       )}
 

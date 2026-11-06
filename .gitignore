@@ -54,5 +54,8 @@ apps/backstage/content/azure/_progress-lists/
 # Backstage local progress teams
 apps/backstage/content/azure/_progress-teams/
 
+# Backstage Git screen branch defaults (history default, compare left/right)
+apps/backstage/content/azure/_git-branch-defaults/
+
 # Backstage local SQLite stores (operator-console-only state, e.g. pull request "done" marks)
 apps/backstage/.data/

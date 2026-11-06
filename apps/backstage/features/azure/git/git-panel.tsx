@@ -3,12 +3,19 @@
 import { Alert, Segmented } from "antd";
 import { useEffect, useState } from "react";
 import type { GitBranchSummary } from "@hrms/azure-devops";
+import {
+  emptyBranchDefaults,
+  findRepositoryBranchDefaults,
+  resolveRepositoryBranches,
+  type BranchDefaultsFile,
+} from "@/features/azure/git/branch-defaults";
+import { BranchDefaultsEditor } from "@/features/azure/git/branch-defaults-editor";
 import type { GitTraceCatalog } from "@/features/azure/git/catalog";
 import { CompareCommitsPanel } from "@/features/azure/git/compare-commits-panel";
 import { CompareFilePanel } from "@/features/azure/git/compare-file-panel";
 import { errorMessage, rethrowRedirect } from "@/features/azure/git/git-text";
 import { HistoryPanel } from "@/features/azure/git/history-panel";
-import { loadGitBranches } from "@/features/azure/git/queries";
+import { loadGitBranchDefaults, loadGitBranches } from "@/features/azure/git/queries";
 import { SearchSelect } from "@/shared/ui";
 
 type GitMode = "history" | "commits" | "file";
@@ -35,6 +42,8 @@ export function GitPanel({
   const [branchesLoading, setBranchesLoading] = useState(false);
   const [branchError, setBranchError] = useState<string | null>(null);
   const [mode, setMode] = useState<GitMode>("history");
+  const [savedDefaults, setSavedDefaults] = useState<BranchDefaultsFile>(() => emptyBranchDefaults());
+  const [defaultsError, setDefaultsError] = useState<string | null>(null);
   const [loadedRepositoryId, setLoadedRepositoryId] = useState<string | null>(null);
   if (repositoryId && repositoryId !== loadedRepositoryId) {
     setLoadedRepositoryId(repositoryId);
@@ -42,6 +51,25 @@ export function GitPanel({
     setBranchError(null);
     setBranches([]);
   }
+
+  useEffect(() => {
+    let cancelled = false;
+    loadGitBranchDefaults()
+      .then((file) => {
+        if (!cancelled) {
+          setSavedDefaults(file);
+        }
+      })
+      .catch((loadError: unknown) => {
+        rethrowRedirect(loadError);
+        if (!cancelled) {
+          setDefaultsError(errorMessage(loadError));
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (!repositoryId) {
@@ -74,6 +102,14 @@ export function GitPanel({
     return <Alert title="This Azure DevOps project has no Git repositories." type="info" />;
   }
 
+  const configured = findRepositoryBranchDefaults(savedDefaults, repository.name);
+  const resolved = resolveRepositoryBranches({
+    repositoryName: repository.name,
+    branches,
+    azureDefaultBranch: repository.defaultBranch,
+    configured,
+  });
+
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden">
       <div className="flex shrink-0 flex-wrap items-end gap-3">
@@ -87,6 +123,14 @@ export function GitPanel({
             onChange={(value) => setRepositoryId(String(value))}
           />
         </label>
+        <BranchDefaultsEditor
+          branches={branches}
+          branchesLoading={branchesLoading}
+          repositoryName={repository.name}
+          resolved={resolved}
+          saved={configured}
+          onSaved={setSavedDefaults}
+        />
         <Segmented
           options={[
             { label: "History", value: "history" },
@@ -102,6 +146,7 @@ export function GitPanel({
         />
       </div>
       {branchError ? <Alert title={branchError} type="error" /> : null}
+      {defaultsError ? <Alert title={defaultsError} type="error" /> : null}
       <div className={mode === "history" ? "flex min-h-0 flex-1 flex-col overflow-hidden" : "min-h-0 flex-1 overflow-auto"}>
         {mode === "history" ? (
           <HistoryPanel
@@ -109,7 +154,7 @@ export function GitPanel({
             authors={catalog.authors}
             branches={branches}
             branchesLoading={branchesLoading}
-            defaultBranch={repository.defaultBranch}
+            defaultBranch={resolved.history}
             organizationUrl={catalog.organizationUrl}
             project={catalog.project}
             repositoryId={repository.id}
@@ -123,7 +168,8 @@ export function GitPanel({
             branches={branches}
             branchesLoading={branchesLoading}
             databaseEnvironments={databaseEnvironments}
-            defaultBranch={repository.defaultBranch}
+            leftBranchDefault={resolved.left}
+            rightBranchDefault={resolved.right}
             organizationUrl={catalog.organizationUrl}
             project={catalog.project}
             repositoryId={repository.id}

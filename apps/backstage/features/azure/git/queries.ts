@@ -25,6 +25,13 @@ import {
 } from "@hrms/azure-devops";
 import { findScriptObject, getModuleDefinition } from "@hrms/db";
 import { DEFAULT_BOARD_TEAM } from "@/features/azure/board/defaults";
+import {
+  removeRepositoryBranchDefaults,
+  saveRepositoryBranchDefaults,
+  type BranchDefaultEntry,
+  type BranchDefaultsFile,
+} from "@/features/azure/git/branch-defaults";
+import { readBranchDefaults, writeBranchDefaults } from "@/features/azure/git/branch-defaults-store";
 import type { GitTraceCatalog } from "@/features/azure/git/catalog";
 import type { DatabaseModuleScript } from "@/features/azure/git/script-object";
 import { requireFeature } from "@/shared/auth";
@@ -59,6 +66,25 @@ export async function loadGitAuthorActivity(input: ListGitAuthorActivityInput): 
 export async function loadGitBranches(repositoryId: string): Promise<GitBranchSummary[]> {
   const client = await azureClient();
   return listGitBranches(client, repositoryId);
+}
+
+export async function loadGitBranchDefaults(): Promise<BranchDefaultsFile> {
+  await requireFeature("azure");
+  return readBranchDefaults();
+}
+
+export async function saveGitBranchDefaults(entry: BranchDefaultEntry): Promise<BranchDefaultsFile> {
+  await requireFeature("azure");
+  const next = saveRepositoryBranchDefaults(readBranchDefaults(), entry);
+  writeBranchDefaults(next);
+  return next;
+}
+
+export async function resetGitBranchDefaults(repositoryName: string): Promise<BranchDefaultsFile> {
+  await requireFeature("azure");
+  const next = removeRepositoryBranchDefaults(readBranchDefaults(), repositoryName);
+  writeBranchDefaults(next);
+  return next;
 }
 
 const gitFileIndexCache = new Map<string, readonly string[]>();

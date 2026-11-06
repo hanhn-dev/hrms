@@ -7,7 +7,6 @@ import { mergeCommitPages } from "@/features/azure/git/activity-page";
 import {
   isDatabaseRepository,
   preferredDatabaseEnvironment,
-  preferredFileBranches,
 } from "@/features/azure/git/file-branch-defaults";
 import { FileDiff } from "@/features/azure/git/file-diff";
 import { GitPathSearch } from "@/features/azure/git/git-path-search";
@@ -48,7 +47,8 @@ export function CompareFilePanel({
   repositoryName,
   organizationUrl,
   project,
-  defaultBranch,
+  leftBranchDefault,
+  rightBranchDefault,
   branches,
   branchesLoading,
   databaseEnvironments,
@@ -57,7 +57,8 @@ export function CompareFilePanel({
   repositoryName: string;
   organizationUrl: string;
   project: string;
-  defaultBranch: string | null;
+  leftBranchDefault: string;
+  rightBranchDefault: string;
   branches: readonly GitBranchSummary[];
   branchesLoading: boolean;
   databaseEnvironments: readonly string[];
@@ -81,7 +82,7 @@ export function CompareFilePanel({
     rightHasMore: boolean;
   } | null>(null);
   const [appliedBranches, setAppliedBranches] = useState<readonly GitBranchSummary[] | null>(null);
-  const [appliedDefaultBranch, setAppliedDefaultBranch] = useState<string | null | undefined>(undefined);
+  const [appliedDefaultsKey, setAppliedDefaultsKey] = useState<string | undefined>(undefined);
   const [databaseEnvironment, setDatabaseEnvironment] = useState(() =>
     preferredDatabaseEnvironment(databaseEnvironments),
   );
@@ -92,12 +93,17 @@ export function CompareFilePanel({
   const [databaseError, setDatabaseError] = useState<string | null>(null);
   const branchChoice = useRef({ left: leftBranch, right: rightBranch });
   const showDatabase = isDatabaseRepository(repositoryName);
-  if (branches.length > 0 && (branches !== appliedBranches || defaultBranch !== appliedDefaultBranch)) {
+  const defaultsKey = `${leftBranchDefault}\0${rightBranchDefault}`;
+  if (branches.length > 0 && (branches !== appliedBranches || defaultsKey !== appliedDefaultsKey)) {
+    const defaultsChanged = appliedDefaultsKey !== undefined && defaultsKey !== appliedDefaultsKey;
     setAppliedBranches(branches);
-    setAppliedDefaultBranch(defaultBranch);
-    const choice = preferredFileBranches(repositoryName, branches, defaultBranch);
-    setLeftBranch((current) => (current && branches.some((item) => item.name === current) ? current : choice.left));
-    setRightBranch((current) => (current && branches.some((item) => item.name === current) ? current : choice.right));
+    setAppliedDefaultsKey(defaultsKey);
+    setLeftBranch((current) =>
+      !defaultsChanged && current && branches.some((item) => item.name === current) ? current : leftBranchDefault,
+    );
+    setRightBranch((current) =>
+      !defaultsChanged && current && branches.some((item) => item.name === current) ? current : rightBranchDefault,
+    );
   }
 
   useEffect(() => {
