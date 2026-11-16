@@ -5,6 +5,7 @@ import {
   listAreaModules,
   listTeamMembers,
   listTeamIterations,
+  PULL_REQUEST_STATUS_OPTIONS,
   searchIdentities,
   searchPullRequests as searchPullRequestsInAzure,
   type AreaModule,
@@ -184,6 +185,8 @@ export async function loadTeamMemberPullRequests(
     dateField: "opened" as const,
     dateFrom: from,
     dateTo: to,
+    // Tracking counts Abandoned; search defaults omit it when Status is blank.
+    statuses: [...PULL_REQUEST_STATUS_OPTIONS],
   };
 
   let result =

@@ -1,6 +1,8 @@
 "use client";
 
-import { Button, Input, Tag } from "antd";
+import { useState } from "react";
+import { Button, Collapse, Input, Segmented } from "antd";
+import Text from "antd/es/typography/Text";
 import { DataTable } from "@/shared/ui/data-table";
 import { useRouter } from "next/navigation";
 import {
@@ -8,9 +10,12 @@ import {
   type NotificationsQuery,
 } from "@/features/employer/notifications/notifications-source";
 import type {
+  PendingInboxCategory,
   PendingInboxList,
   PendingInboxRow,
 } from "@/features/employer/notifications/queries";
+import { filterInboxCategories } from "@/features/employer/notifications/filter-inbox-categories";
+import { formatRequestTypeLabel } from "@/features/employer/notifications/format-request-type-label";
 import { formatDate } from "@/shared/format-date";
 import { EntityLink } from "@/shared/entity-link";
 import type { InboxSide } from "@hrms/db/notifications";
@@ -40,6 +45,78 @@ function PersonLink({
   );
 }
 
+function TypeFilterButton({
+  label,
+  title,
+  count,
+  selected,
+  onClick,
+}: {
+  label: string;
+  title?: string;
+  count: number;
+  selected: boolean;
+  onClick: () => void;
+}): React.JSX.Element {
+  return (
+    <Button
+      type={selected ? "primary" : "default"}
+      className="flex h-auto min-h-10 w-full items-center justify-between gap-3 px-3 py-2 text-left"
+      onClick={onClick}
+    >
+      <span className="truncate text-sm" title={title ?? label}>
+        {label}
+      </span>
+      <Text
+        className={`shrink-0 text-sm font-semibold tabular-nums ${
+          selected ? "!text-inherit" : "!text-slate-600"
+        }`}
+      >
+        {count}
+      </Text>
+    </Button>
+  );
+}
+
+function CategoryTypeGrid({
+  category,
+  activeCategory,
+  requestType,
+  onSelectCategory,
+  onSelectType,
+}: {
+  category: PendingInboxCategory;
+  activeCategory: string | null;
+  requestType: string | null;
+  onSelectCategory: () => void;
+  onSelectType: (nextRequestType: string) => void;
+}): React.JSX.Element {
+  const categorySelected =
+    activeCategory === category.name && requestType == null;
+  return (
+    <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+      <TypeFilterButton
+        label="All"
+        count={category.total}
+        selected={categorySelected}
+        onClick={onSelectCategory}
+      />
+      {category.types.map((item) => (
+        <TypeFilterButton
+          key={item.requestType}
+          label={formatRequestTypeLabel(item.requestType)}
+          title={item.requestType}
+          count={item.count}
+          selected={requestType === item.requestType}
+          onClick={() => {
+            onSelectType(item.requestType);
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
 export function InboxPanel({
   employerId,
   query,
@@ -52,6 +129,7 @@ export function InboxPanel({
   queryScript: string;
 }): React.JSX.Element {
   const router = useRouter();
+  const [typeQuery, setTypeQuery] = useState("");
 
   const push = (patch: Partial<NotificationsQuery>): void => {
     router.push(
@@ -63,73 +141,81 @@ export function InboxPanel({
     );
   };
 
+  const filteredCategories = filterInboxCategories(result.categories, typeQuery);
+  const defaultOpenKeys =
+    typeQuery.trim().length === 0 &&
+    result.activeCategory != null &&
+    filteredCategories.some((category) => category.name === result.activeCategory)
+      ? [result.activeCategory]
+      : filteredCategories.map((category) => category.name);
+
   const tableTitle = query.requestType ?? result.activeCategory;
 
   return (
     <>
-      <div className="mb-3 flex flex-wrap items-center gap-2">
-        <Tag
-          className="cursor-pointer"
-          color={query.side === "for" ? "blue" : undefined}
-          onClick={() => {
-            push({ side: "for", category: null, requestType: null });
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+        <Segmented
+          value={query.side}
+          options={[
+            { label: "For Me", value: "for" satisfies InboxSide },
+            { label: "By Me", value: "by" satisfies InboxSide },
+          ]}
+          onChange={(value) => {
+            push({
+              side: value as InboxSide,
+              category: null,
+              requestType: null,
+            });
           }}
-        >
-          For Me
-        </Tag>
-        <Tag
-          className="cursor-pointer"
-          color={query.side === "by" ? "blue" : undefined}
-          onClick={() => {
-            push({ side: "by", category: null, requestType: null });
+        />
+        <Input.Search
+          allowClear
+          className="max-w-sm"
+          placeholder="Filter request types"
+          value={typeQuery}
+          onChange={(event) => {
+            setTypeQuery(event.target.value);
           }}
-        >
-          By Me
-        </Tag>
+          onSearch={(value) => {
+            setTypeQuery(value);
+          }}
+        />
       </div>
-      <div className="mb-3 flex flex-col gap-3">
-        {result.categories.map((category) => {
-          const categorySelected =
-            result.activeCategory === category.name && query.requestType == null;
-          return (
-            <div key={category.name}>
-              <div className="mb-1 text-sm font-medium text-slate-700">
-                {category.name}
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <Tag
-                  className="cursor-pointer"
-                  color={categorySelected ? "blue" : undefined}
-                  onClick={() => {
+      <div className="mb-4">
+        {filteredCategories.length === 0 ? (
+          <Text type="secondary">No request types match this filter.</Text>
+        ) : (
+          <Collapse
+            key={`${query.side}|${typeQuery}|${result.activeCategory ?? ""}`}
+            defaultActiveKey={defaultOpenKeys}
+            items={filteredCategories.map((category) => ({
+              key: category.name,
+              label: (
+                <span className="text-sm font-medium text-slate-800">
+                  {category.name}{" "}
+                  <Text type="secondary">({category.total})</Text>
+                </span>
+              ),
+              children: (
+                <CategoryTypeGrid
+                  category={category}
+                  activeCategory={result.activeCategory}
+                  requestType={query.requestType}
+                  onSelectCategory={() => {
                     push({ category: category.name, requestType: null });
                   }}
-                >
-                  All {category.total}
-                </Tag>
-                {category.types.map((item) => (
-                  <Tag
-                    key={item.requestType}
-                    className="cursor-pointer"
-                    color={
-                      query.requestType === item.requestType ? "blue" : undefined
-                    }
-                    onClick={() => {
-                      push({
-                        category: category.name,
-                        requestType:
-                          query.requestType === item.requestType
-                            ? null
-                            : item.requestType,
-                      });
-                    }}
-                  >
-                    {item.requestType} {item.count}
-                  </Tag>
-                ))}
-              </div>
-            </div>
-          );
-        })}
+                  onSelectType={(requestType) => {
+                    push({
+                      category: category.name,
+                      requestType:
+                        query.requestType === requestType ? null : requestType,
+                    });
+                  }}
+                />
+              ),
+            }))}
+          />
+        )}
       </div>
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <Input.Search
@@ -144,6 +230,7 @@ export function InboxPanel({
         />
         <Button
           onClick={() => {
+            setTypeQuery("");
             push({
               side: "for" satisfies InboxSide,
               category: null,

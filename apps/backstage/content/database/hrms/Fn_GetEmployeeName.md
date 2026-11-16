@@ -61,13 +61,13 @@ Calls no other procedures or functions.
 | `SP_AdminAM_GetAttendanceCategory` | procedure | No page yet |
 | `Sp_AdminAM_GetTempCardDet` | procedure | No page yet |
 | `Sp_AdminAM_InsTempCardDet` | procedure | No page yet |
-| `SP_AdminCMS_SrchEmpForConfReAssign` | procedure | No page yet |
+| `SP_AdminCMS_SrchEmpForConfReAssign` | procedure | [SP_AdminCMS_SrchEmpForConfReAssign](/docs/database/hrms/SP_AdminCMS_SrchEmpForConfReAssign) |
 | `SP_AdminEMP_EmployeeSearch` | procedure | No page yet |
 | `SP_AdminEMP_GetEmpListByOrg` | procedure | No page yet |
 | `Sp_AdminEMP_UpdBulkEmployeeInfo` | procedure | No page yet |
-| `SP_AdminESS_GetVoucherAppEmpList` | procedure | No page yet |
-| `SP_AdminESS_GetVouchers` | procedure | No page yet |
-| `SP_AdminESS_GetVoucherTypes` | procedure | No page yet |
+| `SP_AdminESS_GetVoucherAppEmpList` | procedure | [SP_AdminESS_GetVoucherAppEmpList](/docs/database/hrms/SP_AdminESS_GetVoucherAppEmpList) |
+| `SP_AdminESS_GetVouchers` | procedure | [SP_AdminESS_GetVouchers](/docs/database/hrms/SP_AdminESS_GetVouchers) |
+| `SP_AdminESS_GetVoucherTypes` | procedure | [SP_AdminESS_GetVoucherTypes](/docs/database/hrms/SP_AdminESS_GetVoucherTypes) |
 | `SP_AdminLM_CompOffExpiry_EmailAlert` | procedure | No page yet |
 | `SP_AdminLM_GetCalculationDataByTransId` | procedure | No page yet |
 | `SP_AdminLM_GetEmpByLeaveType` | procedure | No page yet |
@@ -78,16 +78,16 @@ Calls no other procedures or functions.
 | `SP_AdminMS_GetJobSchedulerDet` | procedure | No page yet |
 | `SP_AdminMstr_GetActivities` | procedure | No page yet |
 | `SP_AdminMstr_GetNewsAndEvents` | procedure | No page yet |
-| `Sp_AdminORG_GetEmpByUnit` | procedure | No page yet |
-| `Sp_AdminPD_GetAllPolicyDoc` | procedure | No page yet |
-| `SP_AdminPMS_EmployeeAutoClosure` | procedure | No page yet |
+| `Sp_AdminORG_GetEmpByUnit` | procedure | [Sp_AdminORG_GetEmpByUnit](/docs/database/hrms/Sp_AdminORG_GetEmpByUnit) |
+| `Sp_AdminPD_GetAllPolicyDoc` | procedure | [Sp_AdminPD_GetAllPolicyDoc](/docs/database/hrms/Sp_AdminPD_GetAllPolicyDoc) |
+| `SP_AdminPMS_EmployeeAutoClosure` | procedure | [SP_AdminPMS_EmployeeAutoClosure](/docs/database/hrms/SP_AdminPMS_EmployeeAutoClosure) |
 | `SP_AdminPMS_EmployeeGoalSettingSearch` | procedure | No page yet |
-| `SP_AdminPMS_EmployeeSearch` | procedure | No page yet |
-| `SP_AdminPMS_ForceClosedAppStatus` | procedure | No page yet |
-| `Sp_AdminPMS_GetAllCategoryDesMapping` | procedure | No page yet |
+| `SP_AdminPMS_EmployeeSearch` | procedure | [SP_AdminPMS_EmployeeSearch](/docs/database/hrms/SP_AdminPMS_EmployeeSearch) |
+| `SP_AdminPMS_ForceClosedAppStatus` | procedure | [SP_AdminPMS_ForceClosedAppStatus](/docs/database/hrms/SP_AdminPMS_ForceClosedAppStatus) |
+| `Sp_AdminPMS_GetAllCategoryDesMapping` | procedure | [Sp_AdminPMS_GetAllCategoryDesMapping](/docs/database/hrms/Sp_AdminPMS_GetAllCategoryDesMapping) |
 | `Sp_AdminPMS_GetAppraisalReviewFrequency` | procedure | No page yet |
-| `SP_AdminPMS_GetEmpByAppraisalCycle` | procedure | No page yet |
-| `SP_AdminPMS_GetEmpByAppraisalCyclePermission` | procedure | No page yet |
+| `SP_AdminPMS_GetEmpByAppraisalCycle` | procedure | [SP_AdminPMS_GetEmpByAppraisalCycle](/docs/database/hrms/SP_AdminPMS_GetEmpByAppraisalCycle) |
+| `SP_AdminPMS_GetEmpByAppraisalCyclePermission` | procedure | [SP_AdminPMS_GetEmpByAppraisalCyclePermission](/docs/database/hrms/SP_AdminPMS_GetEmpByAppraisalCyclePermission) |
 | `Sp_ADMINPMS_GetEmployeeDetailsByGoalID` | procedure | No page yet |
 | `SP_ADMINPMS_GetEmployeeGoalDetails` | procedure | No page yet |
 | `SP_ADMINPMS_GetEmployeeGoalFormDataForMe` | procedure | No page yet |
@@ -95,14 +95,14 @@ Calls no other procedures or functions.
 | `SP_ADMINPMS_GetEmployeeGoalSettingForMe` | procedure | No page yet |
 | `Sp_AdminPMS_GetEmployeeReviewlevelData` | procedure | No page yet |
 | `Sp_AdminPMS_GetGoalSettingReviewFrequency` | procedure | No page yet |
-| `Sp_AdminPMS_GetPendingAppList` | procedure | No page yet |
+| `Sp_AdminPMS_GetPendingAppList` | procedure | [Sp_AdminPMS_GetPendingAppList](/docs/database/hrms/Sp_AdminPMS_GetPendingAppList) |
 | `Sp_AdminPMS_GetPendingEmployeesForGoalSetting` | procedure | No page yet |
 | `SP_AdminPMS_GetSelfAppDetForExtract` | procedure | No page yet |
 | `Sp_AdminPMS_GetWhatsAppAssessmentMappingData` | procedure | No page yet |
-| `SP_AdminPMS_InsEmpAppraisalCycleMapping` | procedure | No page yet |
-| `SP_AdminPMS_InsEmpGoalSettingMapping` | procedure | No page yet |
-| `SP_AdminPMS_SrchEmpByAppraisalCycle` | procedure | No page yet |
-| `SP_AdminPMS_SrchEmpByGoalPeriod` | procedure | No page yet |
+| `SP_AdminPMS_InsEmpAppraisalCycleMapping` | procedure | [SP_AdminPMS_InsEmpAppraisalCycleMapping](/docs/database/hrms/SP_AdminPMS_InsEmpAppraisalCycleMapping) |
+| `SP_AdminPMS_InsEmpGoalSettingMapping` | procedure | [SP_AdminPMS_InsEmpGoalSettingMapping](/docs/database/hrms/SP_AdminPMS_InsEmpGoalSettingMapping) |
+| `SP_AdminPMS_SrchEmpByAppraisalCycle` | procedure | [SP_AdminPMS_SrchEmpByAppraisalCycle](/docs/database/hrms/SP_AdminPMS_SrchEmpByAppraisalCycle) |
+| `SP_AdminPMS_SrchEmpByGoalPeriod` | procedure | [SP_AdminPMS_SrchEmpByGoalPeriod](/docs/database/hrms/SP_AdminPMS_SrchEmpByGoalPeriod) |
 | `SP_AdminPMS_UpdSalaryRevFreezed` | procedure | No page yet |
 | `Sp_AdminRM_DeleteRecruitmentAdminMaster` | procedure | No page yet |
 | `SP_AdminRM_GetEmployeeListByOrg` | procedure | No page yet |
@@ -111,7 +111,7 @@ Calls no other procedures or functions.
 | `Sp_AdminRM_GetRecruiter` | procedure | No page yet |
 | `Sp_AdminRM_GetRecruiterMstr` | procedure | No page yet |
 | `Sp_AdminRM_GetRecruitmentAdminMaster` | procedure | No page yet |
-| `Sp_AdminRM_InsUpdRecruitmentAdminMaster` | procedure | No page yet |
+| `Sp_AdminRM_InsUpdRecruitmentAdminMaster` | procedure | [Sp_AdminRM_InsUpdRecruitmentAdminMaster](/docs/database/hrms/Sp_AdminRM_InsUpdRecruitmentAdminMaster) |
 | `SP_AdminRoleM_ChangeuserRole` | procedure | No page yet |
 | `Sp_AdminRoleM_GetEmpRoles` | procedure | No page yet |
 | `SP_AdminRoleM_GetEmpSumPermissionMapHist` | procedure | No page yet |
@@ -121,8 +121,8 @@ Calls no other procedures or functions.
 | `Sp_AdminRoleM_GetUserAccMenuItemsHist` | procedure | No page yet |
 | `Sp_AdminRoleM_GetUserPageMapHistByid` | procedure | No page yet |
 | `SP_AdminRoleM_InsUserPageMap` | procedure | No page yet |
-| `SP_AdminSCCT_GetChangesForApprByMe` | procedure | No page yet |
-| `SP_AdminSCCT_GetChangesForApproval` | procedure | No page yet |
+| `SP_AdminSCCT_GetChangesForApprByMe` | procedure | [SP_AdminSCCT_GetChangesForApprByMe](/docs/database/hrms/SP_AdminSCCT_GetChangesForApprByMe) |
+| `SP_AdminSCCT_GetChangesForApproval` | procedure | [SP_AdminSCCT_GetChangesForApproval](/docs/database/hrms/SP_AdminSCCT_GetChangesForApproval) |
 | `SP_AdminUM_GetActiveUserList` | procedure | No page yet |
 | `SP_AdminUM_GETUserDetails` | procedure | No page yet |
 | `SP_AdminWM_GetSpecificWFListDetails` | procedure | No page yet |
@@ -296,7 +296,7 @@ Calls no other procedures or functions.
 | `SP_GetAllCompensatoryLeaveExpired` | procedure | No page yet |
 | `SP_GetAllEmployeeDetails` | procedure | No page yet |
 | `SP_GetAllEmployeeDetailsForReports` | procedure | No page yet |
-| `SP_GetAllEmployeeListByOrganization` | procedure | No page yet |
+| `SP_GetAllEmployeeListByOrganization` | procedure | [SP_GetAllEmployeeListByOrganization](/docs/database/hrms/SP_GetAllEmployeeListByOrganization) |
 | `SP_GetAllEmpResignationDetails` | procedure | No page yet |
 | `SP_GetAllInactiveEmployees` | procedure | No page yet |
 | `SP_GetAllResignationByTemplateId` | procedure | No page yet |
@@ -412,7 +412,7 @@ Calls no other procedures or functions.
 | `SP_GetNotificationDetails` | procedure | No page yet |
 | `SP_GetNotificationDetailsBKP03052025` | procedure | No page yet |
 | `SP_GetOnHoldCandidatesList` | procedure | No page yet |
-| `sp_GetOrgStructureHistory` | procedure | No page yet |
+| `sp_GetOrgStructureHistory` | procedure | [sp_GetOrgStructureHistory](/docs/database/hrms/sp_GetOrgStructureHistory) |
 | `SP_GetOverDueTATHelpDeskNotification` | procedure | No page yet |
 | `SP_GetPartialEmployeeDet` | procedure | No page yet |
 | `SP_GetPassportDetails` | procedure | No page yet |
@@ -493,10 +493,10 @@ Calls no other procedures or functions.
 | `SP_GetWFHforCancellation` | procedure | No page yet |
 | `Sp_GetWhatsAppNotificationDetails` | procedure | No page yet |
 | `SP_GetZenx_PayrollHrEmployeeFullInfo` | procedure | No page yet |
-| `SP_HelpDeskGroup` | procedure | No page yet |
-| `SP_HelpDeskGroup_Category` | procedure | No page yet |
-| `SP_HelpDeskGroup_Category_Activity` | procedure | No page yet |
-| `SP_HelpDeskGroup_Category_Lkp` | procedure | No page yet |
+| `SP_HelpDeskGroup` | procedure | [SP_HelpDeskGroup](/docs/database/hrms/SP_HelpDeskGroup) |
+| `SP_HelpDeskGroup_Category` | procedure | [SP_HelpDeskGroup_Category](/docs/database/hrms/SP_HelpDeskGroup_Category) |
+| `SP_HelpDeskGroup_Category_Activity` | procedure | [SP_HelpDeskGroup_Category_Activity](/docs/database/hrms/SP_HelpDeskGroup_Category_Activity) |
+| `SP_HelpDeskGroup_Category_Lkp` | procedure | [SP_HelpDeskGroup_Category_Lkp](/docs/database/hrms/SP_HelpDeskGroup_Category_Lkp) |
 | `SP_HivePayRoll_FnFSettlement` | procedure | No page yet |
 | `SP_Insert_TDailyRegisterNew` | procedure | No page yet |
 | `Sp_InsertEventDetails` | procedure | No page yet |

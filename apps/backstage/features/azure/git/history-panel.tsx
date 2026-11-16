@@ -13,16 +13,23 @@ import type {
   TeamMember,
 } from "@hrms/azure-devops";
 import { AuthorActivityModal } from "@/features/azure/git/author-activity-modal";
+import { buildAuthorOptions } from "@/features/azure/git/author-options";
 import { CommitDetailDrawer } from "@/features/azure/git/commit-detail-drawer";
 import { buildGitCommitUrl, buildGitPullRequestUrl, buildGitWorkItemUrl } from "@/features/azure/git/git-links";
 import { GitPathSearch } from "@/features/azure/git/git-path-search";
 import { displayGitPath, errorMessage, firstCommitLine, rethrowRedirect, shortCommit } from "@/features/azure/git/git-text";
-import { loadGitCommitDetail, loadGitCommits, loadGitFilePair } from "@/features/azure/git/queries";
+import {
+  loadGitCommitDetail,
+  loadGitCommits,
+  loadGitFilePair,
+  searchGitAuthors,
+} from "@/features/azure/git/queries";
 import { rememberRecentGitPath, type RecentGitPath } from "@/features/azure/git/recent-git-paths";
 import { formatDate } from "@/shared/format-date";
 import { SearchSelect } from "@/shared/ui";
 
 const DEFAULT_BODY_HEIGHT = 480;
+const AUTHOR_SEARCH_DELAY_MS = 250;
 
 function preferredHistoryBranch(
   current: string,
@@ -99,6 +106,9 @@ export function HistoryPanel({
   const [pairLoading, setPairLoading] = useState(false);
   const [pairError, setPairError] = useState<string | null>(null);
   const [activityAuthor, setActivityAuthor] = useState<string | null>(null);
+  const [authorQuery, setAuthorQuery] = useState("");
+  const [authorSearchHits, setAuthorSearchHits] = useState<TeamMember[]>([]);
+  const [authorSearching, setAuthorSearching] = useState(false);
   const [appliedBranches, setAppliedBranches] = useState<readonly GitBranchSummary[] | null>(null);
   const [appliedDefaultBranch, setAppliedDefaultBranch] = useState<string | null | undefined>(undefined);
   const [loadedHistory, setLoadedHistory] = useState({
@@ -116,7 +126,45 @@ export function HistoryPanel({
   const requestIdRef = useRef(0);
   const queryRef = useRef({ repositoryId, branch, path, authors: selectedAuthors });
 
-  const authorOptions = uniqueAuthorOptions(authors);
+  useEffect(() => {
+    const trimmed = authorQuery.trim();
+    if (trimmed.length < 2) {
+      setAuthorSearchHits([]);
+      setAuthorSearching(false);
+      return;
+    }
+    let cancelled = false;
+    setAuthorSearching(true);
+    const handle = window.setTimeout(() => {
+      void searchGitAuthors(trimmed)
+        .then((hits) => {
+          if (!cancelled) {
+            setAuthorSearchHits(hits);
+          }
+        })
+        .catch(() => {
+          if (!cancelled) {
+            setAuthorSearchHits([]);
+          }
+        })
+        .finally(() => {
+          if (!cancelled) {
+            setAuthorSearching(false);
+          }
+        });
+    }, AUTHOR_SEARCH_DELAY_MS);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(handle);
+    };
+  }, [authorQuery]);
+
+  const authorOptions = buildAuthorOptions({
+    roster: authors,
+    searchHits: authorSearchHits,
+    selected: draftAuthors,
+    query: authorQuery,
+  });
   let activeBranch = branch;
   if (branches.length > 0 && (branches !== appliedBranches || defaultBranch !== appliedDefaultBranch)) {
     const defaultsChanged = appliedDefaultBranch !== undefined && defaultBranch !== appliedDefaultBranch;
@@ -336,6 +384,7 @@ export function HistoryPanel({
             branches={branches}
             branchesLoading={branchesLoading}
             fallbackBranch={branch}
+            preferDev={false}
             repositoryId={repositoryId}
             value={draftPath}
             onChange={setDraftPath}
@@ -351,14 +400,27 @@ export function HistoryPanel({
             allowClear
             aria-label="Authors"
             className="w-full"
+            filterOption={false}
             mode="multiple"
+            notFoundContent={
+              authorSearching
+                ? "Searching…"
+                : authorQuery.trim().length < 2
+                  ? "Type at least 2 characters to search Azure DevOps"
+                  : "No matching people"
+            }
             options={authorOptions}
             placeholder="Team member"
             value={draftAuthors}
             onChange={(value) => {
               const names = (value ?? []).map(String);
               setDraftAuthors(names);
+              setAuthorQuery("");
+              setAuthorSearchHits([]);
               applyFilters(names);
+            }}
+            onSearch={(value) => {
+              setAuthorQuery(value);
             }}
           />
         </label>
@@ -549,15 +611,3 @@ function appendCommits(
   );
 }
 
-function uniqueAuthorOptions(authors: readonly TeamMember[]): { value: string; label: string }[] {
-  const names = new Set<string>();
-  for (const author of authors) {
-    const name = author.displayName.trim();
-    if (name.length > 0) {
-      names.add(name);
-    }
-  }
-  return [...names]
-    .sort((left, right) => left.localeCompare(right, undefined, { sensitivity: "base" }))
-    .map((name) => ({ value: name, label: name }));
-}

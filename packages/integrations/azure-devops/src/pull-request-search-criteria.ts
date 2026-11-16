@@ -1,8 +1,14 @@
-import type { PullRequestCandidate, PullRequestDateField, PullRequestSearchCriteria } from './types.js';
+import {
+  DEFAULT_PULL_REQUEST_SEARCH_STATUSES,
+  type PullRequestCandidate,
+  type PullRequestDateField,
+  type PullRequestSearchCriteria,
+} from './types.js';
 
 export type { PullRequestDateField, PullRequestSearchCriteria };
 
 export {
+  DEFAULT_PULL_REQUEST_SEARCH_STATUSES,
   PULL_REQUEST_SEARCH_LIMIT,
   PULL_REQUEST_STATUS_OPTIONS,
   WORK_ITEM_STATE_OPTIONS,
@@ -114,14 +120,18 @@ export function filterPullRequestCandidates(
   criteria: PullRequestSearchCriteria,
 ): PullRequestCandidate[] {
   const authorIds = criteria.authorIds.map((id) => id.trim()).filter((id) => id.length > 0);
-  const statuses = criteria.statuses.map((status) => status.trim().toLowerCase()).filter((status) => status.length > 0);
+  const selectedStatuses = criteria.statuses
+    .map((status) => status.trim().toLowerCase())
+    .filter((status) => status.length > 0);
+  const statuses =
+    selectedStatuses.length > 0 ? selectedStatuses : [...DEFAULT_PULL_REQUEST_SEARCH_STATUSES];
 
   return candidates.filter((candidate) => {
     if (authorIds.length > 0 && (candidate.authorId === null || !authorIds.includes(candidate.authorId))) {
       return false;
     }
 
-    if (statuses.length > 0 && !statuses.includes(candidate.status)) {
+    if (!statuses.includes(candidate.status)) {
       return false;
     }
 

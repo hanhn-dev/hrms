@@ -236,127 +236,15 @@ EXEC SP_BulkProfileUpdate_BusinessUnitByLogin_Org_Country 1431, 10, 99
 
 sp_helptext 'SP_BulkProfileUpdate_BusinessUnitByLogin_Org_Country'
 
+SELECT TOP 100 EmploymentNumber, * FROM TEmployeeInfo WHERE EmploymentNumber = '9998'
+
+SELECT TOP 100 EmploymentNumber, * FROM TEmployeeINfo WHERE EmploymentNumber IN ('45453', '9999')
+
+SELECT TOP 100 * FROM TEmployeeInfoHistory
+SELECT TOP 100 * FROM TEmployeeInfoHistory WHERE EmployeeId = 3415 AND EmploymentNumber = '9999' ORDER BY 1 DESC
+
+SELECT TOP 100 DeactivationComments, HRComments, EmployeeId FROM TResignationDetails WHERE EmployeeID = 2491 OR EmploymentNumber = '10015'
+SELECT TOP 100 * FROM TTerminationDetail WHERE EmployeeID = 2491
 
 
-
-/* -- =============================================    
- -- Created By:  Prajakta Kadam    
- -- Create date: 05/11/2024    
- -- PBIID : 93279    
- -- Description: This sp will provide list of Business Unit belongs to organization and country is passed.    
- -- Reference :- SP_AdminWM_GetBusinessUnitByOrg_EmployeeId    
- -- Reference : SP_GetCountryOfEmployment (For Country filter)    
- -- Reference : SP_BulkProfileUpdate_EmployeeListByFilters    
- -- ==========================================================================================    
- -- EXEC [SP_BulkProfileUpdate_BusinessUnitByLogin_Org_Country] 7415,10,99    
- -- ==========================================================================================    
- --   MOdified by                Date            Reason    
- --   Chatla Jagapathibabu      02/12/2024     Modified Sps related to Businessorg, designation and location , whatever the employees shown in the employees list after country selection, 
-                                               for those specific employees only the above filters list will be shown    
- --   Prajakta Kadam            16/12/2025     PBIID:123398
- -- ==========================================================================================    
- */   
- CREATE PROCEDURE [dbo].[SP_BulkProfileUpdate_BusinessUnitByLogin_Org_Country]
-(
-    @LoginId INT,
-    @EmployerId INT,
-    @CountryId INT
-)
-AS
-BEGIN
-    SET NOCOUNT ON;
-    SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
-
-    /* Step 1: Employee mapped units */
-    ;WITH EmployeeUnits AS
-    (
-        SELECT DISTINCT
-            TI.BusinessUnitId AS UnitID
-        FROM temployeeinfo TI
-        JOIN temployee TE
-            ON TE.employeeid = TI.employeeid
-        JOIN tlocation L
-            ON L.locationid = TI.locationid
-           AND L.isactive = 1
-        WHERE TE.IsActive = 'Y'
-          AND TE.Employerid = @EmployerId
-          AND ISNULL(TE.CountryOfEmployment,0) = @CountryId
-          AND TE.EmployeeId IN
-              (
-                  SELECT EmployeeId
-                  FROM dbo.FN_LocationBU_GetEmployeeDetails_Clone
-                       (@LoginId, @EmployerId)
-              )
-    ),
-
-    /* Step 2: Get employee units + all parents (no depth yet) */
-    RequiredNodes AS
-    (
-        SELECT
-            O.UnitID,
-            O.UnitName,
-            O.ParentUnitID
-        FROM dbo.O
-        JOIN EmployeeUnits EU
-            ON O.UnitID = EU.UnitID
-        WHERE O.IsActive = 'Y' and O.IsDelete = 'N'
-          AND O.Employerid = @EmployerId
-
-        UNION ALL
-
-        SELECT
-            P.UnitID,
-            P.UnitName,
-            P.ParentUnitID
-        FROM dbo.TOrgHierarchyDetails P 
-        JOIN RequiredNodes C
-            ON C.ParentUnitID = P.UnitID
-        WHERE P.IsActive = 'Y' and O.IsDelete = 'N'
-          AND P.Employerid = @EmployerId
-    ),
-
-    /* Step 3: Deduplicate nodes */
-    DistinctNodes AS
-    (
-        SELECT DISTINCT
-            UnitID,
-            UnitName,
-            ParentUnitID
-        FROM RequiredNodes
-    ),
-
-    /* Step 4: Rebuild hierarchy ONLY ONCE from ROOT */
-    FinalHierarchy AS
-    (
-        SELECT
-            D.UnitID,
-            D.UnitName,
-            D.ParentUnitID,
-            1 AS LevelNo,
-            CAST(D.UnitName AS VARCHAR(MAX)) AS SortPath
-        FROM DistinctNodes D
-        WHERE D.ParentUnitID = 0
-
-        UNION ALL
-
-        SELECT
-            C.UnitID,
-            C.UnitName,
-            C.ParentUnitID,
-            P.LevelNo + 1,
-            CAST(P.SortPath + ' > ' + C.UnitName AS VARCHAR(MAX))
-        FROM DistinctNodes C
-        JOIN FinalHierarchy P
-            ON C.ParentUnitID = P.UnitID
-    )
-
-    SELECT
-        UnitID,
-        UnitName,
-        ParentUnitID,
-        LevelNo
-    FROM FinalHierarchy
-	ORDER BY SortPath;
-
-    SET NOCOUNT OFF;
-END
+EXEC SP_EmployeeSearch_GetEmploymentStatusChangeHistory 1852

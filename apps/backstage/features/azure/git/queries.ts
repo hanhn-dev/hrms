@@ -10,6 +10,7 @@ import {
   listTeamMembers,
   readGitFilePair,
   searchGitPaths,
+  searchIdentities,
   type AzureDevOpsClient,
   type CompareGitCommitsInput,
   type GitAuthorActivity,
@@ -31,9 +32,15 @@ import {
   type BranchDefaultEntry,
   type BranchDefaultsFile,
 } from "@/features/azure/git/branch-defaults";
+import {
+  filterTeamMembersByQuery,
+  mergeTeamMembers,
+  teamMembersFromNames,
+} from "@/features/azure/git/author-options";
 import { readBranchDefaults, writeBranchDefaults } from "@/features/azure/git/branch-defaults-store";
 import type { GitTraceCatalog } from "@/features/azure/git/catalog";
 import type { DatabaseModuleScript } from "@/features/azure/git/script-object";
+import { readLocalTeams } from "@/features/azure/teams/local-teams-store";
 import { requireFeature } from "@/shared/auth";
 import { getAzureDevOpsClient } from "@/shared/azure";
 import { getHrmsDb } from "@/shared/db";
@@ -44,9 +51,13 @@ async function azureClient(): Promise<AzureDevOpsClient> {
   return getAzureDevOpsClient();
 }
 
+function localProgressTeamAuthors(): TeamMember[] {
+  return teamMembersFromNames(readLocalTeams().teams.flatMap((team) => team.members));
+}
+
 export async function loadGitCatalog(): Promise<GitTraceCatalog> {
   const client = await azureClient();
-  const [repositories, authors] = await Promise.all([
+  const [repositories, boardAuthors] = await Promise.all([
     listGitRepositories(client),
     listTeamMembers(client, client.config.team?.trim() || DEFAULT_BOARD_TEAM).catch((): TeamMember[] => []),
   ]);
@@ -54,8 +65,22 @@ export async function loadGitCatalog(): Promise<GitTraceCatalog> {
     organizationUrl: client.config.orgUrl,
     project: client.config.project,
     repositories,
-    authors,
+    // Local progress-team members are the curated "team" roster operators expect
+    // (ADO board-team membership alone often omits people tracked in Backstage).
+    authors: mergeTeamMembers(boardAuthors, localProgressTeamAuthors()),
   };
+}
+
+/**
+ * Directory search for authors who may not be on the board-team roster.
+ * Always includes matching local progress-team members; identity search is a
+ * supplement when the Azure Identity API returns hits.
+ */
+export async function searchGitAuthors(query: string): Promise<TeamMember[]> {
+  const client = await azureClient();
+  const localHits = filterTeamMembersByQuery(localProgressTeamAuthors(), query);
+  const identityHits = await searchIdentities(client, query).catch((): TeamMember[] => []);
+  return mergeTeamMembers(localHits, identityHits);
 }
 
 export async function loadGitAuthorActivity(input: ListGitAuthorActivityInput): Promise<GitAuthorActivity> {

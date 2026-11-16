@@ -387,6 +387,8 @@ export interface CreateWorkItemInput {
   readonly project?: string;
 }
 export const PULL_REQUEST_STATUS_OPTIONS = ['active', 'completed', 'abandoned'] as const;
+/** Empty Status filter searches these; Abandoned is opt-in via the Status multi-select. */
+export const DEFAULT_PULL_REQUEST_SEARCH_STATUSES = ['active', 'completed'] as const;
 export const PULL_REQUEST_SEARCH_LIMIT = 200;
 
 export type PullRequestChangeType = 'add' | 'edit' | 'delete' | 'rename' | 'other';

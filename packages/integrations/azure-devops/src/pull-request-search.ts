@@ -24,7 +24,7 @@ import type {
   PullRequestSearchResult,
   SearchWorkItemsFilter,
 } from './types.js';
-import { PULL_REQUEST_SEARCH_LIMIT, PULL_REQUEST_STATUS_OPTIONS } from './types.js';
+import { DEFAULT_PULL_REQUEST_SEARCH_STATUSES, PULL_REQUEST_SEARCH_LIMIT } from './types.js';
 import { parseWorkItemIdsInput, searchWorkItemIds } from './work-items.js';
 
 export {
@@ -184,7 +184,16 @@ async function searchPullRequestsDirectly(
   const authorIds = criteria.authorIds.map((id) => id.trim()).filter((id) => id.length > 0);
   const creators: readonly (string | undefined)[] = authorIds.length > 0 ? authorIds : [undefined];
   const selectedStatuses = criteria.statuses.map((status) => status.trim().toLowerCase()).filter((status) => status.length > 0);
-  const statuses = selectedStatuses.length > 0 ? selectedStatuses : [...PULL_REQUEST_STATUS_OPTIONS];
+  const resolvedStatuses =
+    selectedStatuses.length > 0 ? selectedStatuses : [...DEFAULT_PULL_REQUEST_SEARCH_STATUSES];
+  // Active PRs have no closed time; Azure rejects Closed time-range queries for them.
+  const statuses =
+    criteria.dateField === 'merged'
+      ? resolvedStatuses.filter((status) => status !== 'active')
+      : resolvedStatuses;
+  if (statuses.length === 0) {
+    return { results: [], issues: [], truncated: false };
+  }
   const hasDate = criteria.dateFrom !== null || criteria.dateTo !== null;
   let truncated = false;
   const pullRequests: GitPullRequest[] = [];

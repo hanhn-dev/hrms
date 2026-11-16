@@ -2,7 +2,7 @@
 confidence: medium
 last-analyzed: 2026-08-17
 menu: LMS
-submenu: TNI Setup
+submenu: Manage TNI
 ---
 
 # Manage TNI

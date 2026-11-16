@@ -274,7 +274,7 @@ export function PullRequestsForm({
           className="w-full"
           mode="multiple"
           options={PULL_REQUEST_STATUS_OPTIONS.map((status) => ({ value: status, label: status }))}
-          placeholder="Active, completed, or abandoned"
+          placeholder="Active or completed (default)"
           value={[...criteria.statuses]}
           onChange={(value) => patch({ statuses: value ?? [] })}
         />

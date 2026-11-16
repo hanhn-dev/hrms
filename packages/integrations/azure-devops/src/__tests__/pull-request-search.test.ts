@@ -134,6 +134,25 @@ describe('filterPullRequestCandidates', () => {
 
     expect(result.map((row) => row.pullRequestId)).toEqual([1, 3]);
   });
+
+  it('excludes abandoned when statuses is empty and includes it when selected', () => {
+    const withAbandoned = [
+      ...rows,
+      candidate({ pullRequestId: 4, authorId: 'alice-id', status: 'abandoned', mergedDate: null }),
+    ];
+
+    const defaulted = filterPullRequestCandidates(
+      withAbandoned,
+      criteria({ dateField: 'opened', statuses: [] }),
+    );
+    expect(defaulted.map((row) => row.pullRequestId)).toEqual([1, 2, 3]);
+
+    const optedIn = filterPullRequestCandidates(
+      withAbandoned,
+      criteria({ dateField: 'opened', statuses: ['abandoned'] }),
+    );
+    expect(optedIn.map((row) => row.pullRequestId)).toEqual([4]);
+  });
 });
 
 describe('searchPullRequests', () => {
@@ -231,7 +250,7 @@ describe('searchPullRequests', () => {
 
     await searchPullRequests(
       mockClient,
-      criteria({ authorIds: ['alice-id'], statuses: ['active'] }),
+      criteria({ authorIds: ['alice-id'], dateField: 'opened', statuses: ['active'] }),
       200,
     );
 
@@ -256,10 +275,77 @@ describe('searchPullRequests', () => {
       }),
     );
 
-    const criteriaArg = mockGitApi.getPullRequestsByProject.mock.calls[0]?.[1] as {
-      queryTimeRangeType?: number;
-    };
-    expect(criteriaArg.queryTimeRangeType).toBe(PullRequestTimeRangeType.Closed);
-    expect(mockGitApi.getPullRequestsByProject).toHaveBeenCalledTimes(3);
+    expect(mockGitApi.getPullRequestsByProject).toHaveBeenCalledTimes(1);
+    expect(mockGitApi.getPullRequestsByProject).toHaveBeenCalledWith(
+      'TDG HRMS',
+      expect.objectContaining({
+        status: PullRequestStatus.Completed,
+        queryTimeRangeType: PullRequestTimeRangeType.Closed,
+        minTime: new Date('2026-10-01T00:00:00.000Z'),
+        maxTime: new Date('2026-10-12T23:59:59.999Z'),
+      }),
+      undefined,
+      0,
+      200,
+    );
+  });
+
+  it('does not query active pull requests when the date applies to merged', async () => {
+    mockGitApi.getPullRequestsByProject.mockResolvedValue([]);
+
+    await searchPullRequests(
+      mockClient,
+      criteria({
+        authorIds: ['alice-id'],
+        dateField: 'merged',
+        dateFrom: '2026-10-01',
+        dateTo: '2026-10-12',
+        statuses: [],
+      }),
+    );
+
+    const statuses = mockGitApi.getPullRequestsByProject.mock.calls.map(
+      (call) => (call[1] as { status?: PullRequestStatus }).status,
+    );
+    expect(statuses).toEqual([PullRequestStatus.Completed]);
+    expect(statuses).not.toContain(PullRequestStatus.Active);
+  });
+
+  it('returns empty results without calling Azure when merged date leaves only active', async () => {
+    const result = await searchPullRequests(
+      mockClient,
+      criteria({
+        authorIds: ['alice-id'],
+        dateField: 'merged',
+        dateFrom: '2026-10-01',
+        dateTo: '2026-10-12',
+        statuses: ['active'],
+      }),
+    );
+
+    expect(result).toEqual({ results: [], issues: [], truncated: false });
+    expect(mockGitApi.getPullRequestsByProject).not.toHaveBeenCalled();
+  });
+
+  it('queries only active and completed when statuses is empty', async () => {
+    mockGitApi.getPullRequestsByProject.mockResolvedValue([]);
+
+    await searchPullRequests(
+      mockClient,
+      criteria({
+        authorIds: ['alice-id'],
+        dateField: 'opened',
+        statuses: [],
+      }),
+    );
+
+    const statuses = mockGitApi.getPullRequestsByProject.mock.calls.map(
+      (call) => (call[1] as { status?: PullRequestStatus }).status,
+    );
+    expect(statuses).toEqual(
+      expect.arrayContaining([PullRequestStatus.Active, PullRequestStatus.Completed]),
+    );
+    expect(statuses).not.toContain(PullRequestStatus.Abandoned);
+    expect(mockGitApi.getPullRequestsByProject).toHaveBeenCalledTimes(2);
   });
 });
