@@ -14,7 +14,6 @@ import { workItemTypeBarColor } from "@/features/azure/board/work-item-appearanc
 import {
   addDays,
   barPercent,
-  datesInMonth,
   daySpan,
   daysFromPixels,
   fitRange,
@@ -31,40 +30,30 @@ import { DEFAULT_DATE_FORMAT, formatDate } from "@/shared/format-date";
 
 const LABEL_WIDTH = "18rem";
 const DAY_WIDTH = 6;
+const ROW_HEIGHT_PX = 48;
+const BAR_HEIGHT_PX = 32;
+const BAR_OFFSET_PX = (ROW_HEIGHT_PX - BAR_HEIGHT_PX) / 2;
 
 function monthColumnStyle(days: number): React.CSSProperties {
   return { flexGrow: days, flexShrink: 1, flexBasis: 0 };
 }
 
-function MonthGrid({ months }: { months: readonly TimelineMonth[] }): React.JSX.Element {
+function rowClassName(index: number): string {
+  const tint =
+    index % 2 === 1 ? "bg-slate-100/50 dark:bg-slate-900/50" : "bg-transparent";
+  return `relative border-b border-slate-200/70 last:border-b-0 dark:border-slate-800/80 ${tint}`;
+}
+
+/** Month column borders only — no week ticks (uneven leftovers confuse the grid). */
+function TimeGrid({ months }: { months: readonly TimelineMonth[] }): React.JSX.Element {
   return (
-    <div className="pointer-events-none absolute inset-0 flex">
+    <div className="pointer-events-none absolute inset-0 z-0 flex">
       {months.map((month) => (
         <div
           key={month.key}
-          className="border-l border-slate-200/80 dark:border-slate-700/80"
+          className="border-l border-slate-300/90 dark:border-slate-600/90"
           style={monthColumnStyle(month.days)}
         />
-      ))}
-    </div>
-  );
-}
-
-function DayDots({ months }: { months: readonly TimelineMonth[] }): React.JSX.Element {
-  return (
-    <div className="absolute inset-0 z-0 flex">
-      {months.map((month) => (
-        <div key={month.key} className="flex h-full" style={monthColumnStyle(month.days)}>
-          {datesInMonth(month).map((day) => (
-            <span
-              key={day}
-              className="group flex h-full min-w-0 flex-1 items-center justify-center"
-              title={formatDate(day)}
-            >
-              <span className="size-1 shrink-0 rounded-full bg-slate-300 transition-all duration-150 group-hover:scale-150 group-hover:bg-slate-500 dark:bg-slate-600 dark:group-hover:bg-slate-300" />
-            </span>
-          ))}
-        </div>
       ))}
     </div>
   );
@@ -73,7 +62,7 @@ function DayDots({ months }: { months: readonly TimelineMonth[] }): React.JSX.El
 function MonthHeading({ month }: { month: TimelineMonth }): React.JSX.Element {
   return (
     <div
-      className="border-l border-slate-200 px-1 py-2 text-center text-xs font-medium uppercase tracking-wide text-slate-500 dark:border-slate-700 dark:text-slate-400"
+      className="border-l border-slate-600 px-1 py-2.5 text-center text-xs font-semibold uppercase tracking-wide text-slate-100"
       style={monthColumnStyle(month.days)}
     >
       {month.label}
@@ -211,18 +200,26 @@ const WorkItemBar = function WorkItemBar({
 
   return (
     <div
-      className={`${lifted ? "fixed z-30" : "absolute top-1.5 z-10"} flex h-8 min-w-6 items-stretch overflow-hidden rounded-full text-white shadow-sm`}
+      className={`${lifted ? "fixed z-30" : "absolute z-10"} flex min-w-6 items-stretch overflow-hidden rounded-full text-white shadow-sm`}
       style={
         lifted
           ? {
               left: lifted.left,
               top: lifted.top,
               width: lifted.width,
+              height: BAR_HEIGHT_PX,
               background: color,
               pointerEvents: "none",
               transition: "none",
             }
-          : { left: `${left}%`, width: `${width}%`, background: color, transition: "none" }
+          : {
+              left: `${left}%`,
+              width: `${width}%`,
+              top: BAR_OFFSET_PX,
+              height: BAR_HEIGHT_PX,
+              background: color,
+              transition: "none",
+            }
       }
       title={`${item.type ? `${item.type}. ` : ""}${when}. Drag the bar to move it, or either end to resize.`}
     >
@@ -473,7 +470,7 @@ function SprintLane({
           data-roadmap-count={sprint.items.length}
           data-roadmap-window={sprint.id}
         >
-          <MonthGrid months={months} />
+          <TimeGrid months={months} />
           <div className="relative">
             {rows.map((item, index) => {
               const shown = item ? (preview?.id === item.id ? preview : itemRange(item, lane)) : null;
@@ -481,12 +478,12 @@ function SprintLane({
               return (
                 <div
                   key={item?.id ?? `${sprint.id}-empty`}
-                  className="relative h-12"
+                  className={rowClassName(index)}
+                  style={{ height: ROW_HEIGHT_PX }}
                   data-roadmap-index={index}
                   data-roadmap-row=""
                   data-roadmap-window={sprint.id}
                 >
-                  <DayDots months={months} />
                   {item && span ? (
                     <WorkItemBar
                       axisEnd={axisEnd}
@@ -747,7 +744,7 @@ export function RoadmapDiagram({
       setLift({
         itemId: item.id,
         left: chartRect.left + (span.left / 100) * chartRect.width,
-        top: rowRect.top + 6,
+        top: rowRect.top + BAR_OFFSET_PX,
         width: Math.max(24, (span.width / 100) * chartRect.width),
       });
     };
@@ -809,8 +806,8 @@ export function RoadmapDiagram({
         width: `calc(${LABEL_WIDTH} + ${axis.months.reduce((total, month) => total + month.days, 0) * DAY_WIDTH}px)`,
       }}
     >
-        <div className="flex border-b border-slate-200 dark:border-slate-700">
-          <div className="shrink-0" style={{ width: LABEL_WIDTH }} />
+        <div className="flex border-b border-slate-800 bg-slate-900 dark:border-slate-950 dark:bg-slate-950">
+          <div className="shrink-0 bg-slate-900 dark:bg-slate-950" style={{ width: LABEL_WIDTH }} />
           <div className="flex min-w-0 flex-1">
             {axis.months.map((month) => (
               <MonthHeading key={month.key} month={month} />
@@ -1062,7 +1059,7 @@ export function RoadmapDiagram({
                 data-roadmap-count={window.items.length}
                 data-roadmap-window={window.id}
               >
-                <MonthGrid months={axis.months} />
+                <TimeGrid months={axis.months} />
                 <div className="relative">
                   {rows.map((item, index) => {
                     const shown = item
@@ -1076,12 +1073,12 @@ export function RoadmapDiagram({
                     return (
                     <div
                       key={item?.id ?? `${window.id}-empty`}
-                      className="relative h-12"
+                      className={rowClassName(index)}
+                      style={{ height: ROW_HEIGHT_PX }}
                       data-roadmap-index={index}
                       data-roadmap-row=""
                       data-roadmap-window={window.id}
                     >
-                      <DayDots months={axis.months} />
                       {item && span ? (
                         <WorkItemBar
                           axisEnd={axis.end}

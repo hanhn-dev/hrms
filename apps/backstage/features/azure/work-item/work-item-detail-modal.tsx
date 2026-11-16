@@ -14,6 +14,8 @@ import {
   WorkItemTypeTag,
 } from "@/features/azure/board/work-item-tags";
 import { formatAttachmentSize } from "@/features/azure/work-item/format-attachment-size";
+import { workItemDetailSections } from "@/features/azure/work-item/work-item-detail-sections";
+import { WorkItemMarkdownBox } from "@/features/azure/work-item/work-item-markdown-box";
 import { WorkItemMarkdown } from "@/features/azure/work-item/work-item-markdown";
 import { formatDate } from "@/shared/format-date";
 
@@ -26,24 +28,6 @@ const STATUS_COLORS: Record<string, string> = {
 
 function normalizeBranchName(branch: string): string {
   return branch.replace(/^refs\/heads\//, "");
-}
-
-function MarkdownSection({
-  title,
-  content,
-}: {
-  title: string;
-  content: string;
-}): React.JSX.Element | null {
-  if (!content.trim()) {
-    return null;
-  }
-  return (
-    <section>
-      <h3 className="mb-1 text-sm font-semibold">{title}</h3>
-      <WorkItemMarkdown content={content} />
-    </section>
-  );
 }
 
 function CommentsTab({
@@ -201,6 +185,13 @@ export function WorkItemDetailModal({
   const prTabCount = pullRequests?.length ?? pullRequestCount;
   const parentId = detail?.parentId ?? null;
   const titleText = detail ? `#${detail.id} — ${detail.title}` : "Work item";
+  const detailSections = detail
+    ? workItemDetailSections({
+        description: detail.description,
+        reproSteps: detail.reproSteps,
+        acceptanceCriteria: detail.acceptanceCriteria,
+      })
+    : [];
   return (
     <Modal
       destroyOnHidden
@@ -245,14 +236,17 @@ export function WorkItemDetailModal({
           </div>
           <div className="grid gap-6 md:grid-cols-[minmax(0,1fr)_minmax(16rem,20rem)]">
             <div className="flex min-w-0 flex-col gap-3">
-              <MarkdownSection content={detail.description} title="Description" />
-              <MarkdownSection content={detail.reproSteps} title="Repro steps" />
-              <MarkdownSection content={detail.acceptanceCriteria} title="Acceptance criteria" />
-              {!detail.description.trim() &&
-              !detail.reproSteps.trim() &&
-              !detail.acceptanceCriteria.trim() ? (
+              {detailSections.length > 0 ? (
+                detailSections.map((section) => (
+                  <WorkItemMarkdownBox
+                    key={`${detail.id}-${section.key}`}
+                    content={section.content}
+                    title={section.title}
+                  />
+                ))
+              ) : (
                 <p className="text-slate-500">No description.</p>
-              ) : null}
+              )}
             </div>
             <aside className="min-w-0 border-t border-slate-200 pt-4 md:border-t-0 md:border-l md:pt-0 md:pl-6 dark:border-slate-700">
               <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-2 text-sm">
