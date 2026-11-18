@@ -14,7 +14,6 @@ import {
   type Node,
   type NodeChange,
   type NodeMouseHandler,
-  type NodeTypes,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import {
@@ -37,6 +36,7 @@ import {
   type DatabaseObjectKind,
   type DatabaseObjectDetails,
 } from "@/features/dbs/queries";
+import { fetchObjectDetailsOnce } from "@/features/dbs/fetch-object-details-once";
 import { ObjectPeek, type PeekLoadedParts } from "@/features/dbs/peek/object-peek";
 import { KIND_COLOR } from "@/features/dbs/kind-style";
 import { HighlightMatch } from "@/shared/ui";
@@ -44,9 +44,17 @@ import { SqlRunnerPanel } from "@/features/dbs/sql-runner/sql-runner-panel";
 import { ComparePanel } from "@/features/dbs/compare/compare-panel";
 import { ValueSearchPanel } from "@/features/dbs/value-search/value-search-panel";
 import {
-  SchemaNode,
-  type SchemaNodeData,
-} from "@/features/dbs/canvas/schema-node";
+  MAX_EXPAND_PIN_BATCH,
+  buildConnectedObjects,
+  clampSelectionForPin,
+  parseObjectId,
+} from "@/features/dbs/canvas/connected-objects";
+import { placeExpandedNodes } from "@/features/dbs/canvas/place-expanded-nodes";
+import {
+  canvasDefaultEdgeOptions,
+  canvasNodeTypes,
+} from "@/features/dbs/canvas/canvas-node-types";
+import { type SchemaNodeData } from "@/features/dbs/canvas/schema-node";
 
 const KIND_OPTIONS: { label: string; value: DatabaseObjectKind | "all" }[] = [
   { label: "All", value: "all" },
@@ -69,10 +77,6 @@ const ALL_KINDS: DatabaseObjectKind[] = [
   "storedProcedure",
   "function",
 ];
-
-const nodeTypes = {
-  schema: SchemaNode,
-} satisfies NodeTypes;
 
 type SearchHit = {
   id: string;
@@ -169,17 +173,6 @@ function FitViewOnFirstPin({ nodeCount }: { nodeCount: number }): null {
   return null;
 }
 
-function parseObjectId(objectId: string): { schema: string; name: string } {
-  const dot = objectId.indexOf(".");
-  if (dot === -1) {
-    return { schema: "dbo", name: objectId };
-  }
-  return {
-    schema: objectId.slice(0, dot),
-    name: objectId.slice(dot + 1),
-  };
-}
-
 function nextPinPosition(
   pinned: CanvasObject[],
 ): { x: number; y: number } {
@@ -259,6 +252,10 @@ export function DbsStudio({
   employerId: number | null;
   writesEnabled: boolean;
 }): React.JSX.Element {
+  // Capture once per mount so Fast Refresh / Compiler re-exports of
+  // canvasNodeTypes cannot trip React Flow error #002 on a live instance.
+  const nodeTypes = useRef(canvasNodeTypes).current;
+  const defaultEdgeOptions = useRef(canvasDefaultEdgeOptions).current;
   const [kindFilter, setKindFilter] = useState<DatabaseObjectKind | "all">(
     "all",
   );
@@ -283,6 +280,9 @@ export function DbsStudio({
   const [loadedParts, setLoadedParts] = useState<
     Record<string, PeekLoadedParts>
   >({});
+  const [expandingIds, setExpandingIds] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
 
   const kindsKey = kindFilter === "all" ? "all" : kindFilter;
   const searchTokens = parseSearchTokens(debouncedSearch);
@@ -442,6 +442,14 @@ export function DbsStudio({
       delete next[objectId];
       return next;
     });
+    setExpandingIds((current) => {
+      if (!current.has(objectId)) {
+        return current;
+      }
+      const next = new Set(current);
+      next.delete(objectId);
+      return next;
+    });
     setEdges((current) =>
       current.filter(
         (edge) => edge.source !== objectId && edge.target !== objectId,
@@ -461,31 +469,111 @@ export function DbsStudio({
     );
   };
 
+  const ensureConnections = (objectId: string) => {
+    if (loadedParts[objectId]?.deps || expandingIds.has(objectId)) {
+      return;
+    }
+    const pinnedObject = pinned.find((item) => item.id === objectId);
+    if (!pinnedObject) {
+      return;
+    }
+    setExpandingIds((current) => new Set(current).add(objectId));
+    void fetchObjectDetailsOnce({
+      schema: pinnedObject.schema,
+      name: pinnedObject.name,
+      kind: pinnedObject.kind,
+      includeRelationships: true,
+      includeDefinition: false,
+      includeDependencies: true,
+      includeDependents: true,
+      includeStructure: false,
+    })
+      .then((details) => {
+        applyDetails(objectId, details);
+        setLoadedParts((current) => ({
+          ...current,
+          [objectId]: {
+            ...current[objectId],
+            deps: true,
+          },
+        }));
+      })
+      .catch(() => {
+        // Leave connectionsLoaded false so the user can retry Expand.
+      })
+      .finally(() => {
+        setExpandingIds((current) => {
+          const next = new Set(current);
+          next.delete(objectId);
+          return next;
+        });
+      });
+  };
+
   const expandSelected = (objectId: string, selectedIds: string[]) => {
+      const cappedIds = clampSelectionForPin(
+        selectedIds.filter((id) => id !== objectId),
+        MAX_EXPAND_PIN_BATCH,
+      );
+      if (cappedIds.length === 0) {
+        return;
+      }
+
       const details = detailsCache[objectId];
       const kindById = new Map<string, DatabaseObjectKind>();
       for (const item of pinned) {
         kindById.set(item.id, item.kind);
       }
-      for (const relatedId of selectedIds) {
-        if (relatedId === objectId) {
-          continue;
-        }
-        const parsed = parseObjectId(relatedId);
-        pinObject({
-          id: relatedId,
-          schema: parsed.schema,
-          name: parsed.name,
-          kind: kindById.get(relatedId) ?? "table",
-        });
-      }
       if (details) {
+        for (const dep of details.dependencies) {
+          if (dep.kind) {
+            kindById.set(dep.objectId, dep.kind);
+          }
+        }
+        for (const dep of details.dependents) {
+          if (dep.kind) {
+            kindById.set(dep.objectId, dep.kind);
+          }
+        }
+      }
+
+      setPinned((current) => {
+        const anchor = current.find((item) => item.id === objectId);
+        if (!anchor) {
+          return current;
+        }
+        const placements = placeExpandedNodes(
+          { id: anchor.id, position: anchor.position },
+          cappedIds,
+          current.map((item) => ({ id: item.id, position: item.position })),
+        );
+        if (placements.length === 0) {
+          return current;
+        }
+        return [
+          ...current,
+          ...placements.map((placement) => {
+            const parsed = parseObjectId(placement.id);
+            return {
+              id: placement.id,
+              schema: parsed.schema,
+              name: parsed.name,
+              kind: kindById.get(placement.id) ?? "table",
+              position: placement.position,
+              collapsed: true,
+            };
+          }),
+        ];
+      });
+
+      if (details) {
+        const selectedSet = new Set(cappedIds);
         setEdges((current) => {
           const next = [...current];
           for (const rel of details.relationships) {
             if (
-              !selectedIds.includes(rel.from.objectId) &&
-              !selectedIds.includes(rel.to.objectId)
+              !selectedSet.has(rel.from.objectId) &&
+              !selectedSet.has(rel.to.objectId)
             ) {
               continue;
             }
@@ -546,41 +634,12 @@ export function DbsStudio({
 
   const nodes: Node<SchemaNodeData>[] = pinned.map((obj) => {
         const details = detailsCache[obj.id];
-        const connectedIds = new Set<string>();
-        if (details) {
-          for (const rel of details.relationships) {
-            if (rel.from.objectId !== obj.id) {
-              connectedIds.add(rel.from.objectId);
-            }
-            if (rel.to.objectId !== obj.id) {
-              connectedIds.add(rel.to.objectId);
-            }
-          }
-          for (const dep of details.dependencies) {
-            connectedIds.add(dep.objectId);
-          }
-          for (const dep of details.dependents) {
-            connectedIds.add(dep.objectId);
-          }
-        }
-        const connectedObjects = [...connectedIds].map((relatedId) => {
-          const existing = pinned.find((item) => item.id === relatedId);
-          if (existing) {
-            return {
-              id: existing.id,
-              schema: existing.schema,
-              name: existing.name,
-              kind: existing.kind,
-            };
-          }
-          const parsed = parseObjectId(relatedId);
-          return {
-            id: relatedId,
-            schema: parsed.schema,
-            name: parsed.name,
-            kind: "table" as DatabaseObjectKind,
-          };
-        });
+        const { fkNeighbors, allShallow } = buildConnectedObjects(
+          obj.id,
+          details,
+          pinned,
+        );
+        const connectionsLoaded = Boolean(loadedParts[obj.id]?.deps);
 
         return {
           id: obj.id,
@@ -605,11 +664,15 @@ export function DbsStudio({
               (details?.dependents.length ?? 0),
             collapsed: obj.collapsed,
             active: selectedId === obj.id,
-            connectedObjects,
+            fkNeighbors,
+            allShallow,
+            connectionsLoaded,
+            expanding: expandingIds.has(obj.id),
             onPeek: (objectId) => {
               setSelectedId(objectId);
               setPeekId(objectId);
             },
+            onEnsureConnections: ensureConnections,
             onExpandSelected: expandSelected,
             onToggleCollapse: toggleCollapse,
             onRemove: removeObject,
@@ -791,6 +854,7 @@ export function DbsStudio({
               setEdges([]);
               setDetailsCache({});
               setLoadedParts({});
+              setExpandingIds(new Set());
               setSelectedId(null);
               setPeekId(null);
             }}
@@ -808,6 +872,7 @@ export function DbsStudio({
             nodeTypes={nodeTypes}
             minZoom={0.25}
             maxZoom={1.6}
+            onlyRenderVisibleElements
             onNodesChange={onNodesChange}
             onNodeClick={onNodeClick}
             onNodeDoubleClick={(_event, node) => {
@@ -815,14 +880,7 @@ export function DbsStudio({
               setPeekId(node.id);
             }}
             proOptions={{ hideAttribution: true }}
-            defaultEdgeOptions={{
-              className: "database-edge",
-              style: {
-                stroke: "#0891b2",
-                strokeWidth: 2,
-                strokeDasharray: "7 5",
-              },
-            }}
+            defaultEdgeOptions={defaultEdgeOptions}
           >
             <FitViewOnFirstPin nodeCount={pinned.length} />
             <Background

@@ -142,7 +142,7 @@ Uses the feature-based layout above. `app/(ops)/` is the thin route map for empl
 - Site chrome (Docs/Wiki/Console header) is hidden on `/employers/*`, `/dbs`, `/azure`, `/login`, and `/forbidden`; employer pages use `AppShell`, dbs uses `DbsShell`.
 - Display dates through `@/shared/format-date` (`DD-MMM-YYYY`, plus `HH:mm:ss` when timed). Do not render raw ISO strings.
 - Named entities use `EntityLink` from `@/shared/entity-link`. Kinds and canonical URLs are in the operator-console rule `troubleshooter.mdc` under **Entity links**.
-- Server Components: no dotted Ant Design subcomponents (`Typography.Title`) — import `Title` / `Text` / `Paragraph` from `@/shared/ui` or `antd/es/...`. Pass serializable `items` to `Descriptions`. Table `columns` with `render` belong in `"use client"` files. Use Alert `title`, not `message`. Helper copy goes in `PageHelp`, not full-width banners.
+- Server Components: no dotted Ant Design subcomponents (`Typography.Title`) — import `Title` / `Text` / `Paragraph` from `@/shared/ui` or `antd/es/...`. Pass serializable `items` to `Descriptions`. Table `columns` with `render` belong in `"use client"` files. Use Alert `title`, not `message`. Select uses `suffix`, not deprecated `suffixIcon` (hide the arrow with `suffix={null}`). Helper copy goes in `PageHelp`, not full-width banners.
 
 ## Feature versioning and contributions
 

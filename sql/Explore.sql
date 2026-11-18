@@ -248,3 +248,8 @@ SELECT TOP 100 * FROM TTerminationDetail WHERE EmployeeID = 2491
 
 
 EXEC SP_EmployeeSearch_GetEmploymentStatusChangeHistory 1852
+
+
+SELECT TOP 100 * FROM TVisaType
+
+SELECT TOP 100 * FROM TEmployeeVisaInfo

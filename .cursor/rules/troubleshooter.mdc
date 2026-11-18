@@ -47,6 +47,7 @@ Display dates through `@/shared/format-date`. Date-only values are `DD-MMM-YYYY`
 - Pass a serializable `items` array to `Descriptions`. Do not use `Descriptions.Item` children.
 - Do not pass `render` (or other functions) in Table `columns` from a Server Component. Put the table in a `"use client"` file.
 - Use Alert `title`, not deprecated `message`.
+- Select: use `suffix`, not deprecated `suffixIcon`. Hide the dropdown arrow with `suffix={null}` (not `showArrow`).
 - Helper / explainer copy belongs in `PageHelp` (header info icon → modal), never a full-width banner. `AppShell` already adds the write-mode note. Feature notes: `<PageHelp source="feature-name" notes={[...]} />`. Errors and in-flow status stay as `Alert`s. Pages outside `AppShell` pass `notes` to `PageHeader`. Do not export server-only modules from the `@/shared/ui` barrel.
 
 ## Data and writes

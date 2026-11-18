@@ -286,7 +286,15 @@ export function PullRequestsTable({
           ) : null}
           {selectedRowKeys.length > 0 ? (
             <span className="ml-2 font-medium text-slate-900 dark:text-slate-50">
-              · {selectedRowKeys.length} selected
+              · {selectedRowKeys.length} selected{" "}
+              <Button
+                className="!h-auto !p-0 align-baseline"
+                size="small"
+                type="link"
+                onClick={() => onSelectionChange([])}
+              >
+                Clear
+              </Button>
             </span>
           ) : null}
         </div>

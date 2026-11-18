@@ -43,6 +43,19 @@ export default defineConfig([
           ],
         },
       ],
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector: "JSXAttribute[name.name='suffixIcon']",
+          message:
+            "antd Select: use `suffix` instead of deprecated `suffixIcon` (hide the arrow with `suffix={null}`).",
+        },
+        {
+          selector: "JSXAttribute[name.name='showArrow']",
+          message:
+            "antd Select: `showArrow` is deprecated; hide the arrow with `suffix={null}` instead.",
+        },
+      ],
     },
   },
   globalIgnores([".next/**", "node_modules/**"]),

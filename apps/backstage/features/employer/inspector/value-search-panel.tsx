@@ -512,7 +512,7 @@ export function ValueSearchPanel({
             placeholder="Type a pattern and press Enter"
             value={ignorePatterns}
             tokenSeparators={[","]}
-            suffixIcon={null}
+            suffix={null}
             notFoundContent={null}
             open={false}
             onChange={(next: string[]) => {

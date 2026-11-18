@@ -14,6 +14,8 @@ import {
   type PullRequestDateField,
   type PullRequestSearchCriteria,
 } from "@hrms/azure-devops/criteria";
+import { TeamMemberSelect } from "@/features/azure/people";
+import { searchAzurePeople } from "@/features/azure/people/queries";
 import {
   loadPullRequestAreas,
   type PullRequestSearchOptions,
@@ -70,16 +72,6 @@ export function PullRequestsForm({
       label: optionLabel(area.name, area.path, nameCounts),
     }));
 
-  const memberOptions = options.teamMembers.map((member) => ({
-        value: member.displayName,
-        label: member.displayName,
-      }));
-
-  const authorOptions = options.teamMembers.map((member) => ({
-        value: member.id,
-        label: member.displayName,
-      }));
-
   const counts = new Map<string, number>();
   for (const iteration of options.iterations) {
       counts.set(iteration.name, (counts.get(iteration.name) ?? 0) + 1);
@@ -124,7 +116,7 @@ export function PullRequestsForm({
         notFoundContent={null}
         open={false}
         placeholder="12345, 45678, 8910"
-        suffixIcon={null}
+        suffix={null}
         tokenSeparators={[","]}
         value={splitWorkItemIdTags(criteria.workItemIds)}
         onChange={(tags: string[]) => patch({ workItemIds: joinWorkItemIdTags(tags) })}
@@ -188,14 +180,12 @@ export function PullRequestsForm({
         />
       </Field>
       <Field label="Assigned to">
-        <SearchSelect
-          allowClear
-          className="w-full"
-          mode="multiple"
-          options={memberOptions}
-          placeholder="Team member"
+        <TeamMemberSelect
+          roster={options.teamMembers}
+          searchPeople={searchAzurePeople}
           value={[...criteria.assignees]}
-          onChange={(value) => patch({ assignees: value ?? [] })}
+          valueKey="displayName"
+          onChange={(value) => patch({ assignees: value })}
         />
       </Field>
       <Field label="Tags">
@@ -257,15 +247,12 @@ export function PullRequestsForm({
         </Text>
       ) : null}
       <Field label="Authors">
-        <SearchSelect
-          allowClear
-          className="w-full"
-          mode="multiple"
-          optionFilterProp="label"
-          options={authorOptions}
-          placeholder="Team member"
+        <TeamMemberSelect
+          roster={options.teamMembers}
+          searchPeople={searchAzurePeople}
           value={[...criteria.authorIds]}
-          onChange={(value) => patch({ authorIds: value ?? [] })}
+          valueKey="id"
+          onChange={(value) => patch({ authorIds: value })}
         />
       </Field>
       <Field label="Status">

@@ -1,17 +1,25 @@
 import assert from "node:assert/strict";
 import { describe, it } from "vitest";
 import {
-  buildAuthorOptions,
+  buildTeamMemberOptions,
   filterTeamMembersByQuery,
+  isStubTeamMemberId,
   mergeTeamMembers,
   teamMembersFromNames,
-} from "./author-options.ts";
+} from "./team-member-options.ts";
 
 describe("teamMembersFromNames", () => {
   it("dedupes display names case-insensitively", () => {
     assert.deepEqual(teamMembersFromNames(["Rajat Maurya", " rajat maurya ", ""]), [
       { id: "Rajat Maurya", displayName: "Rajat Maurya" },
     ]);
+  });
+});
+
+describe("isStubTeamMemberId", () => {
+  it("detects display-name stubs", () => {
+    assert.equal(isStubTeamMemberId({ id: "Rajat Maurya", displayName: "Rajat Maurya" }), true);
+    assert.equal(isStubTeamMemberId({ id: "ado-guid", displayName: "Rajat Maurya" }), false);
   });
 });
 
@@ -29,6 +37,16 @@ describe("mergeTeamMembers", () => {
         { id: "ado-1", displayName: "Hanh Nguyen" },
         { id: "Rajat Maurya", displayName: "Rajat Maurya" },
       ],
+    );
+  });
+
+  it("upgrades a local stub when identity search returns a real Azure id", () => {
+    assert.deepEqual(
+      mergeTeamMembers(
+        [{ id: "Rajat Maurya", displayName: "Rajat Maurya" }],
+        [{ id: "ado-rajat", displayName: "Rajat Maurya" }],
+      ),
+      [{ id: "ado-rajat", displayName: "Rajat Maurya" }],
     );
   });
 });
@@ -55,7 +73,7 @@ describe("filterTeamMembersByQuery", () => {
   });
 });
 
-describe("buildAuthorOptions", () => {
+describe("buildTeamMemberOptions", () => {
   const roster = [
     { id: "1", displayName: "Hanh Nguyen" },
     { id: "2", displayName: "Amit Jadhav" },
@@ -64,7 +82,7 @@ describe("buildAuthorOptions", () => {
 
   it("returns the sorted roster when the query is empty", () => {
     assert.deepEqual(
-      buildAuthorOptions({
+      buildTeamMemberOptions({
         roster,
         searchHits: [],
         selected: [],
@@ -79,7 +97,7 @@ describe("buildAuthorOptions", () => {
 
   it("does not filter the roster for a short query", () => {
     assert.deepEqual(
-      buildAuthorOptions({
+      buildTeamMemberOptions({
         roster,
         searchHits: [],
         selected: [],
@@ -91,7 +109,7 @@ describe("buildAuthorOptions", () => {
 
   it("filters the roster and merges identity hits when the query is long enough", () => {
     assert.deepEqual(
-      buildAuthorOptions({
+      buildTeamMemberOptions({
         roster: [...roster, { id: "local", displayName: "Rajat Maurya" }],
         searchHits: [],
         selected: [],
@@ -103,7 +121,7 @@ describe("buildAuthorOptions", () => {
 
   it("keeps selected authors even when they do not match the query", () => {
     assert.deepEqual(
-      buildAuthorOptions({
+      buildTeamMemberOptions({
         roster,
         searchHits: [{ id: "9", displayName: "Rajat Sharma" }],
         selected: ["Hanh Nguyen"],
@@ -115,13 +133,55 @@ describe("buildAuthorOptions", () => {
 
   it("dedupes roster and search hits by display name", () => {
     assert.deepEqual(
-      buildAuthorOptions({
+      buildTeamMemberOptions({
         roster: [{ id: "1", displayName: "Rajat Sharma" }],
         searchHits: [{ id: "9", displayName: "Rajat Sharma" }],
         selected: ["Rajat Sharma"],
         query: "Rajat",
       }),
       [{ value: "Rajat Sharma", label: "Rajat Sharma" }],
+    );
+  });
+
+  it("uses Azure ids as values and prefers real ids over stubs", () => {
+    assert.deepEqual(
+      buildTeamMemberOptions({
+        roster: [{ id: "Rajat Maurya", displayName: "Rajat Maurya" }],
+        searchHits: [{ id: "ado-rajat", displayName: "Rajat Maurya" }],
+        selected: [],
+        query: "Rajat",
+        valueKey: "id",
+      }),
+      [{ value: "ado-rajat", label: "Rajat Maurya" }],
+    );
+  });
+
+  it("hides local stubs in id mode until identity search returns a real id", () => {
+    assert.deepEqual(
+      buildTeamMemberOptions({
+        roster: [{ id: "Rajat Maurya", displayName: "Rajat Maurya" }],
+        searchHits: [],
+        selected: [],
+        query: "Rajat",
+        valueKey: "id",
+      }),
+      [],
+    );
+  });
+
+  it("excludes already-selected values for add-style pickers", () => {
+    assert.deepEqual(
+      buildTeamMemberOptions({
+        roster: [
+          { id: "1", displayName: "Hanh Nguyen" },
+          { id: "2", displayName: "Rajat Maurya" },
+        ],
+        searchHits: [],
+        selected: [],
+        query: "",
+        excludeValues: ["Hanh Nguyen"],
+      }),
+      [{ value: "Rajat Maurya", label: "Rajat Maurya" }],
     );
   });
 });

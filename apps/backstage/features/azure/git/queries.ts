@@ -7,10 +7,8 @@ import {
   listGitBranches,
   listGitCommits,
   listGitRepositories,
-  listTeamMembers,
   readGitFilePair,
   searchGitPaths,
-  searchIdentities,
   type AzureDevOpsClient,
   type CompareGitCommitsInput,
   type GitAuthorActivity,
@@ -22,25 +20,18 @@ import {
   type ListGitAuthorActivityInput,
   type ListGitCommitsInput,
   type ReadGitFilePairInput,
-  type TeamMember,
 } from "@hrms/azure-devops";
 import { findScriptObject, getModuleDefinition } from "@hrms/db";
-import { DEFAULT_BOARD_TEAM } from "@/features/azure/board/defaults";
 import {
   removeRepositoryBranchDefaults,
   saveRepositoryBranchDefaults,
   type BranchDefaultEntry,
   type BranchDefaultsFile,
 } from "@/features/azure/git/branch-defaults";
-import {
-  filterTeamMembersByQuery,
-  mergeTeamMembers,
-  teamMembersFromNames,
-} from "@/features/azure/git/author-options";
 import { readBranchDefaults, writeBranchDefaults } from "@/features/azure/git/branch-defaults-store";
 import type { GitTraceCatalog } from "@/features/azure/git/catalog";
 import type { DatabaseModuleScript } from "@/features/azure/git/script-object";
-import { readLocalTeams } from "@/features/azure/teams/local-teams-store";
+import { loadAzurePeopleRoster } from "@/features/azure/people/queries";
 import { requireFeature } from "@/shared/auth";
 import { getAzureDevOpsClient } from "@/shared/azure";
 import { getHrmsDb } from "@/shared/db";
@@ -51,36 +42,18 @@ async function azureClient(): Promise<AzureDevOpsClient> {
   return getAzureDevOpsClient();
 }
 
-function localProgressTeamAuthors(): TeamMember[] {
-  return teamMembersFromNames(readLocalTeams().teams.flatMap((team) => team.members));
-}
-
 export async function loadGitCatalog(): Promise<GitTraceCatalog> {
   const client = await azureClient();
-  const [repositories, boardAuthors] = await Promise.all([
+  const [repositories, authors] = await Promise.all([
     listGitRepositories(client),
-    listTeamMembers(client, client.config.team?.trim() || DEFAULT_BOARD_TEAM).catch((): TeamMember[] => []),
+    loadAzurePeopleRoster(),
   ]);
   return {
     organizationUrl: client.config.orgUrl,
     project: client.config.project,
     repositories,
-    // Local progress-team members are the curated "team" roster operators expect
-    // (ADO board-team membership alone often omits people tracked in Backstage).
-    authors: mergeTeamMembers(boardAuthors, localProgressTeamAuthors()),
+    authors,
   };
-}
-
-/**
- * Directory search for authors who may not be on the board-team roster.
- * Always includes matching local progress-team members; identity search is a
- * supplement when the Azure Identity API returns hits.
- */
-export async function searchGitAuthors(query: string): Promise<TeamMember[]> {
-  const client = await azureClient();
-  const localHits = filterTeamMembersByQuery(localProgressTeamAuthors(), query);
-  const identityHits = await searchIdentities(client, query).catch((): TeamMember[] => []);
-  return mergeTeamMembers(localHits, identityHits);
 }
 
 export async function loadGitAuthorActivity(input: ListGitAuthorActivityInput): Promise<GitAuthorActivity> {

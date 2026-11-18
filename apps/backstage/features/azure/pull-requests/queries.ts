@@ -14,7 +14,7 @@ import {
   type TeamIteration,
   type TeamMember,
 } from "@hrms/azure-devops";
-import { DEFAULT_BOARD_TEAM } from "@/features/azure/board/defaults";
+import { loadAzurePeopleRoster } from "@/features/azure/people/queries";
 import {
   aggregatePullRequestsByMember,
   summarizeTeamPullRequests,
@@ -39,11 +39,9 @@ export type PullRequestSearchOptions = {
 
 export async function loadPullRequestSearchOptions(): Promise<PullRequestSearchOptions> {
   await requireFeature("azure");
-  const client = getAzureDevOpsClient();
-  const team = client.config.team?.trim() || DEFAULT_BOARD_TEAM;
   const [teamMembers, iterations] = await Promise.all([
-    listTeamMembers(client, team),
-    listTeamIterations(client),
+    loadAzurePeopleRoster(),
+    listTeamIterations(getAzureDevOpsClient()),
   ]);
   return { teamMembers, modules: [], iterations };
 }

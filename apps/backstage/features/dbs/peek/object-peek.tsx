@@ -16,10 +16,10 @@ import { DataTable } from "@/shared/ui/data-table";
 import type { DatabaseObjectDetails, DatabaseObjectKind } from "@/features/dbs/queries";
 import {
   confirmExecuteProcedure,
-  fetchObjectDetails,
   previewExecuteProcedure,
   previewTableRows,
 } from "@/features/dbs/queries";
+import { fetchObjectDetailsOnce } from "@/features/dbs/fetch-object-details-once";
 import {
   FK_CHIP_COLOR,
   KIND_COLOR,
@@ -52,36 +52,6 @@ export type PeekLoadedParts = {
   script?: boolean;
   deps?: boolean;
 };
-
-/** Dedupe identical in-flight detail requests across Strict Mode / remounts. */
-const inflightDetailRequests = new Map<
-  string,
-  Promise<DatabaseObjectDetails>
->();
-
-function fetchObjectDetailsOnce(
-  input: Parameters<typeof fetchObjectDetails>[0],
-): Promise<DatabaseObjectDetails> {
-  const key = [
-    input.kind,
-    input.schema,
-    input.name,
-    input.includeRelationships ?? true,
-    input.includeDefinition ?? true,
-    input.includeDependencies ?? true,
-    input.includeDependents ?? false,
-    input.includeStructure ?? false,
-  ].join("|");
-  const existing = inflightDetailRequests.get(key);
-  if (existing) {
-    return existing;
-  }
-  const request = fetchObjectDetails(input).finally(() => {
-    inflightDetailRequests.delete(key);
-  });
-  inflightDetailRequests.set(key, request);
-  return request;
-}
 
 function QualifiedObjectChips({
   objectId,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import {
   ApartmentOutlined,
@@ -10,10 +10,12 @@ import {
   MenuFoldOutlined,
   MenuUnfoldOutlined,
 } from "@ant-design/icons";
-import { Button, Checkbox, Popover, Tag, Tooltip } from "antd";
+import { Button, Popover, Tag, Tooltip } from "antd";
 import { Handle, Position, type NodeProps } from "@xyflow/react";
 import type { DatabaseColumn, DatabaseObjectKind } from "@/features/dbs/queries";
 import { KIND_COLOR, KIND_LABEL } from "@/features/dbs/kind-style";
+import { isExpandConnectionsDisabled } from "@/features/dbs/canvas/connected-objects";
+import { ExpandConnectionsPopoverContent } from "@/features/dbs/canvas/expand-connections-popover";
 
 export type SchemaNodeObject = {
   id: string;
@@ -30,8 +32,13 @@ export type SchemaNodeData = {
   dependencyCount: number;
   collapsed: boolean;
   active: boolean;
-  connectedObjects: SchemaNodeConnected[];
+  fkNeighbors: SchemaNodeConnected[];
+  allShallow: SchemaNodeConnected[];
+  /** True after relationships/deps/dependents have been fetched for this node. */
+  connectionsLoaded: boolean;
+  expanding: boolean;
   onPeek: (objectId: string) => void;
+  onEnsureConnections: (objectId: string) => void;
   onExpandSelected: (objectId: string, selectedIds: string[]) => void;
   onToggleCollapse: (objectId: string) => void;
   onRemove: (objectId: string) => void;
@@ -58,12 +65,19 @@ function detailSummary(
   return `${dependencyCount} dependencies`;
 }
 
+/** Columns shown when Expand details is open — full list, never capped. */
+export function columnsForExpandedNode(
+  columns: readonly DatabaseColumn[] | undefined,
+): readonly DatabaseColumn[] {
+  return columns ?? [];
+}
+
 export const SchemaNode = function SchemaNode({
   data,
   selected,
 }: NodeProps & { data: SchemaNodeData }): React.JSX.Element {
   const object = data.object;
-  const columns = data.columns?.slice(0, 6) ?? [];
+  const columns = columnsForExpandedNode(data.columns);
   const summary = detailSummary(
     object.kind,
     data.columns,
@@ -76,69 +90,78 @@ export const SchemaNode = function SchemaNode({
       : undefined;
 
   const [expandOpen, setExpandOpen] = useState(false);
+  const [pendingExpandOpen, setPendingExpandOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
-  const connectedObjects = data.connectedObjects;
+  const fkNeighbors = data.fkNeighbors;
+  const allShallow = data.allShallow;
+  const expandDisabled = isExpandConnectionsDisabled(
+    data.connectionsLoaded,
+    allShallow.length,
+    data.expanding,
+  );
 
-  const allSelected =
-    connectedObjects.length > 0 &&
-    selectedIds.size === connectedObjects.length;
-  const someSelected =
-    selectedIds.size > 0 && selectedIds.size < connectedObjects.length;
+  useEffect(() => {
+    if (!pendingExpandOpen || data.expanding) {
+      return;
+    }
+    setPendingExpandOpen(false);
+    if (!data.connectionsLoaded || allShallow.length === 0) {
+      return;
+    }
+    setSelectedIds(new Set(fkNeighbors.map((item) => item.id)));
+    setExpandOpen(true);
+  }, [
+    pendingExpandOpen,
+    data.expanding,
+    data.connectionsLoaded,
+    allShallow.length,
+    fkNeighbors,
+  ]);
+
+  function openExpandPopover(): void {
+    setSelectedIds(new Set(fkNeighbors.map((item) => item.id)));
+    setExpandOpen(true);
+  }
+
+  function handleExpandOpenChange(open: boolean): void {
+    if (!open) {
+      setExpandOpen(false);
+      setPendingExpandOpen(false);
+      return;
+    }
+    if (!data.connectionsLoaded) {
+      setPendingExpandOpen(true);
+      data.onEnsureConnections(object.id);
+      return;
+    }
+    if (allShallow.length === 0) {
+      return;
+    }
+    openExpandPopover();
+  }
 
   const expandContent = (() => {
-    if (connectedObjects.length === 0) {
+    if (data.expanding) {
+      return (
+        <div className="py-1 text-sm text-slate-500">Loading connections…</div>
+      );
+    }
+    if (allShallow.length === 0) {
       return (
         <div className="py-1 text-sm text-slate-500">No connections found</div>
       );
     }
     return (
-      <div className="flex w-80 flex-col gap-2">
-        <div className="max-h-64 space-y-1 overflow-auto">
-          {connectedObjects.map((related) => (
-            <label
-              key={related.id}
-              className="flex cursor-pointer items-center gap-2 rounded px-1 py-1 hover:bg-slate-50"
-            >
-              <Checkbox
-                checked={selectedIds.has(related.id)}
-                onChange={() => {
-                  setSelectedIds((current) => {
-                    const next = new Set(current);
-                    if (next.has(related.id)) {
-                      next.delete(related.id);
-                    } else {
-                      next.add(related.id);
-                    }
-                    return next;
-                  });
-                }}
-              />
-              <span className="min-w-0 flex-1 truncate text-sm">
-                {related.name}
-              </span>
-              <Tag
-                color={KIND_COLOR[related.kind] ?? "default"}
-                className="m-0 shrink-0 text-[11px]"
-              >
-                {KIND_LABEL[related.kind] ?? related.kind}
-              </Tag>
-            </label>
-          ))}
-        </div>
-        <Button
-          size="small"
-          type="primary"
-          block
-          disabled={selectedIds.size === 0}
-          onClick={(event) => {
-            event.stopPropagation();
-            setExpandOpen(false);
-            data.onExpandSelected(object.id, Array.from(selectedIds));
-          }}
-        >
-          Add {selectedIds.size} to canvas
-        </Button>
-      </div>
+      <ExpandConnectionsPopoverContent
+        fkNeighbors={fkNeighbors}
+        allShallow={allShallow}
+        selectedIds={selectedIds}
+        onSelectedIdsChange={setSelectedIds}
+        onConfirm={(ids) => {
+          setExpandOpen(false);
+          data.onExpandSelected(object.id, ids);
+        }}
+      />
     );
   })();
 
@@ -146,6 +169,7 @@ export const SchemaNode = function SchemaNode({
     <div
       className="database-node overflow-hidden rounded-lg border border-slate-200 bg-white shadow-xl shadow-slate-300/35"
       aria-label={`${object.schema}.${object.name}`}
+      aria-busy={data.expanding}
       style={{ width: 288, boxShadow: highlightShadow }}
     >
       <Handle
@@ -190,7 +214,7 @@ export const SchemaNode = function SchemaNode({
       </div>
 
       {!data.collapsed ? (
-        <div className="max-h-52 overflow-hidden px-3 py-2">
+        <div className="nodrag nowheel max-h-52 overflow-y-auto px-3 py-2">
           {columns.length > 0 ? (
             <div className="space-y-1">
               {columns.map((column) => (
@@ -236,37 +260,18 @@ export const SchemaNode = function SchemaNode({
         </Tooltip>
         <Popover
           open={expandOpen}
-          onOpenChange={(open) => {
-            if (open) {
-              setSelectedIds(new Set(connectedObjects.map((item) => item.id)));
-            }
-            setExpandOpen(open);
-          }}
+          onOpenChange={handleExpandOpenChange}
           trigger="click"
           placement="bottomRight"
-          title={
-            <div className="flex items-center gap-2">
-              <Checkbox
-                checked={allSelected}
-                indeterminate={someSelected}
-                onChange={() => {
-                  setSelectedIds(
-                    allSelected
-                      ? new Set()
-                      : new Set(connectedObjects.map((item) => item.id)),
-                  );
-                }}
-              />
-              <span>Add connections to canvas</span>
-            </div>
-          }
+          title="Add connections to canvas"
           content={expandContent}
         >
           <Tooltip title="Expand connections">
             <Button
               size="small"
               icon={<ExpandOutlined />}
-              disabled={connectedObjects.length === 0}
+              loading={data.expanding}
+              disabled={expandDisabled}
               onClick={(event) => {
                 event.stopPropagation();
               }}

@@ -108,6 +108,7 @@ export function PullRequestsPanel({
     const idsToMark = pullRequestIds.filter((id) => !doneIds.has(id));
     if (idsToMark.length === 0) {
       message.info("Selected pull requests are already marked done.");
+      setSelectedRowKeys([]);
       return;
     }
     setDoneIds((previous) => {
@@ -137,6 +138,7 @@ export function PullRequestsPanel({
         `Marked ${idsToMark.length} pull request${idsToMark.length === 1 ? "" : "s"} done.`,
       );
     }
+    setSelectedRowKeys([]);
   }
 
   const results: readonly PullRequestCandidate[] = result?.results ?? [];
