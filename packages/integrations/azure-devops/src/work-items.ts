@@ -259,7 +259,8 @@ async function mapWorkItem(client: AzureDevOpsClient, raw: AzureWorkItem, orgUrl
     assignedTo: getIdentityDisplayName(f['System.AssignedTo']),
     iterationPath: (f['System.IterationPath'] as string | undefined) ?? '',
     areaPath: (f['System.AreaPath'] as string | undefined) ?? '',
-    parentId: (f['System.Parent'] as number | null | undefined) ?? null,
+    parentId: resolveParentId(raw),
+    effort: toFiniteNumber(f['Microsoft.VSTS.Scheduling.Effort']),
     priority: toFiniteNumber(f['Microsoft.VSTS.Common.Priority']),
     severity: getOptionalString(f['Microsoft.VSTS.Common.Severity']),
     createdDate: toIsoDate(f['System.CreatedDate']),
@@ -399,6 +400,44 @@ export async function getRawWorkItemsWithRelations(
   return mergedItems;
 }
 
+function toPositiveInt(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isSafeInteger(value) && value > 0) {
+    return value;
+  }
+  if (typeof value === 'string' && POSITIVE_INTEGER_PATTERN.test(value.trim())) {
+    return Number.parseInt(value.trim(), 10);
+  }
+  return null;
+}
+
+/**
+ * Prefer `System.Parent`, then fall back to Hierarchy-Reverse. Azure often omits
+ * the Parent field on batch field-only reads even when a parent link exists.
+ */
+function resolveParentId(raw: AzureWorkItem): number | null {
+  const fromField = toPositiveInt((raw.fields ?? {})['System.Parent']);
+  if (fromField != null) {
+    return fromField;
+  }
+
+  for (const relation of raw.relations ?? []) {
+    if (
+      relation == null ||
+      relation.rel !== 'System.LinkTypes.Hierarchy-Reverse' ||
+      typeof relation.url !== 'string' ||
+      relation.url.length === 0
+    ) {
+      continue;
+    }
+    const id = parseWorkItemIdFromRelationUrl(relation.url);
+    if (id != null) {
+      return id;
+    }
+  }
+
+  return null;
+}
+
 function mapSummary(raw: AzureWorkItem, orgUrl: string): WorkItemSummary {
   const f = raw.fields ?? {};
   const tagsRaw = (f['System.Tags'] as string | undefined) ?? '';
@@ -411,7 +450,8 @@ function mapSummary(raw: AzureWorkItem, orgUrl: string): WorkItemSummary {
     tags: tagsRaw ? tagsRaw.split(';').map((t) => t.trim()).filter(Boolean) : [],
     changedDate: toIsoDate(f['System.ChangedDate']),
     iterationPath: (f['System.IterationPath'] as string | undefined) ?? '',
-    parentId: (f['System.Parent'] as number | null | undefined) ?? null,
+    parentId: resolveParentId(raw),
+    effort: toFiniteNumber(f['Microsoft.VSTS.Scheduling.Effort']),
     hasDescription:
       htmlFieldHasContent(f['System.Description'] as string | null | undefined) ||
       htmlFieldHasContent(f['Microsoft.VSTS.TCM.ItemDescription'] as string | null | undefined),
@@ -920,9 +960,15 @@ export function buildSearchWorkItemsWiql(project: string, filter: SearchWorkItem
     conditions.push(`[System.State] = '${escapeWiqlString(filter.state.trim())}'`);
   }
 
-  const iteration = filter.iteration?.trim() ?? '';
-  if (iteration.length > 0) {
-    conditions.push(`[System.IterationPath] UNDER '${escapeWiqlString(iteration)}'`);
+  const iterationPaths = nonEmptyValues(filter.iterationPaths);
+  const iterationClause =
+    iterationPaths.length > 0
+      ? underAny('System.IterationPath', iterationPaths)
+      : filter.iteration && filter.iteration.trim().length > 0
+        ? `[System.IterationPath] UNDER '${escapeWiqlString(filter.iteration.trim())}'`
+        : null;
+  if (iterationClause !== null) {
+    conditions.push(iterationClause);
   }
 
   const areaClause = underAny('System.AreaPath', nonEmptyValues(filter.areaPaths));
@@ -1077,21 +1123,13 @@ export async function queryWorkItems(
 
   if (ids.length === 0) return [];
 
-  const items = await witApi.getWorkItems(ids, [
-    'System.Title',
-    'System.WorkItemType',
-    'System.State',
-    'System.AssignedTo',
-    'System.Tags',
-    'System.ChangedDate',
-    'System.IterationPath',
-    'System.Parent',
-    'System.Description',
-    'Microsoft.VSTS.Common.AcceptanceCriteria',
-  ]);
-  return (items ?? [])
-    .filter((item): item is AzureWorkItem => item !== null && item !== undefined)
-    .map((item) => mapSummary(item, client.config.orgUrl));
+  // Expand relations (not a field list): System.Parent is often missing on
+  // field-only batch reads, and parent/child nesting needs Hierarchy-Reverse.
+  const rawById = await fetchRawWorkItemsBatch(client, ids);
+  return ids.flatMap((id) => {
+    const item = rawById.get(id);
+    return item == null ? [] : [mapSummary(item, client.config.orgUrl)];
+  });
 }
 
 // ---------------------------------------------------------------------------

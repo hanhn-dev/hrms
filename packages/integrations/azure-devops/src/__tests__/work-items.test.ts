@@ -54,6 +54,7 @@ const rawWorkItem = {
     'System.IterationPath': 'MyProject\\Sprint 1',
     'System.AreaPath': 'MyProject',
     'System.Parent': 1100,
+    'Microsoft.VSTS.Scheduling.Effort': 8,
     'Microsoft.VSTS.Common.Priority': 2,
     'Microsoft.VSTS.Common.Severity': '2 - High',
     'System.CreatedDate': '2026-01-02T03:04:05Z',
@@ -108,6 +109,7 @@ describe('getWorkItem', () => {
     expect(result.type).toBe('User Story');
     expect(result.assignedTo).toBe('Jane Smith');
     expect(result.parentId).toBe(1100);
+    expect(result.effort).toBe(8);
     expect(result.url).toBe('https://dev.azure.com/myorg/_workitems/edit/1234');
     expect(result.reproSteps).toBe('');
     expect(result.priority).toBe(2);
@@ -422,10 +424,20 @@ describe('getWorkItem', () => {
     expect(result.assignedTo).toBeNull();
   });
 
-  it('returns null parentId when parent field is not set', async () => {
+  it('falls back to Hierarchy-Reverse when System.Parent is missing', async () => {
     mockWitApi.getWorkItem.mockResolvedValue({
       ...rawWorkItem,
       fields: { ...rawWorkItem.fields, 'System.Parent': null },
+    });
+    const result = await getWorkItem(mockClient, 1234);
+    expect(result.parentId).toBe(1100);
+  });
+
+  it('returns null parentId when parent field and hierarchy reverse are absent', async () => {
+    mockWitApi.getWorkItem.mockResolvedValue({
+      ...rawWorkItem,
+      fields: { ...rawWorkItem.fields, 'System.Parent': null },
+      relations: [],
     });
     const result = await getWorkItem(mockClient, 1234);
     expect(result.parentId).toBeNull();
@@ -682,7 +694,7 @@ describe('listWorkItems', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockWitApi.queryByWiql.mockResolvedValue({ workItems: [{ id: 1 }, { id: 2 }] });
-    mockWitApi.getWorkItems.mockResolvedValue(rawSummaryItems);
+    mockWitApi.getWorkItemsBatch.mockResolvedValue(rawSummaryItems);
   });
 
   it('returns WorkItemSummary[] for a filtered query', async () => {
@@ -700,6 +712,28 @@ describe('listWorkItems', () => {
     expect(result[0]!.hasAcceptanceCriteria).toBe(true);
     expect(result[1]!.hasDescription).toBe(false);
     expect(result[1]!.hasAcceptanceCriteria).toBe(false);
+  });
+
+  it('derives parentId from Hierarchy-Reverse when System.Parent is absent', async () => {
+    mockWitApi.queryByWiql.mockResolvedValue({ workItems: [{ id: 3 }] });
+    mockWitApi.getWorkItemsBatch.mockResolvedValue([
+      {
+        id: 3,
+        fields: {
+          'System.Title': 'Child bug',
+          'System.WorkItemType': 'Bug',
+          'System.State': 'New',
+        },
+        relations: [
+          {
+            rel: 'System.LinkTypes.Hierarchy-Reverse',
+            url: 'https://dev.azure.com/myorg/_apis/wit/workItems/99',
+          },
+        ],
+      },
+    ]);
+    const result = await listWorkItems(mockClient, {}, mockConfig);
+    expect(result[0]!.parentId).toBe(99);
   });
 
   it('includes all filter conditions in the WIQL query', async () => {
@@ -731,18 +765,18 @@ describe('listWorkItems', () => {
     mockWitApi.queryByWiql.mockResolvedValue({
       workItems: Array.from({ length: 300 }, (_, i) => ({ id: i + 1 })),
     });
-    mockWitApi.getWorkItems.mockResolvedValue(rawSummaryItems);
+    mockWitApi.getWorkItemsBatch.mockResolvedValue(rawSummaryItems);
     await listWorkItems(mockClient, { top: 999 }, mockConfig);
     expect(mockWitApi.queryByWiql).toHaveBeenCalledWith(expect.any(Object), undefined, undefined, 200);
-    const passedIds = mockWitApi.getWorkItems.mock.calls[0]?.[0] as number[];
-    expect(passedIds.length).toBeLessThanOrEqual(200);
+    const batchArgs = mockWitApi.getWorkItemsBatch.mock.calls[0]?.[0] as { ids: number[] };
+    expect(batchArgs.ids.length).toBeLessThanOrEqual(200);
   });
 
   it('returns empty array when query has no results', async () => {
     mockWitApi.queryByWiql.mockResolvedValue({ workItems: [] });
     const result = await listWorkItems(mockClient, {}, mockConfig);
     expect(result).toEqual([]);
-    expect(mockWitApi.getWorkItems).not.toHaveBeenCalled();
+    expect(mockWitApi.getWorkItemsBatch).not.toHaveBeenCalled();
   });
 });
 
@@ -750,7 +784,7 @@ describe('queryWorkItems', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockWitApi.queryByWiql.mockResolvedValue({ workItems: [{ id: 10 }] });
-    mockWitApi.getWorkItems.mockResolvedValue([
+    mockWitApi.getWorkItemsBatch.mockResolvedValue([
       { id: 10, fields: { 'System.Title': 'Item', 'System.WorkItemType': 'Task', 'System.State': 'New' } },
     ]);
   });
@@ -763,10 +797,11 @@ describe('queryWorkItems', () => {
     expect(result[0]!.hasDescription).toBe(false);
     expect(result[0]!.hasAcceptanceCriteria).toBe(false);
     expect(mockWitApi.queryByWiql).toHaveBeenCalledWith({ query: wiql }, undefined, undefined, 50);
-    expect(mockWitApi.getWorkItems).toHaveBeenCalledWith(
-      [10],
-      expect.arrayContaining(['System.Description', 'Microsoft.VSTS.Common.AcceptanceCriteria']),
-    );
+    expect(mockWitApi.getWorkItemsBatch).toHaveBeenCalledWith({
+      ids: [10],
+      $expand: WorkItemExpand.Relations,
+      errorPolicy: WorkItemErrorPolicy.Omit,
+    });
   });
 
   it('passes top to queryByWiql so Azure limits the result set server-side', async () => {
@@ -789,14 +824,13 @@ describe('queryWorkItems', () => {
     mockWitApi.queryByWiql.mockResolvedValue({});
     const result = await queryWorkItems(mockClient, 'SELECT [System.Id] FROM WorkItems', 50);
     expect(result).toEqual([]);
-    expect(mockWitApi.getWorkItems).not.toHaveBeenCalled();
+    expect(mockWitApi.getWorkItemsBatch).not.toHaveBeenCalled();
   });
 
-  it('filters out null items from getWorkItems response', async () => {
+  it('filters out omitted items from getWorkItemsBatch response', async () => {
     mockWitApi.queryByWiql.mockResolvedValue({ workItems: [{ id: 10 }, { id: 11 }] });
-    mockWitApi.getWorkItems.mockResolvedValue([
+    mockWitApi.getWorkItemsBatch.mockResolvedValue([
       { id: 10, fields: { 'System.Title': 'Item', 'System.WorkItemType': 'Task', 'System.State': 'New' } },
-      null,
     ]);
     const result = await queryWorkItems(mockClient, 'SELECT [System.Id] FROM WorkItems', 50);
     expect(result).toHaveLength(1);
@@ -805,7 +839,7 @@ describe('queryWorkItems', () => {
 
   it('returns empty strings for missing summary fields', async () => {
     mockWitApi.queryByWiql.mockResolvedValue({ workItems: [{ id: 20 }] });
-    mockWitApi.getWorkItems.mockResolvedValue([{ id: 20, fields: {} }]);
+    mockWitApi.getWorkItemsBatch.mockResolvedValue([{ id: 20, fields: {} }]);
     const result = await queryWorkItems(mockClient, 'SELECT [System.Id] FROM WorkItems', 50);
     expect(result[0]!.title).toBe('');
     expect(result[0]!.type).toBe('');
@@ -822,7 +856,7 @@ describe('searchWorkItems', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockWitApi.queryByWiql.mockResolvedValue({ workItems: [{ id: 1 }] });
-    mockWitApi.getWorkItems.mockResolvedValue([
+    mockWitApi.getWorkItemsBatch.mockResolvedValue([
       { id: 1, fields: { 'System.Title': 'Login bug', 'System.WorkItemType': 'Bug', 'System.State': 'Active' } },
     ]);
   });
@@ -880,6 +914,18 @@ describe('buildSearchWorkItemsWiql', () => {
     expect(wiql).toContain("[System.IterationPath] UNDER 'TDG HRMS\\Ganges\\Sprint 1'");
     expect(wiql).toContain('[System.Id] IN (101,102)');
     expect(wiql).toContain(' AND ');
+  });
+
+  it('ORs multiple iterationPaths and prefers them over a single iteration', () => {
+    const wiql = buildSearchWorkItemsWiql('TDG HRMS', {
+      iteration: 'TDG HRMS\\Ganges\\Sprint Ignored',
+      iterationPaths: ['TDG HRMS\\Ganges\\Sprint 1', 'TDG HRMS\\Ganges\\Sprint 2'],
+    });
+
+    expect(wiql).toContain(
+      "([System.IterationPath] UNDER 'TDG HRMS\\Ganges\\Sprint 1' OR [System.IterationPath] UNDER 'TDG HRMS\\Ganges\\Sprint 2')",
+    );
+    expect(wiql).not.toContain("UNDER 'TDG HRMS\\Ganges\\Sprint Ignored'");
   });
 });
 

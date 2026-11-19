@@ -18,6 +18,7 @@ function item(
     changedDate: null,
     iterationPath: "Sprint 1",
     parentId: null,
+    effort: null,
     hasDescription: false,
     hasAcceptanceCriteria: false,
     url: `https://example/${partial.id}`,

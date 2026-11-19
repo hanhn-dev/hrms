@@ -48,6 +48,8 @@ export interface WorkItem {
   readonly iterationPath: string;
   readonly areaPath: string;
   readonly parentId: number | null;
+  /** Scrum Effort (`Microsoft.VSTS.Scheduling.Effort`); null when unset. */
+  readonly effort: number | null;
   readonly priority: number | null;
   readonly severity: string | null;
   readonly createdDate: string | null;
@@ -71,6 +73,8 @@ export interface WorkItemSummary {
   readonly changedDate: string | null;
   readonly iterationPath: string;
   readonly parentId: number | null;
+  /** Scrum Effort (`Microsoft.VSTS.Scheduling.Effort`); null when unset. */
+  readonly effort: number | null;
   readonly hasDescription: boolean;
   readonly hasAcceptanceCriteria: boolean;
   readonly url: string;
@@ -160,6 +164,8 @@ export interface SearchWorkItemsFilter {
   readonly type?: string;
   readonly state?: string;
   readonly iteration?: string;
+  /** Iteration paths matched with UNDER. Multiple values are OR. Used instead of `iteration` when set. */
+  readonly iterationPaths?: readonly string[];
   readonly changedSince?: string;
   readonly top?: number;
   /** Area paths matched with UNDER. Multiple values are OR. */
@@ -337,7 +343,8 @@ export interface PullRequestSearchCriteria {
   readonly areaPaths: readonly string[];
   readonly types: readonly string[];
   readonly states: readonly string[];
-  readonly iterationPath: string;
+  /** Sprint iteration paths matched with UNDER. Multiple values are OR. */
+  readonly iterationPaths: readonly string[];
   readonly assignees: readonly string[];
   readonly tags: string;
   readonly titleContains: string;

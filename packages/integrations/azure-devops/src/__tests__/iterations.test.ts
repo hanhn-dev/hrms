@@ -17,6 +17,7 @@ const mockWorkApi = {
 const mockWitApi = {
   queryByWiql: vi.fn(),
   getWorkItems: vi.fn(),
+  getWorkItemsBatch: vi.fn(),
 };
 
 const mockClient = {
@@ -147,7 +148,7 @@ describe('getIterationWorkItems', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockWitApi.queryByWiql.mockResolvedValue({ workItems: [{ id: 1 }] });
-    mockWitApi.getWorkItems.mockResolvedValue([
+    mockWitApi.getWorkItemsBatch.mockResolvedValue([
       {
         id: 1,
         fields: {

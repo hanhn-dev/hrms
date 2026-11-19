@@ -68,7 +68,7 @@ describe('isPullRequestSearchCriteriaEmpty', () => {
     expect(isPullRequestSearchCriteriaEmpty(criteria({ areaPaths: ['TDG HRMS\\Ganges\\COB'] }))).toBe(false);
     expect(isPullRequestSearchCriteriaEmpty(criteria({ types: ['Bug'] }))).toBe(false);
     expect(isPullRequestSearchCriteriaEmpty(criteria({ states: ['Active'] }))).toBe(false);
-    expect(isPullRequestSearchCriteriaEmpty(criteria({ iterationPath: 'TDG HRMS\\Sprint' }))).toBe(false);
+    expect(isPullRequestSearchCriteriaEmpty(criteria({ iterationPaths: ['TDG HRMS\\Sprint'] }))).toBe(false);
     expect(isPullRequestSearchCriteriaEmpty(criteria({ assignees: ['Alice'] }))).toBe(false);
     expect(isPullRequestSearchCriteriaEmpty(criteria({ tags: 'release' }))).toBe(false);
     expect(isPullRequestSearchCriteriaEmpty(criteria({ titleContains: 'login' }))).toBe(false);

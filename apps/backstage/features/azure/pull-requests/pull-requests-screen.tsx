@@ -17,7 +17,7 @@ const HELP = [
     type: "info" as const,
     title: "Combine work items and pull requests",
     description:
-      "Paste work item IDs, or filter by module (area path), type, state, iteration, assignee, tags, and title. Add a date range and authors to narrow the pull requests. Filled filters are combined. Values inside one list match any of those values. Blank filters are ignored.",
+      "Paste work item IDs, or filter by module (area path), type, state, sprint, assignee, tags, and title. Multiple sprints are OR’d: results are pull requests linked to work items currently under those sprint paths (not merely opened during the sprint dates). Add a date range and authors to narrow the pull requests. Filled filters are combined. Values inside one list match any of those values. Blank filters are ignored.",
   },
   {
     id: "cherry-pick",

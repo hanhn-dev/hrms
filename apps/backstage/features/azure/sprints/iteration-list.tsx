@@ -1,9 +1,11 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { Table, Tag } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import Link from "next/link";
 import type { TeamIteration } from "@hrms/azure-devops";
+import { boardHref, sprintHref } from "@/features/azure/sprints/sprint-links";
 import { formatDate } from "@/shared/format-date";
 
 const TIME_FRAME_COLORS: Record<string, string> = {
@@ -12,30 +14,13 @@ const TIME_FRAME_COLORS: Record<string, string> = {
   past: "warning",
 };
 
-function boardHref(iterationPath: string, teamName: string): string {
-  const params = new URLSearchParams();
-  if (teamName.length > 0) {
-    params.set("team", teamName);
+function dateRangeLabel(start: string | null, finish: string | null): string {
+  const startLabel = formatDate(start);
+  const finishLabel = formatDate(finish);
+  if (startLabel === "—" && finishLabel === "—") {
+    return "—";
   }
-  params.set("iteration", iterationPath);
-  return `/azure/board?${params.toString()}`;
-}
-
-function sprintHref(
-  iterationPath: string,
-  filterQuery?: Record<string, string | undefined>,
-): string {
-  const params = new URLSearchParams();
-  if (filterQuery) {
-    for (const [key, value] of Object.entries(filterQuery)) {
-      if (value != null && value.length > 0) {
-        params.set(key, value);
-      }
-    }
-  }
-  params.set("iteration", iterationPath);
-  const query = params.toString();
-  return query ? `/azure/sprints?${query}` : `/azure/sprints?iteration=${encodeURIComponent(iterationPath)}`;
+  return `${startLabel} – ${finishLabel}`;
 }
 
 export function IterationList({
@@ -49,46 +34,57 @@ export function IterationList({
   filterQuery?: Record<string, string | undefined>;
   teamName: string;
 }): React.JSX.Element {
+  const selectedRowRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    if (!selectedIterationPath) {
+      return;
+    }
+    selectedRowRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, [selectedIterationPath]);
+
   const columns: ColumnsType<TeamIteration> = [
     {
       title: "Sprint",
       dataIndex: "name",
       render: (name: string, row) => (
-        <span className="inline-flex items-center gap-3">
-          <Link href={sprintHref(row.path, filterQuery)}>{name}</Link>
-          {row.path === selectedIterationPath ? (
-            <Link
-              className="text-sm font-normal text-slate-500 hover:text-slate-900 dark:hover:text-white"
-              href={boardHref(row.path, teamName)}
-            >
-              Open board
-            </Link>
-          ) : null}
+        <span
+          className="inline-flex flex-col gap-0.5"
+          ref={
+            row.path === selectedIterationPath
+              ? (node) => {
+                  selectedRowRef.current = node;
+                }
+              : undefined
+          }
+        >
+          <span className="inline-flex flex-wrap items-center gap-2">
+            <Link href={sprintHref(row.path, filterQuery)}>{name}</Link>
+            {row.path === selectedIterationPath ? (
+              <Link
+                className="text-sm font-normal text-slate-500 hover:text-slate-900 dark:hover:text-white"
+                href={boardHref(row.path, teamName)}
+              >
+                Open board
+              </Link>
+            ) : null}
+          </span>
+          <span className="text-xs text-slate-500 dark:text-slate-400">
+            {dateRangeLabel(row.startDate, row.finishDate)}
+          </span>
         </span>
       ),
     },
     {
       title: "Time frame",
       dataIndex: "timeFrame",
-      width: 120,
+      width: 110,
       render: (timeFrame: TeamIteration["timeFrame"]) =>
         timeFrame ? (
           <Tag color={TIME_FRAME_COLORS[timeFrame] ?? "default"}>{timeFrame}</Tag>
         ) : (
           "—"
         ),
-    },
-    {
-      title: "Start",
-      dataIndex: "startDate",
-      width: 140,
-      render: (value: string | null) => formatDate(value),
-    },
-    {
-      title: "Finish",
-      dataIndex: "finishDate",
-      width: 140,
-      render: (value: string | null) => formatDate(value),
     },
   ];
 

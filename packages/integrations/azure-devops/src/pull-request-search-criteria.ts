@@ -21,7 +21,7 @@ export function emptyPullRequestSearchCriteria(): PullRequestSearchCriteria {
     areaPaths: [],
     types: [],
     states: [],
-    iterationPath: '',
+    iterationPaths: [],
     assignees: [],
     tags: '',
     titleContains: '',
@@ -43,7 +43,7 @@ export function isPullRequestSearchCriteriaEmpty(criteria: PullRequestSearchCrit
     !filled(criteria.areaPaths) &&
     !filled(criteria.types) &&
     !filled(criteria.states) &&
-    criteria.iterationPath.trim().length === 0 &&
+    !filled(criteria.iterationPaths) &&
     !filled(criteria.assignees) &&
     criteria.tags.trim().length === 0 &&
     criteria.titleContains.trim().length === 0 &&
@@ -63,7 +63,7 @@ export function hasWorkItemFieldCriteria(criteria: PullRequestSearchCriteria): b
     filled(criteria.areaPaths) ||
     filled(criteria.types) ||
     filled(criteria.states) ||
-    criteria.iterationPath.trim().length > 0 ||
+    filled(criteria.iterationPaths) ||
     filled(criteria.assignees) ||
     criteria.tags.trim().length > 0 ||
     criteria.titleContains.trim().length > 0

@@ -44,6 +44,7 @@ function toSummary(item: WorkItem): WorkItemSummary {
     changedDate: item.changedDate,
     iterationPath: item.iterationPath,
     parentId: item.parentId,
+    effort: item.effort,
     hasDescription: item.description.trim().length > 0,
     hasAcceptanceCriteria: item.acceptanceCriteria.trim().length > 0,
     url: item.url,

@@ -14,6 +14,13 @@ describe("canSearchPullRequests", () => {
     const empty = emptyPullRequestSearchCriteria();
     assert.equal(canSearchPullRequests({ ...empty, workItemIds: "101" }), true);
     assert.equal(canSearchPullRequests({ ...empty, areaPaths: ["TDG HRMS\\Ganges\\COB"] }), true);
+    assert.equal(
+      canSearchPullRequests({
+        ...empty,
+        iterationPaths: ["TDG HRMS\\Sprint 1", "TDG HRMS\\Sprint 2"],
+      }),
+      true,
+    );
     assert.equal(canSearchPullRequests({ ...empty, authorIds: ["alice"] }), true);
     assert.equal(canSearchPullRequests({ ...empty, dateFrom: "2026-10-01" }), true);
     assert.equal(canSearchPullRequests({ ...empty, dateField: "opened" }), false);

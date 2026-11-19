@@ -13,6 +13,7 @@ function item(
     changedDate: null,
     iterationPath: "TDG HRMS\\Team Sprinter\\Sprint",
     parentId: null,
+    effort: null,
     hasDescription: false,
     hasAcceptanceCriteria: false,
     url: `https://dev.azure.com/org/_workitems/edit/${partial.id}`,

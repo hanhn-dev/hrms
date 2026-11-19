@@ -111,7 +111,7 @@ function workItemFilter(criteria: PullRequestSearchCriteria, ids: readonly numbe
     areaPaths: criteria.areaPaths,
     types: criteria.types,
     states: criteria.states,
-    iteration: criteria.iterationPath,
+    iterationPaths: criteria.iterationPaths,
     assignees: criteria.assignees,
     tags: splitTags(criteria.tags),
     titleContains: criteria.titleContains,

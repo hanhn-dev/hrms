@@ -166,17 +166,18 @@ export function PullRequestsForm({
           onChange={(value) => patch({ states: value ?? [] })}
         />
       </Field>
-      <Field label="Iteration">
+      <Field label="Sprint">
         <SearchSelect
           allowClear
           className="w-full"
+          mode="multiple"
           options={options.iterations.map((iteration) => ({
             value: iteration.path,
             label: optionLabel(iteration.name, iteration.path, iterationNameCounts),
           }))}
-          placeholder="Sprint"
-          value={criteria.iterationPath || undefined}
-          onChange={(value) => patch({ iterationPath: value ?? "" })}
+          placeholder="One or more sprints"
+          value={[...criteria.iterationPaths]}
+          onChange={(value) => patch({ iterationPaths: value ?? [] })}
         />
       </Field>
       <Field label="Assigned to">
