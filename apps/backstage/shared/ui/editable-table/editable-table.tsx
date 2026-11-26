@@ -7,6 +7,7 @@ import { DataTable } from "@/shared/ui/data-table";
 import { useState } from "react";
 import { ConfirmWriteModal } from "@/shared/ui/confirm-write-modal";
 import { EditableCell } from "./editable-cell";
+import { toDataTableSearchProps } from "./server-search";
 import type { ConfirmWriteConfig, EditableColumn } from "./types";
 
 type EditableTableProps<T extends object> = Omit<TableProps<T>, "columns" | "components"> & {
@@ -15,7 +16,9 @@ type EditableTableProps<T extends object> = Omit<TableProps<T>, "columns" | "com
   writesEnabled?: boolean;
   confirmWrite?: ConfirmWriteConfig<T>;
   onRefresh?: () => void | Promise<void>;
+  onSearch?: (query: string) => void;
   queryScript: string;
+  searchQuery?: string;
   skipRefresh?: boolean;
 };
 
@@ -28,7 +31,9 @@ export function EditableTable<T extends object>({
   pagination,
   onChange,
   onRefresh,
+  onSearch,
   queryScript,
+  searchQuery,
   skipRefresh,
   ...tableProps
 }: EditableTableProps<T>): React.JSX.Element {
@@ -203,6 +208,7 @@ export function EditableTable<T extends object>({
     <Form form={form} component={false}>
       <DataTable<T>
         {...tableProps}
+        {...toDataTableSearchProps({ searchQuery, onSearch })}
         columnFilter={columnFilter}
         columns={mergedColumns as TableProps<T>["columns"]}
         onRefresh={onRefresh}

@@ -125,6 +125,7 @@ export function PublicFieldsPanel({
                 ? field
                 : null
             }
+            initialQuery={listSearch}
             revision={pageRevision}
             onLoaded={() => {
               setHonorFieldLink(false);
@@ -133,14 +134,14 @@ export function PublicFieldsPanel({
               loadPublicSectionFields({
                 employerId,
                 section: item.section,
-                q: listSearch,
+                q: request.q,
                 page: request.page,
                 pageSize: request.pageSize,
                 focusField: request.focusField,
               })
             }
           >
-            {({ result, loading, error, onPage }) => {
+            {({ result, loading, error, searchQuery, onPage, onSearch }) => {
               if (error) {
                 return <Alert showIcon type="error" title={error} />;
               }
@@ -152,8 +153,10 @@ export function PublicFieldsPanel({
                   fields={result.rows}
                   highlightField={namesMatch(item.section, section) ? highlightField : null}
                   loading={loading}
+                  onSearch={onSearch}
                   pagination={sectionTablePagination(result, onPage)}
                   queryScript={result.script}
+                  searchQuery={searchQuery}
                   writesEnabled={writesEnabled}
                   onTurnOff={setPending}
                 />
@@ -196,14 +199,17 @@ function PublicFieldsTable({
   fields,
   highlightField,
   queryScript,
+  searchQuery = "",
   writesEnabled,
   loading = false,
   pagination = false,
+  onSearch,
   onTurnOff,
 }: {
   fields: PublicFieldRow[];
   highlightField: string | null;
   queryScript: string;
+  searchQuery?: string;
   writesEnabled: boolean;
   loading?: boolean;
   pagination?: false | {
@@ -213,6 +219,7 @@ function PublicFieldsTable({
     showSizeChanger: false;
     onChange: (page: number, pageSize: number) => void;
   };
+  onSearch?: (query: string) => void;
   onTurnOff: (row: PublicFieldRow) => void;
 }): React.JSX.Element {
   useEffect(() => {
@@ -227,8 +234,10 @@ function PublicFieldsTable({
       rowKey="fieldId"
       dataSource={fields}
       loading={loading}
+      onSearch={onSearch}
       pagination={pagination}
       scroll={{ x: "max-content" }}
+      searchQuery={searchQuery}
       size="small"
       columns={[
         { title: "Field name", dataIndex: "fieldName", width: 220 },

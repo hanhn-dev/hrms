@@ -6,8 +6,10 @@ import {
   fieldSectionTotal,
   sameEntitySelection,
   sectionAccordionKey,
+  sectionPageRequestKey,
   sectionTableIsOpen,
   sectionTablePagination,
+  sectionTableSearchState,
 } from "./section-list";
 
 describe("section accordion", () => {
@@ -65,5 +67,27 @@ describe("sectionTablePagination", () => {
     assert.equal(pagination.current, 2);
     assert.equal(pagination.total, 51);
     assert.equal(pagination.showSizeChanger, false);
+  });
+});
+
+describe("section table server search", () => {
+  it("includes the search query in the page request key", () => {
+    assert.equal(sectionPageRequestKey(0, null, null, ""), "0:focus:default:");
+    assert.equal(sectionPageRequestKey(1, 3, 25, "Language"), "1:3:25:Language");
+    assert.notEqual(
+      sectionPageRequestKey(0, 1, 25, ""),
+      sectionPageRequestKey(0, 1, 25, "Language"),
+    );
+  });
+
+  it("resets to page 1 when the in-table search changes", () => {
+    assert.deepEqual(sectionTableSearchState("Language"), {
+      searchQuery: "Language",
+      explicitPage: 1,
+    });
+    assert.deepEqual(sectionTableSearchState(""), {
+      searchQuery: "",
+      explicitPage: 1,
+    });
   });
 });

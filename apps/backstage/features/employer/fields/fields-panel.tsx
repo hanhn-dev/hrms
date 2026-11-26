@@ -398,6 +398,7 @@ function CatalogSectionTable({
   return (
     <SectionPageLoader
       focusField={focusField}
+      initialQuery={listSearch}
       revision={revision}
       onLoaded={onFieldLinkConsumed}
       load={(request) =>
@@ -405,7 +406,7 @@ function CatalogSectionTable({
           ? loadEmployerSectionFields({
               employerId: employerId ?? 0,
               section: sectionName,
-              q: listSearch,
+              q: request.q,
               entities,
               page: request.page,
               pageSize: request.pageSize,
@@ -413,7 +414,7 @@ function CatalogSectionTable({
             })
           : loadTemplateSectionFields({
               section: sectionName,
-              q: listSearch,
+              q: request.q,
               entities,
               page: request.page,
               pageSize: request.pageSize,
@@ -421,7 +422,7 @@ function CatalogSectionTable({
             })
       }
     >
-      {({ result, loading, error, onPage }) => {
+      {({ result, loading, error, searchQuery, onPage, onSearch }) => {
         if (error) {
           return <Alert showIcon type="error" title={error} />;
         }
@@ -435,9 +436,11 @@ function CatalogSectionTable({
             fields={result.rows}
             highlightField={highlightField}
             loading={loading}
+            onSearch={onSearch}
             pagination={sectionTablePagination(result, onPage)}
             pinFocus
             queryScript={result.script}
+            searchQuery={searchQuery}
             writesEnabled={writesEnabled}
             onSaved={onSaved}
           />
@@ -493,6 +496,8 @@ function FieldsTable({
   highlightField,
   pinFocus,
   queryScript,
+  searchQuery = "",
+  onSearch,
   pagination = false,
   loading = false,
   onSaved,
@@ -504,6 +509,8 @@ function FieldsTable({
   highlightField: string | null;
   pinFocus: boolean;
   queryScript: string;
+  searchQuery?: string;
+  onSearch?: (query: string) => void;
   pagination?: TablePaginationConfig | false;
   loading?: boolean;
   onSaved?: () => void;
@@ -667,11 +674,13 @@ function FieldsTable({
       onRow={(row) =>
         pinFocus && namesMatch(row.fieldName, highlightField) ? { id: "field-focus" } : {}
       }
+      onSearch={onSearch}
       pagination={pagination}
       rowClassName={(row) =>
         namesMatch(row.fieldName, highlightField) ? "bg-amber-50" : ""
       }
       scroll={{ x: "max-content" }}
+      searchQuery={searchQuery}
       size="small"
       writesEnabled={employerId != null && writesEnabled === true}
     />

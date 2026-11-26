@@ -69,3 +69,24 @@ export function sectionTablePagination(
     },
   };
 }
+
+/** Stable key for the in-flight section page load (revision, page, size, search). */
+export function sectionPageRequestKey(
+  revision: number,
+  explicitPage: number | null,
+  pageSize: number | null,
+  searchQuery: string,
+): string {
+  return `${revision}:${explicitPage ?? "focus"}:${pageSize ?? "default"}:${searchQuery}`;
+}
+
+/**
+ * In-table search asks the server with `q` and returns to page 1.
+ * Does not touch the URL `?q=` used by the page-level field search.
+ */
+export function sectionTableSearchState(query: string): {
+  searchQuery: string;
+  explicitPage: number;
+} {
+  return { searchQuery: query, explicitPage: 1 };
+}

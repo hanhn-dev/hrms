@@ -252,4 +252,104 @@ EXEC SP_EmployeeSearch_GetEmploymentStatusChangeHistory 1852
 
 SELECT TOP 100 * FROM TVisaType
 
-SELECT TOP 100 * FROM TEmployeeVisaInfo
+SELECT TOP 100 * FROM TEmployeeInfo WHERE EmploymentNumber = '066300'
+
+DECLARE @SourceEmployeeId INT = 2612 /* your inactive employee id */;
+
+DECLARE @EmployerId INT, @EmploymentTypeId INT, @RootEmployerId INT;
+DECLARE @IsSeqWithRoot CHAR(1), @Digits INT, @PadZeros CHAR(1);
+DECLARE @PrefixBit BIT, @PrefixLetter VARCHAR(10);
+DECLARE @MaxInGeneratorScope BIGINT, @Generated VARCHAR(200);
+
+SELECT
+  @EmployerId = ei.EmployerID,
+  @EmploymentTypeId = ei.EmploymentTypeID
+FROM dbo.TEmployeeInfo ei
+WHERE ei.EmployeeId = @SourceEmployeeId;
+
+SELECT
+  @RootEmployerId = ted.Rootemployerid,
+  @IsSeqWithRoot = ted.IsSequenceWithRootOrganization
+FROM dbo.TemployerDetails ted
+WHERE ted.EmployerId = @EmployerId;
+
+-- Digit/zero settings come from ROOT when sequence-with-root is Y
+SELECT
+  @Digits = ted.NumberOfDigitsEmpNo,
+  @PadZeros = ted.IsPrecedWithZeros
+FROM dbo.TemployerDetails ted
+WHERE ted.EmployerID = CASE WHEN @IsSeqWithRoot = 'Y' THEN @RootEmployerId ELSE @EmployerId END;
+
+SELECT
+  @PrefixBit = t.PrefixCharacter,
+  @PrefixLetter = t.PrefixLetter
+FROM dbo.TMEmploymentTypes t
+WHERE t.EmploymentTypeID = @EmploymentTypeId;
+
+-- Same MAX scope as UFN_Generate_EmploymentNumber
+IF @IsSeqWithRoot = 'Y'
+  SELECT @MaxInGeneratorScope = ISNULL(MAX(CAST(dbo.FN_OnlyDigits(EmploymentNumber) AS BIGINT)), 0)
+  FROM dbo.TEmployeeInfo
+  WHERE dbo.FN_OnlyDigits(EmploymentNumber) IS NOT NULL
+    AND TRY_CAST(dbo.FN_OnlyDigits(EmploymentNumber) AS BIGINT) IS NOT NULL
+    AND RootEmployerId = @RootEmployerId;
+ELSE
+  SELECT @MaxInGeneratorScope = ISNULL(MAX(CAST(dbo.FN_OnlyDigits(EmploymentNumber) AS BIGINT)), 0)
+  FROM dbo.TEmployeeInfo
+  WHERE dbo.FN_OnlyDigits(EmploymentNumber) IS NOT NULL
+    AND TRY_CAST(dbo.FN_OnlyDigits(EmploymentNumber) AS BIGINT) IS NOT NULL
+    AND EmployerId = @EmployerId;
+
+SET @Generated = dbo.UFN_Generate_EmploymentNumber('', @EmploymentTypeId, @EmployerId);
+
+SELECT
+  @EmployerId AS EmployerId,
+  @RootEmployerId AS RootEmployerId,
+  @IsSeqWithRoot AS IsSequenceWithRootOrganization,
+  @Digits AS NumberOfDigitsEmpNo,
+  @PadZeros AS IsPrecedWithZeros,
+  @PrefixBit AS PrefixCharacter,
+  @PrefixLetter AS PrefixLetter,
+  @MaxInGeneratorScope AS MaxDigitsInGeneratorScope,
+  @MaxInGeneratorScope + 1 AS NextNumeric,
+  @Generated AS GeneratedEmploymentNumber,
+  CASE
+    WHEN EXISTS (
+      SELECT 1 FROM dbo.TEmployeeInfo
+      WHERE EmploymentNumber = @Generated AND EmployerId = @EmployerId
+    ) THEN 'YES - this is why copy returns STATUS 2'
+    ELSE 'NO - collision not on this employer'
+  END AS ExactMatchOnEmployer;
+
+  -- A) Employees on THIS employer whose RootEmployerId is missing or wrong
+--    (excluded from MAX when IsSequenceWithRootOrganization = 'Y')
+SELECT
+  ei.EmployeeId,
+  ei.EmploymentNumber,
+  ei.EmployerId,
+  ei.RootEmployerId,
+  dbo.FN_OnlyDigits(ei.EmploymentNumber) AS DigitsOnly
+FROM dbo.TEmployeeInfo ei
+WHERE ei.EmployerId = 25
+  AND (
+    ei.RootEmployerId IS NULL
+    OR ei.RootEmployerId <> 24
+  )
+ORDER BY TRY_CAST(dbo.FN_OnlyDigits(ei.EmploymentNumber) AS BIGINT) DESC;
+
+-- B) Compare max in generator scope vs max on this employer alone
+SELECT
+  'Generator scope (RootEmployerId)' AS Scope,
+  MAX(TRY_CAST(dbo.FN_OnlyDigits(EmploymentNumber) AS BIGINT)) AS MaxDigits
+FROM dbo.TEmployeeInfo
+WHERE RootEmployerId = 24
+  AND dbo.FN_OnlyDigits(EmploymentNumber) IS NOT NULL
+
+UNION ALL
+
+SELECT
+  'Employer scope only',
+  MAX(TRY_CAST(dbo.FN_OnlyDigits(EmploymentNumber) AS BIGINT))
+FROM dbo.TEmployeeInfo
+WHERE EmployerId = 25
+  AND dbo.FN_OnlyDigits(EmploymentNumber) IS NOT NULL;
